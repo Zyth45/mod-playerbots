@@ -38,6 +38,18 @@ enum CoaStat : uint8
     COA_STAT_STAMINA   = 0x10
 };
 
+// Armor a CoA class is proficient with. CoA grants every armor proficiency of a class at
+// character creation (acore_world.playercreateinfo_spell_custom, required level 0), so this
+// never depends on the character's level, unlike the level 40 step of the WotLK classes.
+struct CoaArmorProficiency
+{
+    uint8 heaviestArmor;  // ITEM_SUBCLASS_ARMOR_*
+    bool usesShield;
+};
+
+// Armor proficiencies of one of the 21 CoA classes, or nullptr for any other class.
+CoaArmorProficiency const* GetCoaArmorProficiency(uint8 playerClass);
+
 // Role of a Conquest of Azeroth character, from its active specialization. Dps when it has none.
 CoaRole GetCoaRole(Player const* player);
 

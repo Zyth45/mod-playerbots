@@ -5,6 +5,7 @@
  */
 
 #include "RandomItemMgr.h"
+#include "CoaSpecialization.h"
 #include "DBCStores.h"
 #include "ItemTemplate.h"
 #include "Playerbots.h"
@@ -1062,17 +1063,31 @@ bool RandomItemMgr::CanEquipArmor(ItemTemplate const* proto, uint8 clazz, uint32
     if (proto->InventoryType == INVTYPE_TABARD)
         return true;
 
-    if ((clazz == CLASS_WARRIOR || clazz == CLASS_PALADIN || clazz == CLASS_SHAMAN) &&
-        proto->SubClass == ITEM_SUBCLASS_ARMOR_SHIELD)
-        return true;
+    // A CoA class carries its own proficiencies, which do not follow those of the WotLK class it
+    // was modeled on. Any class this table does not know falls back to that legacy class rather
+    // than to cloth, so a class added later is not stripped down to a clothie.
+    CoaArmorProficiency const* coaArmor = GetCoaArmorProficiency(clazz);
+    uint8 const legacyClass = GetLegacyClassForCustomClass(Classes(clazz));
+
+    if (proto->SubClass == ITEM_SUBCLASS_ARMOR_SHIELD)
+    {
+        if (coaArmor)
+            return coaArmor->usesShield;
+
+        return legacyClass == CLASS_WARRIOR || legacyClass == CLASS_PALADIN || legacyClass == CLASS_SHAMAN;
+    }
 
     uint32 const requiredSubClass = [&]() -> uint32
     {
-        if (clazz == CLASS_WARRIOR || clazz == CLASS_PALADIN)
+        // CoA grants every armor proficiency at character creation: no level step to apply.
+        if (coaArmor)
+            return coaArmor->heaviestArmor;
+
+        if (legacyClass == CLASS_WARRIOR || legacyClass == CLASS_PALADIN)
             return level >= 40 ? ITEM_SUBCLASS_ARMOR_PLATE : ITEM_SUBCLASS_ARMOR_MAIL;
-        if (clazz == CLASS_HUNTER || clazz == CLASS_SHAMAN)
+        if (legacyClass == CLASS_HUNTER || legacyClass == CLASS_SHAMAN)
             return level >= 40 ? ITEM_SUBCLASS_ARMOR_MAIL : ITEM_SUBCLASS_ARMOR_LEATHER;
-        if (clazz == CLASS_DRUID || clazz == CLASS_ROGUE)
+        if (legacyClass == CLASS_DRUID || legacyClass == CLASS_ROGUE)
             return ITEM_SUBCLASS_ARMOR_LEATHER;
         return ITEM_SUBCLASS_ARMOR_CLOTH; // mage/warlock/priest
     }();

@@ -9,6 +9,7 @@
 
 #include "Group.h"
 #include "GroupMgr.h"
+#include "ItemTemplate.h"
 #include "Log.h"
 #include "Player.h"
 #include "Playerbots.h"
@@ -177,6 +178,51 @@ CoaStyle ClassStyle(uint8 classId, uint8& stats)
 }
 
 }  // namespace
+
+// Armor proficiencies of the 21 CoA classes, read from the proficiency spells CoA grants at
+// character creation: acore_world.playercreateinfo_spell_custom, spells 750 (plate), 8737 (mail),
+// 9077 (leather), 9078 (cloth) and 9116 (shield). Cross-checked against the skills the live
+// characters actually carry (character_skills, skills 293/413/414/415/433): the two sources agree
+// on all 21 classes, on every character, from level 1.
+//
+// The fallback_class of acore_world.ascension_custom_class is NOT usable here: Starcaller falls
+// back to druid but wears plate and a shield, Stormbringer falls back to shaman but wears cloth
+// only.
+CoaArmorProficiency const* GetCoaArmorProficiency(uint8 playerClass)
+{
+    static constexpr CoaArmorProficiency Plate       = {ITEM_SUBCLASS_ARMOR_PLATE, false};
+    static constexpr CoaArmorProficiency PlateShield = {ITEM_SUBCLASS_ARMOR_PLATE, true};
+    static constexpr CoaArmorProficiency Mail        = {ITEM_SUBCLASS_ARMOR_MAIL, false};
+    static constexpr CoaArmorProficiency MailShield  = {ITEM_SUBCLASS_ARMOR_MAIL, true};
+    static constexpr CoaArmorProficiency Leather     = {ITEM_SUBCLASS_ARMOR_LEATHER, false};
+    static constexpr CoaArmorProficiency Cloth       = {ITEM_SUBCLASS_ARMOR_CLOTH, false};
+
+    switch (playerClass)
+    {
+        case CLASS_FLESHWARDEN:   return &PlateShield;  // Knight of Xoroth
+        case CLASS_GUARDIAN:      return &PlateShield;
+        case CLASS_CULTIST:       return &PlateShield;
+        case CLASS_STARCALLER:    return &PlateShield;
+        case CLASS_SUN_CLERIC:    return &PlateShield;
+        case CLASS_REAPER:        return &Plate;
+        case CLASS_WILDWALKER:    return &Plate;        // Primalist
+        case CLASS_TINKER:        return &MailShield;
+        case CLASS_WITCH_DOCTOR:  return &Mail;
+        case CLASS_WITCH_HUNTER:  return &Mail;
+        case CLASS_MONK:          return &Mail;         // Templar
+        case CLASS_PROPHET:       return &Mail;         // Venomancer
+        case CLASS_BARBARIAN:     return &Leather;
+        case CLASS_DEMON_HUNTER:  return &Leather;      // Felsworn
+        case CLASS_SON_OF_ARUGAL: return &Leather;      // Bloodmage
+        case CLASS_RANGER:        return &Leather;
+        case CLASS_SPIRIT_MAGE:   return &Leather;      // Runemaster
+        case CLASS_STORMBRINGER:  return &Cloth;
+        case CLASS_CHRONOMANCER:  return &Cloth;
+        case CLASS_NECROMANCER:   return &Cloth;
+        case CLASS_PYROMANCER:    return &Cloth;
+        default:                  return nullptr;
+    }
+}
 
 CoaRole GetCoaRole(Player const* player)
 {
