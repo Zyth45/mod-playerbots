@@ -40,5 +40,8 @@ public:
     static bool HandleLFGQuestsReply(Player* bot, ChatChannelSource chatChannelSource, std::string& msg, std::string& name);
     static bool SendGeneralResponse(Player* bot, ChatChannelSource chatChannelSource, std::string& responseMessage, std::string& name);
     static std::string GenerateReplyMessage(Player* bot, std::string& incomingMessage, uint32& guid1, std::string& name);
+    // Whisper a chat reply, unless the player only wrote in a channel and bots may not whisper players.
+    static void WhisperReply(Player* bot, ChatChannelSource chatChannelSource, std::string& responseMessage,
+                             std::string& name);
 };
 #endif

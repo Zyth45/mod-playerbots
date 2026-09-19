@@ -2647,6 +2647,13 @@ AiPlayerbot.GuildRepliesRate = 100
 # Bots without a master will say their lines
 AiPlayerbot.RandomBotSayWithoutMaster = 0
 
+# Whether bots may whisper players unasked: a bot telling its master what it does (a potion drunk, a
+# buff cast, out of mana...) and random bots answering in a whisper what a player writes in a channel.
+# At 0 they keep quiet; answers to a player's commands and questions, and a bot's hello and goodbye,
+# are always sent. RandomBotTalk (bots talking in the public channels) is a separate setting.
+# Default: 1 (enabled)
+AiPlayerbot.BotsWhisperPublic = 1
+
 #
 #
 ####################################################################################################

@@ -366,7 +366,7 @@ bool ChatReplyAction::HandleWTBItemsReply(Player* bot, ChatChannelSource chatCha
                 else
                 {
                     std::string responseMessage = PlayerbotTextMgr::instance().GetBotText("response_wtb_items_whisper", placeholders);
-                    GET_PLAYERBOT_AI(bot)->Whisper(responseMessage, name);
+                    WhisperReply(bot, chatChannelSource, responseMessage, name);
                 }
                 break;
             }
@@ -381,7 +381,7 @@ bool ChatReplyAction::HandleWTBItemsReply(Player* bot, ChatChannelSource chatCha
                 else
                 {
                     std::string responseMessage = PlayerbotTextMgr::instance().GetBotText("response_wtb_items_whisper", placeholders);
-                    GET_PLAYERBOT_AI(bot)->Whisper(responseMessage, name);
+                    WhisperReply(bot, chatChannelSource, responseMessage, name);
                 }
                 break;
             }
@@ -396,7 +396,7 @@ bool ChatReplyAction::HandleWTBItemsReply(Player* bot, ChatChannelSource chatCha
                 else
                 {
                     std::string responseMessage = PlayerbotTextMgr::instance().GetBotText("response_wtb_items_whisper", placeholders);
-                    GET_PLAYERBOT_AI(bot)->Whisper(responseMessage, name);
+                    WhisperReply(bot, chatChannelSource, responseMessage, name);
                 }
                 break;
             }
@@ -459,7 +459,7 @@ bool ChatReplyAction::HandleLFGQuestsReply(Player* bot, ChatChannelSource chatCh
                 else
                 {
                     std::string responseMessage = PlayerbotTextMgr::instance().GetBotText("response_lfg_quests_whisper", placeholders);
-                    GET_PLAYERBOT_AI(bot)->Whisper(responseMessage, name);
+                    WhisperReply(bot, chatChannelSource, responseMessage, name);
                 }
                 break;
             }
@@ -474,7 +474,7 @@ bool ChatReplyAction::HandleLFGQuestsReply(Player* bot, ChatChannelSource chatCh
                 else
                 {
                     std::string responseMessage = PlayerbotTextMgr::instance().GetBotText("response_lfg_quests_whisper", placeholders);
-                    GET_PLAYERBOT_AI(bot)->Whisper(responseMessage, name);
+                    WhisperReply(bot, chatChannelSource, responseMessage, name);
                 }
                 break;
             }
@@ -483,7 +483,7 @@ bool ChatReplyAction::HandleLFGQuestsReply(Player* bot, ChatChannelSource chatCh
                 //do not reply to the chat
                 //may whisper
                 std::string responseMessage = PlayerbotTextMgr::instance().GetBotText("response_lfg_quests_whisper", placeholders);
-                GET_PLAYERBOT_AI(bot)->Whisper(responseMessage, name);
+                WhisperReply(bot, chatChannelSource, responseMessage, name);
                 break;
             }
             default:
@@ -493,6 +493,21 @@ bool ChatReplyAction::HandleLFGQuestsReply(Player* bot, ChatChannelSource chatCh
     }
 
     return true;
+}
+
+void ChatReplyAction::WhisperReply(Player* bot, ChatChannelSource chatChannelSource, std::string& responseMessage,
+                                   std::string& name)
+{
+    // A player who whispered the bot gets an answer. One who only wrote in a channel is whispered by bots
+    // it has not grouped with only when AiPlayerbot.BotsWhisperPublic is on.
+    if (chatChannelSource != ChatChannelSource::SRC_WHISPER && !sPlayerbotAIConfig.botsWhisperPublic)
+    {
+        Player* receiver = ObjectAccessor::FindPlayerByName(name);
+        if (!receiver || (!GET_PLAYERBOT_AI(receiver) && (!bot->GetGroup() || bot->GetGroup() != receiver->GetGroup())))
+            return;
+    }
+
+    GET_PLAYERBOT_AI(bot)->Whisper(responseMessage, name);
 }
 
 bool ChatReplyAction::SendGeneralResponse(Player* bot, ChatChannelSource chatChannelSource, std::string& responseMessage, std::string& name)
@@ -512,7 +527,7 @@ bool ChatReplyAction::SendGeneralResponse(Player* bot, ChatChannelSource chatCha
             if (urand(0, 100) < 80)
                 GET_PLAYERBOT_AI(bot)->SayToChannel(responseMessage, ChatChannelId::GENERAL);
             else
-                GET_PLAYERBOT_AI(bot)->Whisper(responseMessage, name);
+                WhisperReply(bot, chatChannelSource, responseMessage, name);
             break;
         }
         case ChatChannelSource::SRC_TRADE:
@@ -544,7 +559,7 @@ bool ChatReplyAction::SendGeneralResponse(Player* bot, ChatChannelSource chatCha
         }
         case ChatChannelSource::SRC_WHISPER:
         {
-            GET_PLAYERBOT_AI(bot)->Whisper(responseMessage, name);
+            WhisperReply(bot, chatChannelSource, responseMessage, name);
             break;
         }
         case ChatChannelSource::SRC_SAY:

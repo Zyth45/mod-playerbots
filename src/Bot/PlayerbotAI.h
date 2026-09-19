@@ -469,6 +469,8 @@ public:
     bool TellMasterNoFacing(std::string const text,
                             PlayerbotSecurityLevel securityLevel = PLAYERBOT_SECURITY_ALLOW_ALL);
     bool TellError(std::string const text, PlayerbotSecurityLevel securityLevel = PLAYERBOT_SECURITY_ALLOW_ALL);
+    // Hello and goodbye: sent even to a master who turned bot whispers off.
+    bool TellMasterGreeting(std::string const text, PlayerbotSecurityLevel securityLevel = PLAYERBOT_SECURITY_ALLOW_ALL);
     // Writes what the bot said to the "playerbots.chat" logger; see the definition for why.
     void LogChat(std::string_view how, std::string const& msg) const;
     bool SayToGuild(std::string const& msg);
@@ -648,6 +650,11 @@ protected:
     PlayerbotSecurity security;
     std::map<std::string, time_t> whispers;
     std::pair<ChatMsg, time_t> currentChat;
+    // When the bot last got a command from a real player, and whether a greeting is being sent: what
+    // MasterWantsThis lets through to a master who turned bot whispers off.
+    time_t lastCommandAt = 0;
+    bool greeting = false;
+    bool MasterWantsThis();
     static std::set<std::string> unsecuredCommands;
     bool allowActive[MAX_ACTIVITY_TYPE];
     time_t allowActiveCheckTimer[MAX_ACTIVITY_TYPE];

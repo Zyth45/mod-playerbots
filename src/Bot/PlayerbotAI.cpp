@@ -653,6 +653,8 @@ void PlayerbotAI::HandleCommand(uint32 type, std::string const& text, Player& fr
         chatMap["#g "] = CHAT_MSG_GUILD;
     }
     currentChat = std::pair<ChatMsg, time_t>(CHAT_MSG_WHISPER, 0);
+    if (!GET_PLAYERBOT_AI(&fromPlayer))
+        lastCommandAt = time(nullptr);
     for (std::map<std::string, ChatMsg>::iterator i = chatMap.begin(); i != chatMap.end(); ++i)
     {
         if (filtered.find(i->first) == 0)
@@ -995,6 +997,8 @@ void PlayerbotAI::HandleCommand(uint32 type, std::string const text, Player* fro
     }
 
     currentChat = std::pair<ChatMsg, time_t>(CHAT_MSG_WHISPER, 0);
+    if (fromPlayer && !GET_PLAYERBOT_AI(fromPlayer))
+        lastCommandAt = time(nullptr);
     for (std::map<std::string, ChatMsg>::iterator i = chatMap.begin(); i != chatMap.end(); ++i)
     {
         if (filtered.find(i->first) == 0)
@@ -3084,7 +3088,7 @@ bool PlayerbotAI::TellMasterNoFacing(std::string const text, PlayerbotSecurityLe
         return true;
     }
 
-    if (!IsTellAllowed(securityLevel))
+    if (!IsTellAllowed(securityLevel) || !MasterWantsThis())
         return false;
 
     time_t lastSaid = whispers[text];
@@ -3109,13 +3113,34 @@ bool PlayerbotAI::TellMasterNoFacing(std::string const text, PlayerbotSecurityLe
 bool PlayerbotAI::TellError(std::string const text, PlayerbotSecurityLevel securityLevel)
 {
     Player* master = GetMaster();
-    if (!IsTellAllowed(securityLevel) || !master || GET_PLAYERBOT_AI(master))
+    if (!IsTellAllowed(securityLevel) || !master || GET_PLAYERBOT_AI(master) || !MasterWantsThis())
         return false;
 
     if (PlayerbotMgr* mgr = GET_PLAYERBOT_MGR(master))
         mgr->TellError(bot->GetName(), text);
 
     return false;
+}
+
+// A bot reports to its master what it does unasked: a potion drunk, a buff cast, out of mana... With
+// AiPlayerbot.BotsWhisperPublic off, only answers to its commands, sent in the seconds after one, and
+// greetings reach a real master.
+bool PlayerbotAI::MasterWantsThis()
+{
+    if (sPlayerbotAIConfig.botsWhisperPublic || greeting)
+        return true;
+    Player* master = GetMaster();
+    if (!master || GET_PLAYERBOT_AI(master))
+        return true;
+    return time(nullptr) - lastCommandAt <= 10;
+}
+
+bool PlayerbotAI::TellMasterGreeting(std::string const text, PlayerbotSecurityLevel securityLevel)
+{
+    greeting = true;
+    bool const told = TellMaster(text, securityLevel);
+    greeting = false;
+    return told;
 }
 
 bool PlayerbotAI::IsTellAllowed(PlayerbotSecurityLevel securityLevel)

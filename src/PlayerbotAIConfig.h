@@ -187,6 +187,7 @@ public:
     bool enableBroadcasts;
     bool enableGreet;
     bool randomBotSayWithoutMaster;
+    bool botsWhisperPublic;
 
     uint32 broadcastChanceMaxValue;
     std::string broadcastWorldChannelName;
