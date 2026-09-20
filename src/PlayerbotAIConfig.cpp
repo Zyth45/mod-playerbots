@@ -727,6 +727,7 @@ bool PlayerbotAIConfig::Initialize()
     autoLearnTrainerSpells = sConfigMgr->GetOption<bool>("AiPlayerbot.AutoLearnTrainerSpells", true);
     autoLearnTradeskillSpells =
         sConfigMgr->GetOption<bool>("AiPlayerbot.AutoLearnTradeskillSpells", true);
+    coaClassesOnly = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaClassesOnly", true);
     coaSpecRotations = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaSpecRotations", false);
     coaHealerManaReserve = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaHealerManaReserve", 35);
     coaCasterManaReserve = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaCasterManaReserve", 15);

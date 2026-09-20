@@ -1381,6 +1381,16 @@ AiPlayerbot.AutoLearnTrainerSpells = 1
 # Default: 1 (enabled, upstream behaviour)
 AiPlayerbot.AutoLearnTradeskillSpells = 1
 
+# Classes the random bots are created with.
+# Conquest of Azeroth replaces the nine WotLK classes with twenty-one of its own and shows only those
+# on the character creation screen, but the core setting that enforces it, CharacterCreating.Disabled
+# .ClassMask in worldserver.conf, ships at 0. On: bots are only created in CoA classes (12 to 32),
+# whatever that setting says, so a realm built from source does not fill up with Warriors and Mages
+# no player can roll. Off: the upstream behaviour, every class the core allows.
+# Bots already created keep their class either way; delete the bot accounts to renew them.
+# Default: 1 (enabled)
+AiPlayerbot.CoaClassesOnly = 1
+
 # Authored combat rotations for the Conquest of Azeroth specializations.
 # Off: CoA bots are driven by the runtime classifier alone, which picks a spell
 # every tick from what the bot knows.

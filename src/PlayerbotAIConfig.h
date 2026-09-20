@@ -393,6 +393,7 @@ public:
     int32 petChatCommandDebug;
     bool autoLearnTrainerSpells;
     bool autoLearnTradeskillSpells;
+    bool coaClassesOnly;
     bool coaSpecRotations;
     uint32 coaHealerManaReserve;
     uint32 coaCasterManaReserve;

@@ -91,6 +91,7 @@ The `.playerbots rndbot` commands apply to every bot online. To target just one:
 | `AiPlayerbot.BroadcastWorldChannelName` | exact name of the realm-wide channel. `"Ascension"` on CoA, `"World"` elsewhere |
 | `AiPlayerbot.BroadcastToWorldGlobalChance` | share of messages sent to the realm-wide channel, out of 30,000. **0 = bots do not even join it** |
 | `AiPlayerbot.BroadcastToGeneralGlobalChance` | share of messages sent to the zone channel, out of 30,000 |
+| `AiPlayerbot.CoaClassesOnly` | at 1 (the default), random bots are created in CoA classes only, whatever `CharacterCreating.Disabled.ClassMask` says in worldserver.conf; at 0, every class the core allows |
 | `AiPlayerbot.CoaSpecRotations` | at 1, bots follow their specialization's authored rotation on top of the automatic spell choice (0 by default) |
 | `AiPlayerbot.DeleteRandomBotAccounts` | at 1, deletes every bot on the next start, then creates new ones. **The server then stops by itself**: set it back to 0 and restart |
 | `Appender.CoaBots=2,4,1,CoaBots.log,a` and `Logger.playerbots.coa=4,CoaBots` (in `worldserver.conf`) | every 10 minutes, writes which CoA spells the bots cast and why some fail |

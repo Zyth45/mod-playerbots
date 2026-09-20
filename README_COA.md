@@ -70,7 +70,7 @@ challenges module much lighter with many bots online.
 
 | Setting | File | Why |
 |---|---|---|
-| `CharacterCreating.Disabled.ClassMask = 2047` | worldserver.conf | random bots are created with CoA classes only |
+| `CharacterCreating.Disabled.ClassMask = 2047` | worldserver.conf | stops **players** rolling the nine WotLK classes; the bots no longer need it, `AiPlayerbot.CoaClassesOnly` keeps them on CoA classes on its own |
 | `MapUpdate.Threads = 8` (half your CPU threads) | worldserver.conf | hundreds of bots need several map threads |
 | `AiPlayerbot.MinRandomBots = 200` / `MaxRandomBots = 200` | playerbots.conf | about 3.5 GB of server memory for 200 bots, 10 GB for 1000 |
 | `AiPlayerbot.RandomBotMaxLevel = 60` | playerbots.conf | the CoA default: random bots spread over levels 1-60 (80 upstream); set 1 instead to have every bot start at level 1 and level up while playing, which also leaves the level brackets below with nothing to balance |

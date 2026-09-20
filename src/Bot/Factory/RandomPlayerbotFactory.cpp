@@ -719,6 +719,13 @@ void RandomPlayerbotFactory::CreateRandomBots()
             if ((1 << (cls - 1)) & sWorld->getIntConfig(CONFIG_CHARACTER_CREATING_DISABLED_CLASSMASK))
                 continue;
 
+            // Conquest of Azeroth gives its players twenty-one classes of its own and hides the nine
+            // WotLK ones from character creation. The core only enforces that when the realm sets
+            // CharacterCreating.Disabled.ClassMask, which ships at 0, so without this a realm built
+            // from source fills its starting valleys with Warriors and Mages no player can roll.
+            if (sPlayerbotAIConfig.coaClassesOnly && !IsAscensionClass(cls))
+                continue;
+
             Player* playerBot = factory.CreateRandomBot(session, cls, nameCache);
             if (!playerBot)
             {

@@ -92,6 +92,7 @@ Les commandes `.playerbots rndbot` s'appliquent à tous les bots connectés. Pou
 | `AiPlayerbot.BroadcastWorldChannelName` | nom exact du canal global. `"Ascension"` sur CoA, `"World"` ailleurs |
 | `AiPlayerbot.BroadcastToWorldGlobalChance` | part des messages envoyés dans le canal global, sur 30 000. **0 = les bots n'y entrent même pas** |
 | `AiPlayerbot.BroadcastToGeneralGlobalChance` | part des messages envoyés dans le canal de zone, sur 30 000 |
+| `AiPlayerbot.CoaClassesOnly` | à 1 (par défaut), les bots ne sont créés qu'en classes CoA, quoi que dise `CharacterCreating.Disabled.ClassMask` dans worldserver.conf ; à 0, toutes les classes autorisées par le core |
 | `AiPlayerbot.CoaSpecRotations` | à 1, les bots suivent la rotation écrite de leur spécialisation en plus du choix automatique des sorts (0 par défaut) |
 | `AiPlayerbot.DeleteRandomBotAccounts` | à 1, supprime tous les bots au prochain démarrage, puis en recrée. **Le serveur s'arrête ensuite de lui-même** : remets 0 et redémarre |
 | `Appender.CoaBots=2,4,1,CoaBots.log,a` et `Logger.playerbots.coa=4,CoaBots` (dans `worldserver.conf`) | écrit toutes les 10 min quels sorts CoA les bots lancent et pourquoi certains échouent |
