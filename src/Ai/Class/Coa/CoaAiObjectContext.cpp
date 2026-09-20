@@ -50,7 +50,8 @@ enum AbilityKind : uint16
     KIND_ALLY_CAST  = 0x0200,  // can be cast on another group member
     KIND_DISPEL     = 0x0400,  // removes harmful auras from allies
     KIND_INTERRUPT  = 0x0800,
-    KIND_CONTROL    = 0x1000   // stuns, fears, polymorphs... never aimed at a group member
+    KIND_CONTROL    = 0x1000,  // stuns, fears, polymorphs... never aimed at a group member
+    KIND_STANCE     = 0x2000   // a form or stance on the caster that never expires
 };
 
 /*
@@ -173,12 +174,44 @@ bool IsDefensiveAura(SpellEffectInfo const& effect)
     }
 }
 
+/*
+ * A stance, form or aspect: every effect is an aura on the caster and it never runs out.
+ * The bot takes one out of combat and keeps it; it has no place in the damage rotation.
+ * Several CoA abilities are gated behind one through CasterAuraSpell (Beetle Form 803183
+ * carries 64 of them, Spider Form 800841 another 42), so they cannot simply be ignored.
+ */
+bool IsStance(SpellInfo const* info)
+{
+    if (info->GetMaxDuration() > 0)
+        return false;
+
+    bool aura = false;
+    for (SpellEffectInfo const& effect : info->Effects)
+    {
+        if (!effect.IsEffect())
+            continue;
+
+        // A summon, a teleport, a trade skill or an item alongside the aura: not a stance.
+        if (!IsAuraEffect(effect) || effect.ApplyAuraName == SPELL_AURA_NONE ||
+            effect.TargetA.GetTarget() != TARGET_UNIT_CASTER)
+            return false;
+
+        aura = true;
+    }
+
+    return aura;
+}
+
 // What a spell does, looking two levels into the spells it triggers: CoA abilities often
 // carry their heal, taunt or aura in a triggered spell.
 void Classify(SpellInfo const* info, CoaAbility& ability, uint8 depth = 0)
 {
     constexpr int32 LongAura = 5 * MINUTE * IN_MILLISECONDS;
     int32 const duration = info->GetMaxDuration();
+
+    // Only the ability itself: a spell it triggers is not the stance the bot stands in.
+    if (!depth && IsStance(info))
+        ability.kind |= KIND_STANCE;
 
     for (SpellEffectInfo const& effect : info->Effects)
     {
@@ -243,7 +276,17 @@ void Classify(SpellInfo const* info, CoaAbility& ability, uint8 depth = 0)
             effect.ApplyAuraName != SPELL_AURA_MOD_SHAPESHIFT)
             ability.kind |= KIND_BUFF;
 
-        if (effect.TriggerSpell && depth < 2)
+        // A proc rider is not part of the cast: "when you hit, deal nature damage" describes
+        // the aura, not the spell that applies it. Following it made a weapon poison or a
+        // damage-proc buff look like a damage spell and sent it to the damage rotation, where
+        // it was reapplied over and over (Blight Venom 805776, Temporal Resilience 680389).
+        // Triggers the cast itself fires are still followed.
+        bool const proc = aura && (effect.ApplyAuraName == SPELL_AURA_PROC_TRIGGER_SPELL ||
+                                   effect.ApplyAuraName == SPELL_AURA_PROC_TRIGGER_SPELL_WITH_VALUE ||
+                                   effect.ApplyAuraName == SPELL_AURA_PROC_TRIGGER_DAMAGE ||
+                                   effect.ApplyAuraName == SPELL_AURA_ADD_TARGET_TRIGGER);
+
+        if (effect.TriggerSpell && !proc && depth < 2)
             if (SpellInfo const* triggered = sSpellMgr->GetSpellInfo(effect.TriggerSpell))
                 Classify(triggered, ability, depth + 1);
     }
@@ -399,9 +442,13 @@ bool HasReadyAbility(PlayerbotAI* botAI, Player* bot, Filter wanted)
 // Abilities worth using in the damage rotation.
 bool IsAttack(uint16 kind, bool tank)
 {
-    // Scripted abilities carry nothing to go by: try them.
+    // An ability none of the tests above recognised is a summon, a stance, a permanent self
+    // aura, a trade skill or an item: over the whole CoA catalogue, 645 active abilities end
+    // up here and not one of them carries a target the caster could aim at an enemy. Trying
+    // them on the target only spent global cooldowns and, for the permanent ones, reapplied
+    // the same aura for ever (Bushcraft 800267, Serpent Ward 500960, Tower Formation 800317).
     if (!kind)
-        return true;
+        return false;
 
     // Heals, buffs, defensives and dispels have their own actions.
     if (!(kind & (KIND_HOSTILE | KIND_DAMAGE)))
@@ -1106,9 +1153,16 @@ public:
             return false;
 
         std::vector<Usable> const spells = KnownAbilities(bot, [](uint16 kind)
-            { return (kind & KIND_BUFF) && !(kind & (KIND_HOSTILE | KIND_DAMAGE | KIND_TAUNT | KIND_HEAL | KIND_CONTROL)); });
+            { return (kind & (KIND_BUFF | KIND_STANCE)) &&
+                     !(kind & (KIND_HOSTILE | KIND_DAMAGE | KIND_TAUNT | KIND_HEAL | KIND_CONTROL)); });
         if (spells.empty())
             return false;
+
+        // A stance replaces the one the bot is in, and CoA classes have several of them
+        // (five Boons, twenty-two Runic Tattoos): take one only while standing in none, or
+        // two of them would take turns for ever.
+        bool const inStance = std::any_of(spells.begin(), spells.end(), [this](Usable const& spell)
+            { return (spell.kind & KIND_STANCE) && bot->HasAura(spell.info->Id); });
 
         time_t const now = time(nullptr);
         if (recent.size() > 64)
@@ -1119,6 +1173,10 @@ public:
             for (Player* member : NearbyGroup(bot))
             {
                 if (member != bot && !(spell.kind & KIND_ALLY_CAST))
+                    continue;
+
+                // A stance is the bot's own, and only when it stands in none.
+                if ((spell.kind & KIND_STANCE) && (member != bot || inStance))
                     continue;
 
                 if (member->HasAura(spell.info->Id))
@@ -1146,7 +1204,7 @@ public:
         return false;
     }
 
-    bool isUseful() override { return ClassHas(bot, KIND_BUFF); }
+    bool isUseful() override { return ClassHas(bot, KIND_BUFF | KIND_STANCE); }
 
 private:
     std::map<std::pair<ObjectGuid, uint32>, time_t> recent;
