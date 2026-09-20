@@ -210,6 +210,18 @@ std::string ChangeTalentsAction::CoaSpecPick(std::string const& wanted)
 
     if (!SwitchAscensionSpecialization(bot, pick->specId))
         return std::string("I cannot switch to ") + pick->specName + ".";
+    
+    // Persist the selected CoA specialization.
+    // Without this, the AI strategy changes but core.ascension_active_spec
+    // can remain on the previous specialization.
+    bot->UpdatePlayerSetting(
+        "core.ascension_active_spec",
+        0,
+        pick->specId
+    );
+
+// Talents follow the CoA talent path.
+ApplyCoaTalents(bot);
 
     // Talents follow the coa talent path: the new specialization's level build, recorded through
     // SetAscensionTalentRank like a player's purchase (random bots only, as for every other pick).
