@@ -230,7 +230,32 @@ bool EnsureCoaSpecialization(Player* bot)
     if (!sRandomPlayerbotMgr.IsRandomBot(bot))
         return false;
 
+    // Explicit "talents spec <name>" choice.
+    //
+    // Random CoA bots normally receive a deterministic role/spec based on
+    // their GUID. Once the player explicitly selects a specialization,
+    // preserve that choice instead of allowing the automatic role picker
+    // to overwrite it.
+    uint32 const manualSpec = sRandomPlayerbotMgr.GetValue(bot, "coa_manual_spec");
+
+    if (manualSpec)
+    {
+        uint32 const current = GetAscensionActiveSpecialization(bot);
+
+        // Normally the CoA core has already persisted this specialization.
+        // Reapply it only if something rebuilt/reloaded the bot with another one.
+        if (current != manualSpec)
+            return SwitchAscensionSpecialization(bot, manualSpec);
+
+        return false;
+    }
+
     std::array<std::vector<uint32>, 3> const byRole = SpecializationsByRole(bot->getClass());
+
+    // Dungeon groups need a tank and a healer. Only 8 of the 21 classes can heal, so healing
+    // weighs more than tanking to reach about one healer in eight specialized bots overall.
+    // A role the class cannot fill gives its share to the others.
+    std::array<uint32, 3> const shares = { 50, 20, 30 };
 
     // Dungeon groups need a tank and a healer. Only 8 of the 21 classes can heal, so healing
     // weighs more than tanking to reach about one healer in eight specialized bots overall.
