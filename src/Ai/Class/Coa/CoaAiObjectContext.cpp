@@ -28,6 +28,7 @@
 #include <array>
 #include <atomic>
 #include <cmath>
+#include <cstring>
 #include <ctime>
 #include <map>
 #include <mutex>
@@ -857,6 +858,10 @@ SpellInfo const* CastFirst(PlayerbotAI* botAI, Player* bot, std::vector<Usable> 
         // one: it leaves the form and heals on the next tick, instead of setting its heals aside.
         else if (check == SPELL_FAILED_NOT_SHAPESHIFT && healing && bot->HasAuraType(SPELL_AURA_MOD_SHAPESHIFT))
             bot->RemoveAurasByType(SPELL_AURA_MOD_SHAPESHIFT);
+        else if (check == SPELL_FAILED_CASTER_AURASTATE && spell.info->CasterAuraSpell)
+        {
+            // Waiting on its marker (see CoaHealAction::AddPrerequisites): not set aside.
+        }
         else if (IsLastingFailure(check))
             benched[spell.info->Id] = now + SpellBenchSeconds;
         // Out of mana, energy or rage: asking again on the very next tick changes nothing, and
@@ -1254,6 +1259,8 @@ public:
         if (SavingManaForHeals(bot) && !(smart && target->GetHealthPct() < sPlayerbotAIConfig.criticalHealth))
             CheapestFirst(bot, spells);
 
+        AddPrerequisites(spells);
+
         UsageKind const usage = mode == Mode::Group ? USAGE_GROUP_HEAL : mode == Mode::OverTime ? USAGE_HOT : USAGE_HEAL;
         if (spells.empty())
             RecordFailure(usage, 0, FAILURE_NOTHING);
@@ -1274,6 +1281,50 @@ public:
     }
 
 private:
+    /*
+     * A heal refused unless the caster carries some aura: a Witch Doctor's Splash Potion and Potion
+     * Toss need "WD Has Ingredient Marker", which its Ingredient spells give. Without it they were set
+     * aside 20 s at a time while the Ingredients alone drained the mana. The spells whose name leads
+     * with a word of the marker's ("Ingredient: Jungle Shrooms" for "... Ingredient Marker") are put
+     * just before such a heal, cheapest first, so the brew is prepared and then thrown.
+     */
+    void AddPrerequisites(std::vector<Usable>& spells)
+    {
+        std::vector<Usable> all;
+        for (std::size_t i = 0; i < spells.size(); ++i)
+        {
+            uint32 const needed = spells[i].info->CasterAuraSpell;
+            if (!needed || bot->HasAura(needed))
+                continue;
+            SpellInfo const* marker = sSpellMgr->GetSpellInfo(needed);
+            if (!marker || !marker->SpellName[0])
+                continue;
+            std::string const markerName = marker->SpellName[0];
+
+            if (all.empty())
+                all = KnownAbilities(bot, [](uint16) { return true; });
+
+            std::vector<Usable> givers;
+            for (Usable const& spell : all)
+            {
+                std::string const name = spell.info->SpellName[0] ? spell.info->SpellName[0] : "";
+                std::size_t const colon = name.find(':');
+                if (colon == std::string::npos || colon < 3 || markerName.find(name.substr(0, colon)) == std::string::npos)
+                    continue;
+                bool present = false;
+                for (Usable const& listed : spells)
+                    present |= listed.info->Id == spell.info->Id;
+                if (!present)
+                    givers.push_back(spell);
+            }
+            if (givers.empty())
+                continue;
+            CheapestFirst(bot, givers);
+            spells.insert(spells.begin() + i, givers.begin(), givers.end());
+            i += givers.size();
+        }
+    }
+
     // With smart healing, single target heals go where they are most needed (SmartHealTarget), and a
     // heal over time with nobody hurt goes on the tank in a fight; area heals keep the generic choice,
     // whose position is all that matters to them.
@@ -2135,6 +2186,66 @@ bool CoaHealerSavesManaFrom(Player* bot, SpellInfo const* info)
 bool CoaHealerAvoidsForm(Player* bot, SpellInfo const* info)
 {
     return info && GetCoaRole(bot) == CoaRole::Heal && FormBlocksHeals(bot, info);
+}
+
+// The name of the set a spell belongs to when its text says only one of the set may be active:
+// "Can only have 1 |cffffffffSkin|r active" -> "Skin". Empty when it says nothing of the kind.
+static std::string ExclusiveSet(SpellInfo const* info)
+{
+    static std::mutex lock;
+    static std::unordered_map<uint32, std::string> known;
+    std::lock_guard<std::mutex> guard(lock);
+    auto const found = known.find(info->Id);
+    if (found != known.end())
+        return found->second;
+
+    std::string set;
+    std::string const text = info->Description[0] ? info->Description[0] : "";
+    for (char const* lead : { "only have 1 |c", "Only 1 |c", "only 1 |c" })
+    {
+        std::size_t at = text.find(lead);
+        if (at == std::string::npos)
+            continue;
+        at += std::strlen(lead) + 8;  // the colour, eight hex digits
+        std::size_t const end = text.find("|r", at);
+        if (end != std::string::npos && end > at)
+            set = text.substr(at, end - at);
+        break;
+    }
+    known.emplace(info->Id, set);
+    return set;
+}
+
+bool CoaHoldsExclusiveSibling(Player* bot, SpellInfo const* info)
+{
+    if (!info)
+        return false;
+    std::string const set = ExclusiveSet(info);
+    if (set.empty())
+        return false;
+
+    for (auto const& [id, application] : bot->GetAppliedAuras())
+    {
+        Aura const* aura = application->GetBase();
+        if (aura->GetCasterGUID() == bot->GetGUID() && aura->GetId() != info->Id &&
+            ExclusiveSet(aura->GetSpellInfo()) == set)
+            return true;
+    }
+    return false;
+}
+
+std::string CoaHealKit(Player* bot)
+{
+    std::string kit;
+    for (Usable const& spell : KnownAbilities(bot, [](uint16 kind)
+             { return (kind & (KIND_HEAL | KIND_HOT)) && !(kind & (KIND_CONTROL | KIND_HOSTILE)); }))
+    {
+        if (!kit.empty())
+            kit += ", ";
+        kit += spell.info->SpellName[0];
+        kit += " (" + std::to_string(spell.info->Id) + ")";
+    }
+    return kit;
 }
 
 SharedNamedObjectContextList<Strategy> CoaAiObjectContext::sharedStrategyContexts;

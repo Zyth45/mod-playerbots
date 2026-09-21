@@ -353,7 +353,20 @@ public:
     std::string const getName() override { return "buff missing::" + qualifier; }
     bool IsActive() override;
 };
-COA_QUALIFIED_SPELL_TRIGGER(CoaDebuffMissingTrigger, DebuffTrigger, "debuff missing")
+/* "debuff missing::<spell>" - as the original, except for a healer keeping its mana for heals
+ * (a Chronomancer healer put Unmake back 12 times in one fight and ran dry for 20 s). */
+class CoaDebuffMissingTrigger : public DebuffTrigger, public Qualified
+{
+public:
+    CoaDebuffMissingTrigger(PlayerbotAI* botAI) : DebuffTrigger(botAI, "") {}
+    void Qualify(std::string const qual) override
+    {
+        Qualified::Qualify(qual);
+        spell = qual;
+    }
+    std::string const getName() override { return "debuff missing::" + qualifier; }
+    bool IsActive() override;
+};
 
 // ---------------------------------------------------------------------------
 // Registration

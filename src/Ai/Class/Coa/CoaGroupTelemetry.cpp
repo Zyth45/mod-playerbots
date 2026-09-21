@@ -78,6 +78,8 @@ struct MemberStats
     std::map<std::pair<uint32, uint16>, uint32> healTries;
     // Mana paid for each spell it cast, heals or not, and how many casts: where a healer's mana went.
     std::map<uint32, std::pair<uint32, uint32>> manaSpent;
+    // The heals a healer bot considers, taken when it is first seen in the fight.
+    std::string healKit;
 };
 
 struct Fight
@@ -196,6 +198,9 @@ void Write(Fight const& fight, uint32 now)
             LOG_INFO("playerbots.coa", "{}", tries.str());
         }
 
+        if (m.role == CoaRole::Heal && !m.healKit.empty())
+            LOG_INFO("playerbots.coa", "    heal kit of {}: {}", m.name, m.healKit);
+
         if (m.role == CoaRole::Heal && !m.manaSpent.empty())
         {
             std::vector<std::pair<uint32, std::pair<uint32, uint32>>> spent(m.manaSpent.begin(), m.manaSpent.end());
@@ -300,6 +305,8 @@ void Sample(Player* sampler, Group* group, uint32 now)
                 m.manaStart = m.manaLowest = m.manaEnd = member->GetPowerPct(POWER_MANA);
             // Dead since an earlier fight: not a death of this one.
             m.wasAlive = member->IsAlive();
+            if (m.bot && m.role == CoaRole::Heal)
+                m.healKit = CoaHealKit(member);
         }
 
         if (!member->IsAlive())

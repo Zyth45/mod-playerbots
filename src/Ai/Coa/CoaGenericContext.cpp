@@ -179,7 +179,16 @@ bool CoaBuffMissingTrigger::IsActive()
     if (!BuffTrigger::IsActive())
         return false;
     uint32 const id = AI_VALUE2(uint32, "spell id", spell);
-    return !CoaHealerAvoidsForm(bot, id ? sSpellMgr->GetSpellInfo(id) : nullptr);
+    SpellInfo const* info = id ? sSpellMgr->GetSpellInfo(id) : nullptr;
+    return !CoaHealerAvoidsForm(bot, info) && !CoaHoldsExclusiveSibling(bot, info);
+}
+
+bool CoaDebuffMissingTrigger::IsActive()
+{
+    if (!DebuffTrigger::IsActive())
+        return false;
+    uint32 const id = AI_VALUE2(uint32, "spell id", spell);
+    return !CoaHealerSavesManaFrom(bot, id ? sSpellMgr->GetSpellInfo(id) : nullptr);
 }
 
 bool CoaCanCastTrigger::IsActive()
@@ -229,7 +238,8 @@ bool CoaCanCastTrigger::IsActive()
                 return false;
     }
 
-    return !CoaHealerSavesManaFrom(bot, info) && !CoaHealerAvoidsForm(bot, info);
+    return !CoaHealerSavesManaFrom(bot, info) && !CoaHealerAvoidsForm(bot, info) &&
+           !CoaHoldsExclusiveSibling(bot, info);
 }
 
 bool CoaSummonMissingTrigger::IsActive()
