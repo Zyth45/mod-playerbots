@@ -638,8 +638,13 @@ void AiFactory::AddDefaultNonCombatStrategies(Player* player, PlayerbotAI* const
         default:
             // Conquest of Azeroth classes: party buffs, and tanks take the lead like the vanilla tanks.
             if (IsAscensionCustomClassId(player->getClass()))
+            {
                 nonCombatEngine->addStrategiesNoInit(GetCoaRole(player) == CoaRole::Tank ? "tank assist" : "dps assist",
                                                      "coa buff", nullptr);
+                // Pulls on its own once the group of a real player is ready ("nc -coa auto pull" stops it).
+                if (GetCoaRole(player) == CoaRole::Tank)
+                    nonCombatEngine->addStrategy("coa auto pull", false);
+            }
             else
                 nonCombatEngine->addStrategy("dps assist", false);
             break;

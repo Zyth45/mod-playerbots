@@ -58,7 +58,8 @@ enum AbilityKind : uint16
     KIND_DISPEL     = 0x0400,  // removes harmful auras from allies
     KIND_INTERRUPT  = 0x0800,
     KIND_CONTROL    = 0x1000,  // stuns, fears, polymorphs... never aimed at a group member
-    KIND_STANCE     = 0x2000   // a form or stance on the caster that never expires
+    KIND_STANCE     = 0x2000,  // a form or stance on the caster that never expires
+    KIND_RESURRECT  = 0x4000   // brings a dead ally back
 };
 
 /*
@@ -244,6 +245,9 @@ void Classify(SpellInfo const* info, CoaAbility& ability, uint8 depth = 0)
 
         if (IsDamage(effect))
             ability.kind |= KIND_DAMAGE;
+
+        if (effect.Effect == SPELL_EFFECT_RESURRECT || effect.Effect == SPELL_EFFECT_RESURRECT_NEW)
+            ability.kind |= KIND_RESURRECT;
 
         // Some CoA crowd control also cleanses (Babify, Knockout): a bot must not "dispel" a
         // group member by stunning or transforming it.
@@ -1768,6 +1772,85 @@ public:
     }
 };
 
+/*
+ * Out of a fight, with nobody of the group fighting, a dead group member lying where it fell (not
+ * released) is brought back by the first bot that has a resurrection: it walks within 25 yards and
+ * in sight, then casts. A tank that died at the end of a pull no longer waits for the player to run
+ * back.
+ */
+constexpr float ResurrectReach = 25.0f;
+
+bool GroupFighting(Player* bot)
+{
+    Group* group = bot->GetGroup();
+    if (!group)
+        return false;
+    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+        if (Player* member = ref->GetSource())
+            if (OnSameInstance(bot, member) && member->IsAlive() && member->IsInCombat())
+                return true;
+    return false;
+}
+
+Player* DeadGroupMember(Player* bot)
+{
+    Group* group = bot->GetGroup();
+    if (!group)
+        return nullptr;
+
+    Player* nearest = nullptr;
+    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+    {
+        Player* member = ref->GetSource();
+        if (!member || member == bot || !OnSameInstance(bot, member) || member->IsAlive() ||
+            member->HasPlayerFlag(PLAYER_FLAGS_GHOST) || member->GetDistance(bot) > sPlayerbotAIConfig.sightDistance)
+            continue;
+        if (!nearest || member->GetDistance(bot) < nearest->GetDistance(bot))
+            nearest = member;
+    }
+    return nearest;
+}
+
+class CoaGroupMemberDeadTrigger : public Trigger
+{
+public:
+    CoaGroupMemberDeadTrigger(PlayerbotAI* botAI) : Trigger(botAI, "coa group member dead") {}
+
+    bool IsActive() override
+    {
+        return bot->IsAlive() && !bot->IsInCombat() && ClassHas(bot, KIND_RESURRECT) && DeadGroupMember(bot) &&
+               !GroupFighting(bot) &&
+               HasReadyAbility(botAI, bot, [](uint16 kind) { return (kind & KIND_RESURRECT) != 0; });
+    }
+};
+
+class CoaResurrectAction : public MovementAction
+{
+public:
+    CoaResurrectAction(PlayerbotAI* botAI) : MovementAction(botAI, "coa resurrect") {}
+
+    bool Execute(Event /*event*/) override
+    {
+        Player* dead = DeadGroupMember(bot);
+        if (!dead)
+            return false;
+
+        if (bot->GetDistance(dead) > ResurrectReach || !bot->IsWithinLOSInMap(dead))
+            return MoveNear(dead, ResurrectReach - 5.0f);
+
+        if (!bot->IsStandState())
+            bot->SetStandState(UNIT_STAND_STATE_STAND);
+
+        SpellInfo const* cast = CastFirst(botAI, bot,
+            KnownAbilities(bot, [](uint16 kind) { return (kind & KIND_RESURRECT) != 0; }), dead);
+        if (cast)
+            botAI->SayToParty("Resurrecting " + dead->GetName() + ".");
+        return cast != nullptr;
+    }
+
+    bool isUseful() override { return !bot->IsNonMeleeSpellCast(false, true, true); }
+};
+
 // Out of combat: keep the long buffs up on the bot and its group.
 class CoaBuffStrategy : public Strategy
 {
@@ -1782,6 +1865,8 @@ public:
         triggers.push_back(new TriggerNode("often", { NextAction("coa buff", ACTION_NORMAL + 5) }));
         // A healer heals a group member in danger even outside a fight, before drinking or buffing.
         triggers.push_back(new TriggerNode("coa group member dropping", { NextAction("coa heal", ACTION_CRITICAL_HEAL) }));
+        // A dead group member is brought back once the group is out of the fight, before anything else.
+        triggers.push_back(new TriggerNode("coa group member dead", { NextAction("coa resurrect", ACTION_CRITICAL_HEAL + 5) }));
     }
 };
 
@@ -1825,6 +1910,7 @@ public:
         creators["coa stay near tank"] = &CoaActionFactoryInternal::coa_stay_near_tank;
         creators["coa say low mana"] = &CoaActionFactoryInternal::coa_say_low_mana;
         creators["coa auto pull"] = &CoaActionFactoryInternal::coa_auto_pull;
+        creators["coa resurrect"] = &CoaActionFactoryInternal::coa_resurrect;
     }
 
 private:
@@ -1847,6 +1933,7 @@ private:
     static Action* coa_stay_near_tank(PlayerbotAI* botAI) { return new CoaStayNearTankAction(botAI); }
     static Action* coa_say_low_mana(PlayerbotAI* botAI) { return new CoaSayLowManaAction(botAI); }
     static Action* coa_auto_pull(PlayerbotAI* botAI) { return new CoaAutoPullAction(botAI); }
+    static Action* coa_resurrect(PlayerbotAI* botAI) { return new CoaResurrectAction(botAI); }
 };
 
 class CoaTriggerFactoryInternal : public NamedObjectContext<Trigger>
@@ -1859,6 +1946,7 @@ public:
         creators["coa tank needs hot"] = &CoaTriggerFactoryInternal::coa_tank_needs_hot;
         creators["coa group member dropping"] = &CoaTriggerFactoryInternal::coa_group_member_dropping;
         creators["coa ready to pull"] = &CoaTriggerFactoryInternal::coa_ready_to_pull;
+        creators["coa group member dead"] = &CoaTriggerFactoryInternal::coa_group_member_dead;
         creators["coa far from tank"] = &CoaTriggerFactoryInternal::coa_far_from_tank;
         creators["coa healer low mana"] = &CoaTriggerFactoryInternal::coa_healer_low_mana;
     }
@@ -1869,6 +1957,7 @@ private:
     static Trigger* coa_tank_needs_hot(PlayerbotAI* botAI) { return new CoaTankNeedsHotTrigger(botAI); }
     static Trigger* coa_group_member_dropping(PlayerbotAI* botAI) { return new CoaGroupMemberDroppingTrigger(botAI); }
     static Trigger* coa_ready_to_pull(PlayerbotAI* botAI) { return new CoaReadyToPullTrigger(botAI); }
+    static Trigger* coa_group_member_dead(PlayerbotAI* botAI) { return new CoaGroupMemberDeadTrigger(botAI); }
     static Trigger* coa_far_from_tank(PlayerbotAI* botAI) { return new CoaFarFromTankTrigger(botAI); }
     static Trigger* coa_healer_low_mana(PlayerbotAI* botAI) { return new CoaLowManaTrigger(botAI); }
 };
