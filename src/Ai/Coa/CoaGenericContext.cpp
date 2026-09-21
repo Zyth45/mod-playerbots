@@ -188,6 +188,39 @@ bool CoaCanCastTrigger::IsActive()
     if (bot->HasAura(id) && (duration < 0 || duration > 60 * IN_MILLISECONDS))
         return false;
 
+    bool summons = false;
+    for (SpellEffectInfo const& effect : info->Effects)
+    {
+        // Travel utility has no place in a rotation: Grace of the Moon, a water walk at 40% of base
+        // mana that any damage cancels, took 79% of a Starcaller healer's mana in one fight.
+        if (effect.Effect == SPELL_EFFECT_APPLY_AURA || effect.Effect == SPELL_EFFECT_APPLY_AREA_AURA_PARTY ||
+            effect.Effect == SPELL_EFFECT_APPLY_AREA_AURA_RAID)
+            switch (effect.ApplyAuraName)
+            {
+                case SPELL_AURA_WATER_WALK: case SPELL_AURA_FEATHER_FALL: case SPELL_AURA_HOVER:
+                case SPELL_AURA_WATER_BREATHING:
+                    return false;
+                default:
+                    break;
+            }
+        if (effect.Effect == SPELL_EFFECT_SUMMON)
+            summons = true;
+    }
+
+    // A ward or effigy of which only one may stand: not again while the bot's own still stands
+    // (Healing Ward was put down 15 times in one fight, 18% of base mana each).
+    if (summons)
+    {
+        std::list<Unit*> nearby;
+        Acore::AnyUnitInObjectRangeCheck check(bot, SEARCH_RANGE);
+        Acore::UnitListSearcher<Acore::AnyUnitInObjectRangeCheck> search(bot, nearby, check);
+        Cell::VisitObjects(bot, search, SEARCH_RANGE);
+        for (Unit* unit : nearby)
+            if (unit && unit->IsAlive() && !unit->IsPlayer() && unit->GetUInt32Value(UNIT_CREATED_BY_SPELL) == id &&
+                (unit->GetOwnerGUID() == bot->GetGUID() || unit->GetCreatorGUID() == bot->GetGUID()))
+                return false;
+    }
+
     return !CoaHealerSavesManaFrom(bot, info);
 }
 
