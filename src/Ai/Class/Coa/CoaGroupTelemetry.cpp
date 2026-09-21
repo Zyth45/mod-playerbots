@@ -67,6 +67,8 @@ struct MemberStats
     uint32 reactionTotal = 0;  // ms
     uint32 reactionLongest = 0;  // ms
     uint32 diedUnhealed = 0;
+    // As a tank: taunts that went off.
+    uint32 taunts = 0;
 };
 
 struct Fight
@@ -133,6 +135,8 @@ void Write(Fight const& fight, uint32 now)
             line << ", healing done " << m.healDone << ", overheal "
                  << (m.overheal * 100 / (m.healDone + m.overheal)) << "%";
         line << ", hit " << Seconds(m.hit);
+        if (m.role == CoaRole::Tank)
+            line << ", taunts " << m.taunts;
         if (m.criticalTimes)
         {
             line << ", under 25% " << m.criticalTimes << " times";
@@ -396,6 +400,22 @@ public:
     }
 };
 }  // namespace
+
+// A taunt of `bot` went off: counted in its group's fight, if one is being followed.
+void CoaTelemetryNoteTaunt(Player* bot)
+{
+    Group* group = bot->GetGroup();
+    if (!group || !ActiveFights.load(std::memory_order_relaxed))
+        return;
+
+    std::lock_guard<std::mutex> guard(Lock);
+    auto fight = Fights.find(group->GetGUID().GetRawValue());
+    if (fight == Fights.end())
+        return;
+    auto member = fight->second.members.find(bot->GetGUID().GetRawValue());
+    if (member != fight->second.members.end())
+        ++member->second.taunts;
+}
 
 void AddSC_coa_group_telemetry()
 {

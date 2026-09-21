@@ -33,6 +33,9 @@
 #include <unordered_set>
 #include <vector>
 
+// CoaGroupTelemetry.cpp: counts a taunt in the group fight being measured.
+void CoaTelemetryNoteTaunt(Player* bot);
+
 namespace
 {
 
@@ -1129,6 +1132,11 @@ public:
         if (!target || !target->IsAlive())
             return false;
 
+        // Drinking or eating: get up to heal. Standing ends the drink, which the healer starts
+        // again on its own once nobody needs it any more.
+        if (SmartHeal() && !bot->IsStandState())
+            bot->SetStandState(UNIT_STAND_STATE_STAND);
+
         std::vector<Usable> spells;
         switch (mode)
         {
@@ -1199,6 +1207,25 @@ private:
     }
 
     Mode mode;
+};
+
+// Out of a fight, a group member dropping while the healer drinks: a player pulling on their own, a
+// straggler. Under 45% health it gets up if it has a quarter of its mana; under 25%, whatever it has.
+class CoaGroupMemberDroppingTrigger : public Trigger
+{
+public:
+    CoaGroupMemberDroppingTrigger(PlayerbotAI* botAI) : Trigger(botAI, "coa group member dropping") {}
+
+    bool IsActive() override
+    {
+        if (!SmartHeal() || GetCoaRole(bot) != CoaRole::Heal || !bot->IsAlive() || !bot->GetGroup())
+            return false;
+        Unit* target = SmartHealTarget(bot, sPlayerbotAIConfig.lowHealth);
+        if (!target)
+            return false;
+        return target->GetHealthPct() < sPlayerbotAIConfig.criticalHealth ||
+               bot->getPowerType() != POWER_MANA || bot->GetPowerPct(POWER_MANA) >= 25.0f;
+    }
 };
 
 // In a fight, a tank carrying none of this healer's heals over time, while it knows one.
@@ -1298,8 +1325,11 @@ public:
         if (!target || !target->IsAlive())
             return false;
 
-        return RecordUsage(USAGE_TAUNT, CastFirst(botAI, bot,
-            KnownAbilities(bot, [](uint16 kind) { return (kind & KIND_TAUNT) != 0; }), target, USAGE_TAUNT));
+        SpellInfo const* taunt = CastFirst(botAI, bot,
+            KnownAbilities(bot, [](uint16 kind) { return (kind & KIND_TAUNT) != 0; }), target, USAGE_TAUNT);
+        if (taunt)
+            CoaTelemetryNoteTaunt(bot);
+        return RecordUsage(USAGE_TAUNT, taunt);
     }
 
     bool isUseful() override
@@ -1620,6 +1650,8 @@ public:
     void InitTriggers(std::vector<TriggerNode*>& triggers) override
     {
         triggers.push_back(new TriggerNode("often", { NextAction("coa buff", ACTION_NORMAL + 5) }));
+        // A healer heals a group member in danger even outside a fight, before drinking or buffing.
+        triggers.push_back(new TriggerNode("coa group member dropping", { NextAction("coa heal", ACTION_CRITICAL_HEAL) }));
     }
 };
 
@@ -1691,6 +1723,7 @@ public:
         creators["coa dispel"] = &CoaTriggerFactoryInternal::coa_dispel;
         creators["coa enemy casting"] = &CoaTriggerFactoryInternal::coa_enemy_casting;
         creators["coa tank needs hot"] = &CoaTriggerFactoryInternal::coa_tank_needs_hot;
+        creators["coa group member dropping"] = &CoaTriggerFactoryInternal::coa_group_member_dropping;
         creators["coa far from tank"] = &CoaTriggerFactoryInternal::coa_far_from_tank;
         creators["coa healer low mana"] = &CoaTriggerFactoryInternal::coa_healer_low_mana;
     }
@@ -1699,6 +1732,7 @@ private:
     static Trigger* coa_dispel(PlayerbotAI* botAI) { return new CoaDispelTrigger(botAI); }
     static Trigger* coa_enemy_casting(PlayerbotAI* botAI) { return new CoaEnemyCastingTrigger(botAI); }
     static Trigger* coa_tank_needs_hot(PlayerbotAI* botAI) { return new CoaTankNeedsHotTrigger(botAI); }
+    static Trigger* coa_group_member_dropping(PlayerbotAI* botAI) { return new CoaGroupMemberDroppingTrigger(botAI); }
     static Trigger* coa_far_from_tank(PlayerbotAI* botAI) { return new CoaFarFromTankTrigger(botAI); }
     static Trigger* coa_healer_low_mana(PlayerbotAI* botAI) { return new CoaLowManaTrigger(botAI); }
 };
