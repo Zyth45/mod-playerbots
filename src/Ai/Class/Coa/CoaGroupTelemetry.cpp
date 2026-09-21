@@ -1,0 +1,334 @@
+/*
+ * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU AGPL v3 license, you may redistribute it
+ * and/or modify it under version 3 of the License, or (at your option), any later version.
+ */
+
+/*
+ * How a group of a player and bots fares in a fight, written to CoaBots.log when the fight ends:
+ * how long each member spent under half and under a quarter of its health, who died, who the
+ * healing went to and how much of it was wasted, the healers' mana from the pull to the end, and
+ * how long something other than the tank was being hit. It is what a dungeon run is measured by,
+ * before and after a change to the way bots heal and tank.
+ *
+ * Only groups with a real player in them are followed, sampled from that player's own update so
+ * that every member read is on the same map, and therefore on the same map thread.
+ */
+
+#include "CoaSpecialization.h"
+#include "Group.h"
+#include "Log.h"
+#include "Map.h"
+#include "Player.h"
+#include "PlayerbotAIConfig.h"
+#include "Playerbots.h"
+#include "ScriptMgr.h"
+#include "Timer.h"
+
+#include <atomic>
+#include <mutex>
+#include <sstream>
+#include <unordered_map>
+#include <vector>
+
+namespace
+{
+constexpr uint32 SampleEvery = 500;      // ms between two looks at the group
+constexpr uint32 LongestSample = 2000;   // a longer gap (a loading screen) counts as this much
+constexpr uint32 EndAfter = 4000;        // ms with nobody in combat that close the fight
+constexpr uint32 ShortestFight = 5000;   // shorter fights (a critter, a stray hit) are not written
+
+struct MemberStats
+{
+    std::string name;
+    CoaRole role = CoaRole::Dps;
+    bool bot = false;
+    uint32 below50 = 0;   // ms
+    uint32 below25 = 0;   // ms
+    uint32 deaths = 0;
+    bool wasAlive = true;
+    uint64 healReceived = 0;
+    // As a healer.
+    uint64 healDone = 0;
+    uint64 overheal = 0;
+    // Mana, for members that use it.
+    bool mana = false;
+    float manaStart = 0.0f;
+    float manaLowest = 100.0f;
+    float manaEnd = 0.0f;
+    uint32 outOfMana = 0;  // ms under 10%
+};
+
+struct Fight
+{
+    std::string mapName;
+    uint32 start = 0;
+    uint32 lastSample = 0;
+    uint32 lastInCombat = 0;
+    uint32 nonTankHit = 0;  // ms during which something was hitting a member that is not a tank
+    std::vector<uint64> order;  // members in the order they were first seen
+    std::unordered_map<uint64, MemberStats> members;
+};
+
+std::mutex Lock;
+std::unordered_map<uint64, Fight> Fights;      // by group
+std::atomic<uint32> ActiveFights{ 0 };
+
+// The raw amount of the spell heal being applied on this thread, set just before the effective
+// amount reaches OnHeal: the difference is the overheal.
+thread_local Unit const* PendingHealTarget = nullptr;
+thread_local uint32 PendingHealRaw = 0;
+
+char const* RoleWord(CoaRole role)
+{
+    switch (role)
+    {
+        case CoaRole::Tank: return "tank";
+        case CoaRole::Heal: return "heal";
+        default: return "dps";
+    }
+}
+
+std::string Seconds(uint32 ms)
+{
+    std::ostringstream out;
+    out.precision(1);
+    out << std::fixed << ms / 1000.0f << " s";
+    return out.str();
+}
+
+void Write(Fight const& fight, uint32 now)
+{
+    uint32 const length = getMSTimeDiff(fight.start, now);
+    if (length < ShortestFight)
+        return;
+
+    uint64 healing = 0;
+    for (auto const& [guid, member] : fight.members)
+        healing += member.healReceived;
+
+    LOG_INFO("playerbots.coa", "coa group fight: {} in {}, {} members, something other than a tank was being hit for {}",
+             Seconds(length), fight.mapName, fight.members.size(), Seconds(fight.nonTankHit));
+
+    for (uint64 guid : fight.order)
+    {
+        MemberStats const& m = fight.members.at(guid);
+        std::ostringstream line;
+        line << "  " << RoleWord(m.role) << " " << m.name << (m.bot ? "" : " (player)")
+             << ": under 50% " << Seconds(m.below50) << ", under 25% " << Seconds(m.below25)
+             << ", deaths " << m.deaths << ", healing received " << m.healReceived;
+        if (healing)
+            line << " (" << (m.healReceived * 100 / healing) << "%)";
+        if (m.healDone)
+            line << ", healing done " << m.healDone << ", overheal "
+                 << (m.overheal * 100 / (m.healDone + m.overheal)) << "%";
+        if (m.mana && (m.role == CoaRole::Heal || m.healDone))
+            line << ", mana " << int32(m.manaStart) << "% -> " << int32(m.manaEnd) << "% (lowest "
+                 << int32(m.manaLowest) << "%, under 10% for " << Seconds(m.outOfMana) << ")";
+        LOG_INFO("playerbots.coa", "{}", line.str());
+    }
+}
+
+// The member of the group that samples it: its first real player that is in the world.
+bool IsSampler(Player* player, Group* group)
+{
+    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+        if (Player* member = ref->GetSource())
+            if (member->IsInWorld() && !GET_PLAYERBOT_AI(member))
+                return member == player;
+    return false;
+}
+
+// A group that broke up, or whose player logged out, mid fight is never sampled again: its fight
+// is closed here after a minute of silence, so that nothing is kept and the heal hook goes idle.
+void CloseAbandoned(uint32 now)
+{
+    for (auto itr = Fights.begin(); itr != Fights.end();)
+    {
+        if (getMSTimeDiff(itr->second.lastSample, now) < 60000)
+        {
+            ++itr;
+            continue;
+        }
+        Write(itr->second, itr->second.lastSample);
+        itr = Fights.erase(itr);
+        --ActiveFights;
+    }
+}
+
+void Sample(Player* sampler, Group* group, uint32 now)
+{
+    uint64 const key = group->GetGUID().GetRawValue();
+    std::lock_guard<std::mutex> guard(Lock);
+    CloseAbandoned(now);
+
+    auto found = Fights.find(key);
+    Fight* fight = found != Fights.end() ? &found->second : nullptr;
+    if (fight && getMSTimeDiff(fight->lastSample, now) < SampleEvery)
+        return;
+
+    // Members read here are the ones on the sampler's map instance, updated by this very thread.
+    std::vector<Player*> present;
+    bool combat = false;
+    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+    {
+        Player* member = ref->GetSource();
+        if (!member || !member->IsInWorld() || member->GetMapId() != sampler->GetMapId() ||
+            member->GetInstanceId() != sampler->GetInstanceId())
+            continue;
+        present.push_back(member);
+        combat = combat || member->IsInCombat();
+    }
+
+    if (!fight)
+    {
+        if (!combat || present.size() < 2)
+            return;
+        fight = &Fights[key];
+        fight->mapName = sampler->GetMap()->GetMapName();
+        fight->start = fight->lastSample = fight->lastInCombat = now;
+        ++ActiveFights;
+    }
+
+    uint32 const elapsed = std::min(getMSTimeDiff(fight->lastSample, now), LongestSample);
+    fight->lastSample = now;
+    if (combat)
+        fight->lastInCombat = now;
+
+    bool nonTankHit = false;
+    for (Player* member : present)
+    {
+        uint64 const guid = member->GetGUID().GetRawValue();
+        auto [entry, added] = fight->members.try_emplace(guid);
+        MemberStats& m = entry->second;
+        if (added)
+        {
+            fight->order.push_back(guid);
+            m.name = member->GetName();
+            m.role = GetCoaRole(member);
+            m.bot = GET_PLAYERBOT_AI(member) != nullptr;
+            m.mana = member->getPowerType() == POWER_MANA;
+            if (m.mana)
+                m.manaStart = m.manaLowest = m.manaEnd = member->GetPowerPct(POWER_MANA);
+            // Dead since an earlier fight: not a death of this one.
+            m.wasAlive = member->IsAlive();
+        }
+
+        if (!member->IsAlive())
+        {
+            if (m.wasAlive)
+                ++m.deaths;
+            m.wasAlive = false;
+            continue;
+        }
+        m.wasAlive = true;
+
+        float const health = member->GetHealthPct();
+        if (health < 50.0f)
+            m.below50 += elapsed;
+        if (health < 25.0f)
+            m.below25 += elapsed;
+
+        if (m.mana)
+        {
+            float const mana = member->GetPowerPct(POWER_MANA);
+            m.manaEnd = mana;
+            m.manaLowest = std::min(m.manaLowest, mana);
+            if (mana < 10.0f)
+                m.outOfMana += elapsed;
+        }
+
+        if (m.role != CoaRole::Tank && !nonTankHit)
+            for (Unit* attacker : member->getAttackers())
+                if (attacker->GetVictim() == member)
+                {
+                    nonTankHit = true;
+                    break;
+                }
+    }
+    if (nonTankHit)
+        fight->nonTankHit += elapsed;
+
+    if (!combat && getMSTimeDiff(fight->lastInCombat, now) >= EndAfter)
+    {
+        Write(*fight, now);
+        Fights.erase(key);
+        --ActiveFights;
+    }
+}
+
+class CoaGroupTelemetryPlayerScript : public PlayerScript
+{
+public:
+    CoaGroupTelemetryPlayerScript() : PlayerScript("CoaGroupTelemetryPlayerScript", { PLAYERHOOK_ON_UPDATE }) {}
+
+    void OnPlayerUpdate(Player* player, uint32 /*diff*/) override
+    {
+        if (!sPlayerbotAIConfig.coaGroupTelemetry || GET_PLAYERBOT_AI(player))
+            return;
+
+        Group* group = player->GetGroup();
+        if (!group || group->isRaidGroup() || !IsSampler(player, group))
+            return;
+
+        Sample(player, group, getMSTime());
+    }
+};
+
+class CoaGroupTelemetryUnitScript : public UnitScript
+{
+public:
+    CoaGroupTelemetryUnitScript()
+        : UnitScript("CoaGroupTelemetryUnitScript", true, { UNITHOOK_ON_HEAL, UNITHOOK_MODIFY_HEAL_RECEIVED }) {}
+
+    // Unit::HealBySpell hands the raw amount here just before it is applied.
+    void ModifyHealReceived(Unit* healer, Unit* target, uint32& heal, SpellInfo const* /*spellInfo*/) override
+    {
+        if (!ActiveFights.load(std::memory_order_relaxed))
+            return;
+        PendingHealTarget = target;
+        PendingHealRaw = heal;
+        (void)healer;
+    }
+
+    void OnHeal(Unit* healer, Unit* receiver, uint32& gain) override
+    {
+        uint32 raw = gain;
+        if (PendingHealTarget == receiver && PendingHealRaw >= gain)
+            raw = PendingHealRaw;
+        PendingHealTarget = nullptr;
+
+        if (!ActiveFights.load(std::memory_order_relaxed) || !healer || !receiver)
+            return;
+
+        Player* target = receiver->ToPlayer();
+        Player* source = healer->GetCharmerOrOwnerPlayerOrPlayerItself();
+        if (!target || !source)
+            return;
+        Group* group = target->GetGroup();
+        if (!group || source->GetGroup() != group)
+            return;
+
+        std::lock_guard<std::mutex> guard(Lock);
+        auto fight = Fights.find(group->GetGUID().GetRawValue());
+        if (fight == Fights.end())
+            return;
+
+        auto& members = fight->second.members;
+        auto to = members.find(target->GetGUID().GetRawValue());
+        auto from = members.find(source->GetGUID().GetRawValue());
+        if (to != members.end())
+            to->second.healReceived += gain;
+        if (from != members.end())
+        {
+            from->second.healDone += gain;
+            from->second.overheal += raw - gain;
+        }
+    }
+};
+}  // namespace
+
+void AddSC_coa_group_telemetry()
+{
+    new CoaGroupTelemetryPlayerScript();
+    new CoaGroupTelemetryUnitScript();
+}

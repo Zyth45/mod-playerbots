@@ -1416,6 +1416,13 @@ AiPlayerbot.CoaHealerManaReserve = 35
 # Default: 15
 AiPlayerbot.CoaCasterManaReserve = 15
 
+# How a group of a player and bots fares in each fight, written to CoaBots.log when the fight
+# ends: time each member spent under 50% and under 25% health, deaths, who received the healing
+# and how much was overheal, the healers' mana from the pull to the end, and how long something
+# other than the tank was being hit. Only groups with a real player in them are followed.
+# Default: 1 (enabled)
+AiPlayerbot.CoaGroupTelemetry = 1
+
 # Quality a looted item must reach to be written to the "playerbots.loot" logger:
 # 3 rare (blue), 4 epic, 5 legendary. Nothing is written unless worldserver.conf
 # points that logger at an appender, and only bots are ever logged.
