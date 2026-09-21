@@ -302,7 +302,6 @@ bool EnsureCoaSpecialization(Player* bot)
     // weighs more than tanking to reach about one healer in eight specialized bots overall.
     // A role the class cannot fill gives its share to the others.
     std::array<uint32, 3> const shares = { 50, 20, 30 };
-
     uint32 total = 0;
     for (uint8 role = 0; role < 3; ++role)
         if (!byRole[role].empty())

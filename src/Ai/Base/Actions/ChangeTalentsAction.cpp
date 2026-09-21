@@ -208,19 +208,16 @@ std::string ChangeTalentsAction::CoaSpecPick(std::string const& wanted)
     CoaSpecStrategy const* pick =
         matches.size() == 1 ? matches[0] : matches[urand(0, matches.size() - 1)];
 
-if (!SwitchAscensionSpecialization(bot, pick->specId))
-    return std::string("I cannot switch to ") + pick->specName + ".";
+    if (!SwitchAscensionSpecialization(bot, pick->specId))
+        return std::string("I cannot switch to ") + pick->specName + ".";
 
-// A specialization explicitly chosen through "talents spec" must not be
-// overwritten later by EnsureCoaSpecialization's deterministic random-bot role.
-//
-// Store the chosen spec in the random-bot event store so it survives
-// logout/restart and can be reapplied if required.
-if (sRandomPlayerbotMgr.IsRandomBot(bot))
-    sRandomPlayerbotMgr.SetValue(bot, "coa_manual_spec", pick->specId);
-
-// Talents follow the CoA talent path.
-ApplyCoaTalents(bot);
+    // A specialization explicitly chosen through "talents spec" must not be
+    // overwritten later by EnsureCoaSpecialization's deterministic random-bot role.
+    //
+    // Store the chosen spec in the random-bot event store so it survives
+    // logout/restart and can be reapplied if required.
+    if (sRandomPlayerbotMgr.IsRandomBot(bot))
+        sRandomPlayerbotMgr.SetValue(bot, "coa_manual_spec", pick->specId);
 
     // Talents follow the coa talent path: the new specialization's level build, recorded through
     // SetAscensionTalentRank like a player's purchase (random bots only, as for every other pick).
