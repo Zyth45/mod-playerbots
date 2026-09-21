@@ -616,8 +616,11 @@ Unit* SmartHealTarget(Player* bot, float below)
     for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
         Player* member = ref->GetSource();
+        // Within reach only: a member chosen further away made every heal fail out of range, and
+        // nothing brought the healer closer (a Witch Doctor's Loa's Brew, 5 times in one fight). One
+        // further away is left to the generic "reach party member to heal", which walks to it.
         if (!member || member->IsGameMaster() || !member->IsAlive() || !OnSameInstance(bot, member) ||
-            member->IsCharmed() || bot->GetDistance2d(member) > sPlayerbotAIConfig.healDistance * 2 ||
+            member->IsCharmed() || bot->GetDistance2d(member) > sPlayerbotAIConfig.healDistance ||
             !bot->IsWithinLOSInMap(member))
             continue;
 
