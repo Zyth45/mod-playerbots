@@ -64,9 +64,9 @@ bool CoaHealerSavesManaFrom(Player* bot, SpellInfo const* info);
 // healer's rotation put Spider Form back 10 times in one fight, each time the healer left it to heal).
 bool CoaHealerAvoidsForm(Player* bot, SpellInfo const* info);
 
-// Whether the bot already carries, from its own casting, another spell of which only one may be
-// active ("Can only have 1 Skin active at a time", "Only 1 Ascension spell can be active"): the
-// rotations list them all, and each one cast removed the other (Pyromancer skins, 23 casts a fight).
+// Whether the bot already carries another spell of which only one may be active ("Can only have 1
+// Skin active at a time", "Only 1 Ascension spell can be active"): the rotations list them all, and
+// each one cast removed the other (Pyromancer skins, 23 casts a fight).
 bool CoaHoldsExclusiveSibling(Player* bot, SpellInfo const* info);
 
 // The heals a CoA healer considers, for the fight log: "Med Pack (502534), ...".

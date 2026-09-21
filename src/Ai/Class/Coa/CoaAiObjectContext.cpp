@@ -28,7 +28,6 @@
 #include <array>
 #include <atomic>
 #include <cmath>
-#include <cstring>
 #include <ctime>
 #include <map>
 #include <mutex>
@@ -2188,48 +2187,33 @@ bool CoaHealerAvoidsForm(Player* bot, SpellInfo const* info)
     return info && GetCoaRole(bot) == CoaRole::Heal && FormBlocksHeals(bot, info);
 }
 
-// The name of the set a spell belongs to when its text says only one of the set may be active:
-// "Can only have 1 |cffffffffSkin|r active" -> "Skin". Empty when it says nothing of the kind.
-static std::string ExclusiveSet(SpellInfo const* info)
+/*
+ * Spells of which only one may be active at a time: casting one removes the others. The rule lives in
+ * mod-ascension-compat's aura scripts (AscensionPyromancerAuras.cpp, AscensionCultistAuras.cpp) and
+ * not in the spell data, so the families are mirrored here. Keep them in step with those files.
+ */
+std::vector<std::vector<uint32>> const ExclusiveFamilies =
 {
-    static std::mutex lock;
-    static std::unordered_map<uint32, std::string> known;
-    std::lock_guard<std::mutex> guard(lock);
-    auto const found = known.find(info->Id);
-    if (found != known.end())
-        return found->second;
-
-    std::string set;
-    std::string const text = info->Description[0] ? info->Description[0] : "";
-    for (char const* lead : { "only have 1 |c", "Only 1 |c", "only 1 |c" })
-    {
-        std::size_t at = text.find(lead);
-        if (at == std::string::npos)
-            continue;
-        at += std::strlen(lead) + 8;  // the colour, eight hex digits
-        std::size_t const end = text.find("|r", at);
-        if (end != std::string::npos && end > at)
-            set = text.substr(at, end - at);
-        break;
-    }
-    known.emplace(info->Id, set);
-    return set;
-}
+    { 504707, 504720, 680387, 681314 },                                               // Pyromancer skins
+    { 1119751, 1119754, 1119755, 1119756, 1119757, 1119758, 1119901, 1119944, 1119953 }, // Ascension auras
+    { 803035, 803037, 803082, 803339 },                                               // Cultist
+    { 561386, 561387, 561389, 561390, 561391, 561392, 572637, 572791, 572819, 572905, 573067 }, // Cultist
+};
 
 bool CoaHoldsExclusiveSibling(Player* bot, SpellInfo const* info)
 {
     if (!info)
         return false;
-    std::string const set = ExclusiveSet(info);
-    if (set.empty())
-        return false;
 
-    for (auto const& [id, application] : bot->GetAppliedAuras())
+    uint32 const id = info->GetFirstRankSpell()->Id;
+    for (std::vector<uint32> const& family : ExclusiveFamilies)
     {
-        Aura const* aura = application->GetBase();
-        if (aura->GetCasterGUID() == bot->GetGUID() && aura->GetId() != info->Id &&
-            ExclusiveSet(aura->GetSpellInfo()) == set)
-            return true;
+        if (std::find(family.begin(), family.end(), id) == family.end() &&
+            std::find(family.begin(), family.end(), info->Id) == family.end())
+            continue;
+        for (uint32 other : family)
+            if (other != id && other != info->Id && bot->HasAura(other))
+                return true;
     }
     return false;
 }
