@@ -17,6 +17,7 @@
 #include "Random.h"
 #include "RandomPlayerbotMgr.h"
 #include "SharedDefines.h"
+#include "World.h"
 #include "mod-ascension-compat/src/AscensionSpecialization.h"
 
 #include <algorithm>
@@ -404,6 +405,12 @@ bool RecruitCoaBot(Player* master, CoaRole role, std::string& message)
         if (!bot || bot == master || !bot->IsInWorld() || bot->IsBeingTeleported() ||
             !IsAscensionCustomClassId(bot->getClass()) || !bot->IsAlive() || bot->IsInCombat() || bot->GetGroup() ||
             bot->InBattleground() || bot->IsInFlight())
+            continue;
+
+        // The bot is added to the group directly, past the invitation checks, so the realm's
+        // cross-faction rule has to be applied here: an Alliance player was handed a Forsaken
+        // healer, whom the first city guard outside the dungeon would have attacked.
+        if (bot->GetTeamId() != master->GetTeamId() && !sWorld->getBoolConfig(CONFIG_ALLOW_TWO_SIDE_INTERACTION_GROUP))
             continue;
 
         PlayerbotAI* botAI = GET_PLAYERBOT_AI(bot);
