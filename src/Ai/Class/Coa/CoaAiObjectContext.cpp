@@ -1775,10 +1775,10 @@ public:
 };
 
 /*
- * Out of a fight, with nobody of the group fighting, a dead group member lying where it fell (not
- * released) is brought back by the first bot that has a resurrection: it walks within 25 yards and
- * in sight, then casts. A tank that died at the end of a pull no longer waits for the player to run
- * back.
+ * Out of a fight, with nobody of the group fighting, the dead lying where they fell (not released) are
+ * brought back by the first bot that has a resurrection: the player first, then the bots of the group,
+ * then other players of its faction close by in a dungeon. It walks within 25 yards and in sight, then
+ * casts and says so. A tank that died at the end of a pull no longer waits for the player to run back.
  */
 constexpr float ResurrectReach = 25.0f;
 
@@ -1794,23 +1794,49 @@ bool GroupFighting(Player* bot)
     return false;
 }
 
+// Whom to bring back first: a real player of the group, then a bot of the group, then - inside a
+// dungeon, where the list of players is short - any other player of the bot's faction lying within
+// 30 yards. Nearest first within each. Only the dead who have not released can be raised.
+constexpr float ResurrectStrangersWithin = 30.0f;
+
 Player* DeadGroupMember(Player* bot)
 {
     Group* group = bot->GetGroup();
     if (!group)
         return nullptr;
 
-    Player* nearest = nullptr;
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+    Player* best = nullptr;
+    int bestRank = 3;
+    float bestDistance = 0.0f;
+    auto consider = [&](Player* dead, int rank)
     {
-        Player* member = ref->GetSource();
-        if (!member || member == bot || !OnSameInstance(bot, member) || member->IsAlive() ||
-            member->HasPlayerFlag(PLAYER_FLAGS_GHOST) || member->GetDistance(bot) > sPlayerbotAIConfig.sightDistance)
-            continue;
-        if (!nearest || member->GetDistance(bot) < nearest->GetDistance(bot))
-            nearest = member;
-    }
-    return nearest;
+        if (!dead || dead == bot || dead->IsAlive() || dead->HasPlayerFlag(PLAYER_FLAGS_GHOST) || !OnSameInstance(bot, dead))
+            return;
+        float const distance = dead->GetDistance(bot);
+        if (distance > sPlayerbotAIConfig.sightDistance)
+            return;
+        if (!best || rank < bestRank || (rank == bestRank && distance < bestDistance))
+        {
+            best = dead;
+            bestRank = rank;
+            bestDistance = distance;
+        }
+    };
+
+    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+        if (Player* member = ref->GetSource())
+            consider(member, GET_PLAYERBOT_AI(member) ? 1 : 0);
+
+    if (!best && bot->GetMap()->IsDungeon())
+        for (auto const& ref : bot->GetMap()->GetPlayers())
+        {
+            Player* other = ref.GetSource();
+            if (other && !other->IsInSameGroupWith(bot) && other->GetTeamId() == bot->GetTeamId() &&
+                other->GetDistance(bot) <= ResurrectStrangersWithin)
+                consider(other, 2);
+        }
+
+    return best;
 }
 
 class CoaGroupMemberDeadTrigger : public Trigger
