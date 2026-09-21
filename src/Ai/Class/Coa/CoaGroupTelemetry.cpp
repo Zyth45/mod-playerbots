@@ -23,10 +23,12 @@
 #include "PlayerbotAIConfig.h"
 #include "Playerbots.h"
 #include "ScriptMgr.h"
+#include "Spell.h"
 #include "SpellInfo.h"
 #include "SpellMgr.h"
 #include "Timer.h"
 
+#include <algorithm>
 #include <atomic>
 #include <map>
 #include <mutex>
@@ -74,6 +76,8 @@ struct MemberStats
     uint32 taunts = 0;
     // Every heal this member tried, by spell and outcome (0 = cast).
     std::map<std::pair<uint32, uint16>, uint32> healTries;
+    // Mana paid for each spell it cast, heals or not, and how many casts: where a healer's mana went.
+    std::map<uint32, std::pair<uint32, uint32>> manaSpent;
 };
 
 struct Fight
@@ -190,6 +194,25 @@ void Write(Fight const& fight, uint32 now)
                       << OutcomeWord(key.second) << " x" << count << ";";
             }
             LOG_INFO("playerbots.coa", "{}", tries.str());
+        }
+
+        if (m.role == CoaRole::Heal && !m.manaSpent.empty())
+        {
+            std::vector<std::pair<uint32, std::pair<uint32, uint32>>> spent(m.manaSpent.begin(), m.manaSpent.end());
+            std::sort(spent.begin(), spent.end(), [](auto const& a, auto const& b) { return a.second.first > b.second.first; });
+            uint32 total = 0;
+            for (auto const& entry : spent)
+                total += entry.second.first;
+
+            std::ostringstream where;
+            where << "    mana of " << m.name << ": " << total << " spent;";
+            for (std::size_t i = 0; i < spent.size() && i < 8; ++i)
+            {
+                SpellInfo const* info = sSpellMgr->GetSpellInfo(spent[i].first);
+                where << " " << (info ? info->SpellName[0] : "?") << " (" << spent[i].first << ") "
+                      << spent[i].second.first << " in " << spent[i].second.second << ";";
+            }
+            LOG_INFO("playerbots.coa", "{}", where.str());
         }
     }
 }
@@ -344,7 +367,30 @@ void Sample(Player* sampler, Group* group, uint32 now)
 class CoaGroupTelemetryPlayerScript : public PlayerScript
 {
 public:
-    CoaGroupTelemetryPlayerScript() : PlayerScript("CoaGroupTelemetryPlayerScript", { PLAYERHOOK_ON_UPDATE }) {}
+    CoaGroupTelemetryPlayerScript() : PlayerScript("CoaGroupTelemetryPlayerScript", { PLAYERHOOK_ON_UPDATE, PLAYERHOOK_ON_SPELL_CAST }) {}
+
+    // What each member of a followed fight pays in mana, spell by spell.
+    void OnPlayerSpellCast(Player* player, Spell* spell, bool /*skipCheck*/) override
+    {
+        if (!sPlayerbotAIConfig.coaGroupTelemetry || !spell || spell->GetPowerCost() <= 0 ||
+            spell->GetSpellInfo()->PowerType != POWER_MANA || !ActiveFights.load(std::memory_order_relaxed))
+            return;
+
+        Group* group = player->GetGroup();
+        if (!group)
+            return;
+
+        std::lock_guard<std::mutex> guard(Lock);
+        auto fight = Fights.find(group->GetGUID().GetRawValue());
+        if (fight == Fights.end())
+            return;
+        auto member = fight->second.members.find(player->GetGUID().GetRawValue());
+        if (member == fight->second.members.end())
+            return;
+        auto& entry = member->second.manaSpent[spell->GetSpellInfo()->Id];
+        entry.first += uint32(spell->GetPowerCost());
+        ++entry.second;
+    }
 
     void OnPlayerUpdate(Player* player, uint32 /*diff*/) override
     {
