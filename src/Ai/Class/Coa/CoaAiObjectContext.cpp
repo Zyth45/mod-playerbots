@@ -1673,7 +1673,7 @@ protected:
  * dead, in a fight, eating or drinking, everyone at 70% health or more, the healers at 70% mana or
  * more. It pulls the nearest hostile creature it can see within 30 yards, never one more than 40
  * yards from the player or on another floor, says what it pulls, and leaves the route to the
- * player: it does not know the dungeon, it takes what is in front of the group.
+ * player: it does not know the dungeon, it takes what is in front of the group. In dungeons only.
  */
 constexpr float AutoPullRange = 30.0f;
 constexpr float AutoPullLeash = 40.0f;
@@ -1730,7 +1730,9 @@ public:
 
     bool IsActive() override
     {
-        if (!sPlayerbotAIConfig.coaSmartTank || !PlayerbotAI::IsTank(bot) || bot->IsInCombat() || !bot->IsAlive())
+        // Dungeons only: in the open world the player is questing or travelling, not asking for pulls.
+        if (!sPlayerbotAIConfig.coaSmartTank || !PlayerbotAI::IsTank(bot) || bot->IsInCombat() || !bot->IsAlive() ||
+            !bot->GetMap()->IsDungeon())
             return false;
         Player* master = botAI->GetMaster();
         if (!master || GET_PLAYERBOT_AI(master) || !OnSameInstance(bot, master))
