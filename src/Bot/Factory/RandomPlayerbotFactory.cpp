@@ -417,6 +417,14 @@ uint32 RandomPlayerbotFactory::CalculateTotalAccountCount()
     // Return existing total plus any additional accounts needed
     uint32 calculatedTotal = existingTotal + additionalAccountsNeeded;
 
+    // Every term, once per start: a restart on 21/09 asked for 800 accounts where every earlier one,
+    // with the same settings, had asked for 200, and created 12,600 characters nobody needed.
+    LOG_INFO("playerbots", "Bot accounts: max bots {} (periodic {} x{}), {} characters per account -> {} RNDbot "
+             "accounts needed; existing RNDbot {}, AddClass {} (needed {}), unassigned {} -> total {}",
+             sPlayerbotAIConfig.maxRandomBots, sPlayerbotAIConfig.enablePeriodicOnlineOffline,
+             sPlayerbotAIConfig.periodicOnlineOfflineRatio, divisor, neededRndBotAccounts, existingRndBotAccounts,
+             existingAddClassAccounts, neededAddClassAccounts, existingUnassignedAccounts, calculatedTotal);
+
     // Manually set randomBotAccountCount meets the requirements
     if (sPlayerbotAIConfig.randomBotAccountCount >= calculatedTotal)
         return sPlayerbotAIConfig.randomBotAccountCount;
