@@ -276,6 +276,26 @@ bool EnsureCoaSpecialization(Player* bot)
     if (!sRandomPlayerbotMgr.IsRandomBot(bot))
         return false;
 
+    // Explicit "talents spec <name>" choice.
+    //
+    // Random CoA bots normally receive a deterministic role/spec based on
+    // their GUID. Once the player explicitly selects a specialization,
+    // preserve that choice instead of allowing the automatic role picker
+    // to overwrite it.
+    uint32 const manualSpec = sRandomPlayerbotMgr.GetValue(bot, "coa_manual_spec");
+
+    if (manualSpec)
+    {
+        uint32 const current = GetAscensionActiveSpecialization(bot);
+
+        // Normally the CoA core has already persisted this specialization.
+        // Reapply it only if something rebuilt/reloaded the bot with another one.
+        if (current != manualSpec)
+            return SwitchAscensionSpecialization(bot, manualSpec);
+
+        return false;
+    }
+
     std::array<std::vector<uint32>, 3> const byRole = SpecializationsByRole(bot->getClass());
 
     // Dungeon groups need a tank and a healer. Only 8 of the 21 classes can heal, so healing
@@ -446,11 +466,17 @@ bool RecruitCoaBot(Player* master, CoaRole role, std::string& message)
         // Keep the array alive: a reference into the temporary would dangle.
         std::array<std::vector<uint32>, 3> const byRole = SpecializationsByRole(chosen->getClass());
         std::vector<uint32> const& candidates = byRole[uint8(role)];
-        if (!SwitchAscensionSpecialization(chosen, candidates[urand(0, candidates.size() - 1)]))
+        uint32 const specialization = candidates[urand(0, candidates.size() - 1)];
+        if (!SwitchAscensionSpecialization(chosen, specialization))
         {
             message = "Could not give " + chosen->GetName() + " a specialization.";
             return false;
         }
+
+        // A recruit is chosen as explicitly as "talents spec": recorded the same way, or the
+        // strategy reset below would hand the bot straight back its earlier specialization.
+        if (sRandomPlayerbotMgr.IsRandomBot(chosen))
+            sRandomPlayerbotMgr.SetValue(chosen, "coa_manual_spec", specialization);
     }
 
     // Points for every level it just skipped.
