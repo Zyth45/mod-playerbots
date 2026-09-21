@@ -12,6 +12,7 @@
 #include <string>
 
 class Player;
+class SpellInfo;
 
 enum class CoaRole : uint8
 {
@@ -52,6 +53,12 @@ CoaArmorProficiency const* GetCoaArmorProficiency(uint8 playerClass);
 
 // Role of a Conquest of Azeroth character, from its active specialization. Dps when it has none.
 CoaRole GetCoaRole(Player const* player);
+
+// Whether a CoA healer holding its mana back for heals should leave this spell alone: it costs mana
+// and the healer is under its reserve. For the authored rotations' "can cast" lines, which would
+// otherwise spend on damage and buffs every mana the heal logic keeps (healer trial, 22/09/2026:
+// 43 to 58% of a healer's mana went into one such spell).
+bool CoaHealerSavesManaFrom(Player* bot, SpellInfo const* info);
 
 // Fighting style and primary stats of a CoA character's specialization. Before it has one
 // (under level 10), those shared by most specializations of its class.

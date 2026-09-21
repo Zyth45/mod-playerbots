@@ -325,7 +325,21 @@ public:
         std::string const getName() override { return Label "::" + qualifier; } \
     };
 
-COA_QUALIFIED_SPELL_TRIGGER(CoaCanCastTrigger, SpellCanBeCastTrigger, "can cast")
+/* "can cast::<spell>" - the spell can be cast now. Unlike the original, not when the bot already
+ * carries the lasting aura it gives (an Ascension resistance aura was recast 23 times in one fight,
+ * 20% of base mana each), nor for a healer keeping its mana for heals. */
+class CoaCanCastTrigger : public SpellCanBeCastTrigger, public Qualified
+{
+public:
+    CoaCanCastTrigger(PlayerbotAI* botAI) : SpellCanBeCastTrigger(botAI, "") {}
+    void Qualify(std::string const qual) override
+    {
+        Qualified::Qualify(qual);
+        spell = qual;
+    }
+    std::string const getName() override { return "can cast::" + qualifier; }
+    bool IsActive() override;
+};
 COA_QUALIFIED_SPELL_TRIGGER(CoaBuffMissingTrigger, BuffTrigger, "buff missing")
 COA_QUALIFIED_SPELL_TRIGGER(CoaDebuffMissingTrigger, DebuffTrigger, "debuff missing")
 

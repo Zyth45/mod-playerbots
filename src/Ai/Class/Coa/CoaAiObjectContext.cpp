@@ -554,6 +554,12 @@ bool SavingManaForHeals(Player* bot)
         { return (kind & (KIND_HEAL | KIND_HOT)) && !(kind & (KIND_CONTROL | KIND_HOSTILE)); }).empty();
 }
 
+bool CoaHealerSavesManaFrom(Player* bot, SpellInfo const* info)
+{
+    return info && GetCoaRole(bot) == CoaRole::Heal && info->PowerType == POWER_MANA &&
+           info->CalcPowerCost(bot, info->GetSchoolMask()) > 0 && SavingManaForHeals(bot);
+}
+
 // Removes what costs mana, for a bot that is keeping the rest of its mana for healing.
 void DropManaSpells(Player* bot, std::vector<Usable>& spells)
 {

@@ -12,6 +12,7 @@
 #include "GridNotifiers.h"
 #include "GridNotifiersImpl.h"
 #include "Playerbots.h"
+#include "CoaSpecialization.h"
 #include "SpellInfo.h"
 #include "SpellMgr.h"
 #include <map>
@@ -172,6 +173,23 @@ bool CoaResourceTrigger::IsActive()
 // Wide enough for a bot to see its summons anywhere in a fight, and narrow
 // enough that creatures at the other end of the zone do not count.
 static constexpr float SEARCH_RANGE = 60.0f;
+
+bool CoaCanCastTrigger::IsActive()
+{
+    if (!SpellCanBeCastTrigger::IsActive())
+        return false;
+
+    uint32 const id = AI_VALUE2(uint32, "spell id", spell);
+    SpellInfo const* info = id ? sSpellMgr->GetSpellInfo(id) : nullptr;
+    if (!info)
+        return true;
+
+    int32 const duration = info->GetMaxDuration();
+    if (bot->HasAura(id) && (duration < 0 || duration > 60 * IN_MILLISECONDS))
+        return false;
+
+    return !CoaHealerSavesManaFrom(bot, info);
+}
 
 bool CoaSummonMissingTrigger::IsActive()
 {
