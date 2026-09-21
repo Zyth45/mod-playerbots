@@ -603,9 +603,49 @@ Player* GroupTank(Player* bot)
     return nullptr;
 }
 
+/*
+ * Below what health a healer tops a group member up, from its mana. CoA heals cost 15 to 39% of
+ * base mana each - the same as on Ascension - so a healer that heals everyone under 85% is dry
+ * after a handful of casts: in the healer trial of 21/09 all eight classes were, with 65 to 76% of
+ * their healing lost to overheal. Full, it heals under 85%; the emptier it gets, the more it lets a
+ * scratch go, down to 45% at a fifth of its mana. Someone under the critical line is healed anyway.
+ */
+float HealLine(Player* bot)
+{
+    float const low = float(sPlayerbotAIConfig.lowHealth);
+    float const high = float(sPlayerbotAIConfig.almostFullHealth);
+    if (!SmartHeal() || bot->getPowerType() != POWER_MANA)
+        return high;
+
+    float const share = std::clamp((bot->GetPowerPct(POWER_MANA) - 20.0f) / 60.0f, 0.0f, 1.0f);
+    return low + (high - low) * share;
+}
+
+// Whether another member of the group is already casting a heal on this one.
+bool BeingHealedByAnother(Player* bot, Unit* target)
+{
+    Group* group = bot->GetGroup();
+    if (!group)
+        return false;
+
+    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+    {
+        Player* member = ref->GetSource();
+        if (!member || member == bot || !OnSameInstance(bot, member))
+            continue;
+        Spell const* spell = member->GetCurrentSpell(CURRENT_GENERIC_SPELL);
+        if (spell && spell->m_targets.GetUnitTargetGUID() == target->GetGUID() &&
+            (spell->GetSpellInfo()->HasEffect(SPELL_EFFECT_HEAL) || spell->GetSpellInfo()->HasEffect(SPELL_EFFECT_HEAL_PCT)))
+            return true;
+    }
+    return false;
+}
+
 // The member to heal, of those under `below` percent: under the critical threshold before anyone
 // else, then the lowest health with the tank counted 15 points lower, as the one taking the hits.
-Unit* SmartHealTarget(Player* bot, float below)
+// One another healer is already healing is left to it unless dropping; for a heal over time, one
+// already carrying a heal over time too, unless under the medium line.
+Unit* SmartHealTarget(Player* bot, float below, bool overTime = false)
 {
     Group* group = bot->GetGroup();
     if (!group)
@@ -626,6 +666,12 @@ Unit* SmartHealTarget(Player* bot, float below)
 
         float const health = member->GetHealthPct();
         if (health >= below)
+            continue;
+
+        bool const critical = health < sPlayerbotAIConfig.criticalHealth;
+        if (!critical && BeingHealedByAnother(bot, member))
+            continue;
+        if (overTime && health >= sPlayerbotAIConfig.mediumHealth && member->HasAuraType(SPELL_AURA_PERIODIC_HEAL))
             continue;
 
         float score = health;
@@ -807,6 +853,10 @@ SpellInfo const* CastFirst(PlayerbotAI* botAI, Player* bot, std::vector<Usable> 
             note(spell.info->Id, sitting ? FAILURE_SITTING : casting ? FAILURE_CASTING : FAILURE_REFUSED);
             continue;
         }
+        // A heal that cannot be cast in a form (most Venomancer heals) while the healer stands in
+        // one: it leaves the form and heals on the next tick, instead of setting its heals aside.
+        else if (check == SPELL_FAILED_NOT_SHAPESHIFT && healing && bot->HasAuraType(SPELL_AURA_MOD_SHAPESHIFT))
+            bot->RemoveAurasByType(SPELL_AURA_MOD_SHAPESHIFT);
         else if (IsLastingFailure(check))
             benched[spell.info->Id] = now + SpellBenchSeconds;
         // Out of mana, energy or rage: asking again on the very next tick changes nothing, and
@@ -1216,7 +1266,7 @@ public:
         Unit* target = Target();
         uint16 const wanted = mode == Mode::Group ? KIND_GROUP_HEAL : mode == Mode::OverTime ? KIND_HOT : KIND_HEAL;
         // A heal over time kept up on the tank in a fight is worth casting before it takes damage.
-        bool const hurt = target && (target->GetHealthPct() < sPlayerbotAIConfig.almostFullHealth ||
+        bool const hurt = target && (target->GetHealthPct() < (SmartHeal() ? HealLine(bot) : sPlayerbotAIConfig.almostFullHealth) ||
                                      (mode == Mode::OverTime && SmartHeal() && target == GroupTank(bot)));
         return target && target->IsAlive() && hurt &&
                ClassHas(bot, wanted) &&
@@ -1232,8 +1282,10 @@ private:
         if (!SmartHeal() || mode == Mode::Group)
             return AI_VALUE(Unit*, "party member to heal");
 
-        Unit* target = SmartHealTarget(bot, sPlayerbotAIConfig.almostFullHealth);
-        if (!target && mode == Mode::OverTime && bot->IsInCombat())
+        Unit* target = SmartHealTarget(bot, HealLine(bot), mode == Mode::OverTime);
+        // The heal over time kept on the tank before the hits land, while the mana allows it.
+        if (!target && mode == Mode::OverTime && bot->IsInCombat() &&
+            (bot->getPowerType() != POWER_MANA || bot->GetPowerPct(POWER_MANA) >= 50.0f))
             target = GroupTank(bot);
         return target;
     }
@@ -1457,6 +1509,23 @@ public:
 };
 
 // Out of combat: long buffs on the bot and its group.
+// Whether taking this form would stop the bot casting its heals (SPELL_ATTR0_NOT_SHAPESHIFTED).
+bool FormBlocksHeals(Player* bot, SpellInfo const* form)
+{
+    uint32 shape = 0;
+    for (SpellEffectInfo const& effect : form->Effects)
+        if (effect.Effect == SPELL_EFFECT_APPLY_AURA && effect.ApplyAuraName == SPELL_AURA_MOD_SHAPESHIFT)
+            shape = uint32(effect.MiscValue);
+    if (!shape)
+        return false;
+
+    for (Usable const& heal : KnownAbilities(bot, [](uint16 kind)
+             { return (kind & (KIND_HEAL | KIND_HOT)) && !(kind & (KIND_CONTROL | KIND_HOSTILE)); }))
+        if (heal.info->CheckShapeshift(shape) != SPELL_CAST_OK)
+            return true;
+    return false;
+}
+
 class CoaBuffAction : public Action
 {
 public:
@@ -1492,6 +1561,10 @@ public:
 
                 // A stance is the bot's own, and only when it stands in none.
                 if ((spell.kind & KIND_STANCE) && (member != bot || inStance))
+                    continue;
+
+                // A healer keeps out of a form its heals cannot be cast in.
+                if ((spell.kind & KIND_STANCE) && GetCoaRole(bot) == CoaRole::Heal && FormBlocksHeals(bot, spell.info))
                     continue;
 
                 if (member->HasAura(spell.info->Id))

@@ -549,6 +549,10 @@ bool RecruitCoaBot(Player* master, CoaRole role, std::string& message, uint8 cla
         // strategy reset below would hand the bot straight back its earlier specialization.
         if (sRandomPlayerbotMgr.IsRandomBot(chosen))
             sRandomPlayerbotMgr.SetValue(chosen, "coa_manual_spec", specialization);
+
+        // Its gear was chosen for the specialization it had: a Venomancer made a healer kept the
+        // strength and stamina of a tank, not a point of intellect (healer trial of 21/09).
+        PlayerbotFactory(chosen, chosen->GetLevel()).InitEquipment(false);
     }
 
     // Points for every level it just skipped.
