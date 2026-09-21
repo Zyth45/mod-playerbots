@@ -21,6 +21,8 @@
 #include "mod-ascension-compat/src/AscensionSpecialization.h"
 
 #include <algorithm>
+#include <cctype>
+#include <iterator>
 #include <cstdlib>
 #include <array>
 #include <set>
@@ -383,12 +385,67 @@ uint32 ApplyCoaTalents(Player* bot)
     return raised;
 }
 
-bool RecruitCoaBot(Player* master, CoaRole role, std::string& message)
+namespace
+{
+constexpr char const* CoaClassNames[] =
+{
+    "Barbarian", "Witch Doctor", "Felsworn", "Witch Hunter", "Stormbringer", "Knight of Xoroth", "Guardian",
+    "Templar", "Bloodmage", "Ranger", "Chronomancer", "Necromancer", "Pyromancer", "Cultist", "Starcaller",
+    "Sun Cleric", "Tinker", "Venomancer", "Reaper", "Primalist", "Runemaster"
+};
+constexpr uint8 FirstCoaClass = 12;
+
+std::string Folded(std::string const& text)
+{
+    std::string folded;
+    for (char c : text)
+        if (std::isalnum(static_cast<unsigned char>(c)))
+            folded += char(std::tolower(static_cast<unsigned char>(c)));
+    return folded;
+}
+}  // namespace
+
+char const* CoaClassName(uint8 classId)
+{
+    if (classId < FirstCoaClass || classId >= FirstCoaClass + std::size(CoaClassNames))
+        return nullptr;
+    return CoaClassNames[classId - FirstCoaClass];
+}
+
+uint8 FindCoaClass(std::string const& name)
+{
+    std::string const wanted = Folded(name);
+    if (wanted.empty())
+        return 0;
+
+    uint8 found = 0;
+    for (uint8 i = 0; i < std::size(CoaClassNames); ++i)
+    {
+        std::string const candidate = Folded(CoaClassNames[i]);
+        if (candidate == wanted)
+            return FirstCoaClass + i;
+        if (candidate.rfind(wanted, 0) == 0)
+        {
+            if (found)
+                return 0;  // "wi" is Witch Doctor and Witch Hunter: say which
+            found = FirstCoaClass + i;
+        }
+    }
+    return found;
+}
+
+bool RecruitCoaBot(Player* master, CoaRole role, std::string& message, uint8 classId)
 {
     Group* group = master->GetGroup();
     if (group && group->IsFull())
     {
         message = "Your group is full.";
+        return false;
+    }
+
+    if (classId && SpecializationsByRole(classId)[uint8(role)].empty())
+    {
+        message = std::string("A ") + CoaClassName(classId) + " cannot play " + RoleName(role) + ".";
         return false;
     }
 
@@ -411,6 +468,9 @@ bool RecruitCoaBot(Player* master, CoaRole role, std::string& message)
         // cross-faction rule has to be applied here: an Alliance player was handed a Forsaken
         // healer, whom the first city guard outside the dungeon would have attacked.
         if (bot->GetTeamId() != master->GetTeamId() && !sWorld->getBoolConfig(CONFIG_ALLOW_TWO_SIDE_INTERACTION_GROUP))
+            continue;
+
+        if (classId && bot->getClass() != classId)
             continue;
 
         PlayerbotAI* botAI = GET_PLAYERBOT_AI(bot);
@@ -448,7 +508,9 @@ bool RecruitCoaBot(Player* master, CoaRole role, std::string& message)
 
     if (!chosen)
     {
-        message = std::string("No free bot able to play ") + RoleName(role) + ".";
+        message = classId ? std::string("No free ") + CoaClassName(classId) + " bot of your faction to play " +
+                                RoleName(role) + "."
+                          : std::string("No free bot able to play ") + RoleName(role) + ".";
         return false;
     }
 

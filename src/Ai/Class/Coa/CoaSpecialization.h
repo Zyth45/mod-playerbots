@@ -71,6 +71,14 @@ uint32 ApplyCoaTalents(Player* bot);
 // Brings the nearest free random bot able to fill `role` into the master's group: raised to
 // the master's level, given a specialization of that role, teleported next to the master.
 // Returns false with the reason in `message` when no bot can be recruited.
-bool RecruitCoaBot(Player* master, CoaRole role, std::string& message);
+// Name of one of the 21 CoA classes, or nullptr.
+char const* CoaClassName(uint8 classId);
+
+// A CoA class from its name as typed in a command: case, spaces and apostrophes do not matter, and a
+// beginning shared by no other class is enough ("sun" is Sun Cleric). 0 when none, or several, match.
+uint8 FindCoaClass(std::string const& name);
+
+// Recruits a free random bot for the role, of that class when classId is not 0.
+bool RecruitCoaBot(Player* master, CoaRole role, std::string& message, uint8 classId = 0);
 
 #endif

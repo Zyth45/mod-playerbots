@@ -55,11 +55,15 @@ public:
         return PlayerbotMgr::HandlePlayerbotMgrCommand(handler, args);
     }
 
-    // .playerbots coa tank|heal|dps : recruit a Conquest of Azeroth bot for that role.
+    // .playerbots coa tank|heal|dps [class] : recruit a Conquest of Azeroth bot for that role, of
+    // that class when one is named (".playerbots coa heal sun cleric").
     static bool HandleCoaRecruitCommand(ChatHandler* handler, char const* args)
     {
         Player* master = handler->GetSession() ? handler->GetSession()->GetPlayer() : nullptr;
-        std::string const wanted = args ? args : "";
+        std::string const line = args ? args : "";
+        std::size_t const space = line.find(' ');
+        std::string const wanted = line.substr(0, space);
+        std::string const className = space == std::string::npos ? "" : line.substr(space + 1);
 
         CoaRole role;
         if (wanted == "tank")
@@ -70,8 +74,22 @@ public:
             role = CoaRole::Dps;
         else
         {
-            handler->SendSysMessage("Usage: .playerbots coa tank|heal|dps");
+            handler->SendSysMessage("Usage: .playerbots coa tank|heal|dps [class], e.g. .playerbots coa heal sun cleric");
             return true;
+        }
+
+        uint8 classId = 0;
+        if (!className.empty())
+        {
+            classId = FindCoaClass(className);
+            if (!classId)
+            {
+                handler->SendSysMessage("Unknown or ambiguous class '" + className + "'. Classes: Barbarian, Witch Doctor, "
+                                        "Felsworn, Witch Hunter, Stormbringer, Knight of Xoroth, Guardian, Templar, "
+                                        "Bloodmage, Ranger, Chronomancer, Necromancer, Pyromancer, Cultist, Starcaller, "
+                                        "Sun Cleric, Tinker, Venomancer, Reaper, Primalist, Runemaster.");
+                return true;
+            }
         }
 
         if (!master)
@@ -79,7 +97,7 @@ public:
 
         // Handled either way: returning false would add the generic usage text to our message.
         std::string message;
-        RecruitCoaBot(master, role, message);
+        RecruitCoaBot(master, role, message, classId);
         handler->SendSysMessage(message);
         return true;
     }
