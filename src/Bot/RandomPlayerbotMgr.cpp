@@ -2345,7 +2345,8 @@ CachedEvent* RandomPlayerbotMgr::FindEvent(uint32 bot, std::string const& event)
     CachedEvent& e = it->second;
 
     // remove expired events
-    if (e.validIn && (NowSeconds() - e.lastChangeTime) >= e.validIn && event != "specNo" && event != "specLink")
+    if (e.validIn && (NowSeconds() - e.lastChangeTime) >= e.validIn &&
+        event != "specNo" && event != "specLink" && event != "coa_manual_spec")
     {
         cache.events.erase(it);
         return nullptr;
