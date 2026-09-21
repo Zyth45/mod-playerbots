@@ -466,11 +466,17 @@ bool RecruitCoaBot(Player* master, CoaRole role, std::string& message)
         // Keep the array alive: a reference into the temporary would dangle.
         std::array<std::vector<uint32>, 3> const byRole = SpecializationsByRole(chosen->getClass());
         std::vector<uint32> const& candidates = byRole[uint8(role)];
-        if (!SwitchAscensionSpecialization(chosen, candidates[urand(0, candidates.size() - 1)]))
+        uint32 const specialization = candidates[urand(0, candidates.size() - 1)];
+        if (!SwitchAscensionSpecialization(chosen, specialization))
         {
             message = "Could not give " + chosen->GetName() + " a specialization.";
             return false;
         }
+
+        // A recruit is chosen as explicitly as "talents spec": recorded the same way, or the
+        // strategy reset below would hand the bot straight back its earlier specialization.
+        if (sRandomPlayerbotMgr.IsRandomBot(chosen))
+            sRandomPlayerbotMgr.SetValue(chosen, "coa_manual_spec", specialization);
     }
 
     // Points for every level it just skipped.
