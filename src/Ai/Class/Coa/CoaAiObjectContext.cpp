@@ -1882,6 +1882,58 @@ public:
     bool isUseful() override { return !bot->IsNonMeleeSpellCast(false, true, true); }
 };
 
+/*
+ * A bot of a real player's group that lost them: more than 35 yards away for 6 seconds, out of a
+ * fight, on the same map instance, while the player is not fighting either. It joins them, the way
+ * a player would be summoned. mod-playerbots' own "move stuck" never runs for bots of a real player,
+ * so one caught on a ramp or behind brambles stayed there until told to follow or teleported.
+ */
+constexpr float CatchUpDistance = 35.0f;
+constexpr time_t CatchUpAfter = 6;
+
+class CoaLostThePlayerTrigger : public Trigger
+{
+public:
+    CoaLostThePlayerTrigger(PlayerbotAI* botAI) : Trigger(botAI, "coa lost the player") {}
+
+    bool IsActive() override
+    {
+        time_t& farSince = static_cast<CoaAiObjectContext*>(botAI->GetAiObjectContext())->farFromPlayerSince;
+        Player* master = botAI->GetMaster();
+        bool const far = master && !GET_PLAYERBOT_AI(master) && bot->IsAlive() && master->IsAlive() &&
+                         !bot->IsInCombat() && !master->IsInCombat() && !master->IsInFlight() &&
+                         !master->IsBeingTeleported() && OnSameInstance(bot, master) &&
+                         bot->GetGroup() && bot->GetDistance(master) > CatchUpDistance;
+        if (!far)
+        {
+            farSince = 0;
+            return false;
+        }
+        if (!farSince)
+            farSince = time(nullptr);
+        return time(nullptr) - farSince >= CatchUpAfter;
+    }
+};
+
+class CoaCatchUpAction : public Action
+{
+public:
+    CoaCatchUpAction(PlayerbotAI* botAI) : Action(botAI, "coa catch up") {}
+
+    bool Execute(Event /*event*/) override
+    {
+        Player* master = botAI->GetMaster();
+        if (!master)
+            return false;
+
+        static_cast<CoaAiObjectContext*>(botAI->GetAiObjectContext())->farFromPlayerSince = 0;
+        bot->StopMoving();
+        bot->NearTeleportTo(master->GetPositionX(), master->GetPositionY(), master->GetPositionZ(),
+                            master->GetOrientation());
+        return true;
+    }
+};
+
 // Out of combat: keep the long buffs up on the bot and its group.
 class CoaBuffStrategy : public Strategy
 {
@@ -1896,6 +1948,8 @@ public:
         triggers.push_back(new TriggerNode("often", { NextAction("coa buff", ACTION_NORMAL + 5) }));
         // A healer heals a group member in danger even outside a fight, before drinking or buffing.
         triggers.push_back(new TriggerNode("coa group member dropping", { NextAction("coa heal", ACTION_CRITICAL_HEAL) }));
+        // Lost the player on the way: join them.
+        triggers.push_back(new TriggerNode("coa lost the player", { NextAction("coa catch up", ACTION_HIGH + 5) }));
         // A dead group member is brought back once the group is out of the fight, before anything else.
         triggers.push_back(new TriggerNode("coa group member dead", { NextAction("coa resurrect", ACTION_CRITICAL_HEAL + 5) }));
     }
@@ -1942,6 +1996,7 @@ public:
         creators["coa say low mana"] = &CoaActionFactoryInternal::coa_say_low_mana;
         creators["coa auto pull"] = &CoaActionFactoryInternal::coa_auto_pull;
         creators["coa resurrect"] = &CoaActionFactoryInternal::coa_resurrect;
+        creators["coa catch up"] = &CoaActionFactoryInternal::coa_catch_up;
     }
 
 private:
@@ -1965,6 +2020,7 @@ private:
     static Action* coa_say_low_mana(PlayerbotAI* botAI) { return new CoaSayLowManaAction(botAI); }
     static Action* coa_auto_pull(PlayerbotAI* botAI) { return new CoaAutoPullAction(botAI); }
     static Action* coa_resurrect(PlayerbotAI* botAI) { return new CoaResurrectAction(botAI); }
+    static Action* coa_catch_up(PlayerbotAI* botAI) { return new CoaCatchUpAction(botAI); }
 };
 
 class CoaTriggerFactoryInternal : public NamedObjectContext<Trigger>
@@ -1978,6 +2034,7 @@ public:
         creators["coa group member dropping"] = &CoaTriggerFactoryInternal::coa_group_member_dropping;
         creators["coa ready to pull"] = &CoaTriggerFactoryInternal::coa_ready_to_pull;
         creators["coa group member dead"] = &CoaTriggerFactoryInternal::coa_group_member_dead;
+        creators["coa lost the player"] = &CoaTriggerFactoryInternal::coa_lost_the_player;
         creators["coa far from tank"] = &CoaTriggerFactoryInternal::coa_far_from_tank;
         creators["coa healer low mana"] = &CoaTriggerFactoryInternal::coa_healer_low_mana;
     }
@@ -1989,6 +2046,7 @@ private:
     static Trigger* coa_group_member_dropping(PlayerbotAI* botAI) { return new CoaGroupMemberDroppingTrigger(botAI); }
     static Trigger* coa_ready_to_pull(PlayerbotAI* botAI) { return new CoaReadyToPullTrigger(botAI); }
     static Trigger* coa_group_member_dead(PlayerbotAI* botAI) { return new CoaGroupMemberDeadTrigger(botAI); }
+    static Trigger* coa_lost_the_player(PlayerbotAI* botAI) { return new CoaLostThePlayerTrigger(botAI); }
     static Trigger* coa_far_from_tank(PlayerbotAI* botAI) { return new CoaFarFromTankTrigger(botAI); }
     static Trigger* coa_healer_low_mana(PlayerbotAI* botAI) { return new CoaLowManaTrigger(botAI); }
 };

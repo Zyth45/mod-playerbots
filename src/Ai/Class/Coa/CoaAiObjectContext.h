@@ -54,6 +54,9 @@ public:
 
     // When this tank last pulled on its own (strategy "coa auto pull").
     time_t lastAutoPull = 0;
+
+    // Since when this bot has been far from the real player it follows, out of a fight.
+    time_t farFromPlayerSince = 0;
 };
 
 #endif
