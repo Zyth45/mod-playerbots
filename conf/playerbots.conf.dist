@@ -1423,6 +1423,21 @@ AiPlayerbot.CoaCasterManaReserve = 15
 # Default: 1 (enabled)
 AiPlayerbot.CoaGroupTelemetry = 1
 
+# Healers of Conquest of Azeroth in a group: heal whoever is under 25% health first and
+# the tank before the others at equal health, pick the heal for how urgent it is (the
+# fastest when someone is dropping, one that fits the missing health otherwise), stay
+# within 18 yards of the tank and in its line of sight, keep their mana for healing
+# instead of spending it on damage, and tell the group when they run low.
+# Read again by ".reload config", so a dungeon can be run with and without it.
+# Default: 1 (enabled)
+AiPlayerbot.CoaSmartHeal = 1
+
+# Tanks of Conquest of Azeroth: of the enemies hitting someone else, take first the one
+# on the healer, then the one on whoever is lowest, rather than the nearest one.
+# Read again by ".reload config".
+# Default: 1 (enabled)
+AiPlayerbot.CoaSmartTank = 1
+
 # Quality a looted item must reach to be written to the "playerbots.loot" logger:
 # 3 rare (blue), 4 epic, 5 legendary. Nothing is written unless worldserver.conf
 # points that logger at an appender, and only bots are ever logged.

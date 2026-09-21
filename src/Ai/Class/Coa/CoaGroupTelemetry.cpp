@@ -15,6 +15,7 @@
  */
 
 #include "CoaSpecialization.h"
+#include "Config.h"
 #include "Group.h"
 #include "Log.h"
 #include "Map.h"
@@ -56,6 +57,16 @@ struct MemberStats
     float manaLowest = 100.0f;
     float manaEnd = 0.0f;
     uint32 outOfMana = 0;  // ms under 10%
+    // How long something was hitting this member.
+    uint32 hit = 0;  // ms
+    // Each time it fell under 25%: how long until the first heal reached it.
+    bool critical = false;
+    uint32 criticalSince = 0;
+    uint32 criticalTimes = 0;
+    uint32 answered = 0;
+    uint32 reactionTotal = 0;  // ms
+    uint32 reactionLongest = 0;  // ms
+    uint32 diedUnhealed = 0;
 };
 
 struct Fight
@@ -121,6 +132,16 @@ void Write(Fight const& fight, uint32 now)
         if (m.healDone)
             line << ", healing done " << m.healDone << ", overheal "
                  << (m.overheal * 100 / (m.healDone + m.overheal)) << "%";
+        line << ", hit " << Seconds(m.hit);
+        if (m.criticalTimes)
+        {
+            line << ", under 25% " << m.criticalTimes << " times";
+            if (m.answered)
+                line << ", first heal after " << Seconds(m.reactionTotal / m.answered) << " on average (longest "
+                     << Seconds(m.reactionLongest) << ")";
+            if (m.diedUnhealed)
+                line << ", died " << m.diedUnhealed << " times before any heal";
+        }
         if (m.mana && (m.role == CoaRole::Heal || m.healDone))
             line << ", mana " << int32(m.manaStart) << "% -> " << int32(m.manaEnd) << "% (lowest "
                  << int32(m.manaLowest) << "%, under 10% for " << Seconds(m.outOfMana) << ")";
@@ -217,6 +238,9 @@ void Sample(Player* sampler, Group* group, uint32 now)
         {
             if (m.wasAlive)
                 ++m.deaths;
+            if (m.critical)
+                ++m.diedUnhealed;
+            m.critical = false;
             m.wasAlive = false;
             continue;
         }
@@ -226,7 +250,17 @@ void Sample(Player* sampler, Group* group, uint32 now)
         if (health < 50.0f)
             m.below50 += elapsed;
         if (health < 25.0f)
+        {
             m.below25 += elapsed;
+            if (!m.critical)
+            {
+                m.critical = true;
+                m.criticalSince = now;
+                ++m.criticalTimes;
+            }
+        }
+        else
+            m.critical = false;  // back up without a heal reaching it (a leech, a potion)
 
         if (m.mana)
         {
@@ -237,13 +271,19 @@ void Sample(Player* sampler, Group* group, uint32 now)
                 m.outOfMana += elapsed;
         }
 
-        if (m.role != CoaRole::Tank && !nonTankHit)
-            for (Unit* attacker : member->getAttackers())
-                if (attacker->GetVictim() == member)
-                {
-                    nonTankHit = true;
-                    break;
-                }
+        bool beingHit = false;
+        for (Unit* attacker : member->getAttackers())
+            if (attacker->GetVictim() == member)
+            {
+                beingHit = true;
+                break;
+            }
+        if (beingHit)
+        {
+            m.hit += elapsed;
+            if (m.role != CoaRole::Tank)
+                nonTankHit = true;
+        }
     }
     if (nonTankHit)
         fight->nonTankHit += elapsed;
@@ -317,12 +357,42 @@ public:
         auto to = members.find(target->GetGUID().GetRawValue());
         auto from = members.find(source->GetGUID().GetRawValue());
         if (to != members.end())
-            to->second.healReceived += gain;
+        {
+            MemberStats& m = to->second;
+            m.healReceived += gain;
+            if (m.critical && gain)
+            {
+                uint32 const reaction = getMSTimeDiff(m.criticalSince, getMSTime());
+                ++m.answered;
+                m.reactionTotal += reaction;
+                m.reactionLongest = std::max(m.reactionLongest, reaction);
+                m.critical = false;
+            }
+        }
         if (from != members.end())
         {
             from->second.healDone += gain;
             from->second.overheal += raw - gain;
         }
+    }
+};
+// ".reload config" rereads the core's settings, not those of the bots: the switches a dungeon is
+// measured with and without are read again here, so that both runs share one server start.
+class CoaGroupSettingsWorldScript : public WorldScript
+{
+public:
+    CoaGroupSettingsWorldScript() : WorldScript("CoaGroupSettingsWorldScript", { WORLDHOOK_ON_AFTER_CONFIG_LOAD }) {}
+
+    void OnAfterConfigLoad(bool reload) override
+    {
+        if (!reload)
+            return;
+
+        sPlayerbotAIConfig.coaGroupTelemetry = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaGroupTelemetry", true);
+        sPlayerbotAIConfig.coaSmartHeal = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaSmartHeal", true);
+        sPlayerbotAIConfig.coaSmartTank = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaSmartTank", true);
+        LOG_INFO("playerbots.coa", "coa settings reloaded: smart heal {}, smart tank {}, group telemetry {}",
+                 sPlayerbotAIConfig.coaSmartHeal, sPlayerbotAIConfig.coaSmartTank, sPlayerbotAIConfig.coaGroupTelemetry);
     }
 };
 }  // namespace
@@ -331,4 +401,5 @@ void AddSC_coa_group_telemetry()
 {
     new CoaGroupTelemetryPlayerScript();
     new CoaGroupTelemetryUnitScript();
+    new CoaGroupSettingsWorldScript();
 }

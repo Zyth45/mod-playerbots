@@ -48,6 +48,9 @@ public:
     // target state, shapeshift...), with the time they may be tried again. One per bot, only
     // touched by the bot's own AI update, so no locking.
     std::unordered_map<uint32, time_t> benchedSpells;
+
+    // Whether this healer already told its group it is low on mana in the current fight.
+    bool lowManaSaid = false;
 };
 
 #endif

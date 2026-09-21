@@ -11,6 +11,7 @@
 #include "CombatStrategy.h"
 #include "DatabaseEnv.h"
 #include "Group.h"
+#include "MovementActions.h"
 #include "NamedObjectContext.h"
 #include "PlayerbotAIConfig.h"
 #include "Playerbots.h"
@@ -519,13 +520,21 @@ void DropAttackCast(Player* bot)
 // A healer keeps the larger share; any other bot that knows a heal keeps a smaller cushion, so
 // that it can still patch itself up; a bot with no heal at all never holds anything back, as it
 // would stop fighting for nothing. Both shares are settings, 0 turning the reserve off.
+bool SmartHeal();
+Player* GroupTank(Player* bot);
+// In a group with a tank, a healer is there to heal: it keeps its mana above this share and fights
+// with what costs nothing, where alone it only kept AiPlayerbot.CoaHealerManaReserve.
+constexpr uint32 GroupHealerManaReserve = 85;
+
 bool SavingManaForHeals(Player* bot)
 {
     if (bot->getPowerType() != POWER_MANA)
         return false;
 
-    uint32 const reserve = GetCoaRole(bot) == CoaRole::Heal ? sPlayerbotAIConfig.coaHealerManaReserve
-                                                            : sPlayerbotAIConfig.coaCasterManaReserve;
+    uint32 reserve = GetCoaRole(bot) == CoaRole::Heal ? sPlayerbotAIConfig.coaHealerManaReserve
+                                                      : sPlayerbotAIConfig.coaCasterManaReserve;
+    if (SmartHeal() && GetCoaRole(bot) == CoaRole::Heal && GroupTank(bot))
+        reserve = std::max(reserve, GroupHealerManaReserve);
     if (!reserve || bot->GetPowerPct(POWER_MANA) >= float(reserve))
         return false;
 
@@ -551,6 +560,142 @@ void CheapestFirst(Player* bot, std::vector<Usable>& spells)
                b.info->CalcPowerCost(bot, b.info->GetSchoolMask());
     });
 }
+
+/*
+ * Healing in a group the way a player would (AiPlayerbot.CoaSmartHeal): whoever is dropping first,
+ * the tank before the others, the heal that fits the need, from close enough to the tank to reach
+ * anyone who pulls aggro. Measured on a Scarlet Monastery run before it existed: the healer kept the
+ * tank up (72% of the healing, 0.5 s under 25%) but left the player 11.5 s under 25%, from up to
+ * 39 yards away, while 46% of the fight something other than the tank was being hit.
+ */
+bool SmartHeal() { return sPlayerbotAIConfig.coaSmartHeal; }
+
+bool OnSameInstance(Player* a, Player* b)
+{
+    return a->IsInWorld() && b->IsInWorld() && a->GetMapId() == b->GetMapId() && a->GetInstanceId() == b->GetInstanceId();
+}
+
+// The living tank of the bot's group on its own map instance, other than the bot itself.
+Player* GroupTank(Player* bot)
+{
+    Group* group = bot->GetGroup();
+    if (!group)
+        return nullptr;
+
+    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+        if (Player* member = ref->GetSource())
+            if (member != bot && member->IsAlive() && OnSameInstance(bot, member) &&
+                PlayerbotAI::IsTank(member))
+                return member;
+
+    return nullptr;
+}
+
+// The member to heal, of those under `below` percent: under the critical threshold before anyone
+// else, then the lowest health with the tank counted 15 points lower, as the one taking the hits.
+Unit* SmartHealTarget(Player* bot, float below)
+{
+    Group* group = bot->GetGroup();
+    if (!group)
+        return bot->GetHealthPct() < below ? bot : nullptr;
+
+    Unit* best = nullptr;
+    float bestScore = 1000.0f;
+    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+    {
+        Player* member = ref->GetSource();
+        if (!member || member->IsGameMaster() || !member->IsAlive() || !OnSameInstance(bot, member) ||
+            member->IsCharmed() || bot->GetDistance2d(member) > sPlayerbotAIConfig.healDistance * 2 ||
+            !bot->IsWithinLOSInMap(member))
+            continue;
+
+        float const health = member->GetHealthPct();
+        if (health >= below)
+            continue;
+
+        float score = health;
+        if (PlayerbotAI::IsTank(member))
+            score -= 15.0f;
+        if (health < sPlayerbotAIConfig.criticalHealth)
+            score -= 40.0f;
+
+        if (score < bestScore)
+        {
+            best = member;
+            bestScore = score;
+        }
+    }
+    return best;
+}
+
+// Rough healing of one cast before bonuses: direct heals, plus every tick of a heal over time.
+// Enough to tell a small heal from a large one; CoA's scripted heals may read as 0.
+float HealAmount(Player* bot, SpellInfo const* info, Unit* target)
+{
+    float total = 0.0f;
+    for (uint8 i = 0; i < MAX_SPELL_EFFECTS; ++i)
+    {
+        SpellEffectInfo const& effect = info->Effects[i];
+        if (effect.Effect == SPELL_EFFECT_HEAL)
+            total += float(std::max(0, effect.CalcValue(bot)));
+        else if (effect.Effect == SPELL_EFFECT_HEAL_PCT)
+            total += target->GetMaxHealth() * float(std::max(0, effect.CalcValue(bot))) / 100.0f;
+        else if (effect.Effect == SPELL_EFFECT_APPLY_AURA && effect.ApplyAuraName == SPELL_AURA_PERIODIC_HEAL)
+        {
+            int32 const duration = info->GetMaxDuration();
+            uint32 const ticks = effect.Amplitude > 0 && duration > 0 ? uint32(duration / effect.Amplitude) : 1;
+            total += float(std::max(0, effect.CalcValue(bot))) * std::max(1u, ticks);
+        }
+    }
+    return total;
+}
+
+// Orders single target heals for how urgent the need is. Someone dropping gets the fastest heal
+// first, the largest of equal speed; otherwise the largest heal that does not overshoot what is
+// missing by more than a fifth comes first, then the smaller ones, and the oversized ones last.
+// Heals over time stay behind direct heals and area heals behind both, as before.
+void OrderByUrgency(Player* bot, Unit* target, std::vector<Usable>& spells)
+{
+    bool const critical = target->GetHealthPct() < sPlayerbotAIConfig.criticalHealth;
+    float const missing = float(target->GetMaxHealth() - target->GetHealth());
+
+    struct Scored
+    {
+        Usable spell;
+        uint8 rank;
+        uint32 castTime;
+        float amount;
+    };
+    std::vector<Scored> scored;
+    scored.reserve(spells.size());
+    for (Usable const& spell : spells)
+        scored.push_back({ spell, uint8(((spell.kind & KIND_GROUP_HEAL) ? 2 : 0) + ((spell.kind & KIND_HOT) ? 1 : 0)),
+                           uint32(spell.info->CalcCastTime(bot)), HealAmount(bot, spell.info, target) });
+
+    std::stable_sort(scored.begin(), scored.end(), [critical, missing](Scored const& a, Scored const& b)
+    {
+        if (a.rank != b.rank)
+            return a.rank < b.rank;
+        if (critical)
+        {
+            if (a.castTime != b.castTime)
+                return a.castTime < b.castTime;
+            return a.amount > b.amount;
+        }
+        bool const aFits = a.amount <= missing * 1.2f;
+        bool const bFits = b.amount <= missing * 1.2f;
+        if (aFits != bFits)
+            return aFits;
+        return aFits ? a.amount > b.amount : a.amount < b.amount;
+    });
+
+    for (std::size_t i = 0; i < spells.size(); ++i)
+        spells[i] = scored[i].spell;
+}
+
+// How far from the tank a healer stands in a fight: close enough to reach anyone the tank loses a
+// mob to, far enough to stay out of what hits the tank.
+constexpr float StayNearTank = 18.0f;
 
 constexpr time_t SpellBenchSeconds = 20;
 constexpr time_t RefusedBenchSeconds = 8;
@@ -980,7 +1125,7 @@ public:
 
     bool Execute(Event /*event*/) override
     {
-        Unit* target = AI_VALUE(Unit*, "party member to heal");
+        Unit* target = Target();
         if (!target || !target->IsAlive())
             return false;
 
@@ -1010,7 +1155,13 @@ public:
                 break;
         }
 
-        if (SavingManaForHeals(bot))
+        bool const smart = SmartHeal() && mode == Mode::Direct;
+        if (smart)
+            OrderByUrgency(bot, target, spells);
+
+        // Someone dropping is healed with the fastest heal even when mana is short; otherwise a
+        // bot saving its mana goes for the cheapest.
+        if (SavingManaForHeals(bot) && !(smart && target->GetHealthPct() < sPlayerbotAIConfig.criticalHealth))
             CheapestFirst(bot, spells);
 
         UsageKind const usage = mode == Mode::Group ? USAGE_GROUP_HEAL : mode == Mode::OverTime ? USAGE_HOT : USAGE_HEAL;
@@ -1022,15 +1173,117 @@ public:
 
     bool isUseful() override
     {
-        Unit* target = AI_VALUE(Unit*, "party member to heal");
+        Unit* target = Target();
         uint16 const wanted = mode == Mode::Group ? KIND_GROUP_HEAL : mode == Mode::OverTime ? KIND_HOT : KIND_HEAL;
-        return target && target->IsAlive() && target->GetHealthPct() < sPlayerbotAIConfig.almostFullHealth &&
+        // A heal over time kept up on the tank in a fight is worth casting before it takes damage.
+        bool const hurt = target && (target->GetHealthPct() < sPlayerbotAIConfig.almostFullHealth ||
+                                     (mode == Mode::OverTime && SmartHeal() && target == GroupTank(bot)));
+        return target && target->IsAlive() && hurt &&
                ClassHas(bot, wanted) &&
                HasReadyAbility(botAI, bot,[wanted](uint16 kind) { return (kind & wanted) && !(kind & (KIND_CONTROL | KIND_HOSTILE)); });
     }
 
 private:
+    // With smart healing, single target heals go where they are most needed (SmartHealTarget), and a
+    // heal over time with nobody hurt goes on the tank in a fight; area heals keep the generic choice,
+    // whose position is all that matters to them.
+    Unit* Target()
+    {
+        if (!SmartHeal() || mode == Mode::Group)
+            return AI_VALUE(Unit*, "party member to heal");
+
+        Unit* target = SmartHealTarget(bot, sPlayerbotAIConfig.almostFullHealth);
+        if (!target && mode == Mode::OverTime && bot->IsInCombat())
+            target = GroupTank(bot);
+        return target;
+    }
+
     Mode mode;
+};
+
+// In a fight, a tank carrying none of this healer's heals over time, while it knows one.
+class CoaTankNeedsHotTrigger : public Trigger
+{
+public:
+    CoaTankNeedsHotTrigger(PlayerbotAI* botAI) : Trigger(botAI, "coa tank needs hot") {}
+
+    bool IsActive() override
+    {
+        if (!SmartHeal() || !bot->IsInCombat() || !ClassHas(bot, KIND_HOT))
+            return false;
+        Player* tank = GroupTank(bot);
+        if (!tank || bot->GetDistance2d(tank) > sPlayerbotAIConfig.healDistance)
+            return false;
+
+        ObjectGuid const caster = bot->GetGUID();
+        for (Usable const& spell : KnownAbilities(bot, [](uint16 kind)
+                 { return (kind & KIND_HOT) && !(kind & (KIND_CONTROL | KIND_HOSTILE)); }))
+            if (tank->HasAura(spell.info->Id, caster))
+                return false;
+        return true;
+    }
+};
+
+// A healer too far from the tank, or out of its sight, in a fight.
+class CoaFarFromTankTrigger : public Trigger
+{
+public:
+    CoaFarFromTankTrigger(PlayerbotAI* botAI) : Trigger(botAI, "coa far from tank") {}
+
+    bool IsActive() override
+    {
+        if (!SmartHeal() || !bot->IsInCombat())
+            return false;
+        Player* tank = GroupTank(bot);
+        return tank && (bot->GetDistance2d(tank) > StayNearTank + 4.0f || !bot->IsWithinLOSInMap(tank));
+    }
+};
+
+// Moves back within StayNearTank of the tank, between two casts.
+class CoaStayNearTankAction : public MovementAction
+{
+public:
+    CoaStayNearTankAction(PlayerbotAI* botAI) : MovementAction(botAI, "coa stay near tank") {}
+
+    bool Execute(Event /*event*/) override
+    {
+        Player* tank = GroupTank(bot);
+        return tank && MoveNear(tank, StayNearTank - 4.0f);
+    }
+
+    bool isUseful() override { return !bot->IsNonMeleeSpellCast(false, true, true); }
+};
+
+// A healer running out of mana in a group with a player says so, as a player healer would, so that
+// the group waits for it before the next pull. Once per fight.
+class CoaLowManaTrigger : public Trigger
+{
+public:
+    CoaLowManaTrigger(PlayerbotAI* botAI) : Trigger(botAI, "coa healer low mana") {}
+
+    bool IsActive() override
+    {
+        bool& said = static_cast<CoaAiObjectContext*>(botAI->GetAiObjectContext())->lowManaSaid;
+        if (!bot->IsInCombat())
+            said = false;
+        if (said || !SmartHeal() || bot->getPowerType() != POWER_MANA || GetCoaRole(bot) != CoaRole::Heal ||
+            !bot->IsInCombat() || bot->GetPowerPct(POWER_MANA) >= 20.0f)
+            return false;
+        Player* master = botAI->GetMaster();
+        return master && !GET_PLAYERBOT_AI(master) && bot->GetGroup();
+    }
+};
+
+class CoaSayLowManaAction : public Action
+{
+public:
+    CoaSayLowManaAction(PlayerbotAI* botAI) : Action(botAI, "coa say low mana") {}
+
+    bool Execute(Event /*event*/) override
+    {
+        static_cast<CoaAiObjectContext*>(botAI->GetAiObjectContext())->lowManaSaid = true;
+        return botAI->SayToParty("Low on mana, give me a moment after this fight.");
+    }
 };
 
 // Takes the current target back when it attacks someone else.
@@ -1341,6 +1594,13 @@ public:
                                              NextAction("coa heal", ACTION_CRITICAL_HEAL) }));
         triggers.push_back(new TriggerNode("party member almost full health",
                                            { NextAction("coa hot", ACTION_MEDIUM_HEAL) }));
+
+        // Smart healing (AiPlayerbot.CoaSmartHeal; these triggers stay silent without it): a heal
+        // over time kept on the tank, back within reach of the tank between casts - above the
+        // attacks, below every heal - and a word to the group when the mana runs out.
+        triggers.push_back(new TriggerNode("coa tank needs hot", { NextAction("coa hot", ACTION_MEDIUM_HEAL - 1) }));
+        triggers.push_back(new TriggerNode("coa far from tank", { NextAction("coa stay near tank", ACTION_MEDIUM_HEAL - 2) }));
+        triggers.push_back(new TriggerNode("coa healer low mana", { NextAction("coa say low mana", ACTION_MEDIUM_HEAL + 8) }));
     }
 
 protected:
@@ -1398,6 +1658,8 @@ public:
         creators["coa dispel"] = &CoaActionFactoryInternal::coa_dispel;
         creators["coa interrupt"] = &CoaActionFactoryInternal::coa_interrupt;
         creators["coa buff"] = &CoaActionFactoryInternal::coa_buff;
+        creators["coa stay near tank"] = &CoaActionFactoryInternal::coa_stay_near_tank;
+        creators["coa say low mana"] = &CoaActionFactoryInternal::coa_say_low_mana;
     }
 
 private:
@@ -1417,6 +1679,8 @@ private:
     static Action* coa_dispel(PlayerbotAI* botAI) { return new CoaDispelAction(botAI); }
     static Action* coa_interrupt(PlayerbotAI* botAI) { return new CoaInterruptAction(botAI); }
     static Action* coa_buff(PlayerbotAI* botAI) { return new CoaBuffAction(botAI); }
+    static Action* coa_stay_near_tank(PlayerbotAI* botAI) { return new CoaStayNearTankAction(botAI); }
+    static Action* coa_say_low_mana(PlayerbotAI* botAI) { return new CoaSayLowManaAction(botAI); }
 };
 
 class CoaTriggerFactoryInternal : public NamedObjectContext<Trigger>
@@ -1426,11 +1690,17 @@ public:
     {
         creators["coa dispel"] = &CoaTriggerFactoryInternal::coa_dispel;
         creators["coa enemy casting"] = &CoaTriggerFactoryInternal::coa_enemy_casting;
+        creators["coa tank needs hot"] = &CoaTriggerFactoryInternal::coa_tank_needs_hot;
+        creators["coa far from tank"] = &CoaTriggerFactoryInternal::coa_far_from_tank;
+        creators["coa healer low mana"] = &CoaTriggerFactoryInternal::coa_healer_low_mana;
     }
 
 private:
     static Trigger* coa_dispel(PlayerbotAI* botAI) { return new CoaDispelTrigger(botAI); }
     static Trigger* coa_enemy_casting(PlayerbotAI* botAI) { return new CoaEnemyCastingTrigger(botAI); }
+    static Trigger* coa_tank_needs_hot(PlayerbotAI* botAI) { return new CoaTankNeedsHotTrigger(botAI); }
+    static Trigger* coa_far_from_tank(PlayerbotAI* botAI) { return new CoaFarFromTankTrigger(botAI); }
+    static Trigger* coa_healer_low_mana(PlayerbotAI* botAI) { return new CoaLowManaTrigger(botAI); }
 };
 
 }  // namespace

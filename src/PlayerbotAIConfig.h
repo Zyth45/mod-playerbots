@@ -398,6 +398,8 @@ public:
     uint32 coaHealerManaReserve;
     uint32 coaCasterManaReserve;
     bool coaGroupTelemetry;
+    bool coaSmartHeal;
+    bool coaSmartTank;
     uint32 lootLogMinQuality;
     bool autoDoQuests;
     bool enableNewRpgStrategy;

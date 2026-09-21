@@ -91,9 +91,35 @@ public:
 
         int32_t interval = GetIntervalLevel(new_unit);
         if (interval == 2)
+        {
+            // Of the enemies hitting someone else, the one in the most danger comes first, as a
+            // player tank would peel: nearest only among equals (AiPlayerbot.CoaSmartTank).
+            if (sPlayerbotAIConfig.coaSmartTank)
+            {
+                int32 const newDanger = VictimDanger(new_unit);
+                int32 const oldDanger = VictimDanger(old_unit);
+                if (newDanger != oldDanger)
+                    return newDanger > oldDanger;
+            }
             return new_dis < old_dis;
+        }
 
         return new_threat < old_threat;
+    }
+    // How badly the one this enemy is hitting needs the tank: its healer before anyone, whose loss
+    // loses the group; then whoever is lowest; a real player a little before a bot at equal health.
+    int32_t VictimDanger(Unit* enemy)
+    {
+        Player* victim = enemy->GetVictim() ? enemy->GetVictim()->ToPlayer() : nullptr;
+        if (!victim)
+            return 0;
+
+        int32_t danger = 100 - int32_t(victim->GetHealthPct());
+        if (PlayerbotAI::IsHeal(victim))
+            danger += 200;
+        if (!GET_PLAYERBOT_AI(victim))
+            danger += 10;
+        return danger;
     }
     int32_t GetIntervalLevel(Unit* unit)
     {
