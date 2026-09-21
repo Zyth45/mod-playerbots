@@ -1438,6 +1438,14 @@ AiPlayerbot.CoaSmartHeal = 1
 # Default: 1 (enabled)
 AiPlayerbot.CoaSmartTank = 1
 
+# Conquest of Azeroth specializations bots never play, by id, comma separated. A bot holding one
+# switches to another of its role, and ".playerbots coa" never recruits one.
+#   101 Venomancer Vizier: heals from a scarab form that blocks its heals.
+#    51 Tinker Invention: knows its heals but hardly casts them (Razorfen Downs, 21/09).
+# Read again by ".reload config".
+# Default: 51,101
+AiPlayerbot.CoaExcludedSpecializations = 51,101
+
 # Quality a looted item must reach to be written to the "playerbots.loot" logger:
 # 3 rare (blue), 4 epic, 5 legendary. Nothing is written unless worldserver.conf
 # points that logger at an appender, and only bots are ever logged.

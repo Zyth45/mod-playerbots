@@ -84,7 +84,7 @@ char const* RoleName(CoaRole role)
 // healing itself almost as much. Out until its heals are understood.
 bool IsExcludedSpecialization(uint32 specializationId)
 {
-    return specializationId == 101 || specializationId == 51;
+    return sPlayerbotAIConfig.coaExcludedSpecializations.count(specializationId) != 0;
 }
 
 // Specializations of a class grouped by role, without those bots never play.

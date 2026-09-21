@@ -35,8 +35,9 @@
 #include <unordered_set>
 #include <vector>
 
-// CoaGroupTelemetry.cpp: counts a taunt in the group fight being measured.
+// CoaGroupTelemetry.cpp: counts a taunt, or a heal tried, in the group fight being measured.
 void CoaTelemetryNoteTaunt(Player* bot);
+void CoaTelemetryNoteHeal(Player* bot, uint32 spellId, uint16 outcome);
 
 namespace
 {
@@ -510,6 +511,8 @@ constexpr uint16 FAILURE_NOTHING = 1001;  // nothing left to cast (e.g. every he
 constexpr uint16 FAILURE_MOVING = 1002;   // cast time while moving: the bot stops and casts on a later tick
 constexpr uint16 FAILURE_SITTING = 1003;  // refused while sitting (eating, drinking): the bot stands up first
 constexpr uint16 FAILURE_CASTING = 1004;  // refused while still casting a heal or buff
+constexpr uint16 SKIPPED_COOLDOWN = 2000;  // not tried: on cooldown (group fight log only)
+constexpr uint16 SKIPPED_BENCHED = 2001;   // not tried: set aside after an earlier failure (group fight log only)
 
 // A bot busy casting an attack drops it for a heal, dispel, defensive, taunt or interrupt. A heal
 // or buff in progress is kept, or heals would keep cutting each other off.
@@ -728,12 +731,23 @@ SpellInfo const* CastFirst(PlayerbotAI* botAI, Player* bot, std::vector<Usable> 
 {
     time_t const now = time(nullptr);
     auto& benched = static_cast<CoaAiObjectContext*>(botAI->GetAiObjectContext())->benchedSpells;
+    // Heals are followed spell by spell in a measured group fight, skipped ones included.
+    // USAGE_HEAL, USAGE_GROUP_HEAL and USAGE_HOT, whose enum comes further down.
+    bool const healing = usage == 2 || usage == 3 || usage == 4;
+    auto note = [bot, healing](uint32 spellId, uint16 outcome)
+    {
+        if (healing)
+            CoaTelemetryNoteHeal(bot, spellId, outcome);
+    };
 
     for (Usable const& spell : spells)
     {
         // A spell on cooldown would only fail with SPELL_FAILED_NOT_READY.
         if (bot->HasSpellCooldown(spell.info->Id))
+        {
+            note(spell.info->Id, SKIPPED_COOLDOWN);
             continue;
+        }
 
         // The global cooldown blocks every spell alike: try again on a later tick.
         if (bot->GetGlobalCooldownMgr().HasGlobalCooldown(spell.info))
@@ -743,7 +757,10 @@ SpellInfo const* CastFirst(PlayerbotAI* botAI, Player* bot, std::vector<Usable> 
         if (bench != benched.end())
         {
             if (bench->second > now)
+            {
+                note(spell.info->Id, SKIPPED_BENCHED);
                 continue;
+            }
             benched.erase(bench);
         }
 
@@ -757,6 +774,7 @@ SpellInfo const* CastFirst(PlayerbotAI* botAI, Player* bot, std::vector<Usable> 
                 bot->StopMoving();
                 if (usage != 255)
                     RecordFailure(usage, spell.info->Id, FAILURE_MOVING);
+                note(spell.info->Id, FAILURE_MOVING);
                 continue;
             }
 
@@ -766,7 +784,10 @@ SpellInfo const* CastFirst(PlayerbotAI* botAI, Player* bot, std::vector<Usable> 
             bool const sitting = !bot->IsStandState();
             bool const casting = bot->IsNonMeleeSpellCast(false, true, true);
             if (botAI->CastSpell(spell.info->Id, target))
+            {
+                note(spell.info->Id, 0);
                 return spell.info;
+            }
 
             // Refused for a reason the check cannot see (CoA spell scripts check their own
             // resources when the cast is prepared): leave it aside briefly so the next ability
@@ -776,6 +797,7 @@ SpellInfo const* CastFirst(PlayerbotAI* botAI, Player* bot, std::vector<Usable> 
 
             if (usage != 255)
                 RecordFailure(usage, spell.info->Id, sitting ? FAILURE_SITTING : casting ? FAILURE_CASTING : FAILURE_REFUSED);
+            note(spell.info->Id, sitting ? FAILURE_SITTING : casting ? FAILURE_CASTING : FAILURE_REFUSED);
             continue;
         }
         else if (IsLastingFailure(check))
@@ -788,6 +810,7 @@ SpellInfo const* CastFirst(PlayerbotAI* botAI, Player* bot, std::vector<Usable> 
 
         if (usage != 255)
             RecordFailure(usage, spell.info->Id, uint16(check));
+        note(spell.info->Id, uint16(check));
     }
 
     return nullptr;

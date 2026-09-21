@@ -400,6 +400,7 @@ public:
     bool coaGroupTelemetry;
     bool coaSmartHeal;
     bool coaSmartTank;
+    std::set<uint32> coaExcludedSpecializations;
     uint32 lootLogMinQuality;
     bool autoDoQuests;
     bool enableNewRpgStrategy;

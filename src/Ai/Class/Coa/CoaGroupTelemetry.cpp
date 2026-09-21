@@ -23,9 +23,12 @@
 #include "PlayerbotAIConfig.h"
 #include "Playerbots.h"
 #include "ScriptMgr.h"
+#include "SpellInfo.h"
+#include "SpellMgr.h"
 #include "Timer.h"
 
 #include <atomic>
+#include <map>
 #include <mutex>
 #include <sstream>
 #include <unordered_map>
@@ -69,6 +72,8 @@ struct MemberStats
     uint32 diedUnhealed = 0;
     // As a tank: taunts that went off.
     uint32 taunts = 0;
+    // Every heal this member tried, by spell and outcome (0 = cast).
+    std::map<std::pair<uint32, uint16>, uint32> healTries;
 };
 
 struct Fight
@@ -98,6 +103,29 @@ char const* RoleWord(CoaRole role)
         case CoaRole::Tank: return "tank";
         case CoaRole::Heal: return "heal";
         default: return "dps";
+    }
+}
+
+// What happened to a heal a bot tried: cast, or why not.
+std::string OutcomeWord(uint16 outcome)
+{
+    switch (outcome)
+    {
+        case 0: return "cast";
+        case 12: return "bad target";
+        case 22: return "caster aura state";
+        case 29: return "needs a weapon";
+        case 85: return "no power";
+        case 97: return "out of range";
+        case 105: return "busy casting";
+        case 1000: return "refused by the cast";
+        case 1001: return "nothing to cast";
+        case 1002: return "moving";
+        case 1003: return "sitting";
+        case 1004: return "still casting";
+        case 2000: return "on cooldown";
+        case 2001: return "set aside";
+        default: return "failed " + std::to_string(outcome);
     }
 }
 
@@ -150,6 +178,19 @@ void Write(Fight const& fight, uint32 now)
             line << ", mana " << int32(m.manaStart) << "% -> " << int32(m.manaEnd) << "% (lowest "
                  << int32(m.manaLowest) << "%, under 10% for " << Seconds(m.outOfMana) << ")";
         LOG_INFO("playerbots.coa", "{}", line.str());
+
+        if (!m.healTries.empty())
+        {
+            std::ostringstream tries;
+            tries << "    heals of " << m.name << ":";
+            for (auto const& [key, count] : m.healTries)
+            {
+                SpellInfo const* info = sSpellMgr->GetSpellInfo(key.first);
+                tries << " " << (info ? info->SpellName[0] : "?") << " (" << key.first << ") "
+                      << OutcomeWord(key.second) << " x" << count << ";";
+            }
+            LOG_INFO("playerbots.coa", "{}", tries.str());
+        }
     }
 }
 
@@ -395,6 +436,12 @@ public:
         sPlayerbotAIConfig.coaGroupTelemetry = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaGroupTelemetry", true);
         sPlayerbotAIConfig.coaSmartHeal = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaSmartHeal", true);
         sPlayerbotAIConfig.coaSmartTank = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaSmartTank", true);
+        sPlayerbotAIConfig.coaExcludedSpecializations.clear();
+        std::string const excluded = sConfigMgr->GetOption<std::string>("AiPlayerbot.CoaExcludedSpecializations", "51,101");
+        std::istringstream ids(excluded);
+        for (std::string id; std::getline(ids, id, ',');)
+            if (!id.empty())
+                sPlayerbotAIConfig.coaExcludedSpecializations.insert(uint32(std::stoul(id)));
         LOG_INFO("playerbots.coa", "coa settings reloaded: smart heal {}, smart tank {}, group telemetry {}",
                  sPlayerbotAIConfig.coaSmartHeal, sPlayerbotAIConfig.coaSmartTank, sPlayerbotAIConfig.coaGroupTelemetry);
     }
@@ -415,6 +462,22 @@ void CoaTelemetryNoteTaunt(Player* bot)
     auto member = fight->second.members.find(bot->GetGUID().GetRawValue());
     if (member != fight->second.members.end())
         ++member->second.taunts;
+}
+
+// A heal `bot` tried, and what came of it: counted in its group's fight, if one is being followed.
+void CoaTelemetryNoteHeal(Player* bot, uint32 spellId, uint16 outcome)
+{
+    Group* group = bot->GetGroup();
+    if (!group || !ActiveFights.load(std::memory_order_relaxed))
+        return;
+
+    std::lock_guard<std::mutex> guard(Lock);
+    auto fight = Fights.find(group->GetGUID().GetRawValue());
+    if (fight == Fights.end())
+        return;
+    auto member = fight->second.members.find(bot->GetGUID().GetRawValue());
+    if (member != fight->second.members.end())
+        ++member->second.healTries[{ spellId, outcome }];
 }
 
 void AddSC_coa_group_telemetry()
