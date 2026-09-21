@@ -78,10 +78,13 @@ char const* RoleName(CoaRole role)
 }
 
 // Specializations bots never play. Venomancer Vizier (101) heals from a scarab form that blocks its
-// heals: in dungeons such a healer did nothing at all.
+// heals: in dungeons such a healer did nothing at all. Tinker Invention (51) knows its heals and the
+// AI recognises them, but in a Razorfen Downs run at level 40 it cast its heal over time and one
+// Zap!, nothing else: 27 healing a second where a Sun Cleric seven levels lower did 47, the tank
+// healing itself almost as much. Out until its heals are understood.
 bool IsExcludedSpecialization(uint32 specializationId)
 {
-    return specializationId == 101;
+    return specializationId == 101 || specializationId == 51;
 }
 
 // Specializations of a class grouped by role, without those bots never play.
