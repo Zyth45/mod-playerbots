@@ -51,6 +51,9 @@ public:
 
     // Whether this healer already told its group it is low on mana in the current fight.
     bool lowManaSaid = false;
+
+    // When this tank last pulled on its own (strategy "coa auto pull").
+    time_t lastAutoPull = 0;
 };
 
 #endif

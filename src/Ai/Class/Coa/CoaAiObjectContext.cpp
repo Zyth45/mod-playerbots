@@ -7,6 +7,7 @@
 #include "CoaAiObjectContext.h"
 
 #include "Action.h"
+#include "AttackAction.h"
 #include "CoaSpecialization.h"
 #include "CombatStrategy.h"
 #include "DatabaseEnv.h"
@@ -26,6 +27,7 @@
 #include <algorithm>
 #include <array>
 #include <atomic>
+#include <cmath>
 #include <ctime>
 #include <map>
 #include <mutex>
@@ -1638,6 +1640,111 @@ protected:
     float DispelPriority() override { return ACTION_MEDIUM_HEAL + 6; }
 };
 
+/*
+ * Auto pull ("nc +coa auto pull" in the group chat, "nc -coa auto pull" to stop): between fights the
+ * tank pulls the next pack by itself, the way a player tank does once the group is ready - nobody
+ * dead, in a fight, eating or drinking, everyone at 70% health or more, the healers at 70% mana or
+ * more. It pulls the nearest hostile creature it can see within 30 yards, never one more than 40
+ * yards from the player or on another floor, says what it pulls, and leaves the route to the
+ * player: it does not know the dungeon, it takes what is in front of the group.
+ */
+constexpr float AutoPullRange = 30.0f;
+constexpr float AutoPullLeash = 40.0f;
+constexpr float AutoPullFloor = 6.0f;
+constexpr time_t AutoPullPause = 6;  // seconds between two pulls, while the first one gets there
+
+bool GroupReadyToPull(Player* bot)
+{
+    Group* group = bot->GetGroup();
+    if (!group)
+        return false;
+
+    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+    {
+        Player* member = ref->GetSource();
+        if (!member || !OnSameInstance(bot, member))
+            continue;
+        if (!member->IsAlive() || member->IsInCombat() || !member->IsStandState() || member->GetHealthPct() < 70.0f)
+            return false;
+        if (PlayerbotAI::IsHeal(member) && member->getPowerType() == POWER_MANA &&
+            member->GetPowerPct(POWER_MANA) < 70.0f)
+            return false;
+    }
+    return true;
+}
+
+Unit* NextPull(PlayerbotAI* botAI, Player* bot, Player* master)
+{
+    Unit* best = nullptr;
+    float bestDistance = AutoPullRange;
+    for (ObjectGuid const& guid : botAI->GetAiObjectContext()->GetValue<GuidVector>("possible targets")->Get())
+    {
+        Creature* creature = botAI->GetUnit(guid) ? botAI->GetUnit(guid)->ToCreature() : nullptr;
+        if (!creature || !creature->IsAlive() || creature->IsInCombat() || creature->IsCritter() ||
+            creature->IsCivilian() || creature->IsTotem() || creature->IsPet() || !creature->IsHostileTo(bot))
+            continue;
+
+        float const distance = bot->GetDistance(creature);
+        if (distance > bestDistance || master->GetDistance(creature) > AutoPullLeash ||
+            std::fabs(creature->GetPositionZ() - bot->GetPositionZ()) > AutoPullFloor ||
+            !bot->IsWithinLOSInMap(creature))
+            continue;
+
+        best = creature;
+        bestDistance = distance;
+    }
+    return best;
+}
+
+class CoaReadyToPullTrigger : public Trigger
+{
+public:
+    CoaReadyToPullTrigger(PlayerbotAI* botAI) : Trigger(botAI, "coa ready to pull") {}
+
+    bool IsActive() override
+    {
+        if (!sPlayerbotAIConfig.coaSmartTank || !PlayerbotAI::IsTank(bot) || bot->IsInCombat() || !bot->IsAlive())
+            return false;
+        Player* master = botAI->GetMaster();
+        if (!master || GET_PLAYERBOT_AI(master) || !OnSameInstance(bot, master))
+            return false;
+        time_t const last = static_cast<CoaAiObjectContext*>(botAI->GetAiObjectContext())->lastAutoPull;
+        return time(nullptr) - last >= AutoPullPause && GroupReadyToPull(bot) && NextPull(botAI, bot, master);
+    }
+};
+
+class CoaAutoPullAction : public AttackAction
+{
+public:
+    CoaAutoPullAction(PlayerbotAI* botAI) : AttackAction(botAI, "coa auto pull") {}
+
+    bool Execute(Event /*event*/) override
+    {
+        Player* master = botAI->GetMaster();
+        Unit* target = master ? NextPull(botAI, bot, master) : nullptr;
+        if (!target)
+            return false;
+
+        static_cast<CoaAiObjectContext*>(botAI->GetAiObjectContext())->lastAutoPull = time(nullptr);
+        botAI->SayToParty("Pulling " + target->GetName() + ".");
+        return Attack(target);
+    }
+};
+
+class CoaAutoPullStrategy : public Strategy
+{
+public:
+    CoaAutoPullStrategy(PlayerbotAI* botAI) : Strategy(botAI) {}
+
+    std::string const getName() override { return "coa auto pull"; }
+    uint32 GetType() const override { return STRATEGY_TYPE_NONCOMBAT; }
+
+    void InitTriggers(std::vector<TriggerNode*>& triggers) override
+    {
+        triggers.push_back(new TriggerNode("coa ready to pull", { NextAction("coa auto pull", ACTION_HIGH) }));
+    }
+};
+
 // Out of combat: keep the long buffs up on the bot and its group.
 class CoaBuffStrategy : public Strategy
 {
@@ -1665,10 +1772,12 @@ public:
         creators["coa tank"] = &CoaStrategyFactoryInternal::coa_tank;
         creators["coa heal"] = &CoaStrategyFactoryInternal::coa_heal;
         creators["coa buff"] = &CoaStrategyFactoryInternal::coa_buff;
+        creators["coa auto pull"] = &CoaStrategyFactoryInternal::coa_auto_pull;
     }
 
 private:
     static Strategy* coa(PlayerbotAI* botAI) { return new CoaCombatStrategy(botAI); }
+    static Strategy* coa_auto_pull(PlayerbotAI* botAI) { return new CoaAutoPullStrategy(botAI); }
     static Strategy* coa_ranged(PlayerbotAI* botAI) { return new CoaCombatStrategy(botAI, true); }
     static Strategy* coa_tank(PlayerbotAI* botAI) { return new CoaTankStrategy(botAI); }
     static Strategy* coa_heal(PlayerbotAI* botAI) { return new CoaHealStrategy(botAI); }
@@ -1692,6 +1801,7 @@ public:
         creators["coa buff"] = &CoaActionFactoryInternal::coa_buff;
         creators["coa stay near tank"] = &CoaActionFactoryInternal::coa_stay_near_tank;
         creators["coa say low mana"] = &CoaActionFactoryInternal::coa_say_low_mana;
+        creators["coa auto pull"] = &CoaActionFactoryInternal::coa_auto_pull;
     }
 
 private:
@@ -1713,6 +1823,7 @@ private:
     static Action* coa_buff(PlayerbotAI* botAI) { return new CoaBuffAction(botAI); }
     static Action* coa_stay_near_tank(PlayerbotAI* botAI) { return new CoaStayNearTankAction(botAI); }
     static Action* coa_say_low_mana(PlayerbotAI* botAI) { return new CoaSayLowManaAction(botAI); }
+    static Action* coa_auto_pull(PlayerbotAI* botAI) { return new CoaAutoPullAction(botAI); }
 };
 
 class CoaTriggerFactoryInternal : public NamedObjectContext<Trigger>
@@ -1724,6 +1835,7 @@ public:
         creators["coa enemy casting"] = &CoaTriggerFactoryInternal::coa_enemy_casting;
         creators["coa tank needs hot"] = &CoaTriggerFactoryInternal::coa_tank_needs_hot;
         creators["coa group member dropping"] = &CoaTriggerFactoryInternal::coa_group_member_dropping;
+        creators["coa ready to pull"] = &CoaTriggerFactoryInternal::coa_ready_to_pull;
         creators["coa far from tank"] = &CoaTriggerFactoryInternal::coa_far_from_tank;
         creators["coa healer low mana"] = &CoaTriggerFactoryInternal::coa_healer_low_mana;
     }
@@ -1733,6 +1845,7 @@ private:
     static Trigger* coa_enemy_casting(PlayerbotAI* botAI) { return new CoaEnemyCastingTrigger(botAI); }
     static Trigger* coa_tank_needs_hot(PlayerbotAI* botAI) { return new CoaTankNeedsHotTrigger(botAI); }
     static Trigger* coa_group_member_dropping(PlayerbotAI* botAI) { return new CoaGroupMemberDroppingTrigger(botAI); }
+    static Trigger* coa_ready_to_pull(PlayerbotAI* botAI) { return new CoaReadyToPullTrigger(botAI); }
     static Trigger* coa_far_from_tank(PlayerbotAI* botAI) { return new CoaFarFromTankTrigger(botAI); }
     static Trigger* coa_healer_low_mana(PlayerbotAI* botAI) { return new CoaLowManaTrigger(botAI); }
 };
