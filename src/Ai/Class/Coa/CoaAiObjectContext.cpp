@@ -554,12 +554,6 @@ bool SavingManaForHeals(Player* bot)
         { return (kind & (KIND_HEAL | KIND_HOT)) && !(kind & (KIND_CONTROL | KIND_HOSTILE)); }).empty();
 }
 
-bool CoaHealerSavesManaFrom(Player* bot, SpellInfo const* info)
-{
-    return info && GetCoaRole(bot) == CoaRole::Heal && info->PowerType == POWER_MANA &&
-           info->CalcPowerCost(bot, info->GetSchoolMask()) > 0 && SavingManaForHeals(bot);
-}
-
 // Removes what costs mana, for a bot that is keeping the rest of its mana for healing.
 void DropManaSpells(Player* bot, std::vector<Usable>& spells)
 {
@@ -1532,11 +1526,6 @@ bool FormBlocksHeals(Player* bot, SpellInfo const* form)
     return false;
 }
 
-bool CoaHealerAvoidsForm(Player* bot, SpellInfo const* info)
-{
-    return info && GetCoaRole(bot) == CoaRole::Heal && FormBlocksHeals(bot, info);
-}
-
 class CoaBuffAction : public Action
 {
 public:
@@ -2136,6 +2125,17 @@ private:
 };
 
 }  // namespace
+
+bool CoaHealerSavesManaFrom(Player* bot, SpellInfo const* info)
+{
+    return info && GetCoaRole(bot) == CoaRole::Heal && info->PowerType == POWER_MANA &&
+           info->CalcPowerCost(bot, info->GetSchoolMask()) > 0 && SavingManaForHeals(bot);
+}
+
+bool CoaHealerAvoidsForm(Player* bot, SpellInfo const* info)
+{
+    return info && GetCoaRole(bot) == CoaRole::Heal && FormBlocksHeals(bot, info);
+}
 
 SharedNamedObjectContextList<Strategy> CoaAiObjectContext::sharedStrategyContexts;
 SharedNamedObjectContextList<Action> CoaAiObjectContext::sharedActionContexts;
