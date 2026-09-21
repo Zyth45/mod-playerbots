@@ -1900,11 +1900,11 @@ public:
     {
         time_t& farSince = static_cast<CoaAiObjectContext*>(botAI->GetAiObjectContext())->farFromPlayerSince;
         Player* master = botAI->GetMaster();
-        bool const far = master && !GET_PLAYERBOT_AI(master) && bot->IsAlive() && master->IsAlive() &&
+        bool const lost = master && !GET_PLAYERBOT_AI(master) && bot->IsAlive() && master->IsAlive() &&
                          !bot->IsInCombat() && !master->IsInCombat() && !master->IsInFlight() &&
                          !master->IsBeingTeleported() && OnSameInstance(bot, master) &&
                          bot->GetGroup() && bot->GetDistance(master) > CatchUpDistance;
-        if (!far)
+        if (!lost)
         {
             farSince = 0;
             return false;
