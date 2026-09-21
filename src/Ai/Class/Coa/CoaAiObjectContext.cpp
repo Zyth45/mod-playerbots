@@ -1532,6 +1532,11 @@ bool FormBlocksHeals(Player* bot, SpellInfo const* form)
     return false;
 }
 
+bool CoaHealerAvoidsForm(Player* bot, SpellInfo const* info)
+{
+    return info && GetCoaRole(bot) == CoaRole::Heal && FormBlocksHeals(bot, info);
+}
+
 class CoaBuffAction : public Action
 {
 public:

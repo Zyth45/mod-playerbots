@@ -174,6 +174,14 @@ bool CoaResourceTrigger::IsActive()
 // enough that creatures at the other end of the zone do not count.
 static constexpr float SEARCH_RANGE = 60.0f;
 
+bool CoaBuffMissingTrigger::IsActive()
+{
+    if (!BuffTrigger::IsActive())
+        return false;
+    uint32 const id = AI_VALUE2(uint32, "spell id", spell);
+    return !CoaHealerAvoidsForm(bot, id ? sSpellMgr->GetSpellInfo(id) : nullptr);
+}
+
 bool CoaCanCastTrigger::IsActive()
 {
     if (!SpellCanBeCastTrigger::IsActive())
@@ -221,7 +229,7 @@ bool CoaCanCastTrigger::IsActive()
                 return false;
     }
 
-    return !CoaHealerSavesManaFrom(bot, info);
+    return !CoaHealerSavesManaFrom(bot, info) && !CoaHealerAvoidsForm(bot, info);
 }
 
 bool CoaSummonMissingTrigger::IsActive()

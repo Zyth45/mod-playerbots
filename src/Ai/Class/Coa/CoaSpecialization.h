@@ -60,6 +60,10 @@ CoaRole GetCoaRole(Player const* player);
 // 43 to 58% of a healer's mana went into one such spell).
 bool CoaHealerSavesManaFrom(Player* bot, SpellInfo const* info);
 
+// Whether this is a form a CoA healer must not take: its heals cannot be cast in it (a Venomancer
+// healer's rotation put Spider Form back 10 times in one fight, each time the healer left it to heal).
+bool CoaHealerAvoidsForm(Player* bot, SpellInfo const* info);
+
 // Fighting style and primary stats of a CoA character's specialization. Before it has one
 // (under level 10), those shared by most specializations of its class.
 CoaStyle GetCoaStyle(Player const* player);

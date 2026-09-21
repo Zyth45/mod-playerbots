@@ -340,7 +340,19 @@ public:
     std::string const getName() override { return "can cast::" + qualifier; }
     bool IsActive() override;
 };
-COA_QUALIFIED_SPELL_TRIGGER(CoaBuffMissingTrigger, BuffTrigger, "buff missing")
+/* "buff missing::<spell>" - as the original, except for a form a healer's heals cannot be cast in. */
+class CoaBuffMissingTrigger : public BuffTrigger, public Qualified
+{
+public:
+    CoaBuffMissingTrigger(PlayerbotAI* botAI) : BuffTrigger(botAI, "") {}
+    void Qualify(std::string const qual) override
+    {
+        Qualified::Qualify(qual);
+        spell = qual;
+    }
+    std::string const getName() override { return "buff missing::" + qualifier; }
+    bool IsActive() override;
+};
 COA_QUALIFIED_SPELL_TRIGGER(CoaDebuffMissingTrigger, DebuffTrigger, "debuff missing")
 
 // ---------------------------------------------------------------------------
