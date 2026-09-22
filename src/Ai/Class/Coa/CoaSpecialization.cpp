@@ -780,7 +780,7 @@ std::string OfferText(Player* bot, CoaRole role)
             lines = {
                 "Healer here! Level " + level + " " + className + " (" + specName + "), ready to go. Invite me if you need heals!",
                 className + " healer, level " + level + ". Mana full, bandages packed. Invite me!",
-                "Level " + level + " " + specName + " " + className + " looking for a group. I'll keep your tank alive.",
+                "Level " + level + " " + specName + " " + className + " looking for a group. I heal, I'll keep your tank alive.",
                 "Need heals? Level " + level + " " + className + " (" + specName + ") at your service. Just invite me.",
             };
             break;
