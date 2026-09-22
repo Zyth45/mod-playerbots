@@ -6,6 +6,11 @@
 
 #include "CoaSpecialization.h"
 #include "CoaLevelBuildData.h"
+#include "CoaSpecLookup.h"
+#include "Channel.h"
+#include "Chat.h"
+#include "Config.h"
+#include "ScriptMgr.h"
 
 #include "Group.h"
 #include "GroupMgr.h"
@@ -27,6 +32,10 @@
 #include <array>
 #include <set>
 #include <vector>
+#include <ctime>
+#include <mutex>
+#include <sstream>
+#include <unordered_map>
 
 namespace
 {
@@ -437,27 +446,14 @@ uint8 FindCoaClass(std::string const& name)
     return found;
 }
 
-bool RecruitCoaBot(Player* master, CoaRole role, std::string& message, uint8 classId)
+Player* FindCoaRecruit(Player* master, CoaRole role, uint8 classId, std::set<ObjectGuid> const& skip, bool& chosenFits)
 {
-    Group* group = master->GetGroup();
-    if (group && group->IsFull())
-    {
-        message = "Your group is full.";
-        return false;
-    }
-
-    if (classId && SpecializationsByRole(classId)[uint8(role)].empty())
-    {
-        message = std::string("A ") + CoaClassName(classId) + " cannot play " + RoleName(role) + ".";
-        return false;
-    }
-
     // A free random bot whose class can fill the role, preferably on the master's map (a
     // dungeon instance has none, so any map will do), then one that already holds a
     // specialization of the role, then the nearest.
     Player* chosen = nullptr;
     bool chosenSameMap = false;
-    bool chosenFits = false;
+    chosenFits = false;
     uint32 chosenLevelGap = 0;
     float chosenDistance = 0.0f;
     for (auto const& [guid, bot] : sRandomPlayerbotMgr.GetAllBots())
@@ -465,6 +461,10 @@ bool RecruitCoaBot(Player* master, CoaRole role, std::string& message, uint8 cla
         if (!bot || bot == master || !bot->IsInWorld() || bot->IsBeingTeleported() ||
             !IsAscensionCustomClassId(bot->getClass()) || !bot->IsAlive() || bot->IsInCombat() || bot->GetGroup() ||
             bot->InBattleground() || bot->IsInFlight())
+            continue;
+
+        // Already offered to another player (lfg bots) or otherwise set aside by the caller.
+        if (skip.count(bot->GetGUID()))
             continue;
 
         // The bot is added to the group directly, past the invitation checks, so the realm's
@@ -509,19 +509,17 @@ bool RecruitCoaBot(Player* master, CoaRole role, std::string& message, uint8 cla
         }
     }
 
-    if (!chosen)
-    {
-        message = classId ? std::string("No free ") + CoaClassName(classId) + " bot of your faction to play " +
-                                RoleName(role) + "."
-                          : std::string("No free bot able to play ") + RoleName(role) + ".";
-        return false;
-    }
+    return chosen;
+}
 
+bool PrepareCoaRecruit(Player* master, Player* chosen, CoaRole role, bool chosenFits, uint32 levelTolerance,
+                       std::string& message)
+{
     // At the master's level, down as well as up. CoA scales every creature to the highest level
     // player in its sight, so a level 42 tank beside a level 22 player turns every pull into a
     // skull. The bot is rebuilt the way a random bot is - gear, talents and spells of that level -
     // rather than merely relabelled, which would leave it in gear it could no longer wear.
-    if (chosen->GetLevel() != master->GetLevel())
+    if (std::abs(int32(chosen->GetLevel()) - int32(master->GetLevel())) > int32(levelTolerance))
     {
         uint32 const level = master->GetLevel();
         sRandomPlayerbotMgr.SetValue(chosen, "level", level);
@@ -557,6 +555,37 @@ bool RecruitCoaBot(Player* master, CoaRole role, std::string& message, uint8 cla
 
     // Points for every level it just skipped.
     ApplyCoaTalents(chosen);
+
+    return true;
+}
+
+bool RecruitCoaBot(Player* master, CoaRole role, std::string& message, uint8 classId)
+{
+    Group* group = master->GetGroup();
+    if (group && group->IsFull())
+    {
+        message = "Your group is full.";
+        return false;
+    }
+
+    if (classId && SpecializationsByRole(classId)[uint8(role)].empty())
+    {
+        message = std::string("A ") + CoaClassName(classId) + " cannot play " + RoleName(role) + ".";
+        return false;
+    }
+
+    bool chosenFits = false;
+    Player* chosen = FindCoaRecruit(master, role, classId, {}, chosenFits);
+    if (!chosen)
+    {
+        message = classId ? std::string("No free ") + CoaClassName(classId) + " bot of your faction to play " +
+                                RoleName(role) + "."
+                          : std::string("No free bot able to play ") + RoleName(role) + ".";
+        return false;
+    }
+
+    if (!PrepareCoaRecruit(master, chosen, role, chosenFits, 0, message))
+        return false;
 
     if (!group)
     {
@@ -594,4 +623,332 @@ bool RecruitCoaBot(Player* master, CoaRole role, std::string& message, uint8 cla
               std::to_string(GetAscensionActiveSpecialization(chosen)) + ", level " +
               std::to_string(chosen->GetLevel()) + ").";
     return true;
+}
+
+/*
+ * Bots that answer "lfg bot heal" in a chat channel.
+ *
+ * A player who says "lfg bot heal", "lfg bot tank dps", "lfg bot" (every role)... in one of the chat
+ * channels the realm lists (AiPlayerbot.CoaLfgChannels) is whispered by free random bots able to play
+ * those roles: two healers, two tanks, three damage dealers by default, each with its class,
+ * specialization and level. The player invites the ones it wants; an invited bot joins at once,
+ * teleports next to the player, and follows and fights as any bot of the group. Made for realms where
+ * /who hides the bots, so that a player without GM commands can still find a healer or a tank.
+ *
+ * An offer holds for AiPlayerbot.CoaLfgOfferMinutes: meanwhile the bot is offered to nobody else and
+ * accepts that player's invitation whatever its own invitation rules. Every
+ * AiPlayerbot.CoaLfgAnnounceMinutes the realm is reminded how to ask.
+ */
+namespace
+{
+struct CoaLfgSettings
+{
+    bool enabled = true;
+    std::vector<std::string> channels = { "general", "lookingforgroup", "world" };  // lower case
+    bool requireBotWord = true;
+    std::array<uint32, 3> offers = { 3, 2, 2 };  // by CoaRole: dps, tank, heal
+    uint32 levelRange = 2;
+    uint32 offerSeconds = 5 * MINUTE;
+    uint32 cooldownSeconds = 30;
+    uint32 announceSeconds = 10 * MINUTE;
+    std::string announce;
+};
+
+struct CoaLfgOffer
+{
+    ObjectGuid player;
+    time_t until = 0;
+};
+
+std::mutex LfgLock;
+CoaLfgSettings LfgSettings;
+std::unordered_map<ObjectGuid, CoaLfgOffer> LfgOffers;  // by bot
+std::unordered_map<ObjectGuid, time_t> LfgAsked;        // by player: when it last asked
+
+std::string LowerCase(std::string text)
+{
+    std::transform(text.begin(), text.end(), text.begin(), [](unsigned char c) { return char(std::tolower(c)); });
+    return text;
+}
+
+std::string Trimmed(std::string const& text)
+{
+    std::size_t const first = text.find_first_not_of(" \t");
+    if (first == std::string::npos)
+        return "";
+    return text.substr(first, text.find_last_not_of(" \t") - first + 1);
+}
+
+void LoadLfgSettings()
+{
+    CoaLfgSettings settings;
+    settings.enabled = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaLfgBots", true);
+    settings.channels.clear();
+    std::istringstream names(sConfigMgr->GetOption<std::string>("AiPlayerbot.CoaLfgChannels", "General,LookingForGroup,World"));
+    for (std::string name; std::getline(names, name, ',');)
+        if (!Trimmed(name).empty())
+            settings.channels.push_back(LowerCase(Trimmed(name)));
+    settings.requireBotWord = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaLfgRequireBotWord", true);
+    settings.offers[uint8(CoaRole::Dps)] = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaLfgDpsOffers", 3);
+    settings.offers[uint8(CoaRole::Tank)] = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaLfgTankOffers", 2);
+    settings.offers[uint8(CoaRole::Heal)] = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaLfgHealOffers", 2);
+    for (uint32& count : settings.offers)
+        count = std::min<uint32>(count, 5);
+    settings.levelRange = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaLfgLevelRange", 2);
+    settings.offerSeconds = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaLfgOfferMinutes", 5) * MINUTE;
+    settings.cooldownSeconds = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaLfgCooldown", 30);
+    settings.announceSeconds = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaLfgAnnounceMinutes", 10) * MINUTE;
+    settings.announce = sConfigMgr->GetOption<std::string>("AiPlayerbot.CoaLfgAnnounceText", "");
+
+    std::lock_guard<std::mutex> guard(LfgLock);
+    LfgSettings = settings;
+}
+
+CoaLfgSettings Settings()
+{
+    std::lock_guard<std::mutex> guard(LfgLock);
+    return LfgSettings;
+}
+
+// "General - Elwynn Forest" is heard when "General" is listed.
+bool Listened(CoaLfgSettings const& settings, Channel* channel)
+{
+    std::string const name = LowerCase(channel->GetName());
+    for (std::string const& listened : settings.channels)
+        if (name.rfind(listened, 0) == 0)
+            return true;
+    return false;
+}
+
+// The roles asked for, in the order they were written; empty when the message is no request.
+std::vector<CoaRole> RolesAsked(CoaLfgSettings const& settings, std::string const& message)
+{
+    std::vector<std::string> words;
+    std::string word;
+    for (char c : LowerCase(message) + " ")
+    {
+        if (std::isalnum(static_cast<unsigned char>(c)))
+            word += c;
+        else if (!word.empty())
+        {
+            words.push_back(word);
+            word.clear();
+        }
+    }
+
+    bool lfg = false, botWord = false;
+    std::vector<CoaRole> roles;
+    auto add = [&roles](CoaRole role)
+    {
+        if (std::find(roles.begin(), roles.end(), role) == roles.end())
+            roles.push_back(role);
+    };
+    for (std::string const& w : words)
+    {
+        if (w == "lfg" || w == "lfm" || w == "lf")
+            lfg = true;
+        else if (w == "bot" || w == "bots")
+            botWord = true;
+        else if (w == "heal" || w == "heals" || w == "healer" || w == "healers" || w == "healing")
+            add(CoaRole::Heal);
+        else if (w == "tank" || w == "tanks")
+            add(CoaRole::Tank);
+        else if (w == "dps" || w == "damage" || w == "dd")
+            add(CoaRole::Dps);
+    }
+
+    if (!lfg || (settings.requireBotWord && !botWord))
+        return {};
+    if (roles.empty() && botWord)
+        roles = { CoaRole::Tank, CoaRole::Heal, CoaRole::Dps };
+    return roles;
+}
+
+std::string OfferText(Player* bot, CoaRole role)
+{
+    std::string const level = std::to_string(bot->GetLevel());
+    std::string const className = CoaClassName(bot->getClass()) ? CoaClassName(bot->getClass()) : "adventurer";
+    CoaSpecStrategy const* spec = GetCoaSpecStrategyFor(bot);
+    std::string const specName = spec && spec->specName ? spec->specName : className;
+
+    std::vector<std::string> lines;
+    switch (role)
+    {
+        case CoaRole::Heal:
+            lines = {
+                "Healer here! Level " + level + " " + className + " (" + specName + "), ready to go. Invite me if you need heals!",
+                className + " healer, level " + level + ". Mana full, bandages packed. Invite me!",
+                "Level " + level + " " + specName + " " + className + " looking for a group. I'll keep your tank alive.",
+                "Need heals? Level " + level + " " + className + " (" + specName + ") at your service. Just invite me.",
+            };
+            break;
+        case CoaRole::Tank:
+            lines = {
+                "Tank " + className + " level " + level + " (" + specName + ") available if you need one!",
+                "Level " + level + " " + className + " tank here, I'll hold the aggro. Invite me.",
+                specName + " " + className + ", level " + level + ". Point me at the boss and invite me!",
+                "Need a tank? Level " + level + " " + className + " ready to pull. Send me an invite.",
+            };
+            break;
+        default:
+            lines = {
+                "DPS " + className + " level " + level + " (" + specName + ") ready to go!",
+                "Level " + level + " " + className + " here, I hit things hard. Invite me.",
+                specName + " " + className + ", level " + level + ", looking for a group. Invite me!",
+                "Need damage? Level " + level + " " + className + " at your service.",
+            };
+            break;
+    }
+    return lines[urand(0, lines.size() - 1)];
+}
+
+std::string AnnounceText(CoaLfgSettings const& settings)
+{
+    if (!settings.announce.empty())
+        return settings.announce;
+
+    std::string where;
+    for (std::size_t i = 0; i < settings.channels.size() && i < 2; ++i)
+    {
+        std::string name = settings.channels[i];
+        if (name == "lookingforgroup")
+            name = "LookingForGroup";
+        else if (!name.empty())
+            name[0] = char(std::toupper(static_cast<unsigned char>(name[0])));
+        where += (where.empty() ? "" : " or ") + name;
+    }
+    return "|cff66ccff[Bots]|r Need a healer, a tank or damage? Say |cffffff00lfg bot heal|r, "
+           "|cffffff00lfg bot tank|r, |cffffff00lfg bot dps|r or |cffffff00lfg bot heal tank dps|r in the " +
+           where + " channel, then invite the bots that whisper you.";
+}
+}  // namespace
+
+void CoaLfgHeard(Player* player, std::string const& message, Channel* channel)
+{
+    if (!player || !channel || GET_PLAYERBOT_AI(player))
+        return;
+
+    CoaLfgSettings const settings = Settings();
+    if (!settings.enabled || !Listened(settings, channel))
+        return;
+
+    std::vector<CoaRole> const roles = RolesAsked(settings, message);
+    if (roles.empty())
+        return;
+
+    ChatHandler chat(player->GetSession());
+    time_t const now = time(nullptr);
+    std::set<ObjectGuid> skip;
+    {
+        std::lock_guard<std::mutex> guard(LfgLock);
+        auto const asked = LfgAsked.find(player->GetGUID());
+        if (asked != LfgAsked.end() && now - asked->second < time_t(settings.cooldownSeconds))
+        {
+            chat.SendSysMessage("The bots already heard you: invite the ones that whispered you, or ask again in a moment.");
+            return;
+        }
+        LfgAsked[player->GetGUID()] = now;
+
+        for (auto itr = LfgOffers.begin(); itr != LfgOffers.end();)
+        {
+            if (itr->second.until < now)
+                itr = LfgOffers.erase(itr);
+            else
+            {
+                // A bot offered to someone else stays theirs; one offered to this player may be offered again.
+                if (itr->second.player != player->GetGUID())
+                    skip.insert(itr->first);
+                ++itr;
+            }
+        }
+    }
+
+    if (player->GetGroup() && player->GetGroup()->IsFull())
+    {
+        chat.SendSysMessage("Your group is full.");
+        return;
+    }
+
+    for (CoaRole const role : roles)
+    {
+        uint32 const wanted = settings.offers[uint8(role)];
+        std::set<uint8> classes;
+        uint32 offered = 0;
+        for (uint32 attempt = 0; offered < wanted && attempt < wanted * 4; ++attempt)
+        {
+            bool fits = false;
+            Player* bot = FindCoaRecruit(player, role, 0, skip, fits);
+            if (!bot)
+                break;
+            skip.insert(bot->GetGUID());
+
+            // Different classes to choose from, as long as there are some.
+            if (classes.count(bot->getClass()) && attempt < wanted * 2)
+                continue;
+
+            std::string reason;
+            if (!PrepareCoaRecruit(player, bot, role, fits, settings.levelRange, reason))
+                continue;
+
+            {
+                std::lock_guard<std::mutex> guard(LfgLock);
+                LfgOffers[bot->GetGUID()] = { player->GetGUID(), now + time_t(settings.offerSeconds) };
+            }
+            classes.insert(bot->getClass());
+            ++offered;
+            bot->Whisper(OfferText(bot, role), LANG_UNIVERSAL, player);
+            LOG_INFO("playerbots", "coa lfg: {} offered to {} as {} (class {}, level {})", bot->GetName(),
+                     player->GetName(), RoleName(role), bot->getClass(), bot->GetLevel());
+        }
+
+        if (!offered)
+            chat.PSendSysMessage("No bot of your faction is free to play {} right now.", RoleName(role));
+    }
+}
+
+bool CoaLfgTakeOffer(Player* bot, Player* inviter)
+{
+    if (!bot || !inviter)
+        return false;
+
+    std::lock_guard<std::mutex> guard(LfgLock);
+    auto const offer = LfgOffers.find(bot->GetGUID());
+    if (offer == LfgOffers.end() || offer->second.player != inviter->GetGUID() || offer->second.until < time(nullptr))
+        return false;
+    LfgOffers.erase(offer);
+    return true;
+}
+
+namespace
+{
+class CoaLfgWorldScript : public WorldScript
+{
+public:
+    CoaLfgWorldScript() : WorldScript("CoaLfgWorldScript", { WORLDHOOK_ON_AFTER_CONFIG_LOAD, WORLDHOOK_ON_STARTUP, WORLDHOOK_ON_UPDATE }) {}
+
+    void OnAfterConfigLoad(bool /*reload*/) override { LoadLfgSettings(); }
+    void OnStartup() override { LoadLfgSettings(); }
+
+    void OnUpdate(uint32 diff) override
+    {
+        sinceAnnounce += diff;
+        if (sinceAnnounce < 10 * IN_MILLISECONDS)
+            return;
+
+        CoaLfgSettings const settings = Settings();
+        if (!settings.enabled || !settings.announceSeconds || sinceAnnounce < settings.announceSeconds * IN_MILLISECONDS)
+            return;
+
+        sinceAnnounce = 0;
+        ChatHandler(nullptr).SendWorldText(AnnounceText(settings));
+    }
+
+private:
+    uint32 sinceAnnounce = 0;
+};
+}  // namespace
+
+void AddSC_coa_lfg()
+{
+    new CoaLfgWorldScript();
 }

@@ -8,9 +8,12 @@
 #define _PLAYERBOT_COASPECIALIZATION_H
 
 #include "Define.h"
+#include "ObjectGuid.h"
 
+#include <set>
 #include <string>
 
+class Channel;
 class Player;
 class SpellInfo;
 
@@ -99,5 +102,23 @@ uint8 FindCoaClass(std::string const& name);
 
 // Recruits a free random bot for the role, of that class when classId is not 0.
 bool RecruitCoaBot(Player* master, CoaRole role, std::string& message, uint8 classId = 0);
+
+// The free random bot best placed to play `role` for `master` (same faction, on its map, already of
+// the role, nearest level), of that class when classId is not 0, none of those in `skip`. chosenFits
+// tells whether it already holds a specialization of the role.
+Player* FindCoaRecruit(Player* master, CoaRole role, uint8 classId, std::set<ObjectGuid> const& skip, bool& chosenFits);
+
+// Makes the chosen bot ready to play `role` beside `master`: rebuilt at the master's level when more
+// than levelTolerance levels away, given a specialization of the role and its gear, talents spent.
+bool PrepareCoaRecruit(Player* master, Player* chosen, CoaRole role, bool chosenFits, uint32 levelTolerance,
+                       std::string& message);
+
+// "lfg bot heal" and the like, said by a player in a listened chat channel: free bots whisper offers.
+void CoaLfgHeard(Player* player, std::string const& message, Channel* channel);
+
+// Whether `bot` was offered to `inviter` by "lfg bot" and the offer still holds; the offer is used up.
+bool CoaLfgTakeOffer(Player* bot, Player* inviter);
+
+void AddSC_coa_lfg();
 
 #endif

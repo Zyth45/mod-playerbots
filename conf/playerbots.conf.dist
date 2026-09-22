@@ -1446,6 +1446,82 @@ AiPlayerbot.CoaSmartTank = 1
 # Default: 51,101
 AiPlayerbot.CoaExcludedSpecializations = 51,101
 
+#
+#    AiPlayerbot.CoaLfgBots
+#        Description: Bots answer players looking for a group in chat. A player who says
+#                     "lfg bot heal", "lfg bot tank", "lfg bot dps", "lfg bot heal tank dps" or just
+#                     "lfg bot" (every role) in a listened channel is whispered by free bots of its
+#                     faction able to play those roles, with their class, specialization and level.
+#                     The player invites the ones it wants; an invited bot joins at once and
+#                     teleports next to the player (into its dungeon if need be). For realms where
+#                     /who hides the bots. Read again by .reload config, as are the settings below.
+#        Default:     1 - on
+#                     0 - off
+
+AiPlayerbot.CoaLfgBots = 1
+
+#    AiPlayerbot.CoaLfgChannels
+#        Description: Comma separated names of the chat channels listened to. A channel whose name
+#                     starts with one of them is heard: "General" covers "General - Elwynn Forest".
+#                     The client's channel numbers (/1, /2...) differ from player to player, the names
+#                     do not. Usual names: General, Trade, LocalDefense, LookingForGroup, World.
+#        Default:     General,LookingForGroup,World
+
+AiPlayerbot.CoaLfgChannels = General,LookingForGroup,World
+
+#    AiPlayerbot.CoaLfgRequireBotWord
+#        Description: Whether the request must contain the word "bot". Off, "lfg heal" said by a
+#                     player looking for other players is answered by bots too.
+#        Default:     1 - "lfg bot heal" only
+#                     0 - "lfg heal" as well
+
+AiPlayerbot.CoaLfgRequireBotWord = 1
+
+#    AiPlayerbot.CoaLfgTankOffers, AiPlayerbot.CoaLfgHealOffers, AiPlayerbot.CoaLfgDpsOffers
+#        Description: How many bots whisper an offer for each role asked for (0 to 5). Different
+#                     classes when there are some.
+#        Default:     2, 2, 3
+
+AiPlayerbot.CoaLfgTankOffers = 2
+AiPlayerbot.CoaLfgHealOffers = 2
+AiPlayerbot.CoaLfgDpsOffers = 3
+
+#    AiPlayerbot.CoaLfgLevelRange
+#        Description: A bot within this many levels of the player keeps its level and gear; one
+#                     further away is rebuilt at the player's level (gear, talents, spells) before it
+#                     whispers.
+#        Default:     2
+
+AiPlayerbot.CoaLfgLevelRange = 2
+
+#    AiPlayerbot.CoaLfgOfferMinutes
+#        Description: How long an offer holds: meanwhile the bot is offered to nobody else and
+#                     accepts that player's invitation. Afterwards it goes back to its own life.
+#        Default:     5
+
+AiPlayerbot.CoaLfgOfferMinutes = 5
+
+#    AiPlayerbot.CoaLfgCooldown
+#        Description: Seconds before the same player is answered again.
+#        Default:     30
+
+AiPlayerbot.CoaLfgCooldown = 30
+
+#    AiPlayerbot.CoaLfgAnnounceMinutes
+#        Description: Every so many minutes, a message to the whole realm on how to ask the bots.
+#        Default:     10
+#                     0 - never
+
+AiPlayerbot.CoaLfgAnnounceMinutes = 10
+
+#    AiPlayerbot.CoaLfgAnnounceText
+#        Description: That message. Empty: "[Bots] Need a healer, a tank or damage? Say lfg bot
+#                     heal, lfg bot tank, lfg bot dps or lfg bot heal tank dps in the General or
+#                     LookingForGroup channel, then invite the bots that whisper you."
+#        Default:     (empty)
+
+AiPlayerbot.CoaLfgAnnounceText =
+
 # Quality a looted item must reach to be written to the "playerbots.loot" logger:
 # 3 rare (blue), 4 epic, 5 legendary. Nothing is written unless worldserver.conf
 # points that logger at an appender, and only bots are ever logged.

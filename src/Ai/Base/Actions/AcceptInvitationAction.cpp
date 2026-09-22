@@ -5,6 +5,7 @@
  */
 
 #include "AcceptInvitationAction.h"
+#include "CoaSpecialization.h"
 #include "Event.h"
 #include "ObjectAccessor.h"
 #include "PlayerbotAIConfig.h"
@@ -27,7 +28,10 @@ bool AcceptInvitationAction::Execute(Event event)
     if (!inviter)
         return false;
 
-    if (!botAI->GetSecurity()->CheckLevelFor(PLAYERBOT_SECURITY_INVITE, false, inviter))
+    // Offered to this player by "lfg bot": it said yes already, whatever its own invitation rules.
+    bool const offered = CoaLfgTakeOffer(bot, inviter);
+
+    if (!offered && !botAI->GetSecurity()->CheckLevelFor(PLAYERBOT_SECURITY_INVITE, false, inviter))
     {
         WorldPacket data(SMSG_GROUP_DECLINE, 10);
         data << bot->GetName();
@@ -58,7 +62,13 @@ bool AcceptInvitationAction::Execute(Event event)
 
     botAI->TellMasterGreeting(PlayerbotTextMgr::instance().GetBotTextOrDefault("hello", "Hello", {}));
 
-    if (sPlayerbotAIConfig.summonWhenGroup && bot->GetDistance(inviter) > sPlayerbotAIConfig.sightDistance)
+    // An offered bot may be anywhere in the world: it comes to the player, into its dungeon if need be.
+    if (offered && (bot->GetMap() != inviter->GetMap() || bot->GetDistance(inviter) > 10.0f))
+    {
+        bot->TeleportTo(inviter->GetMapId(), inviter->GetPositionX(), inviter->GetPositionY(), inviter->GetPositionZ(),
+                        inviter->GetOrientation());
+    }
+    else if (sPlayerbotAIConfig.summonWhenGroup && bot->GetDistance(inviter) > sPlayerbotAIConfig.sightDistance)
     {
         Teleport(inviter, bot, true);
     }
