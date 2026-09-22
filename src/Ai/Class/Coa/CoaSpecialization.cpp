@@ -646,7 +646,7 @@ namespace
 struct CoaLfgSettings
 {
     bool enabled = true;
-    std::vector<std::string> channels = { "general", "lookingforgroup", "world" };  // lower case
+    std::vector<std::string> channels = { "zone", "newcomers", "world", "lookingforgroup", "general" };  // lower case
     bool requireBotWord = true;
     std::array<uint32, 3> offers = { 3, 2, 2 };  // by CoaRole: dps, tank, heal
     uint32 levelRange = 2;
@@ -665,7 +665,7 @@ struct CoaLfgOffer
 std::mutex LfgLock;
 CoaLfgSettings LfgSettings;
 std::unordered_map<ObjectGuid, CoaLfgOffer> LfgOffers;  // by bot
-std::unordered_map<ObjectGuid, time_t> LfgAsked;        // by player: when it last asked
+std::map<std::pair<ObjectGuid, uint8>, time_t> LfgAsked;  // by player and role: when it last asked
 
 std::string LowerCase(std::string text)
 {
@@ -686,7 +686,7 @@ void LoadLfgSettings()
     CoaLfgSettings settings;
     settings.enabled = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaLfgBots", true);
     settings.channels.clear();
-    std::istringstream names(sConfigMgr->GetOption<std::string>("AiPlayerbot.CoaLfgChannels", "General,LookingForGroup,World"));
+    std::istringstream names(sConfigMgr->GetOption<std::string>("AiPlayerbot.CoaLfgChannels", "Zone,Newcomers,World,LookingForGroup,General"));
     for (std::string name; std::getline(names, name, ',');)
         if (!Trimmed(name).empty())
             settings.channels.push_back(LowerCase(Trimmed(name)));
@@ -698,7 +698,7 @@ void LoadLfgSettings()
         count = std::min<uint32>(count, 5);
     settings.levelRange = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaLfgLevelRange", 2);
     settings.offerSeconds = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaLfgOfferMinutes", 5) * MINUTE;
-    settings.cooldownSeconds = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaLfgCooldown", 30);
+    settings.cooldownSeconds = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaLfgCooldown", 15);
     settings.announceSeconds = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaLfgAnnounceMinutes", 10) * MINUTE;
     settings.announce = sConfigMgr->GetOption<std::string>("AiPlayerbot.CoaLfgAnnounceText", "");
 
@@ -815,6 +815,8 @@ std::string AnnounceText(CoaLfgSettings const& settings)
         std::string name = settings.channels[i];
         if (name == "lookingforgroup")
             name = "LookingForGroup";
+        else if (name == "zone")
+            name = "Zone";
         else if (!name.empty())
             name[0] = char(std::toupper(static_cast<unsigned char>(name[0])));
         where += (where.empty() ? "" : " or ") + name;
@@ -841,15 +843,25 @@ void CoaLfgHeard(Player* player, std::string const& message, Channel* channel)
     ChatHandler chat(player->GetSession());
     time_t const now = time(nullptr);
     std::set<ObjectGuid> skip;
+    std::vector<CoaRole> wanted;
     {
         std::lock_guard<std::mutex> guard(LfgLock);
-        auto const asked = LfgAsked.find(player->GetGUID());
-        if (asked != LfgAsked.end() && now - asked->second < time_t(settings.cooldownSeconds))
+        // The wait is per role: asking for a tank and then for a healer works, asking twice for the
+        // same role in a row does not.
+        for (CoaRole const role : roles)
+        {
+            auto const asked = LfgAsked.find({ player->GetGUID(), uint8(role) });
+            if (asked == LfgAsked.end() || now - asked->second >= time_t(settings.cooldownSeconds))
+            {
+                LfgAsked[{ player->GetGUID(), uint8(role) }] = now;
+                wanted.push_back(role);
+            }
+        }
+        if (wanted.empty())
         {
             chat.SendSysMessage("The bots already heard you: invite the ones that whispered you, or ask again in a moment.");
             return;
         }
-        LfgAsked[player->GetGUID()] = now;
 
         for (auto itr = LfgOffers.begin(); itr != LfgOffers.end();)
         {
@@ -871,12 +883,12 @@ void CoaLfgHeard(Player* player, std::string const& message, Channel* channel)
         return;
     }
 
-    for (CoaRole const role : roles)
+    for (CoaRole const role : wanted)
     {
-        uint32 const wanted = settings.offers[uint8(role)];
+        uint32 const count = settings.offers[uint8(role)];
         std::set<uint8> classes;
         uint32 offered = 0;
-        for (uint32 attempt = 0; offered < wanted && attempt < wanted * 4; ++attempt)
+        for (uint32 attempt = 0; offered < count && attempt < count * 4; ++attempt)
         {
             bool fits = false;
             Player* bot = FindCoaRecruit(player, role, 0, skip, fits);
@@ -885,7 +897,7 @@ void CoaLfgHeard(Player* player, std::string const& message, Channel* channel)
             skip.insert(bot->GetGUID());
 
             // Different classes to choose from, as long as there are some.
-            if (classes.count(bot->getClass()) && attempt < wanted * 2)
+            if (classes.count(bot->getClass()) && attempt < count * 2)
                 continue;
 
             std::string reason;

@@ -1492,7 +1492,7 @@ AiPlayerbot.CoaLfgBots = 1
 #                     do not. Usual names: General, Trade, LocalDefense, LookingForGroup, World.
 #        Default:     General,LookingForGroup,World
 
-AiPlayerbot.CoaLfgChannels = General,LookingForGroup,World
+AiPlayerbot.CoaLfgChannels = Zone,Newcomers,World
 
 #    AiPlayerbot.CoaLfgRequireBotWord
 #        Description: Whether the request must contain the word "bot". Off, "lfg heal" said by a
@@ -1527,10 +1527,10 @@ AiPlayerbot.CoaLfgLevelRange = 2
 AiPlayerbot.CoaLfgOfferMinutes = 5
 
 #    AiPlayerbot.CoaLfgCooldown
-#        Description: Seconds before the same player is answered again.
+#        Description: Seconds before the same player is answered again for the same role.
 #        Default:     30
 
-AiPlayerbot.CoaLfgCooldown = 30
+AiPlayerbot.CoaLfgCooldown = 15
 
 #    AiPlayerbot.CoaLfgAnnounceMinutes
 #        Description: Every so many minutes, a message to the whole realm on how to ask the bots.
