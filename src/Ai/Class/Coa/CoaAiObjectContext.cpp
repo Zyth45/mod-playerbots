@@ -1357,6 +1357,8 @@ private:
     Mode mode;
 };
 
+bool GroupFighting(Player* bot);
+
 // Out of a fight, a group member dropping while the healer drinks: a player pulling on their own, a
 // straggler. Under 45% health it gets up if it has a quarter of its mana; under 25%, whatever it has.
 class CoaGroupMemberDroppingTrigger : public Trigger
@@ -1368,10 +1370,14 @@ public:
     {
         if (!SmartHeal() || GetCoaRole(bot) != CoaRole::Heal || !bot->IsAlive() || !bot->GetGroup())
             return false;
-        Unit* target = SmartHealTarget(bot, sPlayerbotAIConfig.lowHealth);
+        // While the group fights, a healer nobody hits is not in a fight itself and would stand idle -
+        // its heals run in the combat engine: it heals at its usual line, and its first heal takes it
+        // into the fight. Test arena: healers standing back healed nothing whole waves long.
+        bool const groupFighting = GroupFighting(bot);
+        Unit* target = SmartHealTarget(bot, groupFighting ? HealLine(bot) : float(sPlayerbotAIConfig.lowHealth));
         if (!target)
             return false;
-        return target->GetHealthPct() < sPlayerbotAIConfig.criticalHealth ||
+        return groupFighting || target->GetHealthPct() < sPlayerbotAIConfig.criticalHealth ||
                bot->getPowerType() != POWER_MANA || bot->GetPowerPct(POWER_MANA) >= 25.0f;
     }
 };
