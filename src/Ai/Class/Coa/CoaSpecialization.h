@@ -14,6 +14,7 @@
 #include <string>
 
 class Channel;
+class Group;
 class Player;
 class SpellInfo;
 
@@ -120,5 +121,9 @@ void CoaLfgHeard(Player* player, std::string const& message, Channel* channel);
 bool CoaLfgTakeOffer(Player* bot, Player* inviter);
 
 void AddSC_coa_lfg();
+
+// The group fight log (AiPlayerbot.CoaGroupTelemetry) follows a group of bots only, as it follows a
+// group with a real player, while `follow` is true. For test tools (mod-coa-diag); inert otherwise.
+void CoaTelemetryFollowGroup(Group* group, bool follow);
 
 #endif

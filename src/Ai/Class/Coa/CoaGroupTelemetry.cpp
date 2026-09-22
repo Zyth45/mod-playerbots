@@ -34,6 +34,7 @@
 #include <mutex>
 #include <sstream>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace
@@ -95,6 +96,19 @@ struct Fight
 
 std::mutex Lock;
 std::unordered_map<uint64, Fight> Fights;      // by group
+
+// Groups of bots only, followed all the same at a test tool's request (CoaTelemetryFollowGroup).
+std::mutex FollowedLock;
+std::unordered_set<uint64> Followed;
+std::atomic<uint32> FollowedCount{ 0 };
+
+bool IsFollowed(Group* group)
+{
+    if (!FollowedCount.load(std::memory_order_relaxed))
+        return false;
+    std::lock_guard<std::mutex> guard(FollowedLock);
+    return Followed.count(group->GetGUID().GetRawValue()) != 0;
+}
 std::atomic<uint32> ActiveFights{ 0 };
 
 // The raw amount of the spell heal being applied on this thread, set just before the effective
@@ -401,11 +415,20 @@ public:
 
     void OnPlayerUpdate(Player* player, uint32 /*diff*/) override
     {
-        if (!sPlayerbotAIConfig.coaGroupTelemetry || GET_PLAYERBOT_AI(player))
+        if (!sPlayerbotAIConfig.coaGroupTelemetry)
             return;
 
         Group* group = player->GetGroup();
-        if (!group || group->isRaidGroup() || !IsSampler(player, group))
+        if (!group || group->isRaidGroup())
+            return;
+
+        // A group of bots only is sampled by its leader, when a test tool asked for it.
+        if (GET_PLAYERBOT_AI(player))
+        {
+            if (group->GetLeaderGUID() != player->GetGUID() || !IsFollowed(group))
+                return;
+        }
+        else if (!IsSampler(player, group))
             return;
 
         Sample(player, group, getMSTime());
@@ -531,6 +554,18 @@ void CoaTelemetryNoteHeal(Player* bot, uint32 spellId, uint16 outcome)
     auto member = fight->second.members.find(bot->GetGUID().GetRawValue());
     if (member != fight->second.members.end())
         ++member->second.healTries[{ spellId, outcome }];
+}
+
+// Follows a group made of bots only, as if a real player were in it (test tools); false to stop.
+void CoaTelemetryFollowGroup(Group* group, bool follow)
+{
+    if (!group)
+        return;
+    std::lock_guard<std::mutex> guard(FollowedLock);
+    bool const changed = follow ? Followed.insert(group->GetGUID().GetRawValue()).second
+                                : Followed.erase(group->GetGUID().GetRawValue()) != 0;
+    if (changed)
+        FollowedCount.store(uint32(Followed.size()), std::memory_order_relaxed);
 }
 
 void AddSC_coa_group_telemetry()
