@@ -5,6 +5,7 @@
  */
 
 #include "Playerbots.h"
+#include "CoaSpecialization.h"
 #include "BattleGroundTactics.h"
 #include "BattlefieldScript.h"
 #include "Channel.h"
