@@ -545,6 +545,11 @@ public:
         for (std::string id; std::getline(ids, id, ',');)
             if (!id.empty())
                 sPlayerbotAIConfig.coaExcludedSpecializations.insert(uint32(std::stoul(id)));
+        sPlayerbotAIConfig.coaOffensiveHealerSpecs.clear();
+        std::istringstream offensive(sConfigMgr->GetOption<std::string>("AiPlayerbot.CoaOffensiveHealerSpecs", "40"));
+        for (std::string id; std::getline(offensive, id, ',');)
+            if (!id.empty())
+                sPlayerbotAIConfig.coaOffensiveHealerSpecs.insert(uint32(std::stoul(id)));
         LOG_INFO("playerbots.coa", "coa settings reloaded: smart heal {}, smart tank {}, group telemetry {}",
                  sPlayerbotAIConfig.coaSmartHeal, sPlayerbotAIConfig.coaSmartTank, sPlayerbotAIConfig.coaGroupTelemetry);
     }

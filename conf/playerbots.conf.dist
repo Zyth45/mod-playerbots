@@ -1463,6 +1463,14 @@ AiPlayerbot.CoaThreatHold = 0
 # Default: 51,101
 AiPlayerbot.CoaExcludedSpecializations = 51,101
 
+#    AiPlayerbot.CoaOffensiveHealerSpecs
+#        Description: Healer specializations whose damage is their healing: they keep dealing damage
+#                     whatever their mana (the healer mana reserve would take their heals away).
+#                     Read again by .reload config.
+#        Default:     40 (Cultist Heretic)
+
+AiPlayerbot.CoaOffensiveHealerSpecs = 40
+
 #
 #    AiPlayerbot.CoaLfgBots
 #        Description: Bots answer players looking for a group in chat. A player who says

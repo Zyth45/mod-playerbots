@@ -403,6 +403,7 @@ public:
     uint32 coaThreatHold;
     uint32 coaTankOpenerSeconds;
     std::set<uint32> coaExcludedSpecializations;
+    std::set<uint32> coaOffensiveHealerSpecs;
     uint32 lootLogMinQuality;
     bool autoDoQuests;
     bool enableNewRpgStrategy;

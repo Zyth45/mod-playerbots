@@ -739,6 +739,9 @@ bool PlayerbotAIConfig::Initialize()
     coaExcludedSpecializations.clear();
     LoadSet<std::set<uint32>>(sConfigMgr->GetOption<std::string>("AiPlayerbot.CoaExcludedSpecializations", "51,101"),
                               coaExcludedSpecializations);
+    coaOffensiveHealerSpecs.clear();
+    LoadSet<std::set<uint32>>(sConfigMgr->GetOption<std::string>("AiPlayerbot.CoaOffensiveHealerSpecs", "40"),
+                              coaOffensiveHealerSpecs);
     lootLogMinQuality = sConfigMgr->GetOption<uint32>("AiPlayerbot.LootLogMinQuality", ITEM_QUALITY_RARE);
     autoLearnQuestSpells = sConfigMgr->GetOption<bool>("AiPlayerbot.AutoLearnQuestSpells", true);
     autoTeleportForLevel = sConfigMgr->GetOption<bool>("AiPlayerbot.AutoTeleportForLevel", false);

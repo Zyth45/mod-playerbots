@@ -543,6 +543,12 @@ bool SavingManaForHeals(Player* bot)
     if (bot->getPowerType() != POWER_MANA)
         return false;
 
+    // A healer whose damage is its healing (Cultist Heretic) holds nothing back: keeping its mana
+    // from damage would keep it from healing. AiPlayerbot.CoaOffensiveHealerSpecs.
+    if (uint32 const specialization = GetAscensionActiveSpecialization(bot))
+        if (sPlayerbotAIConfig.coaOffensiveHealerSpecs.count(specialization))
+            return false;
+
     uint32 reserve = GetCoaRole(bot) == CoaRole::Heal ? sPlayerbotAIConfig.coaHealerManaReserve
                                                       : sPlayerbotAIConfig.coaCasterManaReserve;
     if (SmartHeal() && GetCoaRole(bot) == CoaRole::Heal && GroupTank(bot))
