@@ -1438,6 +1438,15 @@ AiPlayerbot.CoaSmartHeal = 1
 # Default: 1 (enabled)
 AiPlayerbot.CoaSmartTank = 1
 
+#    AiPlayerbot.CoaThreatHold
+#        Description: With CoaSmartTank, a CoA damage dealer holds its attacks on a target where its
+#                     threat reaches this percent of the tank's, and on one the tank has not touched
+#                     yet. Aggro passes at 110% in melee, 130% at range. Read again by .reload config.
+#        Default:     100
+#                     0 - off
+
+AiPlayerbot.CoaThreatHold = 100
+
 # Conquest of Azeroth specializations bots never play, by id, comma separated. A bot holding one
 # switches to another of its role, and ".playerbots coa" never recruits one.
 #   101 Venomancer Vizier: heals from a scarab form that blocks its heals.

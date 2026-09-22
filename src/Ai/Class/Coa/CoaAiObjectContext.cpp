@@ -1700,9 +1700,66 @@ public:
  * dispels, and a defensive when hurt. Melee specializations close in; ranged ones keep the
  * "reach spell" distance of CombatStrategy.
  */
+/*
+ * A damage dealer's threat on `target` as a share of the highest threat a living tank of its group
+ * holds on it: 1.0 is level with the tank. A large number while no tank has touched it yet, 0 with
+ * no tank. (mod-playerbots' "threat" value is a uint8 percentage: 300% read as 44%.)
+ */
+float ThreatShare(Player* bot, Unit* target)
+{
+    Group* group = bot->GetGroup();
+    if (!group || !target || target->GetTypeId() != TYPEID_UNIT || !target->IsInCombat())
+        return 0.0f;
+
+    bool tank = false;
+    float tankThreat = 0.0f;
+    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+    {
+        Player* member = ref->GetSource();
+        if (!member || member == bot || !member->IsAlive() || !OnSameInstance(bot, member) || !PlayerbotAI::IsTank(member))
+            continue;
+        tank = true;
+        tankThreat = std::max(tankThreat, target->GetThreatMgr().GetThreat(member));
+    }
+    if (!tank)
+        return 0.0f;
+    if (tankThreat <= 0.0f)
+        return 100.0f;
+    return target->GetThreatMgr().GetThreat(bot) / tankThreat;
+}
+
+/*
+ * A damage dealer holds its attacks back on a target where its threat reaches
+ * AiPlayerbot.CoaThreatHold percent of the tank's, and on one the tank has not touched yet: it does
+ * not pull aggro off the tank (a Felsworn was hit 268 s of a 481 s dungeon run). In WoW aggro passes
+ * at 110% in melee and 130% at range. mod-playerbots' own rule stops at 80%: CoA tanks make little
+ * threat, and it held the damage dealers to four fifths of the tank's damage.
+ */
+class CoaThreatMultiplier : public Multiplier
+{
+public:
+    CoaThreatMultiplier(PlayerbotAI* botAI) : Multiplier(botAI, "coa threat") {}
+
+    float GetValue(Action* action) override
+    {
+        uint32 const hold = sPlayerbotAIConfig.coaThreatHold;
+        if (!hold || !sPlayerbotAIConfig.coaSmartTank || !action ||
+            action->getThreatType() == Action::ActionThreatType::None || GetCoaRole(bot) != CoaRole::Dps)
+            return 1.0f;
+        Unit* target = AI_VALUE(Unit*, "current target");
+        return ThreatShare(bot, target) * 100.0f >= float(hold) ? 0.0f : 1.0f;
+    }
+};
+
 class CoaCombatStrategy : public CombatStrategy
 {
 public:
+    void InitMultipliers(std::vector<Multiplier*>& multipliers) override
+    {
+        CombatStrategy::InitMultipliers(multipliers);
+        multipliers.push_back(new CoaThreatMultiplier(botAI));
+    }
+
     CoaCombatStrategy(PlayerbotAI* botAI, bool ranged = false) : CombatStrategy(botAI), ranged(ranged) {}
 
     std::string const getName() override { return ranged ? "coa ranged" : "coa"; }

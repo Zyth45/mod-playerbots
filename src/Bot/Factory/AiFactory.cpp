@@ -428,10 +428,6 @@ void AiFactory::AddDefaultCombatStrategies(Player* player, PlayerbotAI* const fa
             default:
                 engine->addStrategiesNoInit(GetCoaStyle(player) == CoaStyle::Melee ? "coa" : "coa ranged",
                                             "dps assist", nullptr);
-                // Holds the attacks back near the tank's threat, in a group with a living tank: a
-                // Felsworn was hit 268 s of a 481 s dungeon run, pulling the mobs off the tank.
-                if (sPlayerbotAIConfig.coaSmartTank)
-                    engine->addStrategy("threat", false);
                 break;
         }
 
