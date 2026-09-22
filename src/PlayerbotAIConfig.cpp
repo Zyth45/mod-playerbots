@@ -298,7 +298,8 @@ bool PlayerbotAIConfig::Initialize()
     randomBotEmote = sConfigMgr->GetOption<bool>("AiPlayerbot.RandomBotEmote", false);
     randomBotSuggestDungeons = sConfigMgr->GetOption<bool>("AiPlayerbot.RandomBotSuggestDungeons", true);
     randomBotSayWithoutMaster = sConfigMgr->GetOption<bool>("AiPlayerbot.RandomBotSayWithoutMaster", false);
-    botsWhisperPublic = sConfigMgr->GetOption<bool>("AiPlayerbot.BotsWhisperPublic", true);
+    botsWhisperPublic = sConfigMgr->GetOption<bool>("AiPlayerbot.BotsWhisperPublic", false);
+    publicReplyChance = sConfigMgr->GetOption<uint32>("AiPlayerbot.PublicReplyChance", 5);
 
     // broadcastChanceMaxValue is used in urand(1, broadcastChanceMaxValue) for broadcasts,
     // lowering it will increase the chance, setting it to 0 will disable broadcasts

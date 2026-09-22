@@ -1282,7 +1282,9 @@ void PlayerbotAI::HandleBotOutgoingPacket(WorldPacket const& packet)
 
                         if (!isFromFreeBot)
                         {
-                            if (!isMentioned && urand(0, 4))
+                            // A player writing in a channel is heard by every bot of the zone: answering one in five
+                            // buries the player under answers. PublicReplyChance says how many of them may answer.
+                            if (!isMentioned && urand(1, 100) > sPlayerbotAIConfig.publicReplyChance)
                                 return;
                         }
                         else
