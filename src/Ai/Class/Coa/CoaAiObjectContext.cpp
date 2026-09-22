@@ -1729,11 +1729,11 @@ float ThreatShare(Player* bot, Unit* target)
 }
 
 /*
- * A damage dealer holds its attacks back on a target where its threat reaches
- * AiPlayerbot.CoaThreatHold percent of the tank's, and on one the tank has not touched yet: it does
- * not pull aggro off the tank (a Felsworn was hit 268 s of a 481 s dungeon run). In WoW aggro passes
- * at 110% in melee and 130% at range. mod-playerbots' own rule stops at 80%: CoA tanks make little
- * threat, and it held the damage dealers to four fifths of the tank's damage.
+ * A damage dealer lets the tank open, as players do: on a target no tank has touched yet it waits, at
+ * most AiPlayerbot.CoaTankOpenerSeconds, then goes all out - holding aggro is the tank's job. Only
+ * with AiPlayerbot.CoaThreatHold set does it also hold back at that percent of the tank's threat (in
+ * WoW aggro passes at 110% in melee, 130% at range). mod-playerbots' own rule, stopping at 80% of
+ * the tank's threat, held CoA damage dealers to a trickle: CoA tanks make little threat.
  */
 class CoaThreatMultiplier : public Multiplier
 {
@@ -1742,13 +1742,32 @@ public:
 
     float GetValue(Action* action) override
     {
-        uint32 const hold = sPlayerbotAIConfig.coaThreatHold;
-        if (!hold || !sPlayerbotAIConfig.coaSmartTank || !action ||
-            action->getThreatType() == Action::ActionThreatType::None || GetCoaRole(bot) != CoaRole::Dps)
+        if (!sPlayerbotAIConfig.coaSmartTank || !action || action->getThreatType() == Action::ActionThreatType::None ||
+            GetCoaRole(bot) != CoaRole::Dps)
             return 1.0f;
         Unit* target = AI_VALUE(Unit*, "current target");
-        return ThreatShare(bot, target) * 100.0f >= float(hold) ? 0.0f : 1.0f;
+        if (!target)
+            return 1.0f;
+
+        float const share = ThreatShare(bot, target);
+        if (share >= 100.0f)  // the tank has not touched it
+        {
+            uint32 const now = getMSTime();
+            if (target->GetGUID() != openerTarget)
+            {
+                openerTarget = target->GetGUID();
+                openerSince = now;
+            }
+            return getMSTimeDiff(openerSince, now) < sPlayerbotAIConfig.coaTankOpenerSeconds * IN_MILLISECONDS ? 0.0f : 1.0f;
+        }
+
+        uint32 const hold = sPlayerbotAIConfig.coaThreatHold;
+        return hold && share * 100.0f >= float(hold) ? 0.0f : 1.0f;
     }
+
+private:
+    ObjectGuid openerTarget;
+    uint32 openerSince = 0;
 };
 
 class CoaCombatStrategy : public CombatStrategy

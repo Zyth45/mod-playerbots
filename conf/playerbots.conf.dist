@@ -1438,14 +1438,22 @@ AiPlayerbot.CoaSmartHeal = 1
 # Default: 1 (enabled)
 AiPlayerbot.CoaSmartTank = 1
 
-#    AiPlayerbot.CoaThreatHold
-#        Description: With CoaSmartTank, a CoA damage dealer holds its attacks on a target where its
-#                     threat reaches this percent of the tank's, and on one the tank has not touched
-#                     yet. Aggro passes at 110% in melee, 130% at range. Read again by .reload config.
-#        Default:     100
-#                     0 - off
+#    AiPlayerbot.CoaTankOpenerSeconds
+#        Description: With CoaSmartTank, a CoA damage dealer lets the tank open: on a target no tank
+#                     has touched yet it waits at most this many seconds, then goes all out. Read
+#                     again by .reload config.
+#        Default:     2
+#                     0 - no wait
 
-AiPlayerbot.CoaThreatHold = 100
+AiPlayerbot.CoaTankOpenerSeconds = 2
+
+#    AiPlayerbot.CoaThreatHold
+#        Description: With CoaSmartTank, a CoA damage dealer also holds its attacks on a target where
+#                     its threat reaches this percent of the tank's (aggro passes at 110% in melee,
+#                     130% at range). Off by default: holding aggro is the tank's job.
+#        Default:     0 - off
+
+AiPlayerbot.CoaThreatHold = 0
 
 # Conquest of Azeroth specializations bots never play, by id, comma separated. A bot holding one
 # switches to another of its role, and ".playerbots coa" never recruits one.

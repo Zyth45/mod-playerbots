@@ -401,6 +401,7 @@ public:
     bool coaSmartHeal;
     bool coaSmartTank;
     uint32 coaThreatHold;
+    uint32 coaTankOpenerSeconds;
     std::set<uint32> coaExcludedSpecializations;
     uint32 lootLogMinQuality;
     bool autoDoQuests;
