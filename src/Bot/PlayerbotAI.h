@@ -410,6 +410,8 @@ public:
     void ClearStrategies(BotState type);
     void SelectiveResetStrategies(BotState type);
     std::vector<std::string> GetStrategies(BotState type);
+    // The engine of that state, for diagnostic tools (its GetLastAction()).
+    Engine* GetEngine(BotState state) { return state < BOT_STATE_MAX ? engines[state] : nullptr; }
     Strategy* GetStrategy(std::string const name, BotState type);
     void ApplyInstanceStrategies(uint32 mapId, bool tellMaster = false);
     bool IsInNonRaidDungeon() const;
