@@ -2264,10 +2264,49 @@ private:
 
 }  // namespace
 
+// Whether a spell heals or shields an ally, by the classifier (triggered spells included) or by an
+// absorb it puts on its target. Gaze of C'Thun hits enemies or heals allies: not a heal to the
+// classifier, yet the Cultist healer's main heal (its rotation's "can cast" line).
+bool HealsOrShieldsDirectly(SpellInfo const* info, uint8 depth = 0)
+{
+    for (SpellEffectInfo const& effect : info->Effects)
+    {
+        if (effect.Effect == SPELL_EFFECT_HEAL || effect.Effect == SPELL_EFFECT_HEAL_PCT ||
+            ((effect.Effect == SPELL_EFFECT_APPLY_AURA || effect.Effect == SPELL_EFFECT_APPLY_AREA_AURA_PARTY ||
+              effect.Effect == SPELL_EFFECT_APPLY_AREA_AURA_RAID) &&
+             (effect.ApplyAuraName == SPELL_AURA_PERIODIC_HEAL || effect.ApplyAuraName == SPELL_AURA_SCHOOL_ABSORB)))
+            return true;
+        // The heal of many CoA spells is in the spell they trigger (Gaze of C'Thun).
+        if (depth < 2 && effect.TriggerSpell && effect.TriggerSpell != info->Id)
+            if (SpellInfo const* triggered = sSpellMgr->GetSpellInfo(effect.TriggerSpell))
+                if (HealsOrShieldsDirectly(triggered, depth + 1))
+                    return true;
+    }
+    return false;
+}
+
+bool HealsOrShields(Player* bot, SpellInfo const* info)
+{
+    if (HealsOrShieldsDirectly(info))
+        return true;
+
+    auto const& all = ClassAbilities();
+    auto const found = all.find(bot->getClass());
+    if (found == all.end())
+        return false;
+    uint32 const first = info->GetFirstRankSpell()->Id;
+    for (CoaAbility const& ability : found->second.abilities)
+        if ((ability.spellId == info->Id || ability.firstSpellId == first) && (ability.kind & (KIND_HEAL | KIND_HOT)))
+            return true;
+    return false;
+}
+
 bool CoaHealerSavesManaFrom(Player* bot, SpellInfo const* info)
 {
+    // What heals or shields stays: saving mana for heals must not take the heals away (a Cultist
+    // healer lost Gaze of C'Thun, its main heal: 18 healing a second, the tank 44 s under half).
     return info && GetCoaRole(bot) == CoaRole::Heal && info->PowerType == POWER_MANA &&
-           info->CalcPowerCost(bot, info->GetSchoolMask()) > 0 && SavingManaForHeals(bot);
+           info->CalcPowerCost(bot, info->GetSchoolMask()) > 0 && SavingManaForHeals(bot) && !HealsOrShields(bot, info);
 }
 
 bool CoaHealerAvoidsForm(Player* bot, SpellInfo const* info)
