@@ -15,6 +15,7 @@
 #include "CoaSpecialization.h"
 #include "SpellInfo.h"
 #include "SpellMgr.h"
+#include "Timer.h"
 #include <map>
 #include <cctype>
 #include <algorithm>
@@ -226,8 +227,15 @@ bool CoaCanCastTrigger::IsActive()
 
     // A ward or effigy of which only one may stand: not again while the bot's own still stands
     // (Healing Ward was put down 15 times in one fight, 18% of base mana each).
-    if (summons)
+    if (summons && getMSTimeDiff(summonCheckedAt, getMSTime()) < 3 * IN_MILLISECONDS && summonCheckedAt)
     {
+        if (summonStanding)
+            return false;
+    }
+    else if (summons)
+    {
+        summonCheckedAt = getMSTime();
+        summonStanding = false;
         std::list<Unit*> nearby;
         Acore::AnyUnitInObjectRangeCheck check(bot, SEARCH_RANGE);
         Acore::UnitListSearcher<Acore::AnyUnitInObjectRangeCheck> search(bot, nearby, check);
@@ -235,7 +243,10 @@ bool CoaCanCastTrigger::IsActive()
         for (Unit* unit : nearby)
             if (unit && unit->IsAlive() && !unit->IsPlayer() && unit->GetUInt32Value(UNIT_CREATED_BY_SPELL) == id &&
                 (unit->GetOwnerGUID() == bot->GetGUID() || unit->GetCreatorGUID() == bot->GetGUID()))
+            {
+                summonStanding = true;
                 return false;
+            }
     }
 
     return !CoaHealerSavesManaFrom(bot, info) && !CoaHealerAvoidsForm(bot, info) &&

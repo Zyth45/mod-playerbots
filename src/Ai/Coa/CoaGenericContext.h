@@ -339,6 +339,11 @@ public:
     }
     std::string const getName() override { return "can cast::" + qualifier; }
     bool IsActive() override;
+
+private:
+    // The last search for a summon of this spell still standing: a grid search, not every tick.
+    uint32 summonCheckedAt = 0;
+    bool summonStanding = false;
 };
 /* "buff missing::<spell>" - as the original, except for a form a healer's heals cannot be cast in. */
 class CoaBuffMissingTrigger : public BuffTrigger, public Qualified

@@ -660,12 +660,15 @@ Unit* SmartHealTarget(Player* bot, float below, bool overTime = false)
         // nothing brought the healer closer (a Witch Doctor's Loa's Brew, 5 times in one fight). One
         // further away is left to the generic "reach party member to heal", which walks to it.
         if (!member || member->IsGameMaster() || !member->IsAlive() || !OnSameInstance(bot, member) ||
-            member->IsCharmed() || bot->GetDistance2d(member) > sPlayerbotAIConfig.healDistance ||
-            !bot->IsWithinLOSInMap(member))
+            member->IsCharmed() || bot->GetDistance2d(member) > sPlayerbotAIConfig.healDistance)
             continue;
 
         float const health = member->GetHealthPct();
         if (health >= below)
+            continue;
+
+        // Last, as the costliest test: a raycast, for the members that need healing only.
+        if (!bot->IsWithinLOSInMap(member))
             continue;
 
         bool const critical = health < sPlayerbotAIConfig.criticalHealth;
@@ -1084,6 +1087,9 @@ Unit* FindCaster(PlayerbotAI* botAI, Player* bot)
 class CoaAttackAction : public Action
 {
 public:
+    // Known to the "threat" strategy, which holds the attack back near the tank's threat.
+    ActionThreatType getThreatType() override { return ActionThreatType::Single; }
+
     CoaAttackAction(PlayerbotAI* botAI) : Action(botAI, "coa attack") {}
 
     bool Execute(Event /*event*/) override
@@ -1174,6 +1180,8 @@ private:
 class CoaAoeAction : public Action
 {
 public:
+    ActionThreatType getThreatType() override { return ActionThreatType::Aoe; }
+
     CoaAoeAction(PlayerbotAI* botAI) : Action(botAI, "coa aoe") {}
 
     bool Execute(Event /*event*/) override
@@ -1374,6 +1382,11 @@ public:
             return false;
         Player* tank = GroupTank(bot);
         if (!tank || bot->GetDistance2d(tank) > sPlayerbotAIConfig.healDistance)
+            return false;
+
+        // Before the hits land, not while the tank waits for the next pull at full health: a heal
+        // over time costs 15-20% of base mana, renewed on a tank nobody hits it is mana thrown away.
+        if (tank->getAttackers().empty() && tank->GetHealthPct() >= 100.0f)
             return false;
 
         ObjectGuid const caster = bot->GetGUID();

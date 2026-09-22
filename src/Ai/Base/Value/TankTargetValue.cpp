@@ -114,7 +114,9 @@ public:
         if (!victim)
             return 0;
 
-        int32_t danger = 100 - int32_t(victim->GetHealthPct());
+        // By steps of 20%: with the exact health, two loose enemies on victims of close health made
+        // the tank turn from one to the other each time the numbers moved.
+        int32_t danger = (100 - int32_t(victim->GetHealthPct())) / 20 * 20;
         if (PlayerbotAI::IsHeal(victim))
             danger += 200;
         if (!GET_PLAYERBOT_AI(victim))
