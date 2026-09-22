@@ -1752,13 +1752,13 @@ public:
         float const share = ThreatShare(bot, target);
         if (share >= 100.0f)  // the tank has not touched it
         {
+            // Counted per target from the first time it was seen untouched: a damage dealer turning
+            // between the enemies of a pack must not start the wait again at every turn.
             uint32 const now = getMSTime();
-            if (target->GetGUID() != openerTarget)
-            {
-                openerTarget = target->GetGUID();
-                openerSince = now;
-            }
-            return getMSTimeDiff(openerSince, now) < sPlayerbotAIConfig.coaTankOpenerSeconds * IN_MILLISECONDS ? 0.0f : 1.0f;
+            if (openers.size() > 32)
+                openers.clear();
+            auto const seen = openers.emplace(target->GetGUID(), now).first;
+            return getMSTimeDiff(seen->second, now) < sPlayerbotAIConfig.coaTankOpenerSeconds * IN_MILLISECONDS ? 0.0f : 1.0f;
         }
 
         uint32 const hold = sPlayerbotAIConfig.coaThreatHold;
@@ -1766,8 +1766,7 @@ public:
     }
 
 private:
-    ObjectGuid openerTarget;
-    uint32 openerSince = 0;
+    std::unordered_map<ObjectGuid, uint32> openers;  // target -> first seen untouched by a tank
 };
 
 class CoaCombatStrategy : public CombatStrategy
