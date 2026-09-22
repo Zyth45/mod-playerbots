@@ -56,6 +56,7 @@ struct MemberStats
     uint64 healReceived = 0;
     // As a healer.
     uint64 healDone = 0;
+    uint64 damageDone = 0;  // to enemies, its pets and summons included, overkill left out
     uint64 overheal = 0;
     // Mana, for members that use it.
     bool mana = false;
@@ -179,6 +180,8 @@ void Write(Fight const& fight, uint32 now)
              << ", deaths " << m.deaths << ", healing received " << m.healReceived;
         if (healing)
             line << " (" << (m.healReceived * 100 / healing) << "%)";
+        if (m.damageDone)
+            line << ", damage done " << m.damageDone << " (" << (m.damageDone * 1000 / std::max<uint32>(length, 1)) << "/s)";
         if (m.healDone)
             line << ", healing done " << m.healDone << ", overheal "
                  << (m.overheal * 100 / (m.healDone + m.overheal)) << "%";
@@ -439,7 +442,29 @@ class CoaGroupTelemetryUnitScript : public UnitScript
 {
 public:
     CoaGroupTelemetryUnitScript()
-        : UnitScript("CoaGroupTelemetryUnitScript", true, { UNITHOOK_ON_HEAL, UNITHOOK_MODIFY_HEAL_RECEIVED }) {}
+        : UnitScript("CoaGroupTelemetryUnitScript", true, { UNITHOOK_ON_HEAL, UNITHOOK_MODIFY_HEAL_RECEIVED, UNITHOOK_ON_DAMAGE }) {}
+
+    // Damage a group member deals to a creature, pets and summons counted for their owner. Called before
+    // the blow is applied: what exceeds the creature's health is overkill and left out.
+    void OnDamage(Unit* attacker, Unit* victim, uint32& damage) override
+    {
+        if (!ActiveFights.load(std::memory_order_relaxed) || !attacker || !victim || !damage ||
+            victim->GetTypeId() != TYPEID_UNIT || victim->IsCharmedOwnedByPlayerOrPlayer())
+            return;
+        Player* source = attacker->GetCharmerOrOwnerPlayerOrPlayerItself();
+        Group* group = source ? source->GetGroup() : nullptr;
+        if (!group)
+            return;
+        uint32 const dealt = std::min<uint32>(damage, victim->GetHealth());
+
+        std::lock_guard<std::mutex> guard(Lock);
+        auto fight = Fights.find(group->GetGUID().GetRawValue());
+        if (fight == Fights.end())
+            return;
+        auto member = fight->second.members.find(source->GetGUID().GetRawValue());
+        if (member != fight->second.members.end())
+            member->second.damageDone += dealt;
+    }
 
     // Unit::HealBySpell hands the raw amount here just before it is applied.
     void ModifyHealReceived(Unit* healer, Unit* target, uint32& heal, SpellInfo const* /*spellInfo*/) override
