@@ -23,6 +23,8 @@
 #include "RandomPlayerbotMgr.h"
 #include "SharedDefines.h"
 #include "World.h"
+#include "WorldSession.h"
+#include "WorldSessionMgr.h"
 #include "mod-ascension-compat/src/AscensionSpecialization.h"
 
 #include <algorithm>
@@ -940,7 +942,15 @@ public:
             return;
 
         sinceAnnounce = 0;
-        ChatHandler(nullptr).SendWorldText(AnnounceText(settings));
+        // To each real player: ChatHandler(nullptr).SendWorldText sends to its own session only, and
+        // with none the server crashed (22/09 09:57).
+        std::string const text = AnnounceText(settings);
+        for (auto const& [id, session] : sWorldSessionMgr->GetAllSessions())
+        {
+            Player* player = session ? session->GetPlayer() : nullptr;
+            if (player && player->IsInWorld() && !GET_PLAYERBOT_AI(player))
+                ChatHandler(session).SendSysMessage(text);
+        }
     }
 
 private:
