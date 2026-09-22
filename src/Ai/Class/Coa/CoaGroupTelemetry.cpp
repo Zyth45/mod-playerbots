@@ -197,7 +197,7 @@ void Write(Fight const& fight, uint32 now)
             if (m.diedUnhealed)
                 line << ", died " << m.diedUnhealed << " times before any heal";
         }
-        if (m.mana && (m.role == CoaRole::Heal || m.healDone))
+        if (m.mana)
             line << ", mana " << int32(m.manaStart) << "% -> " << int32(m.manaEnd) << "% (lowest "
                  << int32(m.manaLowest) << "%, under 10% for " << Seconds(m.outOfMana) << ")";
         LOG_INFO("playerbots.coa", "{}", line.str());
@@ -218,7 +218,7 @@ void Write(Fight const& fight, uint32 now)
         if (m.role == CoaRole::Heal && !m.healKit.empty())
             LOG_INFO("playerbots.coa", "    heal kit of {}: {}", m.name, m.healKit);
 
-        if (m.role == CoaRole::Heal && !m.manaSpent.empty())
+        if (!m.manaSpent.empty())
         {
             std::vector<std::pair<uint32, std::pair<uint32, uint32>>> spent(m.manaSpent.begin(), m.manaSpent.end());
             std::sort(spent.begin(), spent.end(), [](auto const& a, auto const& b) { return a.second.first > b.second.first; });
