@@ -36,6 +36,7 @@
 #ifndef PLAYERBOTS_COAGENERICCONTEXT_H
 #define PLAYERBOTS_COAGENERICCONTEXT_H
 
+#include "Timer.h"
 #include "GenericSpellActions.h"
 #include "CureTriggers.h"
 #include "GenericTriggers.h"
@@ -345,6 +346,38 @@ private:
     uint32 summonCheckedAt = 0;
     bool summonStanding = false;
 };
+/* A rotation line that stays true while the bot acts on it gets nowhere: the aura never comes. It is
+ * set aside for a while, so the lines below it get their turn. A Chronomancer's "buff missing::
+ * Incarnation of Chaos" named a spell with no effect: at priority 87 it won every tick, and the bot
+ * never even took a target (test arena, 22/09). A buff that works lands well within 5 seconds. */
+struct CoaLineBackoff
+{
+    uint32 activeSince = 0;
+    uint32 asideUntil = 0;
+
+    bool Allow(bool active)
+    {
+        uint32 const now = getMSTime();
+        if (asideUntil && getMSTimeDiff(now, asideUntil) > 0 && getMSTimeDiff(now, asideUntil) < 60 * IN_MILLISECONDS)
+            return false;  // still set aside
+        asideUntil = 0;
+        if (!active)
+        {
+            activeSince = 0;
+            return false;
+        }
+        if (!activeSince)
+            activeSince = now;
+        else if (getMSTimeDiff(activeSince, now) > 5 * IN_MILLISECONDS)
+        {
+            activeSince = 0;
+            asideUntil = now + 30 * IN_MILLISECONDS;
+            return false;
+        }
+        return true;
+    }
+};
+
 /* "buff missing::<spell>" - as the original, except for a form a healer's heals cannot be cast in. */
 class CoaBuffMissingTrigger : public BuffTrigger, public Qualified
 {
@@ -357,6 +390,9 @@ public:
     }
     std::string const getName() override { return "buff missing::" + qualifier; }
     bool IsActive() override;
+
+private:
+    CoaLineBackoff backoff;
 };
 /* "debuff missing::<spell>" - as the original, except for a healer keeping its mana for heals
  * (a Chronomancer healer put Unmake back 12 times in one fight and ran dry for 20 s). */
@@ -371,6 +407,9 @@ public:
     }
     std::string const getName() override { return "debuff missing::" + qualifier; }
     bool IsActive() override;
+
+private:
+    CoaLineBackoff backoff;
 };
 
 // ---------------------------------------------------------------------------

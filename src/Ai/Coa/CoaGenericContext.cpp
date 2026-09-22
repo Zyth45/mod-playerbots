@@ -177,19 +177,25 @@ static constexpr float SEARCH_RANGE = 60.0f;
 
 bool CoaBuffMissingTrigger::IsActive()
 {
-    if (!BuffTrigger::IsActive())
-        return false;
-    uint32 const id = AI_VALUE2(uint32, "spell id", spell);
-    SpellInfo const* info = id ? sSpellMgr->GetSpellInfo(id) : nullptr;
-    return !CoaHealerAvoidsForm(bot, info) && !CoaHoldsExclusiveSibling(bot, info);
+    bool active = BuffTrigger::IsActive();
+    if (active)
+    {
+        uint32 const id = AI_VALUE2(uint32, "spell id", spell);
+        SpellInfo const* info = id ? sSpellMgr->GetSpellInfo(id) : nullptr;
+        active = !CoaHealerAvoidsForm(bot, info) && !CoaHoldsExclusiveSibling(bot, info);
+    }
+    return backoff.Allow(active);
 }
 
 bool CoaDebuffMissingTrigger::IsActive()
 {
-    if (!DebuffTrigger::IsActive())
-        return false;
-    uint32 const id = AI_VALUE2(uint32, "spell id", spell);
-    return !CoaHealerSavesManaFrom(bot, id ? sSpellMgr->GetSpellInfo(id) : nullptr);
+    bool active = DebuffTrigger::IsActive();
+    if (active)
+    {
+        uint32 const id = AI_VALUE2(uint32, "spell id", spell);
+        active = !CoaHealerSavesManaFrom(bot, id ? sSpellMgr->GetSpellInfo(id) : nullptr);
+    }
+    return backoff.Allow(active);
 }
 
 bool CoaCanCastTrigger::IsActive()
