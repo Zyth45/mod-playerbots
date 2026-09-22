@@ -78,6 +78,8 @@ struct MemberStats
     uint32 taunts = 0;
     // Every heal this member tried, by spell and outcome (0 = cast).
     std::map<std::pair<uint32, uint16>, uint32> healTries;
+    // Damage dealt by spell (0 = melee swing): the amount, and how many times it landed.
+    std::map<uint32, std::pair<uint64, uint32>> damageBySpell;
     // Mana paid for each spell it cast, heals or not, and how many casts: where a healer's mana went.
     std::map<uint32, std::pair<uint32, uint32>> manaSpent;
     // The heals a healer bot considers, taken when it is first seen in the fight.
@@ -217,6 +219,26 @@ void Write(Fight const& fight, uint32 now)
 
         if (m.role == CoaRole::Heal && !m.healKit.empty())
             LOG_INFO("playerbots.coa", "    heal kit of {}: {}", m.name, m.healKit);
+
+        if (!m.damageBySpell.empty())
+        {
+            std::vector<std::pair<uint32, std::pair<uint64, uint32>>> dealt(m.damageBySpell.begin(),
+                                                                           m.damageBySpell.end());
+            std::sort(dealt.begin(), dealt.end(), [](auto const& a, auto const& b) { return a.second.first > b.second.first; });
+            uint64 total = 0;
+            for (auto const& entry : dealt)
+                total += entry.second.first;
+
+            std::ostringstream what;
+            what << "    damage of " << m.name << ": " << total << " dealt;";
+            for (std::size_t i = 0; i < dealt.size() && i < 12; ++i)
+            {
+                SpellInfo const* info = dealt[i].first ? sSpellMgr->GetSpellInfo(dealt[i].first) : nullptr;
+                what << " " << (dealt[i].first ? (info ? info->SpellName[0] : "?") : "Melee") << " ("
+                     << dealt[i].first << ") " << dealt[i].second.first << " in " << dealt[i].second.second << ";";
+            }
+            LOG_INFO("playerbots.coa", "{}", what.str());
+        }
 
         if (!m.manaSpent.empty())
         {
@@ -464,6 +486,45 @@ public:
         auto member = fight->second.members.find(source->GetGUID().GetRawValue());
         if (member != fight->second.members.end())
             member->second.damageDone += dealt;
+    }
+
+    // The spell behind a hit: OnDamage gives the total, these give what each spell did.
+    void NoteDamage(Unit* attacker, Unit* victim, uint32 damage, uint32 spellId)
+    {
+        if (!ActiveFights.load(std::memory_order_relaxed) || !attacker || !victim || !damage ||
+            victim->GetTypeId() != TYPEID_UNIT || victim->IsCharmedOwnedByPlayerOrPlayer())
+            return;
+        Player* source = attacker->GetCharmerOrOwnerPlayerOrPlayerItself();
+        Group* group = source ? source->GetGroup() : nullptr;
+        if (!group)
+            return;
+
+        std::lock_guard<std::mutex> guard(Lock);
+        auto fight = Fights.find(group->GetGUID().GetRawValue());
+        if (fight == Fights.end())
+            return;
+        auto member = fight->second.members.find(source->GetGUID().GetRawValue());
+        if (member == fight->second.members.end())
+            return;
+        auto& entry = member->second.damageBySpell[spellId];
+        entry.first += std::min<uint32>(damage, victim->GetHealth());
+        ++entry.second;
+    }
+
+    void ModifySpellDamageTaken(Unit* target, Unit* attacker, int32& damage, SpellInfo const* spellInfo) override
+    {
+        if (damage > 0)
+            NoteDamage(attacker, target, uint32(damage), spellInfo ? spellInfo->Id : 0);
+    }
+
+    void ModifyPeriodicDamageAurasTick(Unit* target, Unit* attacker, uint32& damage, SpellInfo const* spellInfo) override
+    {
+        NoteDamage(attacker, target, damage, spellInfo ? spellInfo->Id : 0);
+    }
+
+    void ModifyMeleeDamage(Unit* target, Unit* attacker, uint32& damage) override
+    {
+        NoteDamage(attacker, target, damage, 0);
     }
 
     // Unit::HealBySpell hands the raw amount here just before it is applied.
