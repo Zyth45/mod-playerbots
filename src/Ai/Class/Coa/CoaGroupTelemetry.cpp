@@ -14,6 +14,7 @@
  * that every member read is on the same map, and therefore on the same map thread.
  */
 
+#include "CoaSpecLookup.h"
 #include "CoaSpecialization.h"
 #include "Config.h"
 #include "Group.h"
@@ -47,6 +48,7 @@ constexpr uint32 ShortestFight = 5000;   // shorter fights (a critter, a stray h
 struct MemberStats
 {
     std::string name;
+    std::string spec;   // the specialization played, not only the class
     CoaRole role = CoaRole::Dps;
     bool bot = false;
     uint32 below50 = 0;   // ms
@@ -217,6 +219,9 @@ void Write(Fight const& fight, uint32 now)
             LOG_INFO("playerbots.coa", "{}", tries.str());
         }
 
+        if (!m.spec.empty())
+            LOG_INFO("playerbots.coa", "    spec of {}: {}", m.name, m.spec);
+
         if (m.role == CoaRole::Heal && !m.healKit.empty())
             LOG_INFO("playerbots.coa", "    heal kit of {}: {}", m.name, m.healKit);
 
@@ -338,6 +343,9 @@ void Sample(Player* sampler, Group* group, uint32 now)
             fight->order.push_back(guid);
             m.name = member->GetName();
             m.role = GetCoaRole(member);
+            if (CoaSpecStrategy const* played = GetCoaSpecStrategyFor(member))
+                if (played->specName)
+                    m.spec = played->specName;
             m.bot = GET_PLAYERBOT_AI(member) != nullptr;
             m.mana = member->getPowerType() == POWER_MANA;
             if (m.mana)
