@@ -464,7 +464,10 @@ class CoaGroupTelemetryUnitScript : public UnitScript
 {
 public:
     CoaGroupTelemetryUnitScript()
-        : UnitScript("CoaGroupTelemetryUnitScript", true, { UNITHOOK_ON_HEAL, UNITHOOK_MODIFY_HEAL_RECEIVED, UNITHOOK_ON_DAMAGE }) {}
+        : UnitScript("CoaGroupTelemetryUnitScript", true,
+                     { UNITHOOK_ON_HEAL, UNITHOOK_MODIFY_HEAL_RECEIVED, UNITHOOK_ON_DAMAGE,
+                       UNITHOOK_MODIFY_MELEE_DAMAGE, UNITHOOK_MODIFY_SPELL_DAMAGE_TAKEN,
+                       UNITHOOK_MODIFY_PERIODIC_DAMAGE_AURAS_TICK }) {}
 
     // Damage a group member deals to a creature, pets and summons counted for their owner. Called before
     // the blow is applied: what exceeds the creature's health is overkill and left out.

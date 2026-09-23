@@ -1418,7 +1418,9 @@ public:
 
     bool IsActive() override
     {
-        if (!SmartHeal() || !bot->IsInCombat())
+        // While the group fights, not only while this bot fights: a healer standing back is never
+        // in a fight itself, and it is exactly the one that has to be brought back within reach.
+        if (!SmartHeal() || !(bot->IsInCombat() || GroupFighting(bot)))
             return false;
         Player* tank = GroupTank(bot);
         return tank && (bot->GetDistance2d(tank) > StayNearTank + 4.0f || !bot->IsWithinLOSInMap(tank));
@@ -2171,6 +2173,9 @@ public:
         triggers.push_back(new TriggerNode("often", { NextAction("coa buff", ACTION_NORMAL + 5) }));
         // A healer heals a group member in danger even outside a fight, before drinking or buffing.
         triggers.push_back(new TriggerNode("coa group member dropping", { NextAction("coa heal", ACTION_CRITICAL_HEAL) }));
+        // And it closes the distance while the group fights: too far to heal, it would never be in a
+        // fight itself, so nothing else would ever bring it back within reach of the tank.
+        triggers.push_back(new TriggerNode("coa far from tank", { NextAction("coa stay near tank", ACTION_CRITICAL_HEAL - 1) }));
         // Lost the player on the way: join them.
         triggers.push_back(new TriggerNode("coa lost the player", { NextAction("coa catch up", ACTION_HIGH + 5) }));
         // A dead group member is brought back once the group is out of the fight, before anything else.
