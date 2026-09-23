@@ -112,7 +112,7 @@ static constexpr CoaStatWeight CoaStats_20_26[] = { { STATS_TYPE_HIT, 1.8f }, { 
 static constexpr CoaStatWeight CoaStats_20_27[] = { { STATS_TYPE_MELEE_DPS, 7.5f }, { STATS_TYPE_HIT, 2.3f }, { STATS_TYPE_EXPERTISE, 2.04f }, { STATS_TYPE_AGILITY, 1.78f }, { STATS_TYPE_ARMOR_PENETRATION, 1.52f }, { STATS_TYPE_CRIT, 1.26f }, { STATS_TYPE_HASTE, 1.0f }, { STATS_TYPE_ATTACK_POWER, 1.0f } };
 // Bloodmage / Eternal (tank)
 static constexpr CoaStatWeight CoaStats_20_99[] = { { STATS_TYPE_STAMINA, 3.0f }, { STATS_TYPE_DEFENSE, 2.5f }, { STATS_TYPE_DODGE, 2.0f }, { STATS_TYPE_PARRY, 2.0f }, { STATS_TYPE_EXPERTISE, 1.24f }, { STATS_TYPE_ARMOR, 1.06f }, { STATS_TYPE_BLOCK_RATING, 1.0f }, { STATS_TYPE_AGILITY, 0.88f }, { STATS_TYPE_CRIT, 0.7f }, { STATS_TYPE_BLOCK_VALUE, 0.5f } };
-// Bloodmage / Fleshweaver (zauber)
+// Bloodmage / Fleshweaver (heilung)
 static constexpr CoaStatWeight CoaStats_20_25[] = { { STATS_TYPE_SPELL_POWER, 1.8f }, { STATS_TYPE_SPIRIT, 1.58f }, { STATS_TYPE_STAMINA, 1.36f }, { STATS_TYPE_HASTE, 1.14f }, { STATS_TYPE_CRIT, 0.92f }, { STATS_TYPE_INTELLECT, 0.7f }, { STATS_TYPE_ATTACK_POWER, -1.0f } };
 // Ranger / Archery (physisch_fern)
 static constexpr CoaStatWeight CoaStats_21_28[] = { { STATS_TYPE_RANGED_DPS, 10.0f }, { STATS_TYPE_HIT, 2.3f }, { STATS_TYPE_AGILITY, 1.97f }, { STATS_TYPE_CRIT, 1.65f }, { STATS_TYPE_ARMOR_PENETRATION, 1.32f }, { STATS_TYPE_HASTE, 1.0f }, { STATS_TYPE_ATTACK_POWER, 1.0f } };
@@ -227,7 +227,7 @@ static constexpr CoaSpecStats CoaSpecStatsTable[] =
     { 20,  26, "Sanguine", "zauber", "caster", true, CoaStats_20_26, 7 },
     { 20,  27, "Accursed", "physisch_nah", "twoHand", true, CoaStats_20_27, 8 },
     { 20,  99, "Eternal", "tank", "any", true, CoaStats_20_99, 10 },
-    { 20,  25, "Fleshweaver", "zauber", "any", true, CoaStats_20_25, 7 },
+    { 20,  25, "Fleshweaver", "heilung", "any", true, CoaStats_20_25, 7 },
     { 21,  28, "Archery", "physisch_fern", "ranged", false, CoaStats_21_28, 7 },
     { 21,  30, "Brigand", "physisch_nah", "any", true, CoaStats_21_30, 8 },
     { 21,  29, "Farstrider", "physisch_fern", "ranged", false, CoaStats_21_29, 7 },

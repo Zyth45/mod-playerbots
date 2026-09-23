@@ -49,6 +49,11 @@ public:
     // touched by the bot's own AI update, so no locking.
     std::unordered_map<uint32, time_t> benchedSpells;
 
+    // Ce qu'un soin rend vraiment, pour ce bot : les données du jeu mentent parfois (un sort
+    // annoncé « heals for 0 », un autre « heals for 1 104 384 »), seule l'observation tranche.
+    // Chez le bot et non sur le serveur : pas de verrou partagé, et cela survit à la coupure des
+    // journaux — le module de diagnostic s'enlève et se remet sans rien changer au comportement.
+
     // Whether this healer already told its group it is low on mana in the current fight.
     bool lowManaSaid = false;
 

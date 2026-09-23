@@ -15,6 +15,7 @@
  */
 
 #include "CoaSpecLookup.h"
+
 #include "CoaSpecialization.h"
 #include "Config.h"
 #include "Group.h"
@@ -82,6 +83,9 @@ struct MemberStats
     std::map<std::pair<uint32, uint16>, uint32> healTries;
     // Damage dealt by spell (0 = melee swing): the amount, and how many times it landed.
     std::map<uint32, std::pair<uint64, uint32>> damageBySpell;
+    // Healing done by spell: what landed, what was poured into full health, and how many times.
+    struct HealShare { uint64 done = 0; uint64 over = 0; uint32 times = 0; };
+    std::map<uint32, HealShare> healBySpell;
     // Mana paid for each spell it cast, heals or not, and how many casts: where a healer's mana went.
     std::map<uint32, std::pair<uint32, uint32>> manaSpent;
     // The heals a healer bot considers, taken when it is first seen in the fight.
@@ -120,6 +124,7 @@ std::atomic<uint32> ActiveFights{ 0 };
 // amount reaches OnHeal: the difference is the overheal.
 thread_local Unit const* PendingHealTarget = nullptr;
 thread_local uint32 PendingHealRaw = 0;
+thread_local uint32 PendingHealSpell = 0;
 
 char const* RoleWord(CoaRole role)
 {
@@ -224,6 +229,30 @@ void Write(Fight const& fight, uint32 now)
 
         if (m.role == CoaRole::Heal && !m.healKit.empty())
             LOG_INFO("playerbots.coa", "    heal kit of {}: {}", m.name, m.healKit);
+
+        if (!m.healBySpell.empty())
+        {
+            std::vector<std::pair<uint32, MemberStats::HealShare>> given(m.healBySpell.begin(), m.healBySpell.end());
+            std::sort(given.begin(), given.end(), [](auto const& a, auto const& b)
+                      { return a.second.done + a.second.over > b.second.done + b.second.over; });
+            uint64 done = 0, over = 0;
+            for (auto const& entry : given)
+            {
+                done += entry.second.done;
+                over += entry.second.over;
+            }
+
+            std::ostringstream what;
+            what << "    healing of " << m.name << ": " << done << " done, " << over << " wasted;";
+            for (std::size_t i = 0; i < given.size() && i < 12; ++i)
+            {
+                SpellInfo const* info = given[i].first ? sSpellMgr->GetSpellInfo(given[i].first) : nullptr;
+                what << " " << (given[i].first ? (info ? info->SpellName[0] : "?") : "unknown") << " ("
+                     << given[i].first << ") " << given[i].second.done << "+" << given[i].second.over
+                     << " in " << given[i].second.times << ";";
+            }
+            LOG_INFO("playerbots.coa", "{}", what.str());
+        }
 
         if (!m.damageBySpell.empty())
         {
@@ -539,20 +568,25 @@ public:
     }
 
     // Unit::HealBySpell hands the raw amount here just before it is applied.
-    void ModifyHealReceived(Unit* healer, Unit* target, uint32& heal, SpellInfo const* /*spellInfo*/) override
+    void ModifyHealReceived(Unit* healer, Unit* target, uint32& heal, SpellInfo const* spellInfo) override
     {
         if (!ActiveFights.load(std::memory_order_relaxed))
             return;
         PendingHealTarget = target;
         PendingHealRaw = heal;
+        PendingHealSpell = spellInfo ? spellInfo->Id : 0;
         (void)healer;
     }
 
     void OnHeal(Unit* healer, Unit* receiver, uint32& gain) override
     {
         uint32 raw = gain;
+        uint32 spellId = 0;
         if (PendingHealTarget == receiver && PendingHealRaw >= gain)
+        {
             raw = PendingHealRaw;
+            spellId = PendingHealSpell;
+        }
         PendingHealTarget = nullptr;
 
         if (!ActiveFights.load(std::memory_order_relaxed) || !healer || !receiver)
@@ -591,6 +625,10 @@ public:
         {
             from->second.healDone += gain;
             from->second.overheal += raw - gain;
+            auto& share = from->second.healBySpell[spellId];
+            share.done += gain;
+            share.over += raw - gain;
+            ++share.times;
         }
     }
 };

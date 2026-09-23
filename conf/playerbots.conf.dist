@@ -1472,6 +1472,21 @@ AiPlayerbot.CoaExcludedSpecializations = 51,101
 AiPlayerbot.CoaOffensiveHealerSpecs = 40
 
 #
+#    AiPlayerbot.CoaHealsExcluded
+#        Description: Heals a bot must not consider, by their English name, separated by commas.
+#                     A bot builds its heal kit from every heal it knows, not from its rotation:
+#                     this is the only place that makes it forget a spell. The spell keeps all its
+#                     other effects, it merely stops counting as a heal. Read once at startup, when
+#                     each class's spell table is built, so it costs nothing in play.
+#                     Needs a restart, not .reload config.
+#        Default:     Nanobot Reconstruction (Tinker) - its own description reads "healing for 0",
+#                     and measurement agrees: 4724 mana for 76 points of useful healing.
+#                     Leave empty to set nothing aside.
+#
+
+AiPlayerbot.CoaHealsExcluded = "Nanobot Reconstruction"
+
+#
 #    AiPlayerbot.CoaLfgBots
 #        Description: Bots answer players looking for a group in chat. A player who says
 #                     "lfg bot heal", "lfg bot tank", "lfg bot dps", "lfg bot heal tank dps" or just

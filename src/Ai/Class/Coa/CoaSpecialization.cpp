@@ -52,6 +52,7 @@ CoaRole RoleOf(uint32 specializationId)
     switch (specializationId)
     {
         case 6:   // Witch Doctor, Brewing
+        case 25:  // Bloodmage, Fleshweaver
         case 31:  // Chronomancer, Time
         case 37:  // Pyromancer, Flameweaving
         case 40:  // Cultist, Heretic

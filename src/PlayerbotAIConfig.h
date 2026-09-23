@@ -405,6 +405,7 @@ public:
     uint32 coaTankOpenerSeconds;
     std::set<uint32> coaExcludedSpecializations;
     std::set<uint32> coaOffensiveHealerSpecs;
+    std::set<std::string> coaHealsExcluded;
     uint32 lootLogMinQuality;
     bool autoDoQuests;
     bool enableNewRpgStrategy;

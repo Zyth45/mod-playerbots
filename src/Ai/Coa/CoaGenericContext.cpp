@@ -198,6 +198,44 @@ bool CoaDebuffMissingTrigger::IsActive()
     return backoff.Allow(active);
 }
 
+// What this spell would heal, all its ticks counted, and the health the group is missing around
+// the bot. A heal worth far more than what is missing is a heal poured into full health.
+namespace
+{
+float CoaHealWorth(Player* bot, SpellInfo const* info, Unit* target)
+{
+    float total = 0.0f;
+    for (uint8 i = 0; i < MAX_SPELL_EFFECTS; ++i)
+    {
+        SpellEffectInfo const& effect = info->Effects[i];
+        if (effect.Effect == SPELL_EFFECT_HEAL)
+            total += float(std::max(0, effect.CalcValue(bot)));
+        else if (effect.Effect == SPELL_EFFECT_HEAL_PCT)
+            total += float(target->GetMaxHealth()) * float(std::max(0, effect.CalcValue(bot))) / 100.0f;
+        else if ((effect.Effect == SPELL_EFFECT_APPLY_AURA || effect.Effect == SPELL_EFFECT_APPLY_AREA_AURA_PARTY ||
+                  effect.Effect == SPELL_EFFECT_APPLY_AREA_AURA_RAID) &&
+                 effect.ApplyAuraName == SPELL_AURA_PERIODIC_HEAL)
+        {
+            int32 const duration = info->GetMaxDuration();
+            uint32 const ticks = effect.Amplitude > 0 && duration > 0 ? uint32(duration / effect.Amplitude) : 1;
+            total += float(std::max(0, effect.CalcValue(bot))) * float(std::max(1u, ticks));
+        }
+    }
+    return total;
+}
+
+float CoaMissingAround(Player* bot)
+{
+    float missing = float(bot->GetMaxHealth() - bot->GetHealth());
+    if (Group* group = bot->GetGroup())
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+            if (Player* member = ref->GetSource())
+                if (member != bot && member->IsAlive() && member->IsInWorld() && bot->GetDistance(member) < 30.0f)
+                    missing += float(member->GetMaxHealth() - member->GetHealth());
+    return missing;
+}
+}  // namespace
+
 bool CoaCanCastTrigger::IsActive()
 {
     if (!SpellCanBeCastTrigger::IsActive())
@@ -207,6 +245,20 @@ bool CoaCanCastTrigger::IsActive()
     SpellInfo const* info = id ? sSpellMgr->GetSpellInfo(id) : nullptr;
     if (!info)
         return true;
+
+    // A rotation line asks for a heal whenever it is off cooldown, whoever needs it. When it is
+    // worth three times what the group is missing, it would land on full health: not now.
+    if (float const worth = CoaHealWorth(bot, info, bot))
+        if (worth > CoaMissingAround(bot) * 3.0f)
+            return false;
+
+    // A spell that burns or drains a power the target does not have does nothing: a Necromancer's
+    // Glacial Tap (Power Burn) was refused 51 times in a row on dungeon trash without mana (23/09).
+    for (SpellEffectInfo const& effect : info->Effects)
+        if (effect.Effect == SPELL_EFFECT_POWER_BURN || effect.Effect == SPELL_EFFECT_POWER_DRAIN)
+            if (Unit* target = AI_VALUE(Unit*, "current target"))
+                if (target->GetMaxPower(Powers(effect.MiscValue)) == 0)
+                    return false;
 
     int32 const duration = info->GetMaxDuration();
     if (bot->HasAura(id) && (duration < 0 || duration > 60 * IN_MILLISECONDS))

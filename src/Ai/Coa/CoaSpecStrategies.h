@@ -86,7 +86,7 @@ static constexpr CoaSpecStrategy CoaSpecStrategies[] =
     { 20,  26, "Sanguine", CoaSpecRole::Dps, "ranged", "custom::bloodmage-sanguine", nullptr, false },  // default
     { 20,  27, "Accursed", CoaSpecRole::Dps, "close", "custom::bloodmage-accursed", nullptr, false },
     { 20,  99, "Eternal", CoaSpecRole::Tank, "close", "custom::bloodmage-eternal", nullptr, false },
-    { 20,  25, "Fleshweaver", CoaSpecRole::Dps, "ranged", "custom::bloodmage-fleshweaver", nullptr, true },
+    { 20,  25, "Fleshweaver", CoaSpecRole::Heal, "ranged", "custom::bloodmage-fleshweaver", nullptr, true },
 
     // Ranger
     { 21,  28, "Archery", CoaSpecRole::Dps, "ranged", "custom::ranger-archery", nullptr, false },  // default

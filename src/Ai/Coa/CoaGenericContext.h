@@ -108,6 +108,25 @@ public:
     std::string const getName() override { return "cast heal party::" + qualifier; }
 };
 
+/* A heal placed on the ground, cast on the tank so that it lands where the fight is.
+ *
+ * Radiance heals 96 every three seconds inside eight yards. Its rotation line had it as
+ * `cast buff::Radiance`, which a bot casts on ITSELF: the circle appeared under the healer,
+ * sixteen yards behind everyone, and healed nobody - 3415 mana for 342 points of healing
+ * (23/09). Cast on the tank, it covers the tank and the melee around it.
+ */
+class CoaGroundHealAction : public BuffOnMainTankAction, public Qualified
+{
+public:
+    CoaGroundHealAction(PlayerbotAI* botAI) : BuffOnMainTankAction(botAI, "") {}
+    void Qualify(std::string const qual) override
+    {
+        Qualified::Qualify(qual);
+        spell = qual;
+    }
+    std::string const getName() override { return "cast heal tank::" + qualifier; }
+};
+
 // Group heal. Same target value, but isUseful() additionally asks whether
 // enough of the group is hurt for an area heal to be worth its mana.
 class CoaAoeHealAction : public CastAoeHealSpellAction, public Qualified
@@ -465,6 +484,7 @@ public:
         creators["cast heal party"] = &CoaGenericActionContext::cast_heal_party;
         creators["cast heal aoe"] = &CoaGenericActionContext::cast_heal_aoe;
         creators["cast buff party"] = &CoaGenericActionContext::cast_buff_party;
+        creators["cast heal tank"] = &CoaGenericActionContext::cast_heal_tank;
         creators["cast cure party"] = &CoaGenericActionContext::cast_cure_party;
         creators["cast rez"] = &CoaGenericActionContext::cast_rez;
     }
@@ -478,6 +498,7 @@ private:
     static Action* cast_heal_party(PlayerbotAI* botAI) { return new CoaHealPartyAction(botAI); }
     static Action* cast_heal_aoe(PlayerbotAI* botAI) { return new CoaAoeHealAction(botAI); }
     static Action* cast_buff_party(PlayerbotAI* botAI) { return new CoaBuffPartyAction(botAI); }
+    static Action* cast_heal_tank(PlayerbotAI* botAI) { return new CoaGroundHealAction(botAI); }
     static Action* cast_cure_party(PlayerbotAI* botAI) { return new CoaCurePartyAction(botAI); }
     static Action* cast_rez(PlayerbotAI* botAI) { return new CoaCastRezAction(botAI); }
 };

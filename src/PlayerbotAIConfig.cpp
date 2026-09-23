@@ -743,6 +743,18 @@ bool PlayerbotAIConfig::Initialize()
     coaOffensiveHealerSpecs.clear();
     LoadSet<std::set<uint32>>(sConfigMgr->GetOption<std::string>("AiPlayerbot.CoaOffensiveHealerSpecs", "40"),
                               coaOffensiveHealerSpecs);
+    // Des soins que la mesure a trouvés vides. Un bot compose sa trousse de soin à partir de tout
+    // ce qu'il connaît, pas à partir de sa rotation : retirer la ligne de rotation ne suffit pas à
+    // lui faire oublier le sort, il faut le lui refuser ici. La liste est lue une seule fois, au
+    // démarrage, et appliquée quand la table des sorts est construite : en jeu, elle ne coûte rien.
+    coaHealsExcluded.clear();
+    {
+        std::vector<std::string> names;
+        LoadListString<std::vector<std::string>>(
+            sConfigMgr->GetOption<std::string>("AiPlayerbot.CoaHealsExcluded", "Nanobot Reconstruction"), names);
+        for (std::string const& name : names)
+            coaHealsExcluded.insert(name);
+    }
     lootLogMinQuality = sConfigMgr->GetOption<uint32>("AiPlayerbot.LootLogMinQuality", ITEM_QUALITY_RARE);
     autoLearnQuestSpells = sConfigMgr->GetOption<bool>("AiPlayerbot.AutoLearnQuestSpells", true);
     autoTeleportForLevel = sConfigMgr->GetOption<bool>("AiPlayerbot.AutoTeleportForLevel", false);
