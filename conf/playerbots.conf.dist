@@ -1398,9 +1398,12 @@ AiPlayerbot.CoaClassesOnly = 1
 # generated from its guide, applied through playerbots_custom_strategy.
 # The classifier stays active either way, so interrupts, defensive cooldowns
 # and the fallback attack are never lost.
-# Confirmed in play up to level 40; beyond that the ordering is untested.
-# Default: 0 (disabled)
-AiPlayerbot.CoaSpecRotations = 0
+# On from v1.4. It was held back while the ordering was only confirmed up to level 40; the whole of
+# the 23-24/09 measurement campaign then ran with it on, several hundred arena runs at level 60 on
+# two realms, and fourteen rotation lines were corrected against the combat logs of real players.
+# Turn it off to fall back on the classifier alone.
+# Default: 1 (enabled)
+AiPlayerbot.CoaSpecRotations = 1
 
 # Share of its mana a Conquest of Azeroth bot keeps for healing, in percent.
 # Under that share it stops paying for damage spells and fights with what costs
@@ -1420,8 +1423,11 @@ AiPlayerbot.CoaCasterManaReserve = 15
 # ends: time each member spent under 50% and under 25% health, deaths, who received the healing
 # and how much was overheal, the healers' mana from the pull to the end, and how long something
 # other than the tank was being hit. Only groups with a real player in them are followed.
-# Default: 1 (enabled)
-AiPlayerbot.CoaGroupTelemetry = 1
+# Off in the release: it writes a block to the log at the end of every group fight, which is of no
+# use to a server owner and costs something on a realm carrying hundreds of bots. Turn it to 1 when
+# you want to measure a run, and back to 0 afterwards.
+# Default: 0 (disabled)
+AiPlayerbot.CoaGroupTelemetry = 0
 
 # Healers of Conquest of Azeroth in a group: heal whoever is under 25% health first and
 # the tank before the others at equal health, pick the heal for how urgent it is (the
@@ -1457,11 +1463,21 @@ AiPlayerbot.CoaThreatHold = 0
 
 # Conquest of Azeroth specializations bots never play, by id, comma separated. A bot holding one
 # switches to another of its role, and ".playerbots coa" never recruits one.
-#   101 Venomancer Vizier: heals from a scarab form that blocks its heals.
-#    51 Tinker Invention: knows its heals but hardly casts them (Razorfen Downs, 21/09).
+# Empty by default: no specialization is worth setting aside as things stand. The two that used to be
+# here were measured again on 23/09 over a hundred arena runs and both earned their place back --
+# Venomancer Vizier (101) heals 122 a second, fourth of nine healers and the fewest deaths of the
+# leading group, its scarab form no longer blocking its heals; Tinker Invention (51) heals 102 a
+# second, last but one, no longer the silent healer of 21/09.
+# Set it when a specialization is broken beyond what the bot can be taught, and write the reason and
+# the date here, so that it is reconsidered rather than forgotten.
+#    99 Bloodmage Eternal: the cursed form Eternal Curse (92114) is granted by nothing in the core,
+#       so every ability of the specialization fails with SPELL_FAILED_CASTER_AURASTATE. Measured
+#       24/09 over ten arena runs at level 60: 0 taunts, 90 damage a second where the other eleven
+#       tanks do 289 to 668, and 4.2 group deaths a run, the worst of the twelve. Nothing on the bot
+#       side can repair it. Take it out again once the form is granted.
 # Read again by ".reload config".
-# Default: 51,101
-AiPlayerbot.CoaExcludedSpecializations = 51,101
+# Default: 99
+AiPlayerbot.CoaExcludedSpecializations = 99
 
 #    AiPlayerbot.CoaOffensiveHealerSpecs
 #        Description: Healer specializations whose damage is their healing: they keep dealing damage

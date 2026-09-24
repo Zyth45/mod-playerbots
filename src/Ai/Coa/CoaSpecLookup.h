@@ -13,7 +13,7 @@
 #ifndef PLAYERBOTS_COASPECLOOKUP_H
 #define PLAYERBOTS_COASPECLOOKUP_H
 
-#include "mod-ascension-compat/src/AscensionSpecialization.h"
+#include "AscensionSpecialization.h"
 #include "CoaSpecStrategies.h"
 #include "Player.h"
 

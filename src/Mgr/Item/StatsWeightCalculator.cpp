@@ -23,7 +23,7 @@
 #include "SpellMgr.h"
 #include "StatsCollector.h"
 #include "Unit.h"
-#include "mod-ascension-compat/src/AscensionSpecialization.h"
+#include "AscensionSpecialization.h"
 #include <memory>
 
 namespace

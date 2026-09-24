@@ -6,7 +6,7 @@
 
 #include "ChangeTalentsAction.h"
 #include "AiFactory.h"
-#include "mod-ascension-compat/src/AscensionSpecialization.h"
+#include "AscensionSpecialization.h"
 #include "AiObjectContext.h"
 #include "ChatHelper.h"
 #include "CoaSpecLookup.h"

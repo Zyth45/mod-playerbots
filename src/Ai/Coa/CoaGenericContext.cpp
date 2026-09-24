@@ -6,7 +6,7 @@
  */
 #include "CoaGenericContext.h"
 
-#include "mod-ascension-compat/src/AscensionSpecialization.h"
+#include "AscensionSpecialization.h"
 
 #include "CellImpl.h"
 #include "GridNotifiers.h"

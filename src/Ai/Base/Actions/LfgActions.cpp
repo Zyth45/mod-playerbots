@@ -14,7 +14,7 @@
 #include "World.h"
 #include "WorldPacket.h"
 #include "CoaSpecialization.h"
-#include "mod-ascension-compat/src/AscensionSpecialization.h"
+#include "AscensionSpecialization.h"
 
 using namespace lfg;
 

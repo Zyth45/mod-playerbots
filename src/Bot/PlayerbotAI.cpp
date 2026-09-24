@@ -55,7 +55,7 @@
 #include "Unit.h"
 #include "UpdateTime.h"
 #include "Vehicle.h"
-#include "mod-ascension-compat/src/AscensionSpecialization.h"
+#include "AscensionSpecialization.h"
 #include <cmath>
 #include <mutex>
 #include <sstream>

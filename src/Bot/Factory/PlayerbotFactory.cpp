@@ -41,7 +41,7 @@
 #include "SpellMgr.h"
 #include "Trainer.h"
 #include "World.h"
-#include "mod-ascension-compat/src/AscensionSpecialization.h"
+#include "AscensionSpecialization.h"
 #include <array>
 #include <unordered_set>
 #include <utility>
