@@ -85,9 +85,10 @@ AiPlayerbot.Enabled = 1
 # Enable randombot system
 AiPlayerbot.RandomBotAutologin = 1
 
-# Randombot count
-AiPlayerbot.MinRandomBots = 500
-AiPlayerbot.MaxRandomBots = 500
+# Randombot count. 200 here: what the released package installs, and what 16 GB of memory holds
+# comfortably. 1000 needs about 32 GB.
+AiPlayerbot.MinRandomBots = 200
+AiPlayerbot.MaxRandomBots = 200
 
 # Randombot accounts
 # Set to 0 to automatically calculate needed accounts based on MaxRandomBots, EnablePeriodicOnlineOffline
@@ -141,7 +142,7 @@ AiPlayerbot.AddClassCommand = 1
 
 # Bot group invitation permission level (0 = GM only, 1 = accept based on level, 2 = always accept)
 # Default: 1 (accept based on level)
-AiPlayerbot.GroupInvitationPermission = 1
+AiPlayerbot.GroupInvitationPermission = 2
 
 # Keep altbots in the party even when the master leaves
 # 0 = disabled (default behavior)
@@ -1291,7 +1292,9 @@ AiPlayerbot.ExcludedHunterPetFamilies = ""
 #   rotation happens, it stays active until those conditions end — it won't be cut off
 #   mid-fight just because its turn expired.
 #
-AiPlayerbot.BotActiveAlone = 10
+# 60 here: measured on a realm of 1000 bots, the value that keeps the world alive without
+# spending the map threads on characters nobody is looking at.
+AiPlayerbot.BotActiveAlone = 60
 AiPlayerbot.BotActiveAloneDurationSeconds = 30
 
 # Force-active rules (1 = on, 0 = off)
@@ -1982,8 +1985,8 @@ AiPlayerbot.MaxRandomBotReviveTime = 300
 
 # Minimum and maximum seconds between bot teleports to new areas or zones
 # Defaults: 3600 (min), 18000 (max)
-AiPlayerbot.MinRandomBotTeleportInterval = 3600
-AiPlayerbot.MaxRandomBotTeleportInterval = 18000
+AiPlayerbot.MinRandomBotTeleportInterval = 600
+AiPlayerbot.MaxRandomBotTeleportInterval = 2400
 
 # Number of seconds bots flagged as permanent stay in the world (31,104,000 ≈ 1 year)
 # Default: 31104000
@@ -2824,7 +2827,7 @@ AiPlayerbot.RandomBotSayWithoutMaster = 0
 # At 0 they keep quiet; answers to a player's commands and questions, and a bot's hello and goodbye,
 # are always sent. RandomBotTalk (bots talking in the public channels) is a separate setting.
 # Default: 0 (disabled) - a word in a channel used to bring a wall of whispers.
-AiPlayerbot.BotsWhisperPublic = 0
+AiPlayerbot.BotsWhisperPublic = 1
 
 # How many of the bots that hear a player write in a channel may answer him, in percent. They all
 # hear him, so a high value buries the player under answers; a bot called by its name still answers.
@@ -2846,14 +2849,14 @@ AiPlayerbot.EnableBroadcasts = 1
 # Id of the per-zone channel, as the client's ChatChannels.dbc numbers it. It is 1 (General)
 # on a stock client; Conquest of Azeroth numbers its "Zone - <place>" channel 3 and keeps 1 for
 # the realm-wide one, and a bot then speaks to a channel nobody reads.
-# Default: 1
-AiPlayerbot.ZoneChannelId = 1
+# Default: 1 on a stock client, 3 here: this branch targets Conquest of Azeroth.
+AiPlayerbot.ZoneChannelId = 3
 
 # Name of the realm-wide channel bots talk in, exactly as the client shows it.
 # A realm that renames it - Conquest of Azeroth calls it "Ascension" - drops every
 # broadcast meant for that channel until this matches.
-# Default: World
-AiPlayerbot.BroadcastWorldChannelName = "World"
+# Default: World on a stock client, Ascension here: this branch targets Conquest of Azeroth.
+AiPlayerbot.BroadcastWorldChannelName = "Ascension"
 
 # All broadcast chances should be in range 0-30000
 # Value of 0 will disable this particular broadcast
@@ -2861,9 +2864,10 @@ AiPlayerbot.BroadcastWorldChannelName = "World"
 # Setting channel broadcast chance to 0 will re-route most broadcasts to other available channels
 # Setting all channel broadcasts to 0 will disable most broadcasts
 AiPlayerbot.BroadcastToGuildGlobalChance = 30000
-AiPlayerbot.BroadcastToWorldGlobalChance = 30000
+# 0 here: the realm-wide channel is read by everyone and bot chatter belongs in Zone.
+AiPlayerbot.BroadcastToWorldGlobalChance = 0
 AiPlayerbot.BroadcastToGeneralGlobalChance = 30000
-AiPlayerbot.BroadcastToTradeGlobalChance = 30000
+AiPlayerbot.BroadcastToTradeGlobalChance = 5000
 AiPlayerbot.BroadcastToLFGGlobalChance = 30000
 AiPlayerbot.BroadcastToLocalDefenseGlobalChance = 30000
 AiPlayerbot.BroadcastToWorldDefenseGlobalChance = 30000
