@@ -2827,7 +2827,7 @@ AiPlayerbot.RandomBotSayWithoutMaster = 0
 # At 0 they keep quiet; answers to a player's commands and questions, and a bot's hello and goodbye,
 # are always sent. RandomBotTalk (bots talking in the public channels) is a separate setting.
 # Default: 0 (disabled) - a word in a channel used to bring a wall of whispers.
-AiPlayerbot.BotsWhisperPublic = 1
+AiPlayerbot.BotsWhisperPublic = 0
 
 # How many of the bots that hear a player write in a channel may answer him, in percent. They all
 # hear him, so a high value buries the player under answers; a bot called by its name still answers.
