@@ -553,6 +553,7 @@ void AddSC_RubySanctumBotScripts();
 void AddSC_randombot_level_mgr();
 
 void AddSC_coa_group_telemetry();
+void AddSC_coa_status_file();
 
 void AddPlayerbotsScripts()
 {
@@ -575,5 +576,6 @@ void AddPlayerbotsScripts()
     AddSC_RubySanctumBotScripts();
     AddSC_randombot_level_mgr();
     AddSC_coa_group_telemetry();
+    AddSC_coa_status_file();
     AddSC_coa_lfg();
 }

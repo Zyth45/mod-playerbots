@@ -217,6 +217,8 @@ bool Engine::DoNextAction(Unit* /*unit*/, uint32 /*depth*/, bool minimal)
                 if (actionExecuted)
                 {
                     LogAction("A:%s - OK", action->getName().c_str());
+                    if (sPlayerbotAIConfig.coaStatusEnabled)
+                        lastExecutedAction = action->getName();
                     MultiplyAndPush(actionNode->getContinuers(), relevance, false, event, "cont");
                     lastRelevance = relevance;
                     delete actionNode;  // Safe memory management

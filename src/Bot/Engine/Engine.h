@@ -78,6 +78,8 @@ public:
     bool ContainsStrategy(StrategyType type);
     void ChangeStrategy(std::string const names);
     std::string const GetLastAction() { return lastAction; }
+    // The last action that went through, kept only while AiPlayerbot.CoaStatusFile is set (bot-status.json).
+    std::string const& GetLastExecutedAction() const { return lastExecutedAction; }
 
     virtual bool DoNextAction(Unit*, uint32 depth = 0, bool minimal = false);
     ActionResult ExecuteAction(std::string const name, Event event = Event(), std::string const qualifier = "");
@@ -115,6 +117,7 @@ protected:
     std::map<std::string, Strategy*> strategies;
     float lastRelevance;
     std::string lastAction;
+    std::string lastExecutedAction;
     uint32 strategyTypeMask;
     bool hasTargetExclusions = false;
     NamedObjectFactoryList<ActionNode> actionNodeFactories;

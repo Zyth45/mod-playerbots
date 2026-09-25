@@ -1432,6 +1432,21 @@ AiPlayerbot.CoaCasterManaReserve = 15
 # Default: 0 (disabled)
 AiPlayerbot.CoaGroupTelemetry = 0
 
+# A snapshot of every random bot online, written as JSON for the SquidBots dashboard (bot-status.json,
+# its "botStatusFile" setting): position, health, power, what the bot is doing, its group and its
+# quests, shown on the map and on each bot's card. The file is written whole under a .tmp name and
+# then renamed, so the dashboard never reads half of it; the dashboard treats it as stale after 60 s.
+# With 1000 bots a snapshot takes under a millisecond of the world update (about 300 KB); the disk
+# write runs on a thread of its own. "us" and "io_us" in the file give both times in microseconds.
+# A relative path is taken from the worldserver's working directory. Empty = not written.
+# Read again by ".reload config".
+# Default: "" (disabled)
+AiPlayerbot.CoaStatusFile = ""
+
+# Seconds between two snapshots of the file above (minimum 1).
+# Default: 5
+AiPlayerbot.CoaStatusIntervalSeconds = 5
+
 # Healers of Conquest of Azeroth in a group: heal whoever is under 25% health first and
 # the tank before the others at equal health, pick the heal for how urgent it is (the
 # fastest when someone is dropping, one that fits the missing health otherwise), stay
