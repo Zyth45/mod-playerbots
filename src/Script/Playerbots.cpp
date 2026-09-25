@@ -23,6 +23,9 @@
 #include "ScriptMgr.h"
 #include "cmath"
 
+// Shown to players at login: bump it with every CoA Bots release.
+static constexpr char const* COA_BOTS_VERSION = "1.4";
+
 class PlayerbotsDatabaseScript : public DatabaseScript
 {
 public:
@@ -125,6 +128,9 @@ public:
                 ChatHandler(player->GetSession()).SendSysMessage(
                     "|cff00ff00This server runs with |cff00ccffmod-playerbots|r "
                     "|cffcccccchttps://github.com/mod-playerbots/mod-playerbots|r");
+                ChatHandler(player->GetSession()).SendSysMessage(
+                    std::string("|cff00ff00CoA Bots|r |cff00ccffv") + COA_BOTS_VERSION +
+                    "|r |cffcccccchttps://github.com/Zyth45/mod-playerbots|r");
             }
 
             if (sPlayerbotAIConfig.enabled || sPlayerbotAIConfig.randomBotAutologin)
