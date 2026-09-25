@@ -1781,11 +1781,12 @@ AiPlayerbot.ZoneBracket.1377 = 54,63
 # Blade's Edge Mountains (Zone ID: 3522    Default Min,Max: 64,73)
 # Netherstorm            (Zone ID: 3523    Default Min,Max: 67,73)
 # Isle of Quel'Danas     (Zone ID: 4080    Default Min,Max: 68,73)
-AiPlayerbot.ZoneBracket.3483 = 58,66
+# CoA: bots stop at level 60, Outland is post-60: Hellfire and Zangarmarsh start at 61 so no bot is sent there.
+AiPlayerbot.ZoneBracket.3483 = 61,66
 AiPlayerbot.ZoneBracket.3518 = 64,70
 AiPlayerbot.ZoneBracket.3519 = 62,73
 AiPlayerbot.ZoneBracket.3520 = 66,73
-AiPlayerbot.ZoneBracket.3521 = 60,67
+AiPlayerbot.ZoneBracket.3521 = 61,67
 AiPlayerbot.ZoneBracket.3522 = 64,73
 AiPlayerbot.ZoneBracket.3523 = 67,73
 AiPlayerbot.ZoneBracket.4080 = 68,73
