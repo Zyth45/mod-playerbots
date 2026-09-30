@@ -15,6 +15,7 @@
 #include "World.h"
 #include "WorldPacket.h"
 #include "CoaSpecialization.h"
+#include "CoaWildcard.h"
 #include "AscensionSpecialization.h"
 
 using namespace lfg;
@@ -24,7 +25,7 @@ bool LfgJoinAction::Execute(Event /*event*/) { return JoinLFG(); }
 uint32 LfgJoinAction::GetRoles()
 {
     // Conquest of Azeroth classes have no talent tabs: their role comes from the specialization.
-    if (IsAscensionCustomClassId(bot->getClass()))
+    if (IsCoaBot(bot))
     {
         switch (GetCoaRole(bot))
         {

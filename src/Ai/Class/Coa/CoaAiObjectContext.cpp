@@ -9,6 +9,7 @@
 #include "Action.h"
 #include "AttackAction.h"
 #include "CoaSpecialization.h"
+#include "CoaWildcard.h"
 #include "CombatStrategy.h"
 #include "DatabaseEnv.h"
 #include "Group.h"
@@ -31,6 +32,7 @@
 #include <cmath>
 #include <ctime>
 #include <map>
+#include <memory>
 #include <mutex>
 #include <unordered_map>
 #include <unordered_set>
@@ -478,12 +480,51 @@ std::unordered_map<uint8, ClassKit> const& ClassAbilities()
     return abilities;
 }
 
+// A Wildcard Hero has no class kit: its abilities are whatever its dice gave it. Its own kit holds the
+// spells of its rolled entries, classified like a class kit, and is kept until its build changes.
+std::mutex WildcardKitLock;
+std::unordered_map<ObjectGuid::LowType, std::shared_ptr<ClassKit const>> WildcardKits;
+
+std::shared_ptr<ClassKit const> BuildWildcardKit(Player const* bot)
+{
+    auto kit = std::make_shared<ClassKit>();
+    for (uint32 spellId : WildcardBuildSpells(bot))
+        if (SpellInfo const* info = sSpellMgr->GetSpellInfo(spellId))
+        {
+            CoaAbility ability = { spellId, 0, 0, 0, info->GetFirstRankSpell()->Id };
+            Classify(info, ability);
+            kit->abilities.push_back(ability);
+            kit->kinds |= ability.kind;
+        }
+    return kit;
+}
+
+// The kit a bot casts from: the one of its class, or its own for a Wildcard Hero.
+std::shared_ptr<ClassKit const> KitOf(Player* bot)
+{
+    if (IsWildcardHeroBot(bot))
+    {
+        ObjectGuid::LowType const guid = bot->GetGUID().GetCounter();
+        {
+            std::lock_guard<std::mutex> lock(WildcardKitLock);
+            if (auto const found = WildcardKits.find(guid); found != WildcardKits.end())
+                return found->second;
+        }
+        std::shared_ptr<ClassKit const> const kit = BuildWildcardKit(bot);
+        std::lock_guard<std::mutex> lock(WildcardKitLock);
+        return WildcardKits.try_emplace(guid, kit).first->second;
+    }
+
+    auto const& all = ClassAbilities();
+    auto const found = all.find(bot->getClass());
+    return found == all.end() ? nullptr : std::shared_ptr<ClassKit const>(std::shared_ptr<void>(), &found->second);
+}
+
 // Whether the bot's class has any ability of that kind: a cheap test before looking at spells.
 bool ClassHas(Player* bot, uint16 kind)
 {
-    auto const& all = ClassAbilities();
-    auto const found = all.find(bot->getClass());
-    return found != all.end() && (found->second.kinds & kind);
+    std::shared_ptr<ClassKit const> const kit = KitOf(bot);
+    return kit && (kit->kinds & kind);
 }
 
 struct Usable
@@ -499,15 +540,14 @@ std::vector<Usable> KnownAbilities(Player* bot, Filter wanted)
 {
     std::vector<Usable> usable;
 
-    auto const& all = ClassAbilities();
-    auto const found = all.find(bot->getClass());
-    if (found == all.end())
+    std::shared_ptr<ClassKit const> const kit = KitOf(bot);
+    if (!kit)
         return usable;
 
     // A bot can still know the lower ranks of a spell: only cast the highest one it has reached.
     // Abilities are ordered by required level, so a later rank replaces an earlier one.
     std::unordered_map<uint32, size_t> rankIndex;
-    for (CoaAbility const& ability : found->second.abilities)
+    for (CoaAbility const& ability : kit->abilities)
     {
         if (!wanted(ability.kind) || ability.requiredLevel > bot->GetLevel() || !bot->HasSpell(ability.spellId))
             continue;
@@ -2705,6 +2745,12 @@ private:
 
 }  // namespace
 
+void ForgetWildcardKit(Player const* bot)
+{
+    std::lock_guard<std::mutex> lock(WildcardKitLock);
+    WildcardKits.erase(bot->GetGUID().GetCounter());
+}
+
 // Whether a spell heals or shields an ally, by the classifier (triggered spells included) or by an
 // absorb it puts on its target. Gaze of C'Thun hits enemies or heals allies: not a heal to the
 // classifier, yet the Cultist healer's main heal (its rotation's "can cast" line).
@@ -2731,12 +2777,11 @@ bool HealsOrShields(Player* bot, SpellInfo const* info)
     if (HealsOrShieldsDirectly(info))
         return true;
 
-    auto const& all = ClassAbilities();
-    auto const found = all.find(bot->getClass());
-    if (found == all.end())
+    std::shared_ptr<ClassKit const> const kit = KitOf(bot);
+    if (!kit)
         return false;
     uint32 const first = info->GetFirstRankSpell()->Id;
-    for (CoaAbility const& ability : found->second.abilities)
+    for (CoaAbility const& ability : kit->abilities)
         if ((ability.spellId == info->Id || ability.firstSpellId == first) && (ability.kind & (KIND_HEAL | KIND_HOT)))
             return true;
     return false;

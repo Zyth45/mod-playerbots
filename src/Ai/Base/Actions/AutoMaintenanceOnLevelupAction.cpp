@@ -6,6 +6,7 @@
 
 #include "AutoMaintenanceOnLevelupAction.h"
 #include "CoaSpecialization.h"
+#include "CoaWildcard.h"
 #include "BroadcastHelper.h"
 #include "PlayerbotAIConfig.h"
 #include "PlayerbotFactory.h"
@@ -17,7 +18,7 @@ bool AutoMaintenanceOnLevelupAction::Execute(Event /*event*/)
 {
     // A CoA bot reaching level 10 picks its specialization: switch its combat role now
     // rather than at the next strategy reset.
-    if (EnsureCoaSpecialization(bot))
+    if (EnsureCoaSpecialization(bot) || DraftWildcardBuild(bot))
     {
         if (GetCoaRole(bot) == CoaRole::Tank)
         {

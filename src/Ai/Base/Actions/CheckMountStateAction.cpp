@@ -5,6 +5,7 @@
  */
 
 #include "CheckMountStateAction.h"
+#include "CoaWildcard.h"
 #include "AscensionSpecialization.h"
 #include "AreaDefines.h"
 #include "BattleGroundTactics.h"
@@ -219,7 +220,7 @@ bool CheckMountStateAction::Mount()
         // The CoA forms (Venomancer Spider Form...) are shapeshifts under names of their own, which the
         // mount refuses: a Venomancer stayed a spider beside its mounted player. Only here, when it
         // mounts: RemoveShapeshift also runs when a bot closes on its target, where a tank keeps its form.
-        if (IsAscensionCustomClassId(bot->getClass()))
+        if (IsCoaBot(bot))
             bot->RemoveAurasByType(SPELL_AURA_MOD_SHAPESHIFT);
     }
 
