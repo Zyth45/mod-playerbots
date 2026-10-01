@@ -10,6 +10,7 @@
 #include "SpellInfo.h"
 #include "SpellMgr.h"
 
+#include <mutex>
 #include <unordered_map>
 
 namespace
@@ -25,8 +26,6 @@ constexpr uint32 SPELL_PATH_AGILITY = 84865;
 constexpr uint32 SPELL_PATH_INTELLECT = 84866;
 constexpr uint32 SPELL_PATH_HEALING = 84867;
 
-// Set when the bot's weapon attacks are mostly shots, so an Agility bot fights from range.
-constexpr char const* RANGED_VALUE = "wildcard_ranged";
 
 std::vector<uint32> const* RankSpellsOf(uint32 entryId)
 {
@@ -108,6 +107,25 @@ uint32 PathFor(BuildShape const& shape)
         return PATH_INTELLECT;
     return PATH_DUALITY;
 }
+
+// Whether a Hero's weapon attacks are mostly shots, so an Agility Hero fights from range. Bot AI runs
+// in the map update threads, so this is kept here under a lock rather than in RandomPlayerbotMgr's
+// value cache, which only the world thread may touch.
+std::mutex ShooterLock;
+std::unordered_map<ObjectGuid::LowType, bool> Shooters;
+
+bool Shoots(Player const* bot)
+{
+    ObjectGuid::LowType const guid = bot->GetGUID().GetCounter();
+    {
+        std::lock_guard<std::mutex> lock(ShooterLock);
+        if (auto const found = Shooters.find(guid); found != Shooters.end())
+            return found->second;
+    }
+    BuildShape const shape = ShapeOf(bot);
+    std::lock_guard<std::mutex> lock(ShooterLock);
+    return Shooters.insert_or_assign(guid, shape.shots > shape.strikes).first->second;
+}
 }  // namespace
 
 bool IsWildcardRealm()
@@ -139,8 +157,7 @@ CoaStyle GetWildcardStyle(Player const* player)
 {
     if (player->HasSpell(SPELL_PATH_INTELLECT) || player->HasSpell(SPELL_PATH_HEALING))
         return CoaStyle::Caster;
-    if (player->HasSpell(SPELL_PATH_AGILITY) &&
-        sRandomPlayerbotMgr.GetValue(player->GetGUID().GetCounter(), RANGED_VALUE))
+    if (player->HasSpell(SPELL_PATH_AGILITY) && Shoots(player))
         return CoaStyle::Ranged;
     return CoaStyle::Melee;
 }
@@ -169,7 +186,10 @@ bool DraftWildcardBuild(Player* bot)
     AscensionWildcard::DraftBuild(bot);
 
     BuildShape const shape = ShapeOf(bot);
-    sRandomPlayerbotMgr.SetValue(bot, RANGED_VALUE, shape.shots > shape.strikes ? 1 : 0);
+    {
+        std::lock_guard<std::mutex> lock(ShooterLock);
+        Shooters.insert_or_assign(bot->GetGUID().GetCounter(), shape.shots > shape.strikes);
+    }
     // The server refuses a path change in combat; a bot levelling mid-fight picks it on its next draft.
     if (!bot->IsInCombat())
     {
