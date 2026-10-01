@@ -36,7 +36,7 @@ uint8 GetWildcardPrimaryStats(Player const* player);
 
 // Rolls every roll a random Wildcard bot has earned, its four starting abilities first, picked for the bot's
 // role (one in five tanks, one in five heals), and moves it onto its role's stat path. A build above the bot's
-// level or drafted under older rules is drafted again. True when its role or style changed.
+// level is drafted again. True when its role or style changed.
 bool DraftWildcardBuild(Player* bot);
 
 // Forgets the whole build, for a bot rebuilt at a lower level than its rolls were made for.

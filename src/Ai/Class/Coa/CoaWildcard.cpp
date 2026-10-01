@@ -31,14 +31,13 @@ constexpr uint32 SPELL_PATH_STRENGTH = 84864;
 constexpr uint32 SPELL_PATH_AGILITY = 84865;
 constexpr uint32 SPELL_PATH_INTELLECT = 84866;
 constexpr uint32 SPELL_PATH_HEALING = 84867;
+// The glow of a level up, shown to everyone around.
+constexpr uint32 SPELL_LEVEL_UP_VISUAL = 24298;
 
 // A bot tries this many sets of starting abilities and keeps the best, as a player rerolls until the four fit.
 constexpr uint32 STARTER_DRAWS = 1024;
 // Scrolls of Fortune a bot spends at most per draft on rolls it cannot use.
 constexpr uint32 MISFIT_REROLLS_PER_DRAFT = 8;
-// Builds drafted under older rules are drafted again; raise it when the rules change.
-constexpr uint32 DRAFT_RULES = 1;
-char const* const DRAFT_RULES_SETTING = "playerbots.wildcard.rules";
 
 // Spell tags of SpellTagTypes.dbc.
 constexpr uint32 TAG_ROLE_TANK = 122;
@@ -286,12 +285,6 @@ CoaRole TargetRoleOf(Player const* bot)
     }
 }
 
-bool DraftedUnderOldRules(Player const* bot)
-{
-    PlayerSettingVector const* rules = bot->FindPlayerSettings(DRAFT_RULES_SETTING);
-    return !rules || rules->empty() || (*rules)[0].value < DRAFT_RULES;
-}
-
 // Rolls of a higher level than the bot has: it was rebuilt at a lower level.
 bool BuildAboveLevel(Player const* bot)
 {
@@ -489,11 +482,8 @@ bool DraftWildcardBuild(Player* bot)
     CoaRole const role = GetWildcardRole(bot);
     CoaStyle const style = GetWildcardStyle(bot);
 
-    if (DraftedUnderOldRules(bot) || BuildAboveLevel(bot))
-    {
+    if (BuildAboveLevel(bot))
         ResetWildcardBuild(bot);
-        bot->UpdatePlayerSetting(DRAFT_RULES_SETTING, 0, DRAFT_RULES);
-    }
 
     CoaRole const target = TargetRoleOf(bot);
     AscensionWildcard::DraftBuild(bot,
@@ -529,6 +519,7 @@ bool RedraftWildcardBot(Player* bot)
     DraftWildcardBuild(bot);
     if (PlayerbotAI* botAI = GET_PLAYERBOT_AI(bot))
         botAI->ResetStrategies();
+    bot->CastSpell(bot, SPELL_LEVEL_UP_VISUAL, true);
     return true;
 }
 
