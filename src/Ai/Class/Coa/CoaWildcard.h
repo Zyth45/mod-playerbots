@@ -42,6 +42,9 @@ bool DraftWildcardBuild(Player* bot);
 // Forgets the whole build, for a bot rebuilt at a lower level than its rolls were made for.
 void ResetWildcardBuild(Player* bot);
 
+// Forgets the build of a random Wildcard Hero bot and drafts it again for its role (.playerbots wildcard redraft).
+bool RedraftWildcardBot(Player* bot);
+
 // The spell each rolled entry taught, at the rank it was rolled with.
 std::vector<uint32> WildcardBuildSpells(Player const* bot);
 

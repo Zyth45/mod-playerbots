@@ -6,6 +6,8 @@
 #include "Config.h"
 #include "Log.h"
 #include "Player.h"
+#include "PlayerbotAI.h"
+#include "Playerbots.h"
 #include "RandomPlayerbotMgr.h"
 #include "SharedDefines.h"
 #include "SpellInfo.h"
@@ -335,6 +337,26 @@ uint32 MisfitOf(Player const* bot)
     return unused;
 }
 
+// The higher ranks of its rolled abilities that its level allows, as a player trains them at any class trainer.
+void TrainRanks(Player* bot)
+{
+    for (AscensionWildcard::Slot const& slot : AscensionWildcard::Slots(bot))
+    {
+        std::vector<uint32> const* ranks = slot.EntryId && !slot.Talent ? RankSpellsOf(slot.EntryId) : nullptr;
+        if (!ranks || slot.Rank < 1 || slot.Rank > ranks->size())
+            continue;
+        for (uint32 next = sSpellMgr->GetNextSpellInChain((*ranks)[slot.Rank - 1]); next;
+             next = sSpellMgr->GetNextSpellInChain(next))
+        {
+            SpellInfo const* info = sSpellMgr->GetSpellInfo(next);
+            if (!info || info->SpellLevel > bot->GetLevel())
+                break;
+            if (!bot->HasSpell(next))
+                bot->learnSpell(next);
+        }
+    }
+}
+
 void RerollMisfits(Player* bot)
 {
     AscensionWildcard::ClaimLevelingScrolls(bot);
@@ -479,6 +501,7 @@ bool DraftWildcardBuild(Player* bot)
         { return PickStarters(candidates, target); },
         STARTER_DRAWS);
     RerollMisfits(bot);
+    TrainRanks(bot);
 
     BuildShape const shape = ShapeOf(bot);
     {
@@ -495,6 +518,18 @@ bool DraftWildcardBuild(Player* bot)
 
     ForgetWildcardKit(bot);
     return role != GetWildcardRole(bot) || style != GetWildcardStyle(bot);
+}
+
+bool RedraftWildcardBot(Player* bot)
+{
+    if (!IsWildcardHeroBot(bot) || !sRandomPlayerbotMgr.IsRandomBot(bot))
+        return false;
+
+    ResetWildcardBuild(bot);
+    DraftWildcardBuild(bot);
+    if (PlayerbotAI* botAI = GET_PLAYERBOT_AI(bot))
+        botAI->ResetStrategies();
+    return true;
 }
 
 void ResetWildcardBuild(Player* bot)

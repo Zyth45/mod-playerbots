@@ -491,15 +491,18 @@ std::unordered_map<ObjectGuid::LowType, std::shared_ptr<ClassKit const>> Wildcar
 std::shared_ptr<ClassKit const> BuildWildcardKit(Player const* bot)
 {
     auto kit = std::make_shared<ClassKit>();
-    for (auto const& [spellId, synergy] : WildcardBuildSynergies(bot))
-        if (SpellInfo const* info = sSpellMgr->GetSpellInfo(spellId))
-        {
-            CoaAbility ability = { spellId, 0, 0, 0, info->GetFirstRankSpell()->Id };
-            Classify(info, ability);
-            ability.synergy = synergy;
-            kit->abilities.push_back(ability);
-            kit->kinds |= ability.kind;
-        }
+    for (auto const& [rolled, synergy] : WildcardBuildSynergies(bot))
+        // The rolled rank first, then the higher ranks the bot trained: the highest it knows is cast.
+        for (uint32 spellId = rolled; spellId && (spellId == rolled || bot->HasSpell(spellId));
+             spellId = sSpellMgr->GetNextSpellInChain(spellId))
+            if (SpellInfo const* info = sSpellMgr->GetSpellInfo(spellId))
+            {
+                CoaAbility ability = { spellId, 0, 0, 0, info->GetFirstRankSpell()->Id };
+                Classify(info, ability);
+                ability.synergy = synergy;
+                kit->abilities.push_back(ability);
+                kit->kinds |= ability.kind;
+            }
     return kit;
 }
 
