@@ -14,6 +14,7 @@
 
 #include "CoaSpecialization.h"
 
+#include <utility>
 #include <vector>
 
 class Player;
@@ -43,6 +44,9 @@ void ResetWildcardBuild(Player* bot);
 
 // The spell each rolled entry taught, at the rank it was rolled with.
 std::vector<uint32> WildcardBuildSpells(Player const* bot);
+
+// The same spells, each with the synergy score of its entry against the rest of the build.
+std::vector<std::pair<uint32, uint32>> WildcardBuildSynergies(Player const* bot);
 
 // Drops the cached ability kit of a Hero after its build changed (CoaAiObjectContext).
 void ForgetWildcardKit(Player const* bot);

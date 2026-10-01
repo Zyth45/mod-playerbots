@@ -506,6 +506,32 @@ void ResetWildcardBuild(Player* bot)
     ForgetWildcardKit(bot);
 }
 
+std::vector<std::pair<uint32, uint32>> WildcardBuildSynergies(Player const* bot)
+{
+    std::vector<std::pair<uint32, uint32>> spells;
+    std::vector<uint32> entries;
+    for (AscensionWildcard::Slot const& slot : AscensionWildcard::Slots(bot))
+    {
+        std::vector<uint32> const* ranks = slot.EntryId ? RankSpellsOf(slot.EntryId) : nullptr;
+        if (ranks && slot.Rank >= 1 && slot.Rank <= ranks->size())
+        {
+            spells.emplace_back((*ranks)[slot.Rank - 1], slot.EntryId);
+            entries.push_back(slot.EntryId);
+        }
+    }
+
+    for (auto& [spellId, score] : spells)
+    {
+        uint32 const entry = score;
+        std::vector<uint32> others;
+        for (uint32 other : entries)
+            if (other != entry)
+                others.push_back(other);
+        score = AscensionWildcard::SynergyScore(AscensionWildcard::LoadedTables(), entry, others);
+    }
+    return spells;
+}
+
 std::vector<uint32> WildcardBuildSpells(Player const* bot)
 {
     std::vector<uint32> spells;
