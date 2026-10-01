@@ -405,6 +405,7 @@ public:
     void HandleCommand(uint32 type, std::string const text, Player* fromPlayer);
     void QueueChatResponse(const ChatQueuedReply reply);
     void HandleBotOutgoingPacket(WorldPacket const& packet);
+    void HearChat(WorldPacket const& packet);
     void HandleMasterIncomingPacket(WorldPacket const& packet);
     void HandleMasterOutgoingPacket(WorldPacket const& packet);
     void HandleTeleportAck();
@@ -654,6 +655,9 @@ protected:
     ChatHelper chatHelper;
     std::list<ChatCommandHolder> chatCommands;
     std::list<ChatQueuedReply> chatReplies;
+    // Chat reaches a bot from the thread of whoever spoke, often another map's; the bot hears it in its own update.
+    std::mutex heardChatLock;
+    std::vector<WorldPacket> heardChat;
     PacketHandlingHelper botOutgoingPacketHandlers;
     PacketHandlingHelper masterIncomingPacketHandlers;
     PacketHandlingHelper masterOutgoingPacketHandlers;

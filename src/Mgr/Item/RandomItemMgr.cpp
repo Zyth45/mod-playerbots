@@ -9,8 +9,11 @@
 #include "DBCStores.h"
 #include "ItemTemplate.h"
 #include "Playerbots.h"
+#include <mutex>
 
 std::unordered_set<uint32> RandomItemMgr::itemCache;
+// Bots look items up from the map update threads.
+static std::mutex ItemCacheLock;
 
 class RandomItemGuildTaskPredicate : public RandomItemPredicate
 {
@@ -1545,8 +1548,11 @@ bool RandomItemMgr::IsUsedBySkill(ItemTemplate const* proto, uint32 skillId)
     if (!proto)
         return false;
 
-    if (itemCache.contains(proto->ItemId))
-        return true;
+    {
+        std::lock_guard<std::mutex> lock(ItemCacheLock);
+        if (itemCache.contains(proto->ItemId))
+            return true;
+    }
 
     switch (proto->Class)
     {
@@ -1556,6 +1562,7 @@ bool RandomItemMgr::IsUsedBySkill(ItemTemplate const* proto, uint32 skillId)
         case ITEM_CLASS_GEM:
             if (IsCraftedBySkill(proto->ItemId, skillId))
             {
+                std::lock_guard<std::mutex> lock(ItemCacheLock);
                 itemCache.insert(proto->ItemId);
                 return true;
             }

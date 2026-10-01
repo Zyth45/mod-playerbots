@@ -18,6 +18,7 @@
 #include "Playerbots.h"
 #include "ServerFacade.h"
 #include "SpellAuraEffects.h"
+#include <mutex>
 
 static constexpr uint32 SPELL_COLD_WEATHER_FLYING = 54197;
 static constexpr float PARACHUTE_LAND_THRESHOLD = 15.0f;
@@ -25,6 +26,8 @@ static constexpr float PARACHUTE_LAND_THRESHOLD = 15.0f;
 // Define the static map / init bool for caching bot preferred mount data globally
 std::unordered_map<uint32, PreferredMountCache> CheckMountStateAction::mountCache;
 bool CheckMountStateAction::preferredMountTableChecked = false;
+// Bots mount in the map update threads.
+static std::mutex MountCacheLock;
 
 MountData CollectMountData(Player const* bot)
 {
@@ -349,6 +352,7 @@ bool CheckMountStateAction::TryForms(Player* master, int32 masterMountType, int3
 bool CheckMountStateAction::TryPreferredMount(Player* master) const
 {
     uint32 botGUID = bot->GetGUID().GetRawValue();
+    std::unique_lock<std::mutex> cacheLock(MountCacheLock);
 
     // Build cache (only once)
     if (!preferredMountTableChecked)
@@ -398,18 +402,22 @@ bool CheckMountStateAction::TryPreferredMount(Player* master) const
 
     // Pick a random preferred mount from the selection, if available
     uint32 chosenMountId = 0;
+    auto const cached = mountCache.find(botGUID);
+    PreferredMountCache const noMounts;
+    PreferredMountCache const& mounts = cached == mountCache.end() ? noMounts : cached->second;
 
-    if (GetMountType(master) == 0 && !mountCache[botGUID].groundMounts.empty())
+    if (GetMountType(master) == 0 && !mounts.groundMounts.empty())
     {
-        uint32 index = urand(0, mountCache[botGUID].groundMounts.size() - 1);
-        chosenMountId = mountCache[botGUID].groundMounts[index];
+        uint32 index = urand(0, mounts.groundMounts.size() - 1);
+        chosenMountId = mounts.groundMounts[index];
     }
 
-    else if (GetMountType(master) == 1 && !mountCache[botGUID].flightMounts.empty())
+    else if (GetMountType(master) == 1 && !mounts.flightMounts.empty())
     {
-        uint32 index = urand(0, mountCache[botGUID].flightMounts.size() - 1);
-        chosenMountId = mountCache[botGUID].flightMounts[index];
+        uint32 index = urand(0, mounts.flightMounts.size() - 1);
+        chosenMountId = mounts.flightMounts[index];
     }
+    cacheLock.unlock();
 
     // No suitable preferred mount found
     if (chosenMountId == 0)
