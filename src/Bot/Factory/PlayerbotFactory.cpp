@@ -1855,14 +1855,10 @@ uint32 PlayerbotFactory::DropCoaRanksAbove(Player* bot, uint32 level)
 
 void PlayerbotFactory::ClearSpells()
 {
-    // A Wildcard Hero's spells are its rolls, which no trainer gives back: they stay, unless the bot is
-    // rebuilt below the level they were rolled at, when the whole build goes and is rolled again.
+    // A Wildcard Hero's spells are its rolls, which no trainer gives back: they stay. A bot rebuilt below the
+    // level of its rolls drafts its whole build again (DraftWildcardBuild).
     if (IsWildcardHeroBot(bot))
-    {
-        if (level < bot->GetLevel())
-            ResetWildcardBuild(bot);
         return;
-    }
 
     // Conquest of Azeroth classes (12 and above) get their abilities from mod-ascension-compat,
     // which grants them at login and reconciles them on every level change. Wiping them here
