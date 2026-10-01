@@ -4,6 +4,7 @@
 #include "AscensionSpecialization.h"
 #include "AscensionWildcard.h"
 #include "Config.h"
+#include "Log.h"
 #include "Player.h"
 #include "RandomPlayerbotMgr.h"
 #include "SharedDefines.h"
@@ -31,6 +32,8 @@ constexpr uint32 SPELL_PATH_HEALING = 84867;
 
 // A bot tries this many sets of starting abilities and keeps the best, as a player rerolls until the four fit.
 constexpr uint32 STARTER_DRAWS = 1024;
+// Scrolls of Fortune a bot spends at most per draft on rolls it cannot use.
+constexpr uint32 MISFIT_REROLLS_PER_DRAFT = 8;
 // Builds drafted under older rules are drafted again; raise it when the rules change.
 constexpr uint32 DRAFT_RULES = 1;
 char const* const DRAFT_RULES_SETTING = "playerbots.wildcard.rules";
@@ -297,6 +300,54 @@ bool BuildAboveLevel(Player const* bot)
     return false;
 }
 
+// The roll a bot would spend a Scroll of Fortune on, as a player rerolls what does not fit: an ability it cannot
+// cast for want of its form, else one its fighting logic never casts. The starting abilities were picked with
+// care and stay.
+uint32 MisfitOf(Player const* bot)
+{
+    std::vector<AscensionWildcard::Slot> const slots = AscensionWildcard::Slots(bot);
+    std::vector<SpellInfo const*> spells(slots.size(), nullptr);
+    std::vector<uint32> forms;
+    for (std::size_t index = 0; index < slots.size(); ++index)
+    {
+        AscensionWildcard::Slot const& slot = slots[index];
+        std::vector<uint32> const* ranks = slot.EntryId ? RankSpellsOf(slot.EntryId) : nullptr;
+        if (!ranks || slot.Rank < 1 || slot.Rank > ranks->size())
+            continue;
+        spells[index] = sSpellMgr->GetSpellInfo((*ranks)[slot.Rank - 1]);
+        if (spells[index])
+            for (uint32 form : FormsGiven(spells[index]))
+                forms.push_back(form);
+    }
+
+    uint32 unused = 0;
+    for (std::size_t index = AscensionWildcard::STARTING_ABILITY_COUNT; index < slots.size(); ++index)
+    {
+        SpellInfo const* info = spells[index];
+        if (!info || slots[index].Locked || slots[index].Talent || info->IsPassive())
+            continue;
+        if (!CastableIn(info, 0) &&
+            std::none_of(forms.begin(), forms.end(), [info](uint32 form) { return CastableIn(info, form); }))
+            return slots[index].EntryId;
+        if (!unused && !CoaBotCasts(info))
+            unused = slots[index].EntryId;
+    }
+    return unused;
+}
+
+void RerollMisfits(Player* bot)
+{
+    AscensionWildcard::ClaimLevelingScrolls(bot);
+    for (uint32 reroll = 0; reroll < MISFIT_REROLLS_PER_DRAFT; ++reroll)
+    {
+        uint32 const misfit = MisfitOf(bot);
+        if (!misfit || !AscensionWildcard::UnlearnForReroll(bot, misfit))
+            return;
+        LOG_INFO("playerbots.coa", "{} rerolls Wildcard entry {} with a Scroll of Fortune", bot->GetName(), misfit);
+        AscensionWildcard::DraftBuild(bot);
+    }
+}
+
 // What the rolled abilities of a build do: strike, shoot or cast.
 struct BuildShape
 {
@@ -427,6 +478,7 @@ bool DraftWildcardBuild(Player* bot)
         [target](std::vector<std::vector<AscensionWildcard::Slot>> const& candidates)
         { return PickStarters(candidates, target); },
         STARTER_DRAWS);
+    RerollMisfits(bot);
 
     BuildShape const shape = ShapeOf(bot);
     {

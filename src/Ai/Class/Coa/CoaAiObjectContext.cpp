@@ -2751,6 +2751,13 @@ void ForgetWildcardKit(Player const* bot)
     WildcardKits.erase(bot->GetGUID().GetCounter());
 }
 
+bool CoaBotCasts(SpellInfo const* info)
+{
+    CoaAbility ability = { info->Id, 0, 0, 0, info->GetFirstRankSpell()->Id };
+    Classify(info, ability);
+    return ability.kind != 0;
+}
+
 // Whether a spell heals or shields an ally, by the classifier (triggered spells included) or by an
 // absorb it puts on its target. Gaze of C'Thun hits enemies or heals allies: not a heal to the
 // classifier, yet the Cultist healer's main heal (its rotation's "can cast" line).

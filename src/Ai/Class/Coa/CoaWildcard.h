@@ -17,6 +17,7 @@
 #include <vector>
 
 class Player;
+class SpellInfo;
 
 // Whether this realm plays Wildcard, so its random bots are Heroes.
 bool IsWildcardRealm();
@@ -45,5 +46,8 @@ std::vector<uint32> WildcardBuildSpells(Player const* bot);
 
 // Drops the cached ability kit of a Hero after its build changed (CoaAiObjectContext).
 void ForgetWildcardKit(Player const* bot);
+
+// Whether the CoA fighting logic ever casts this spell (CoaAiObjectContext).
+bool CoaBotCasts(SpellInfo const* info);
 
 #endif
