@@ -40,7 +40,9 @@
 #include "PlayerbotAIConfig.h"
 #include "PlayerbotGuildMgr.h"
 #include "PlayerbotMgr.h"
+#include "PlayerbotOperations.h"
 #include "PlayerbotTextMgr.h"
+#include "PlayerbotWorldThreadProcessor.h"
 #include "Playerbots.h"
 #include "PositionValue.h"
 #include "RBAC.h"
@@ -3094,6 +3096,15 @@ bool PlayerbotAI::SayToGuild(std::string const& msg)
 bool PlayerbotAI::SayToWorld(std::string const& msg)
 {
     if (msg.empty())
+        return false;
+
+    return PlayerbotWorldThreadProcessor::instance().QueueOperation(std::make_unique<BotChannelOperation>(
+        bot->GetGUID(), "say to world", [msg](Player* speaker) { return GET_PLAYERBOT_AI(speaker)->SayToWorldNow(msg); }));
+}
+
+bool PlayerbotAI::SayToWorldNow(std::string const& msg)
+{
+    if (msg.empty())
     {
         return false;
     }
@@ -3118,6 +3129,16 @@ bool PlayerbotAI::SayToWorld(std::string const& msg)
 
 bool PlayerbotAI::SayToChannel(std::string const& msg, ChatChannelId const& chanId)
 {
+    if (msg.empty())
+        return false;
+
+    return PlayerbotWorldThreadProcessor::instance().QueueOperation(std::make_unique<BotChannelOperation>(
+        bot->GetGUID(), "say to channel",
+        [msg, chanId](Player* speaker) { return GET_PLAYERBOT_AI(speaker)->SayToChannelNow(msg, chanId); }));
+}
+
+bool PlayerbotAI::SayToChannelNow(std::string const& msg, ChatChannelId chanId)
+{
     // Checks whether the message or ChannelMgr is valid
     if (msg.empty())
         return false;
@@ -3135,9 +3156,6 @@ bool PlayerbotAI::SayToChannel(std::string const& msg, ChatChannelId const& chan
     // Valley" inside Elwynn Forest), so either name makes this the right channel to speak in.
     AreaTableEntry const* current_area = GetCurrentArea();
     std::string const current_str_area = current_area ? GetLocalizedAreaName(current_area) : "";
-
-    std::mutex socialMutex;
-    std::lock_guard<std::mutex> lock(socialMutex);  // Blocking for thread safety when accessing SocialMgr
 
     for (auto const& [key, channel] : cMgr->GetChannels())
     {

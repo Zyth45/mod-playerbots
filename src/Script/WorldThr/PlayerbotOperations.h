@@ -24,6 +24,8 @@
 #include "WorldSession.h"
 #include "WorldSessionMgr.h"
 
+#include <functional>
+
 // Group invite operation
 class GroupInviteOperation : public PlayerbotOperation
 {
@@ -547,6 +549,31 @@ public:
 
 private:
     ObjectGuid m_botGuid;
+};
+
+// Channel work of a bot. Channels are shared by every map, and the core changes their members in the map update
+// threads under its own lock, so a bot speaks in and joins channels from the world thread.
+class BotChannelOperation : public PlayerbotOperation
+{
+public:
+    BotChannelOperation(ObjectGuid botGuid, std::string name, std::function<bool(Player*)> work)
+        : m_botGuid(botGuid), m_name(std::move(name)), m_work(std::move(work))
+    {
+    }
+
+    bool Execute() override
+    {
+        Player* bot = ObjectAccessor::FindPlayer(m_botGuid);
+        return bot && GET_PLAYERBOT_AI(bot) && m_work(bot);
+    }
+
+    ObjectGuid GetBotGuid() const override { return m_botGuid; }
+    std::string GetName() const override { return m_name; }
+
+private:
+    ObjectGuid m_botGuid;
+    std::string m_name;
+    std::function<bool(Player*)> m_work;
 };
 
 #endif
