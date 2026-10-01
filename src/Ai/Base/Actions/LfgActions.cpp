@@ -174,12 +174,6 @@ bool LfgJoinAction::JoinLFG()
 
     uint32 roleMask = GetRoles();
 
-    // While a queued player still lacks a tank or a healer, damage dealers mostly stay out so the
-    // tanks and healers get the seats; a few still come to fill the damage slots.
-    if (roleMask == PLAYER_ROLE_DAMAGE && RandomPlayerbotMgr::instance().IsRandomBot(bot) &&
-        RandomPlayerbotMgr::instance().LfgNeedTankOrHeal[bot->GetTeamId()] && urand(0, 99) >= 20)
-        return false;
-
     bool many = list.size() > 1;
     LFGDungeonEntry const* dungeon = sLFGDungeonStore.LookupEntry(*list.begin());
 

@@ -1554,23 +1554,32 @@ public:
                 break;
             }
             default:
-                // Single target heals first, direct ones before those over time; area heals last.
+            {
+                // Single target heals first, direct ones before those over time; area heals last. A heal
+                // over time this healer already keeps on the target would only be renewed: a Hero
+                // healer renewed Rejuvenation on a dropping tank until its mana ran out, Healing
+                // Touch at hand.
                 spells = KnownAbilities(bot, [](uint16 kind) { return (kind & KIND_HEAL) && !(kind & (KIND_CONTROL | KIND_HOSTILE)); });
+                ObjectGuid const caster = bot->GetGUID();
+                spells.erase(std::remove_if(spells.begin(), spells.end(), [target, caster](Usable const& spell)
+                    { return (spell.kind & KIND_HOT) && target->HasAura(spell.info->Id, caster); }),
+                    spells.end());
                 std::stable_sort(spells.begin(), spells.end(), [](Usable const& a, Usable const& b)
                 {
                     auto rank = [](uint16 kind) { return ((kind & KIND_GROUP_HEAL) ? 2 : 0) + ((kind & KIND_HOT) ? 1 : 0); };
                     return rank(a.kind) < rank(b.kind);
                 });
                 break;
+            }
         }
 
         bool const smart = SmartHeal() && mode == Mode::Direct;
         if (smart)
             OrderByUrgency(bot, target, spells);
 
-        // Someone dropping is healed with the fastest heal even when mana is short; otherwise a
-        // bot saving its mana goes for the cheapest.
-        if (SavingManaForHeals(bot) && !(smart && target->GetHealthPct() < sPlayerbotAIConfig.criticalHealth))
+        // Someone low is healed with the fastest heal even when mana is short; otherwise a bot saving
+        // its mana goes for the cheapest.
+        if (SavingManaForHeals(bot) && !(smart && target->GetHealthPct() < sPlayerbotAIConfig.lowHealth))
             CheapestFirst(bot, spells);
 
         AddPrerequisites(spells);
