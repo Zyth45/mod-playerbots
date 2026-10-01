@@ -14,6 +14,7 @@
 #include "PlayerbotMgr.h"
 #include <array>
 #include <atomic>
+#include <mutex>
 #include <unordered_set>
 
 struct BattlegroundInfo
@@ -252,6 +253,8 @@ private:
     // std::map<uint32, std::vector<WorldLocation>> rpgLocsCache;
     std::map<uint32, std::map<uint32, std::vector<WorldLocation>>> rpgLocsCacheLevel;
     std::map<TeamId, std::map<BattlegroundTypeId, std::vector<uint32>>> BattleMastersCache;
+    // Bot AI reads and writes these values from the map update threads.
+    std::mutex eventCacheLock;
     std::unordered_map<uint32, BotEventCache> eventCache;
     std::unordered_set<uint32> currentBots;
     uint32 playersLevel;

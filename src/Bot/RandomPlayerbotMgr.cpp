@@ -2383,6 +2383,7 @@ bool RandomPlayerbotMgr::IsSpecPvp(uint32 bot, uint8 cls)
 
 uint32 RandomPlayerbotMgr::GetEventValue(uint32 bot, std::string const& event)
 {
+    std::lock_guard<std::mutex> lock(eventCacheLock);
     if (CachedEvent* e = FindEvent(bot, event))
         return e->value;
 
@@ -2391,6 +2392,7 @@ uint32 RandomPlayerbotMgr::GetEventValue(uint32 bot, std::string const& event)
 
 std::string RandomPlayerbotMgr::GetEventData(uint32 bot, std::string const& event)
 {
+    std::lock_guard<std::mutex> lock(eventCacheLock);
     if (CachedEvent* e = FindEvent(bot, event))
         return e->data;
 
@@ -2430,6 +2432,7 @@ uint32 RandomPlayerbotMgr::SetEventValue(uint32 bot, std::string const& event, u
     PlayerbotsDatabase.CommitTransaction(trans);
 
     // Update in-memory cache
+    std::lock_guard<std::mutex> lock(eventCacheLock);
     BotEventCache& cache = eventCache[bot];
     cache.loaded = true;
 
@@ -2532,7 +2535,10 @@ bool RandomPlayerbotMgr::HandlePlayerbotConsoleCommand(ChatHandler* handler, cha
     if (cmd == "reset")
     {
         PlayerbotsDatabase.Execute(PlayerbotsDatabase.GetPreparedStatement(PLAYERBOTS_DEL_RANDOM_BOTS));
-        sRandomPlayerbotMgr.eventCache.clear();
+        {
+            std::lock_guard<std::mutex> lock(sRandomPlayerbotMgr.eventCacheLock);
+            sRandomPlayerbotMgr.eventCache.clear();
+        }
         LOG_INFO("playerbots", "Random bots were reset for all players. Please restart the Server.");
         return true;
     }
@@ -3206,7 +3212,10 @@ void RandomPlayerbotMgr::Remove(Player* bot)
     PlayerbotsDatabase.Execute(stmt);
 
     uint32 botId = owner.GetCounter();
-    eventCache.erase(botId);
+    {
+        std::lock_guard<std::mutex> lock(eventCacheLock);
+        eventCache.erase(botId);
+    }
 
     LogoutPlayerBot(owner);
 }

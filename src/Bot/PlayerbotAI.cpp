@@ -174,10 +174,16 @@ std::array<std::map<uint16, std::string>, 3> const& PacketHandlerRegistry()
 
 void PacketHandlingHelper::Handle(ExternalEventHelper& helper)
 {
-    while (!queue.empty())
+    for (;;)
     {
-        WorldPacket packet = std::move(queue.top());
-        queue.pop(); // remove first so handling can't modify the queue while we're using it
+        WorldPacket packet;
+        {
+            std::lock_guard<std::mutex> lock(queueLock);
+            if (queue.empty())
+                return;
+            packet = std::move(queue.top());
+            queue.pop(); // remove first so handling can't modify the queue while we're using it
+        }
 
         if (handlers)
             helper.HandlePacket(*handlers, packet);
@@ -192,7 +198,10 @@ void PacketHandlingHelper::AddPacket(WorldPacket const& packet)
     // assert(packet);
     // assert(packet.GetOpcode());
     if (handlers && handlers->find(packet.GetOpcode()) != handlers->end())
+    {
+        std::lock_guard<std::mutex> lock(queueLock);
         queue.push(WorldPacket(packet));
+    }
 }
 
 PlayerbotAI::PlayerbotAI()

@@ -23,6 +23,7 @@
 #include "SpellAuras.h"
 #include "Util.h"
 #include "WorldPacket.h"
+#include <mutex>
 #include <stack>
 #include <vector>
 
@@ -357,6 +358,8 @@ public:
 
 private:
     std::map<uint16, std::string> const* handlers = nullptr;
+    // Packets reach a bot from other threads too (the dungeon finder update, players on other maps).
+    std::mutex queueLock;
     std::stack<WorldPacket, std::vector<WorldPacket>> queue;
 };
 
