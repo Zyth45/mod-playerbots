@@ -7,6 +7,8 @@
 #include "BroadcastHelper.h"
 #include "AiFactory.h"
 #include "Channel.h"
+#include "PlayerbotOperations.h"
+#include "PlayerbotWorldThreadProcessor.h"
 #include "Playerbots.h"
 #include "ServerFacade.h"
 
@@ -61,10 +63,42 @@ bool BroadcastHelper::BroadcastTest(PlayerbotAI* ai, Player* /* bot */)
     return false;
 }
 
+static uint32 GlobalChanceOf(BroadcastHelper::ToChannel toChannel)
+{
+    switch (toChannel)
+    {
+        case BroadcastHelper::TO_GUILD: return sPlayerbotAIConfig.broadcastToGuildGlobalChance;
+        case BroadcastHelper::TO_WORLD: return sPlayerbotAIConfig.broadcastToWorldGlobalChance;
+        case BroadcastHelper::TO_GENERAL: return sPlayerbotAIConfig.broadcastToGeneralGlobalChance;
+        case BroadcastHelper::TO_TRADE: return sPlayerbotAIConfig.broadcastToTradeGlobalChance;
+        case BroadcastHelper::TO_LOOKING_FOR_GROUP: return sPlayerbotAIConfig.broadcastToLFGGlobalChance;
+        case BroadcastHelper::TO_LOCAL_DEFENSE: return sPlayerbotAIConfig.broadcastToLocalDefenseGlobalChance;
+        case BroadcastHelper::TO_WORLD_DEFENSE: return sPlayerbotAIConfig.broadcastToWorldDefenseGlobalChance;
+        case BroadcastHelper::TO_GUILD_RECRUITMENT: return sPlayerbotAIConfig.broadcastToGuildRecruitmentGlobalChance;
+        default: return 0;
+    }
+}
+
+static bool SayNow(PlayerbotAI* ai, std::string const& message, BroadcastHelper::ToChannel toChannel)
+{
+    switch (toChannel)
+    {
+        case BroadcastHelper::TO_GUILD: return ai->SayToGuild(message);
+        case BroadcastHelper::TO_WORLD: return ai->SayToWorldNow(message);
+        case BroadcastHelper::TO_GENERAL: return ai->SayToChannelNow(message, ChatChannelId::GENERAL);
+        case BroadcastHelper::TO_TRADE: return ai->SayToChannelNow(message, ChatChannelId::TRADE);
+        case BroadcastHelper::TO_LOOKING_FOR_GROUP: return ai->SayToChannelNow(message, ChatChannelId::LOOKING_FOR_GROUP);
+        case BroadcastHelper::TO_LOCAL_DEFENSE: return ai->SayToChannelNow(message, ChatChannelId::LOCAL_DEFENSE);
+        case BroadcastHelper::TO_WORLD_DEFENSE: return ai->SayToChannelNow(message, ChatChannelId::WORLD_DEFENSE);
+        case BroadcastHelper::TO_GUILD_RECRUITMENT: return ai->SayToChannelNow(message, ChatChannelId::GUILD_RECRUITMENT);
+        default: return false;
+    }
+}
+
 /**
 @param toChannels - map of (ToChannel, chance), where chance is in range 0-100 as uint32 (unless global chance is not 100%)
 
-@return true if said to the channel, false otherwise
+@return true if the message was queued for the first rolled channel that exists, false if no channel was rolled
 */
 bool BroadcastHelper::BroadcastToChannelWithGlobalChance(PlayerbotAI* ai, std::string message, std::list<std::pair<ToChannel, uint32>> toChannels)
 {
@@ -75,100 +109,30 @@ bool BroadcastHelper::BroadcastToChannelWithGlobalChance(PlayerbotAI* ai, std::s
         return false;
     }
 
+    std::vector<ToChannel> rolled;
     for (auto const& pair : toChannels)
     {
         uint32 roll = urand(1, 100);
         uint32 chance = pair.second;
         uint32 broadcastRoll = urand(1, sPlayerbotAIConfig.broadcastChanceMaxValue);
-
-        switch (pair.first)
-        {
-            case TO_GUILD:
-            {
-                if (roll <= chance
-                    && broadcastRoll <= sPlayerbotAIConfig.broadcastToGuildGlobalChance
-                    && ai->SayToGuild(message))
-                {
-                    return true;
-                }
-                break;
-            }
-            case TO_WORLD:
-            {
-                if (roll <= chance
-                    && broadcastRoll <= sPlayerbotAIConfig.broadcastToWorldGlobalChance
-                    && ai->SayToWorld(message))
-                {
-                    return true;
-                }
-                break;
-            }
-            case TO_GENERAL:
-            {
-                if (roll <= chance
-                    && broadcastRoll <= sPlayerbotAIConfig.broadcastToGeneralGlobalChance
-                    && ai->SayToChannel(message, ChatChannelId::GENERAL))
-                {
-                    return true;
-                }
-                break;
-            }
-            case TO_TRADE:
-            {
-                if (roll <= chance
-                    && broadcastRoll <= sPlayerbotAIConfig.broadcastToTradeGlobalChance
-                    && ai->SayToChannel(message, ChatChannelId::TRADE))
-                {
-                    return true;
-                }
-                break;
-            }
-            case TO_LOOKING_FOR_GROUP:
-            {
-                if (roll <= chance
-                    && broadcastRoll <= sPlayerbotAIConfig.broadcastToLFGGlobalChance
-                    && ai->SayToChannel(message, ChatChannelId::LOOKING_FOR_GROUP))
-                {
-                    return true;
-                }
-                break;
-            }
-            case TO_LOCAL_DEFENSE:
-            {
-                if (roll <= chance
-                    && broadcastRoll <= sPlayerbotAIConfig.broadcastToLocalDefenseGlobalChance
-                    && ai->SayToChannel(message, ChatChannelId::LOCAL_DEFENSE))
-                {
-                    return true;
-                }
-                break;
-            }
-            case TO_WORLD_DEFENSE:
-            {
-                if (roll <= chance
-                    && broadcastRoll <= sPlayerbotAIConfig.broadcastToWorldDefenseGlobalChance
-                    && ai->SayToChannel(message, ChatChannelId::WORLD_DEFENSE))
-                {
-                    return true;
-                }
-                break;
-            }
-            case TO_GUILD_RECRUITMENT:
-            {
-                if (roll <= chance
-                    && broadcastRoll <= sPlayerbotAIConfig.broadcastToGuildRecruitmentGlobalChance
-                    && ai->SayToChannel(message, ChatChannelId::GUILD_RECRUITMENT))
-                {
-                    return true;
-                }
-                break;
-            }
-            default:
-                break;
-        }
+        if (roll <= chance && broadcastRoll <= GlobalChanceOf(pair.first))
+            rolled.push_back(pair.first);
     }
+    if (rolled.empty())
+        return false;
 
-    return false;
+    // Guild and channel chat reaches players on every map: speak from the world thread, in the first rolled
+    // channel the bot can speak in.
+    return PlayerbotWorldThreadProcessor::instance().QueueOperation(std::make_unique<BotChannelOperation>(
+        ai->GetBot()->GetGUID(), "broadcast",
+        [message, rolled](Player* bot)
+        {
+            PlayerbotAI* speaker = GET_PLAYERBOT_AI(bot);
+            for (ToChannel toChannel : rolled)
+                if (SayNow(speaker, message, toChannel))
+                    return true;
+            return false;
+        }));
 }
 
 bool BroadcastHelper::BroadcastLootingItem(PlayerbotAI* ai, Player* bot, ItemTemplate const* proto)

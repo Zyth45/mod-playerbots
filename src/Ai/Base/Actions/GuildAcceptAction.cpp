@@ -46,16 +46,8 @@ bool GuildAcceptAction::Execute(Event event)
         accept = false;
     }
 
-    if (accept)
-    {
-        WorldPackets::Guild::AcceptGuildInvite data = WorldPacket(CMSG_GUILD_ACCEPT);
-        bot->GetSession()->HandleGuildAcceptOpcode(data);
-    }
-    else
-    {
-        WorldPackets::Guild::GuildDeclineInvitation data = WorldPacket(CMSG_GUILD_DECLINE);
-        bot->GetSession()->HandleGuildDeclineOpcode(data);
-    }
+    // Guild membership is shared by every map: the session handles the answer in the world thread.
+    bot->GetSession()->QueuePacket(new WorldPacket(accept ? CMSG_GUILD_ACCEPT : CMSG_GUILD_DECLINE));
 
     return true;
 }
