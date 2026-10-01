@@ -1690,6 +1690,10 @@ void PlayerbotAI::ChangeEngineOnNonCombat()
     {
         aiObjectContext->GetValue<PositionInfo>("pos", "stay")->Reset();
     }
+
+    // A Wildcard Hero drafted in combat takes its stat path now, with the role and range that come with it.
+    if (TakeDueWildcardPath(bot) && DraftWildcardBuild(bot))
+        ResetStrategies();
 }
 
 void PlayerbotAI::DoNextAction(bool min)

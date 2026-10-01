@@ -10,6 +10,7 @@
 #include "Playerbots.h"
 #include "RandomPlayerbotMgr.h"
 #include "SharedDefines.h"
+#include "Spell.h"
 #include "SpellInfo.h"
 #include "SpellMgr.h"
 
@@ -18,6 +19,7 @@
 #include <mutex>
 #include <tuple>
 #include <unordered_map>
+#include <unordered_set>
 
 namespace
 {
@@ -407,23 +409,98 @@ uint32 PathFor(CoaRole role, BuildShape const& shape)
     return PATH_DUALITY;
 }
 
-// Whether a Hero's weapon attacks are mostly shots, so an Agility Hero fights from range. Bot AI runs
-// in the map update threads, so this is kept here under a lock rather than in RandomPlayerbotMgr's
-// value cache, which only the world thread may touch.
-std::mutex ShooterLock;
+// A weapon Hero fights from range when its shots, which need distance, and the talents that favour them weigh more
+// than its melee strikes and theirs. Each ability and talent weighs one plus its synergy with the rest of its side;
+// a talent sides with the attacks it has more synergy with.
+struct RangeWeights
+{
+    uint32 shots = 0;
+    uint32 shotTalents = 0;
+    uint32 shotWeight = 0;
+    uint32 strikes = 0;
+    uint32 strikeTalents = 0;
+    uint32 strikeWeight = 0;
+
+    bool AtRange() const { return shotWeight > strikeWeight; }
+};
+
+uint32 SideWeight(std::vector<uint32> const& side)
+{
+    uint32 weight = 0;
+    for (size_t i = 0; i < side.size(); ++i)
+    {
+        std::vector<uint32> rest(side);
+        rest.erase(rest.begin() + i);
+        weight += 1 + AscensionWildcard::SynergyScore(AscensionWildcard::LoadedTables(), side[i], rest);
+    }
+    return weight;
+}
+
+RangeWeights WeighRange(Player const* bot)
+{
+    std::vector<uint32> shots;
+    std::vector<uint32> strikes;
+    std::vector<uint32> talents;
+    for (AscensionWildcard::Slot const& slot : AscensionWildcard::Slots(bot))
+    {
+        std::vector<uint32> const* ranks = slot.EntryId ? RankSpellsOf(slot.EntryId) : nullptr;
+        SpellInfo const* info = ranks && !ranks->empty() ? sSpellMgr->GetSpellInfo(ranks->front()) : nullptr;
+        if (!info)
+            continue;
+        if (slot.Talent)
+        {
+            talents.push_back(slot.EntryId);
+            continue;
+        }
+        if (info->IsPassive() || Heals(info))
+            continue;
+
+        if (info->RangeEntry && (info->RangeEntry->Flags & SPELL_RANGE_RANGED))
+            shots.push_back(slot.EntryId);
+        else if (info->DmgClass == SPELL_DAMAGE_CLASS_MELEE)
+            strikes.push_back(slot.EntryId);
+    }
+
+    std::vector<uint32> shotSide = shots;
+    std::vector<uint32> strikeSide = strikes;
+    for (uint32 talent : talents)
+    {
+        uint32 const toShots = AscensionWildcard::SynergyScore(AscensionWildcard::LoadedTables(), talent, shots);
+        uint32 const toStrikes = AscensionWildcard::SynergyScore(AscensionWildcard::LoadedTables(), talent, strikes);
+        if (toShots > toStrikes)
+            shotSide.push_back(talent);
+        else if (toStrikes > toShots)
+            strikeSide.push_back(talent);
+    }
+
+    RangeWeights weights;
+    weights.shots = shots.size();
+    weights.shotTalents = shotSide.size() - shots.size();
+    weights.shotWeight = SideWeight(shotSide);
+    weights.strikes = strikes.size();
+    weights.strikeTalents = strikeSide.size() - strikes.size();
+    weights.strikeWeight = SideWeight(strikeSide);
+    return weights;
+}
+
+// Bot AI runs in the map update threads, so what a draft decided is kept here under a lock rather than in
+// RandomPlayerbotMgr's value cache, which only the world thread may touch: whether the bot shoots, and whether
+// a draft in combat left its stat path for after the fight.
+std::mutex BuildStateLock;
 std::unordered_map<ObjectGuid::LowType, bool> Shooters;
+std::unordered_set<ObjectGuid::LowType> PathsDue;
 
 bool Shoots(Player const* bot)
 {
     ObjectGuid::LowType const guid = bot->GetGUID().GetCounter();
     {
-        std::lock_guard<std::mutex> lock(ShooterLock);
+        std::lock_guard<std::mutex> lock(BuildStateLock);
         if (auto const found = Shooters.find(guid); found != Shooters.end())
             return found->second;
     }
-    BuildShape const shape = ShapeOf(bot);
-    std::lock_guard<std::mutex> lock(ShooterLock);
-    return Shooters.insert_or_assign(guid, shape.shots > shape.strikes).first->second;
+    bool const atRange = WeighRange(bot).AtRange();
+    std::lock_guard<std::mutex> lock(BuildStateLock);
+    return Shooters.insert_or_assign(guid, atRange).first->second;
 }
 }  // namespace
 
@@ -456,7 +533,9 @@ CoaStyle GetWildcardStyle(Player const* player)
 {
     if (player->HasSpell(SPELL_PATH_INTELLECT) || player->HasSpell(SPELL_PATH_HEALING))
         return CoaStyle::Caster;
-    if (player->HasSpell(SPELL_PATH_AGILITY) && Shoots(player))
+    // A tank holds its enemies in melee; any other Hero, on Agility, Duality or no path yet, fights where its
+    // build is stronger.
+    if (!player->HasSpell(SPELL_PATH_STRENGTH) && Shoots(player))
         return CoaStyle::Ranged;
     return CoaStyle::Melee;
 }
@@ -493,21 +572,37 @@ bool DraftWildcardBuild(Player* bot)
     RerollMisfits(bot);
     TrainRanks(bot);
 
-    BuildShape const shape = ShapeOf(bot);
+    uint32 const path = PathFor(target, ShapeOf(bot));
+    RangeWeights const range = WeighRange(bot);
+    // The server refuses a path change in combat: the bot takes its path when the fight is over.
+    bool const pathDue = bot->IsInCombat() && AscensionWildcard::PrimaryStat(bot) != path;
     {
-        std::lock_guard<std::mutex> lock(ShooterLock);
-        Shooters.insert_or_assign(bot->GetGUID().GetCounter(), shape.shots > shape.strikes);
+        std::lock_guard<std::mutex> lock(BuildStateLock);
+        Shooters.insert_or_assign(bot->GetGUID().GetCounter(), range.AtRange());
+        if (pathDue)
+            PathsDue.insert(bot->GetGUID().GetCounter());
+        else
+            PathsDue.erase(bot->GetGUID().GetCounter());
     }
-    // The server refuses a path change in combat; a bot levelling mid-fight picks it on its next draft.
-    if (!bot->IsInCombat())
+    if (path == PATH_AGILITY || path == PATH_DUALITY)
+        LOG_INFO("playerbots.coa", "{} fights {}: {} shots and {} talents weigh {}, {} strikes and {} talents weigh {}",
+                 bot->GetName(), range.AtRange() ? "at range" : "in melee", range.shots, range.shotTalents,
+                 range.shotWeight, range.strikes, range.strikeTalents, range.strikeWeight);
+    if (!pathDue)
     {
         std::vector<AscensionCoATalentState::KnownEntry> upload = AscensionWildcard::KnownEntries(bot);
-        upload.push_back({ PathFor(target, shape), 1 });
+        upload.push_back({ path, 1 });
         AscensionWildcard::ApplyBuildUpload(bot, upload);
     }
 
     ForgetWildcardKit(bot);
     return role != GetWildcardRole(bot) || style != GetWildcardStyle(bot);
+}
+
+bool TakeDueWildcardPath(Player const* bot)
+{
+    std::lock_guard<std::mutex> lock(BuildStateLock);
+    return PathsDue.erase(bot->GetGUID().GetCounter()) > 0;
 }
 
 bool RedraftWildcardBot(Player* bot)

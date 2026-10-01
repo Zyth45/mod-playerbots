@@ -45,6 +45,10 @@ void ResetWildcardBuild(Player* bot);
 // Forgets the build of a random Wildcard Hero bot and drafts it again for its role (.playerbots wildcard redraft).
 bool RedraftWildcardBot(Player* bot);
 
+// True once after a draft in combat left a new stat path for later: the caller drafts again when the fight is over
+// (PlayerbotAI::ChangeEngineOnNonCombat).
+bool TakeDueWildcardPath(Player const* bot);
+
 // The spell each rolled entry taught, at the rank it was rolled with.
 std::vector<uint32> WildcardBuildSpells(Player const* bot);
 

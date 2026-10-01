@@ -126,6 +126,12 @@ public:
             return true;
         }
 
+        if (bot->IsInCombat())
+        {
+            handler->PSendSysMessage("{} drafted its build again and takes its stat path after the fight.", bot->GetName());
+            return true;
+        }
+
         CoaRole const role = GetWildcardRole(bot);
         handler->PSendSysMessage("{} drafted its build again as a {}.", bot->GetName(),
                                  role == CoaRole::Tank ? "tank" : role == CoaRole::Heal ? "healer" : "damage dealer");
