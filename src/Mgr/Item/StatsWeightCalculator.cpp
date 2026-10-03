@@ -96,7 +96,7 @@ void StatsWeightCalculator::Reset()
 
 float StatsWeightCalculator::CalculateItem(uint32 itemId, int32 randomPropertyIds, int32 slot)
 {
-    ItemTemplate const* proto = &sObjectMgr->GetItemTemplateStore()->at(itemId);
+    ItemTemplate const* proto = sObjectMgr->GetItemTemplate(itemId);
 
     if (!proto)
         return 0.0f;
