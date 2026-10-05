@@ -4718,8 +4718,8 @@ bool IsSelfBot(Player* player)
 
 bool IsAlliance(uint8 race)
 {
-    return race == RACE_HUMAN || race == RACE_DWARF || race == RACE_NIGHTELF || race == RACE_GNOME ||
-           race == RACE_DRAENEI;
+    // The race's faction from ChrRaces, so races added to the realm (Worgen, Vrykul, Murloc...) take their side.
+    return Player::TeamIdForRace(race) == TEAM_ALLIANCE;
 }
 
 Player* PlayerbotAI::FindNewMaster()
