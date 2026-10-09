@@ -63,7 +63,7 @@ float VaelastraszTankMultiplier::GetValue(Action* action)
 
 float VaelastraszBurningAdrenalineMultiplier::GetValue(Action* action)
 {
-    if (bot->HasAura(static_cast<uint32>(BlackwingLairSpells::SPELL_BURNING_ADRENALINE)))
+    if (HasBurningAdrenaline(bot))
     {
         if (dynamic_cast<MovementAction*>(action))
         {

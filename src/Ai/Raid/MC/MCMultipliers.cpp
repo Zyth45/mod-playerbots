@@ -67,17 +67,16 @@ static bool IsAllowedGeddonMovementAction(Action* action)
 
 float BaronGeddonAbilityMultiplier::GetValue(Action* action)
 {
-    if (Unit* boss = AI_VALUE2(Unit*, "find target", "baron geddon"))
+    Unit* boss = AI_VALUE2(Unit*, "find target", "baron geddon");
+    if (boss && IsInfernoActive(boss))
     {
-        if (boss->HasAura(SPELL_INFERNO))
-        {
-            if (!IsAllowedGeddonMovementAction(action))
-                return 0.0f;
-        }
+        if (!IsAllowedGeddonMovementAction(action))
+            return 0.0f;
     }
 
     // No check for Baron Geddon, because bots may have the bomb even after Geddon died.
-    if (bot->HasAura(SPELL_LIVING_BOMB))
+    // CoA: the bomb's 1 s dummy cast aimed at this bot counts as well.
+    if (HasAnyAura(bot, LIVING_BOMB_AURAS) || (boss && IsLivingBombCastAt(boss, bot)))
     {
         if (!IsAllowedGeddonMovementAction(action))
             return 0.0f;
@@ -132,8 +131,7 @@ float GolemaggMultiplier::GetValue(Action* action)
             return 0.0f;
 
         // Backed-off melee stay out until their whole Magma Splash stack expires (30s after the last application).
-        Aura* splash = bot->GetAura(SPELL_MAGMA_SPLASH);
-        bool backedOff = splash && splash->GetStackAmount() >= MAGMA_SPLASH_BACK_OFF_STACKS;
+        bool backedOff = GetAuraStacks(bot, MAGMA_SPLASH_AURAS) >= MAGMA_SPLASH_BACK_OFF_STACKS;
         bool engagesBoss = !dynamic_cast<McGolemaggBackOffAction*>(action) &&
                            (dynamic_cast<AttackAction*>(action) || dynamic_cast<MeleeAction*>(action) ||
                             dynamic_cast<CastReachTargetSpellAction*>(action));

@@ -14,13 +14,19 @@ using namespace MoltenCoreHelpers;
 bool McLivingBombDebuffTrigger::IsActive()
 {
     // No check for Baron Geddon, because bots may have the bomb even after Geddon died.
-    return bot->HasAura(SPELL_LIVING_BOMB);
+    if (HasAnyAura(bot, LIVING_BOMB_AURAS))
+        return true;
+
+    // CoA: the debuff follows a 1 s dummy cast at its target, so the carrier
+    // can already leave during the cast bar.
+    Unit* boss = AI_VALUE2(Unit*, "find target", "baron geddon");
+    return boss && IsLivingBombCastAt(boss, bot);
 }
 
 bool McBaronGeddonInfernoTrigger::IsActive()
 {
     if (Unit* boss = AI_VALUE2(Unit*, "find target", "baron geddon"))
-        return boss->HasAura(SPELL_INFERNO);
+        return IsInfernoActive(boss);
     return false;
 }
 
@@ -57,8 +63,7 @@ bool McGolemaggMagmaSplashTrigger::IsActive()
     if (boss->GetHealthPct() <= 10.0f)
         return false;
 
-    Aura* splash = bot->GetAura(SPELL_MAGMA_SPLASH);
-    if (!splash || splash->GetStackAmount() < MAGMA_SPLASH_BACK_OFF_STACKS)
+    if (GetAuraStacks(bot, MAGMA_SPLASH_AURAS) < MAGMA_SPLASH_BACK_OFF_STACKS)
         return false;
 
     // Only fire while still inside swing range; once the bot has backed off,

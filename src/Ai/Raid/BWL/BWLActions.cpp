@@ -37,7 +37,8 @@ bool BwlOnyxiaScaleCloakAuraCheckAction::Execute(Event /*event*/)
 
 bool BwlOnyxiaScaleCloakAuraCheckAction::isUseful()
 {
-    return !bot->HasAura(static_cast<uint32>(BlackwingLairSpells::SPELL_ONYXIA_SCALE_CLOAK));
+    // CoA's Nefarian accepts 22683 or its own Black Dragon Scale Cloak 2111263.
+    return !HasShadowFlameCloak(bot);
 }
 
 bool BwlTurnOffSuppressionDeviceAction::Execute(Event /*event*/)
@@ -169,7 +170,7 @@ bool BwlVaelastraszMoveAwayAction::CalculateFleeDirection(Unit const* boss, floa
                 continue;
 
             // Boss alive: ignore other Burning Adrenaline bots so they can group together
-            if (!bossDead && p->HasAura(static_cast<uint32>(BlackwingLairSpells::SPELL_BURNING_ADRENALINE)))
+            if (!bossDead && HasBurningAdrenaline(p))
                 continue;
 
             // Compute a flee direction via weighted repulsion from other bots.
@@ -268,7 +269,8 @@ bool BwlVaelastraszMoveAwayAction::MoveAlongFleeDirection(Unit const* boss, floa
 
 bool BwlUseHourglassSandAction::Execute(Event /*event*/)
 {
-    return botAI->CastSpell(static_cast<uint32>(BlackwingLairSpells::SPELL_HOURGLASS_SAND), bot);
+    // Stock 23645 for 23170, CoA 2111023 for 2111016.
+    return botAI->CastSpell(GetHourglassSandSpell(bot), bot);
 }
 
 bool BwlNefarianFearWardAction::Execute(Event /*event*/)
