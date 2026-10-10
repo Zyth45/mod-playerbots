@@ -11,7 +11,8 @@ bool Aq20MoveToCrystalTrigger::IsActive()
 {
     if (Unit* boss = AI_VALUE2(Unit*, "find target", "ossirian the unscarred"))
     {
-        if (boss->IsInCombat())
+        // The Conquest of Azeroth fight has no crystals to run to
+        if (boss->IsInCombat() && !RaidAq20Utils::IsCoaOssirian(boss))
         {
             // if buff is active move to crystal
             if (RaidAq20Utils::IsOssirianBuffActive(boss))

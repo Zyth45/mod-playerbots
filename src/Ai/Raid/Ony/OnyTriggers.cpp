@@ -5,6 +5,7 @@
  */
 
 #include "OnyTriggers.h"
+#include "OnyHelpers.h"
 #include "GenericTriggers.h"
 #include "NearestNpcsValue.h"
 #include "ObjectAccessor.h"
@@ -27,6 +28,7 @@ bool OnyxiaDeepBreathTrigger::IsActive()
 
     uint32 spellId = currentSpell->m_spellInfo->Id;
 
+    // CoA (boss_onyxia_coa.cpp) casts the same stock breath ids on every difficulty
     if (spellId == 17086 ||  // North to South
         spellId == 18351 ||  // South to North
         spellId == 18576 ||  // East to West
@@ -68,9 +70,9 @@ bool RaidOnyxiaFireballSplashTrigger::IsActive()
     if (!boss || !boss->HasUnitState(UNIT_STATE_CASTING))
         return false;
 
-    // Check if Onyxia is casting Fireball
+    // Check if Onyxia is casting Fireball (stock 18392 / 350121 or CoA Massive Fireball 2108300)
     Spell* currentSpell = boss->GetCurrentSpell(CURRENT_GENERIC_SPELL);
-    if (!currentSpell || !currentSpell->m_spellInfo || currentSpell->m_spellInfo->Id != 18392)  // 18392 is the classic Fireball ID  // 18392 is the classic Fireball ID
+    if (!currentSpell || !currentSpell->m_spellInfo || !OnyxiaHelpers::IsFireballCast(currentSpell->m_spellInfo->Id))
         return false;
 
     GuidVector nearbyUnits = AI_VALUE(GuidVector, "nearest friendly players");

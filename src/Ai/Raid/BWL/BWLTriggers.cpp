@@ -51,14 +51,16 @@ bool BwlVaelastraszPositioningTrigger::IsActive()
 bool BwlVaelastraszBurningAdrenalineTrigger::IsActive()
 {
     // No check for Vaelastrasz, because bots may still have burning adrenaline even after Vaelastrasz died.
-    return bot->HasAura(static_cast<uint32>(BlackwingLairSpells::SPELL_BURNING_ADRENALINE));
+    // Stock 18173 or CoA 2110621 / 2110622-2110625.
+    return HasBurningAdrenaline(bot);
 }
 
 // Chromaggus
 
 bool BwlAfflictionBronzeTrigger::IsActive()
 {
-    return bot->HasAura(static_cast<uint32>(BlackwingLairSpells::SPELL_BROOD_AFFLICTION_BRONZE));
+    // Stock 23170 or CoA 2111016 (not while blessed by 2111011).
+    return HasCurableBroodAfflictionBronze(bot);
 }
 
 // Nefarian
