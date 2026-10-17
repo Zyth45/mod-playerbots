@@ -13,6 +13,11 @@
 #include <set>
 #include <string>
 
+namespace AscensionCompatData
+{
+struct CoATalentEntry;
+}
+
 class Channel;
 class Group;
 class Player;
@@ -120,6 +125,34 @@ bool EnsureCoaSpecialization(Player* bot);
 // odd level from 11 (specialization tree), in the order of the ascensionsidekick.com level build.
 // Returns the number of entries raised.
 uint32 ApplyCoaTalents(Player* bot);
+
+// The Character Advancement entry `entryId`, or null.
+AscensionCompatData::CoATalentEntry const* FindCoaEntry(uint32 entryId);
+
+// The paid entries of the bot's class it may hold now: its class tree and its active specialization's tree.
+bool CoaEntryOffered(Player* bot, AscensionCompatData::CoATalentEntry const& entry);
+
+// Class tree points (AE) and specialization tree points (TE): available at the bot's level, and spent.
+struct CoaPoints
+{
+    uint32 classBudget = 0, specBudget = 0, classSpent = 0, specSpent = 0;
+};
+CoaPoints PointsOf(Player* bot);
+
+// Why `rank` of this entry cannot be taken now, or empty: the rules the core applies to a player
+// learning it from the talent frame (AscensionCompat SetTalentRank), which SetAscensionTalentRank leaves out.
+std::string RefusalFor(Player* bot, AscensionCompatData::CoATalentEntry const& entry, uint32 rank);
+
+// Spends the free Character Advancement points of a player's own character (an alt played through the bot AI)
+// along its specialization's level build, the way its owner could in the talent frame: one rank at a time, each
+// under RefusalFor's rules, so it never goes past the points of its level. Unlike ApplyCoaTalents it never
+// lowers or removes an entry, and leaves a free-choice group alone once the owner picked one of its entries.
+// Returns the number of ranks raised.
+uint32 SpendCoaTalentPoints(Player* bot);
+
+// Spends an alt bot's free talent points when AiPlayerbot.AutoPickTalentsAltBots is on: SpendCoaTalentPoints
+// for a CoA class, the incremental talent template (no reset) for the others. Returns true when it spent any.
+bool SpendAltBotTalentPoints(Player* bot);
 
 // Brings the nearest free random bot able to fill `role` into the master's group: raised to
 // the master's level, given a specialization of that role, teleported next to the master.

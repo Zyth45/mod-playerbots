@@ -22,67 +22,6 @@
 #include "RandomPlayerbotMgr.h"
 #include "SpellMgr.h"
 
-namespace
-{
-AscensionCompatData::CoATalentEntry const* FindCoaEntry(uint32 entryId)
-{
-    for (AscensionCompatData::CoATalentEntry const& entry : AscensionCompatData::CoATalentEntries)
-        if (entry.EntryId == entryId)
-            return &entry;
-    return nullptr;
-}
-
-// The paid entries of the bot's class it may hold now: its class tree and its active specialization's tree.
-bool CoaEntryOffered(Player* bot, AscensionCompatData::CoATalentEntry const& entry)
-{
-    if (entry.ClassId != bot->getClass() || (!entry.AECost && !entry.TECost) || !entry.SpellCount)
-        return false;
-    return !entry.SpecId || entry.SpecId == GetAscensionActiveSpecialization(bot);
-}
-
-// Class tree points (AE) and specialization tree points (TE): available at the bot's level, and spent.
-struct CoaPoints
-{
-    uint32 classBudget = 0, specBudget = 0, classSpent = 0, specSpent = 0;
-};
-
-CoaPoints PointsOf(Player* bot)
-{
-    CoaPoints points;
-    AscensionCompatData::GetCoATalentBudget(bot->getClass(), bot->GetLevel(), points.classBudget, points.specBudget);
-    AscensionCoATalentState::SpentPoints const spent =
-        AscensionCoATalentState::Spent(GetAscensionKnownTalentEntries(bot));
-    points.classSpent = spent.AE;
-    points.specSpent = spent.TE;
-    return points;
-}
-
-// Why the next rank of this entry cannot be taken now, or empty: the rules the core applies to a player
-// learning it from the talent frame (AscensionCompat SetTalentRank), which SetAscensionTalentRank leaves out.
-std::string RefusalFor(Player* bot, AscensionCompatData::CoATalentEntry const& entry, uint32 rank)
-{
-    if (!CoaEntryOffered(bot, entry))
-        return "not a talent of my class or of my active specialization";
-    if (rank > entry.SpellCount)
-        return "already at its highest rank";
-    if (bot->GetLevel() < entry.RequiredLevel)
-        return "requires level " + std::to_string(uint32(entry.RequiredLevel));
-    for (uint32 const required : entry.RequiredEntryIds)
-        if (required && !GetAscensionTalentRank(bot, required))
-        {
-            AscensionCompatData::CoATalentEntry const* before = FindCoaEntry(required);
-            SpellInfo const* info = before && before->SpellIds[0] ? sSpellMgr->GetSpellInfo(before->SpellIds[0]) : nullptr;
-            return "requires " + (info ? std::string(info->SpellName[0]) : std::to_string(required));
-        }
-    CoaPoints const points = PointsOf(bot);
-    bool const classTree = !entry.SpecId;
-    uint32 const cost = classTree ? entry.AECost : entry.TECost;
-    if ((classTree ? points.classSpent : points.specSpent) + cost > (classTree ? points.classBudget : points.specBudget))
-        return std::string("not enough ") + (classTree ? "class" : "specialization") + " points";
-    return "";
-}
-}
-
 void ChangeTalentsAction::ListCoaTalents()
 {
     std::vector<AscensionCoATalentState::KnownEntry> const known = GetAscensionKnownTalentEntries(bot);
@@ -251,8 +190,11 @@ bool ChangeTalentsAction::Execute(Event event)
         {
             // CoA: InitTalentsTree spends Blizzard talent points a CoA class does not have; its build is the
             // community build of its specialization, which ApplyCoaTalents sets for the bot's level.
-            uint32 const changed = ApplyCoaTalents(bot);
-            out << "Talents set from the build: " << changed << " changes";
+            // An alt keeps the talents its owner picked: only its free points are spent, along the same build.
+            if (botAI->IsAltBot())
+                out << "Talent points spent from the build: " << SpendCoaTalentPoints(bot) << " ranks";
+            else
+                out << "Talents set from the build: " << ApplyCoaTalents(bot) << " changes";
             botAI->ResetStrategies();
         }
         else if (param.find("autopick") != std::string::npos)
@@ -420,8 +362,11 @@ std::string ChangeTalentsAction::CoaSpecPick(std::string const& wanted)
         sRandomPlayerbotMgr.SetValue(bot, "coa_manual_spec", pick->specId);
 
     // Talents follow the coa talent path: the new specialization's level build, recorded through
-    // SetAscensionTalentRank like a player's purchase (random bots only, as for every other pick).
-    ApplyCoaTalents(bot);
+    // SetAscensionTalentRank like a player's purchase. An alt only spends its free points along it.
+    if (botAI->IsAltBot())
+        SpendCoaTalentPoints(bot);
+    else
+        ApplyCoaTalents(bot);
 
     std::ostringstream out;
     out << "Now " << pick->specName << " - " << RoleWord(pick->role) << ", "

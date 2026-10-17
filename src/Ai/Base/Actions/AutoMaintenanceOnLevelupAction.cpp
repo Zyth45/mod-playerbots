@@ -36,6 +36,7 @@ bool AutoMaintenanceOnLevelupAction::Execute(Event /*event*/)
 
     // One Character Advancement point per level from 10.
     ApplyCoaTalents(bot);
+    SpendAltBotTalentPoints(bot);
 
     AutoPickTalents();
     AutoLearnSpell();

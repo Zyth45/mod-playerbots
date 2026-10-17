@@ -5,6 +5,7 @@
  */
 
 #include "PlayerbotMgr.h"
+#include "CoaSpecialization.h"
 #include "BroadcastHelper.h"
 #include "ChannelMgr.h"
 #include "CharacterCache.h"
@@ -654,6 +655,9 @@ void PlayerbotHolder::OnBotLogin(Player* const bot)
         pkt << "";  // Pass
         bot->GetSession()->HandleJoinChannel(pkt);
     }
+
+    // An alt that levelled while its owner played it, or before AutoPickTalentsAltBots existed, catches up here.
+    SpendAltBotTalentPoints(bot);
 
     JoinBotChannels(bot);
 }

@@ -21,6 +21,7 @@
 #include "Log.h"
 #include "Player.h"
 #include "Playerbots.h"
+#include "PlayerbotAIConfig.h"
 #include "PlayerbotFactory.h"
 #include "Random.h"
 #include "RandomBotLevelMgr.h"
@@ -28,11 +29,13 @@
 #include "SharedDefines.h"
 #include "SpellAuras.h"
 #include "SpellInfo.h"
+#include "SpellMgr.h"
 #include "World.h"
 #include "WorldSession.h"
 #include "WorldSessionMgr.h"
 #include "AscensionSpecialization.h"
 #include "AscensionCoATalentData.h"
+#include "AscensionCoATalentState.h"
 #include "AscensionSpellProgressionData.h"
 #include "AscensionCustomClassData.h"
 #include "AscensionLiveBaselineData.h"
@@ -379,35 +382,85 @@ bool EnsureCoaSpecialization(Player* bot)
     return true;
 }
 
-uint32 ApplyCoaTalents(Player* bot)
+AscensionCompatData::CoATalentEntry const* FindCoaEntry(uint32 entryId)
 {
-    if (!bot || !IsAscensionCustomClassId(bot->getClass()) || bot->GetLevel() < SpecializationLevel ||
-        !sRandomPlayerbotMgr.IsRandomBot(bot))
-        return 0;
+    for (AscensionCompatData::CoATalentEntry const& entry : AscensionCompatData::CoATalentEntries)
+        if (entry.EntryId == entryId)
+            return &entry;
+    return nullptr;
+}
 
-    uint32 const specializationId = GetAscensionActiveSpecialization(bot);
-    if (!specializationId)
-        return 0;
+// The paid entries of the bot's class it may hold now: its class tree and its active specialization's tree.
+bool CoaEntryOffered(Player* bot, AscensionCompatData::CoATalentEntry const& entry)
+{
+    if (entry.ClassId != bot->getClass() || (!entry.AECost && !entry.TECost) || !entry.SpellCount)
+        return false;
+    return !entry.SpecId || entry.SpecId == GetAscensionActiveSpecialization(bot);
+}
 
-    auto const entryOf = [](uint32 entryId) -> AscensionCompatData::CoATalentEntry const*
-    {
-        for (AscensionCompatData::CoATalentEntry const& entry : AscensionCompatData::CoATalentEntries)
-            if (entry.EntryId == entryId)
-                return &entry;
-        return nullptr;
-    };
+CoaPoints PointsOf(Player* bot)
+{
+    CoaPoints points;
+    AscensionCompatData::GetCoATalentBudget(bot->getClass(), bot->GetLevel(), points.classBudget, points.specBudget);
+    AscensionCoATalentState::SpentPoints const spent =
+        AscensionCoATalentState::Spent(GetAscensionKnownTalentEntries(bot));
+    points.classSpent = spent.AE;
+    points.specSpent = spent.TE;
+    return points;
+}
 
-    // Rank each entry should hold at the bot's level: the build's picks up to that level, never an entry
-    // the Character Advancement does not offer yet at that level. The build lists some end-game
-    // abilities early, and the core does not check the level when a rank is set: level 10 bots cast
-    // Brutal Shot (spell level 59) for 2000 on a 548 health player (PvP bench, 28/09). Never a rank the
-    // entry does not have either: the core refuses it, and a bot made above that pick had no rank at all.
+// Why the next rank of this entry cannot be taken now, or empty: the rules the core applies to a player
+// learning it from the talent frame (AscensionCompat SetTalentRank), which SetAscensionTalentRank leaves out.
+std::string RefusalFor(Player* bot, AscensionCompatData::CoATalentEntry const& entry, uint32 rank)
+{
+    if (!CoaEntryOffered(bot, entry))
+        return "not a talent of my class or of my active specialization";
+    if (rank > entry.SpellCount)
+        return "already at its highest rank";
+    if (bot->GetLevel() < entry.RequiredLevel)
+        return "requires level " + std::to_string(uint32(entry.RequiredLevel));
+    for (uint32 const required : entry.RequiredEntryIds)
+        if (required && !GetAscensionTalentRank(bot, required))
+        {
+            AscensionCompatData::CoATalentEntry const* before = FindCoaEntry(required);
+            SpellInfo const* info = before && before->SpellIds[0] ? sSpellMgr->GetSpellInfo(before->SpellIds[0]) : nullptr;
+            return "requires " + (info ? std::string(info->SpellName[0]) : std::to_string(required));
+        }
+    CoaPoints const points = PointsOf(bot);
+    bool const classTree = !entry.SpecId;
+    uint32 const cost = classTree ? entry.AECost : entry.TECost;
+    if ((classTree ? points.classSpent : points.specSpent) + cost > (classTree ? points.classBudget : points.specBudget))
+        return std::string("not enough ") + (classTree ? "class" : "specialization") + " points";
+    return "";
+}
+
+
+namespace
+{
+// The free-choice group of an entry, or 0: entries of one group exclude each other, the core removes the others
+// when one is set.
+uint32 FreeGroupOf(uint32 entryId)
+{
+    for (AscensionCompatData::CoASelectableFreeEntry const& free : AscensionCompatData::CoASelectableFreeEntries)
+        if (free.EntryId == entryId)
+            return free.GroupId;
+    return 0;
+}
+
+// Rank each entry should hold at the bot's level, in the order of the build: the build's picks up to that level,
+// never an entry the Character Advancement does not offer yet at that level, never a rank the entry does not have,
+// and one entry per free-choice group (the build's last).
+std::vector<std::pair<uint32, uint8>> BuildRanksAtLevel(Player* bot, uint32 specializationId)
+{
+    // The build lists some end-game abilities early, and the core does not check the level when a rank is set:
+    // level 10 bots cast Brutal Shot (spell level 59) for 2000 on a 548 health player (PvP bench, 28/09). Never a
+    // rank the entry does not have either: the core refuses it, and a bot made above that pick had no rank at all.
     std::vector<std::pair<uint32, uint8>> wanted;
     for (CoaLevelBuildData::Pick const& pick : CoaLevelBuildData::Picks)
     {
         if (pick.ClassId != bot->getClass() || pick.SpecId != specializationId || pick.Level > bot->GetLevel())
             continue;
-        AscensionCompatData::CoATalentEntry const* entry = entryOf(pick.EntryId);
+        AscensionCompatData::CoATalentEntry const* entry = FindCoaEntry(pick.EntryId);
         if (!entry || entry->RequiredLevel > bot->GetLevel())
             continue;
 
@@ -420,28 +473,36 @@ uint32 ApplyCoaTalents(Player* bot)
             itr->second = rank;
     }
 
-    // Entries of one free-choice group exclude each other: the core removes the others when one is set.
-    // Keeping two of them in the build made the bot swap them back and forth on every refresh.
-    auto const freeGroupOf = [](uint32 entryId) -> uint32
-    {
-        for (AscensionCompatData::CoASelectableFreeEntry const& free : AscensionCompatData::CoASelectableFreeEntries)
-            if (free.EntryId == entryId)
-                return free.GroupId;
-        return 0;
-    };
+    // Keeping two entries of one free-choice group in the build made the bot swap them back and forth on every
+    // refresh.
     for (size_t i = wanted.size(); i-- > 0;)
     {
-        uint32 const group = freeGroupOf(wanted[i].first);
+        uint32 const group = FreeGroupOf(wanted[i].first);
         if (!group)
             continue;
         for (size_t j = 0; j < i; ++j)
-            if (freeGroupOf(wanted[j].first) == group)
+            if (FreeGroupOf(wanted[j].first) == group)
             {
                 wanted.erase(wanted.begin() + j);
                 --i;
                 --j;
             }
     }
+    return wanted;
+}
+}  // namespace
+
+uint32 ApplyCoaTalents(Player* bot)
+{
+    if (!bot || !IsAscensionCustomClassId(bot->getClass()) || bot->GetLevel() < SpecializationLevel ||
+        !sRandomPlayerbotMgr.IsRandomBot(bot))
+        return 0;
+
+    uint32 const specializationId = GetAscensionActiveSpecialization(bot);
+    if (!specializationId)
+        return 0;
+
+    std::vector<std::pair<uint32, uint8>> const wanted = BuildRanksAtLevel(bot, specializationId);
 
     // The core teaches the class baseline again right after any change (SynchronizeProgression), so
     // lowering an entry whose spell is part of that baseline never sticks and was redone every refresh.
@@ -461,7 +522,7 @@ uint32 ApplyCoaTalents(Player* bot)
     // from the wanted one too, which was raised again next time, for ever.
     std::unordered_set<uint32> wantedSpells;
     for (auto const& [entryId, rank] : wanted)
-        if (AscensionCompatData::CoATalentEntry const* entry = entryOf(entryId))
+        if (AscensionCompatData::CoATalentEntry const* entry = FindCoaEntry(entryId))
             for (uint32 r = 0; r < rank && r < entry->SpellIds.size(); ++r)
                 if (entry->SpellIds[r])
                     wantedSpells.insert(entry->SpellIds[r]);
@@ -514,6 +575,77 @@ uint32 ApplyCoaTalents(Player* bot)
         LOG_INFO("playerbots", "coa: {} (class {}, level {}, specialization {}) raised {}, lowered {} talent entries ({} orphan ranks):{}",
                  bot->GetName(), bot->getClass(), bot->GetLevel(), specializationId, raised, lowered, orphans, changes);
     return raised;
+}
+
+uint32 SpendCoaTalentPoints(Player* bot)
+{
+    if (!bot || !IsAscensionCustomClassId(bot->getClass()) || bot->GetLevel() < SpecializationLevel)
+        return 0;
+
+    uint32 const specializationId = GetAscensionActiveSpecialization(bot);
+    if (!specializationId)
+        return 0;
+
+    uint32 raised = 0;
+    std::string changes;
+    for (auto const& [entryId, wantedRank] : BuildRanksAtLevel(bot, specializationId))
+    {
+        AscensionCompatData::CoATalentEntry const* entry = FindCoaEntry(entryId);
+        if (!entry)
+            continue;
+
+        // The owner already chose another entry of this free-choice group: setting this one would take theirs away.
+        if (uint32 const group = FreeGroupOf(entryId))
+        {
+            bool const otherChosen = std::any_of(AscensionCompatData::CoATalentEntries.begin(),
+                AscensionCompatData::CoATalentEntries.end(),
+                [bot, entryId, group](AscensionCompatData::CoATalentEntry const& other)
+                {
+                    return other.ClassId == bot->getClass() && other.EntryId != entryId &&
+                        FreeGroupOf(other.EntryId) == group && GetAscensionTalentRank(bot, other.EntryId) > 0;
+                });
+            if (otherChosen)
+                continue;
+        }
+
+        // One rank at a time, as the talent frame would: RefusalFor stops at the first rank the level, the
+        // required entries or the points left do not allow.
+        for (uint32 rank = GetAscensionTalentRank(bot, entryId) + 1; rank <= wantedRank; ++rank)
+        {
+            if (!RefusalFor(bot, *entry, rank).empty() || !SetAscensionTalentRank(bot, entryId, rank) ||
+                GetAscensionTalentRank(bot, entryId) != rank)
+                break;
+            ++raised;
+            changes += " +" + std::to_string(entryId) + "/" + std::to_string(rank);
+        }
+    }
+
+    if (raised)
+        LOG_INFO("playerbots", "coa: alt {} (class {}, level {}, specialization {}) spent {} talent ranks:{}",
+                 bot->GetName(), bot->getClass(), bot->GetLevel(), specializationId, raised, changes);
+    return raised;
+}
+
+bool SpendAltBotTalentPoints(Player* bot)
+{
+    if (!bot || !sPlayerbotAIConfig.autoPickTalentsAltBots)
+        return false;
+
+    PlayerbotAI* botAI = GET_PLAYERBOT_AI(bot);
+    if (!botAI || !botAI->IsAltBot())
+        return false;
+
+    if (IsAscensionCustomClassId(bot->getClass()))
+        return SpendCoaTalentPoints(bot) > 0;
+
+    if (bot->GetFreeTalentPoints() <= 0)
+        return false;
+
+    // Incremental and without reset: the points the owner already spent stay where they are.
+    PlayerbotFactory factory(bot, bot->GetLevel());
+    factory.InitTalentsTree(true, true, false);
+    factory.InitPetTalents();
+    return true;
 }
 
 namespace

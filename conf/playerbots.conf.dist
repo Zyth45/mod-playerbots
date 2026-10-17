@@ -2206,6 +2206,13 @@ AiPlayerbot.LootLogMinQuality = 3
 # Default: 1 (enabled)
 AiPlayerbot.AutoPickTalents = 1
 
+# Altbots (your own characters added as bots) spend their free talent points by themselves, on levelup and when
+# they log in: CoA classes along their specialization's level build, other classes with the talent template of
+# their main tree. Points already spent are kept: nothing is lowered, reset or swapped, and a free choice you made
+# stays yours. "talents autopick" does the same on demand.
+# Default: 1 (enabled)
+AiPlayerbot.AutoPickTalentsAltBots = 1
+
 # Spells every randombot will learn automatically and every altbot will learn with maintenance
 # Default: 54197 (Cold Weather Flying)
 AiPlayerbot.RandomBotSpellIds = "54197"
