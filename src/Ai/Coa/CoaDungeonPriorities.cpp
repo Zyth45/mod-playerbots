@@ -84,6 +84,8 @@ constexpr uint32 PriorityCasts[] = {
     2102791, 11082,                        // Mega Volt, Megavolt
     2102774,                               // Lightning Nova
     9435,                                  // Detonation
+    2100709,                               // Steal Warmth
+    2100718,                               // Expel Bloat
     21793,                                 // Twisted Tranquility
     2100085,                               // Call of the Grave
     // Summons
