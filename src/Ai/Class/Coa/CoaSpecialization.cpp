@@ -12,7 +12,9 @@
 #include "Config.h"
 #include "ScriptMgr.h"
 
+#include "AiFactory.h"
 #include "BattlegroundMgr.h"
+#include "DBCStores.h"
 #include "LFGMgr.h"
 #include "Group.h"
 #include "InstanceSaveMgr.h"
@@ -697,6 +699,91 @@ uint8 FindCoaClass(std::string const& name)
     return found;
 }
 
+namespace
+{
+// The classes of the original game (Warcraft Reborn realms play them, not the CoA classes): their role is the
+// talent tree they spent the most in, as the bot AI reads it, and they change role with a premade spec.
+bool IsStockClass(uint8 classId)
+{
+    return classId && classId < CLASS_BARBARIAN && classId != CLASS_HERO;
+}
+
+CoaRole StockRole(Player* bot)
+{
+    if (PlayerbotAI::IsTank(bot, true))
+        return CoaRole::Tank;
+    return PlayerbotAI::IsHeal(bot, true) ? CoaRole::Heal : CoaRole::Dps;
+}
+
+CoaRole RoleOfMember(Player* player)
+{
+    return IsStockClass(player->getClass()) ? StockRole(player) : GetCoaRole(player);
+}
+
+bool ClassCanPlay(uint8 classId, CoaRole role)
+{
+    if (!IsStockClass(classId))
+        return IsAscensionCustomClassId(classId) && !SpecializationsByRole(classId)[uint8(role)].empty();
+
+    switch (role)
+    {
+        case CoaRole::Tank:
+            return classId == CLASS_WARRIOR || classId == CLASS_PALADIN || classId == CLASS_DEATH_KNIGHT ||
+                   classId == CLASS_DRUID;
+        case CoaRole::Heal:
+            return classId == CLASS_PRIEST || classId == CLASS_PALADIN || classId == CLASS_SHAMAN ||
+                   classId == CLASS_DRUID;
+        default:
+            return true;
+    }
+}
+
+bool FitsRole(Player* bot, CoaRole role)
+{
+    if (IsStockClass(bot->getClass()))
+        return StockRole(bot) == role;
+    uint32 const specialization = GetAscensionActiveSpecialization(bot);
+    return specialization && !IsExcludedSpecialization(specialization) && GetCoaRole(bot) == role;
+}
+
+std::string ClassName(uint8 classId)
+{
+    if (char const* coaName = CoaClassName(classId))
+        return coaName;
+    ChrClassesEntry const* entry = sChrClassesStore.LookupEntry(classId);
+    return entry ? entry->name[sWorld->GetDefaultDbcLocale()] : "adventurer";
+}
+
+std::string SpecName(Player* bot)
+{
+    if (IsStockClass(bot->getClass()))
+        return AiFactory::GetPlayerSpecName(bot);
+    return std::to_string(GetAscensionActiveSpecialization(bot));
+}
+
+// Tries the premade specs of the class in a random order, PvE ones first, until the bot plays the role. Under
+// level 10 the bot has no talent point and keeps the role of its class.
+bool SwitchStockSpec(Player* bot, CoaRole role)
+{
+    uint8 const classId = bot->getClass();
+    std::vector<int> specs;
+    for (int specNo = 0; specNo < MAX_SPECNO; ++specNo)
+        if (!sPlayerbotAIConfig.premadeSpecName[classId][specNo].empty())
+            specs.push_back(specNo);
+    std::shuffle(specs.begin(), specs.end(), std::mt19937(urand(0, 0x7FFFFFFF)));
+    std::stable_partition(specs.begin(), specs.end(), [classId](int specNo)
+        { return sPlayerbotAIConfig.premadeSpecName[classId][specNo].find("pvp") == std::string::npos; });
+
+    for (int specNo : specs)
+    {
+        PlayerbotFactory::InitTalentsBySpecNo(bot, specNo, true);
+        if (StockRole(bot) == role)
+            return true;
+    }
+    return false;
+}
+}  // namespace
+
 Player* FindCoaRecruit(Player* master, CoaRole role, uint8 classId, std::set<ObjectGuid> const& skip, bool& chosenFits)
 {
     // A free random bot whose class can fill the role, preferably on the master's map (a
@@ -710,7 +797,8 @@ Player* FindCoaRecruit(Player* master, CoaRole role, uint8 classId, std::set<Obj
     for (auto const& [guid, bot] : sRandomPlayerbotMgr.GetAllBots())
     {
         if (!bot || bot == master || !bot->IsInWorld() || bot->IsBeingTeleported() ||
-            !IsAscensionCustomClassId(bot->getClass()) || !bot->IsAlive() || bot->IsInCombat() || bot->GetGroup() ||
+            !(IsAscensionCustomClassId(bot->getClass()) || IsStockClass(bot->getClass())) || !bot->IsAlive() ||
+            bot->IsInCombat() || bot->GetGroup() ||
             bot->GetGroupInvite() || bot->InBattleground() || bot->InBattlegroundQueue() || bot->IsInFlight() ||
             sLFGMgr->GetState(bot->GetGUID()) != lfg::LFG_STATE_NONE)
             continue;
@@ -740,9 +828,11 @@ Player* FindCoaRecruit(Player* master, CoaRole role, uint8 classId, std::set<Obj
         if (!botAI || botAI->GetMaster())
             continue;
 
-        uint32 const specialization = GetAscensionActiveSpecialization(bot);
-        bool const fits = specialization && !IsExcludedSpecialization(specialization) && GetCoaRole(bot) == role;
-        if (!fits && SpecializationsByRole(bot->getClass())[uint8(role)].empty())
+        bool const fits = FitsRole(bot, role);
+        if (!fits && !ClassCanPlay(bot->getClass(), role))
+            continue;
+        // Without a talent point, at its level and at the master's, a stock class cannot change its role.
+        if (!fits && IsStockClass(bot->getClass()) && bot->GetLevel() < 10 && master->GetLevel() < 10)
             continue;
 
         bool const sameMap = bot->GetMap() == master->GetMap();
@@ -825,13 +915,26 @@ bool PrepareCoaRecruit(Player* master, Player* chosen, CoaRole role, bool chosen
         factory.Randomize(false);
         // The rebuild picks a specialization of its own: whether it still plays the role is
         // decided below, on what it holds now.
-        uint32 const rebuilt = GetAscensionActiveSpecialization(chosen);
-        chosenFits = rebuilt && !IsExcludedSpecialization(rebuilt) && GetCoaRole(chosen) == role;
+        chosenFits = FitsRole(chosen, role);
     }
     // Rebuilt or not, no spell rank above the level it plays at.
     PlayerbotFactory::DropCoaRanksAbove(chosen, chosen->GetLevel());
 
-    if (!chosenFits)
+    if (!chosenFits && IsStockClass(chosen->getClass()))
+    {
+        if (!SwitchStockSpec(chosen, role))
+        {
+            message = "Could not give " + chosen->GetName() + " talents to play " + RoleName(role) + ".";
+            return false;
+        }
+
+        PlayerbotFactory factory(chosen, chosen->GetLevel());
+        factory.InitGlyphs(false);
+        factory.InitEquipment(false);
+        if (PlayerbotAI* botAI = GET_PLAYERBOT_AI(chosen))
+            botAI->ResetStrategies();
+    }
+    else if (!chosenFits)
     {
         // Keep the array alive: a reference into the temporary would dangle.
         std::array<std::vector<uint32>, 3> const byRole = SpecializationsByRole(chosen->getClass());
@@ -923,9 +1026,9 @@ bool RecruitCoaBot(Player* master, CoaRole role, std::string& message, uint8 cla
         return false;
     }
 
-    if (classId && SpecializationsByRole(classId)[uint8(role)].empty())
+    if (classId && !ClassCanPlay(classId, role))
     {
-        message = std::string("A ") + CoaClassName(classId) + " cannot play " + RoleName(role) + ".";
+        message = "A " + ClassName(classId) + " cannot play " + RoleName(role) + ".";
         return false;
     }
 
@@ -933,8 +1036,7 @@ bool RecruitCoaBot(Player* master, CoaRole role, std::string& message, uint8 cla
     Player* chosen = FindCoaRecruit(master, role, classId, {}, chosenFits);
     if (!chosen)
     {
-        message = classId ? std::string("No free ") + CoaClassName(classId) + " bot of your faction to play " +
-                                RoleName(role) + "."
+        message = classId ? "No free " + ClassName(classId) + " bot of your faction to play " + RoleName(role) + "."
                           : std::string("No free bot able to play ") + RoleName(role) + ".";
         return false;
     }
@@ -976,9 +1078,8 @@ bool RecruitCoaBot(Player* master, CoaRole role, std::string& message, uint8 cla
              master->GetName(), chosen->GetName(), chosen->getClass(), chosen->GetLevel(),
              GetAscensionActiveSpecialization(chosen), RoleName(role));
 
-    message = chosen->GetName() + " joins as " + RoleName(role) + " (specialization " +
-              std::to_string(GetAscensionActiveSpecialization(chosen)) + ", level " +
-              std::to_string(chosen->GetLevel()) + ").";
+    message = chosen->GetName() + " joins as " + RoleName(role) + " (specialization " + SpecName(chosen) +
+              ", level " + std::to_string(chosen->GetLevel()) + ").";
     return true;
 }
 
@@ -1030,7 +1131,7 @@ bool RecruitCoaRaid(Player* master, uint32 size, uint32 tanks, uint32 heals, std
         if (Player* member = ref->GetSource())
         {
             ++classCount[member->getClass()];
-            uint8 const role = uint8(GetCoaRole(member));
+            uint8 const role = uint8(RoleOfMember(member));
             if (role != uint8(CoaRole::Dps) && wanted[role])
                 --wanted[role];
         }
@@ -1054,8 +1155,8 @@ bool RecruitCoaRaid(Player* master, uint32 size, uint32 tanks, uint32 heals, std
         for (uint32 i = 0; i < wanted[uint8(role)]; ++i)
         {
             std::vector<uint8> classes;
-            for (uint8 classId = FirstCoaClass; classId < FirstCoaClass + std::size(CoaClassNames); ++classId)
-                if (!SpecializationsByRole(classId)[uint8(role)].empty())
+            for (uint8 classId = CLASS_WARRIOR; classId < FirstCoaClass + std::size(CoaClassNames); ++classId)
+                if (ClassCanPlay(classId, role))
                     classes.push_back(classId);
             std::shuffle(classes.begin(), classes.end(), shuffler);
             std::stable_sort(classes.begin(), classes.end(),
@@ -1084,7 +1185,7 @@ bool RecruitCoaRaid(Player* master, uint32 size, uint32 tanks, uint32 heals, std
         if (Player* member = ref->GetSource())
             if (GET_PLAYERBOT_AI(member))
             {
-                CoaRole const role = GetCoaRole(member);
+                CoaRole const role = RoleOfMember(member);
                 group->SetLfgRoles(member->GetGUID(), role == CoaRole::Tank   ? lfg::PLAYER_ROLE_TANK
                                                       : role == CoaRole::Heal ? lfg::PLAYER_ROLE_HEALER
                                                                               : lfg::PLAYER_ROLE_DAMAGE);
@@ -1242,9 +1343,11 @@ std::vector<CoaRole> RolesAsked(CoaLfgSettings const& settings, std::string cons
 std::string OfferText(Player* bot, CoaRole role)
 {
     std::string const level = std::to_string(bot->GetLevel());
-    std::string const className = CoaClassName(bot->getClass()) ? CoaClassName(bot->getClass()) : "adventurer";
+    std::string const className = ClassName(bot->getClass());
     CoaSpecStrategy const* spec = GetCoaSpecStrategyFor(bot);
-    std::string const specName = spec && spec->specName ? spec->specName : className;
+    std::string const specName = spec && spec->specName ? spec->specName
+                                 : IsStockClass(bot->getClass()) ? SpecName(bot)
+                                                                 : className;
 
     std::vector<std::string> lines;
     switch (role)
@@ -1390,7 +1493,7 @@ void CoaLfgHeard(Player* player, std::string const& message, Channel* channel)
         }
 
         if (!offered)
-            chat.PSendSysMessage("No bot of your faction is free to play {} right now.", RoleName(role));
+            chat.PSendSysMessage("No free bot can play {} right now.", RoleName(role));
     }
 }
 
