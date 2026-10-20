@@ -24,6 +24,9 @@
 #include "SocialMgr.h"
 #include "Timer.h"
 
+#include <algorithm>
+#include <unordered_set>
+
 constexpr RandomPlayerbotFactory::NameRaceAndGender RandomPlayerbotFactory::CombineRaceAndGender(uint8 race,
                                                                                                 uint8 gender)
 {
@@ -73,7 +76,18 @@ Player* RandomPlayerbotFactory::CreateRandomBot(WorldSession* session, uint8 cls
     for (uint8 race = RACE_HUMAN; race < sRaceMgr->GetMaxRaces(); ++race)
     {
         // skip disabled with config races
-        if ((1 << (race - 1)) & sWorld->getIntConfig(CONFIG_CHARACTER_CREATING_DISABLED_RACEMASK))
+        if (race <= 32 && ((1u << (race - 1)) & sWorld->getIntConfig(CONFIG_CHARACTER_CREATING_DISABLED_RACEMASK)))
+            continue;
+
+        // The races a custom races module makes playable (the CoA Server Manager's: Goblin 9, 12 to 32 and 47 to
+        // 97) are left out unless that module lets bots have them, and any race can be excluded by id. The mask
+        // above cannot reach most of them: shifting by 32 or more is undefined and on x86 wrapped onto a base
+        // race's bit.
+        bool const baseRace = race <= RACE_DRAENEI && race != 9;
+        if (!baseRace && !sPlayerbotAIConfig.customRacesForBots)
+            continue;
+        if (std::find(sPlayerbotAIConfig.excludedBotRaces.begin(), sPlayerbotAIConfig.excludedBotRaces.end(), race) !=
+            sPlayerbotAIConfig.excludedBotRaces.end())
             continue;
 
         // Try to get 50/50 faction distribution for random bot population balance.
@@ -92,7 +106,17 @@ Player* RandomPlayerbotFactory::CreateRandomBot(WorldSession* session, uint8 cls
     }
 
     const uint8 race = raceOptions[urand(0, raceOptions.size() - 1)];
-    const uint8 gender = urand(0, 1) ? GENDER_MALE : GENDER_FEMALE;
+    // Added races with a male model only (the core's IsAscensionMaleOnlyRace, same list as the client's creation
+    // screen): a female of these races has no body in the client, or wears gear stretched across the screen.
+    // Broken (22) too, from the races' author (CoA Custom README); the core leaves it out since Eunoia's Broken.
+    // Earthen (68, 69): a client crashed drawing earthendwarffemale.m2 among bots (15/10), so their bots stay male.
+    // Ogre (53): its female shows the male model. Alpha Goblin (57): its male has no head (a missing texture shown
+    // as a checker square), so its bots are female.
+    bool const maleOnly = race == 15 || race == 17 || race == 18 || (race >= 22 && race <= 26) || race == 32 ||
+                          race == 50 || race == 53 || race == 68 || race == 69 || race == 83 ||
+                          race == 97;
+    bool const femaleOnly = race == 57;
+    const uint8 gender = femaleOnly ? GENDER_FEMALE : (maleOnly || urand(0, 1)) ? GENDER_MALE : GENDER_FEMALE;
     const auto raceAndGender = CombineRaceAndGender(race, gender);
 
     std::string name;
@@ -601,6 +625,105 @@ void RandomPlayerbotFactory::CreateRandomBots()
         CharacterDatabase.Execute("DELETE FROM petition WHERE ownerguid NOT IN (SELECT guid FROM characters)");
         CharacterDatabase.Execute("DELETE FROM petition_sign WHERE ownerguid NOT IN (SELECT guid FROM characters) OR playerguid NOT IN (SELECT guid FROM characters)");
 
+        // New characters take the next guid after the highest remaining one, so fresh bots reuse the
+        // deleted bots' guids and would inherit any row still keyed by them. Clean every other table
+        // keyed by a character guid; CoA tables depend on the core build and installed modules, so a
+        // table missing from this characters DB is skipped instead of failing the purge.
+        std::unordered_set<std::string> characterTables;
+        if (QueryResult tables = CharacterDatabase.Query(
+                "SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE()"))
+        {
+            do
+            {
+                std::string name = tables->Fetch()[0].Get<std::string>();
+                std::transform(name.begin(), name.end(), name.begin(), ::tolower);
+                characterTables.insert(name);
+            } while (tables->NextRow());
+        }
+
+        auto deleteOrphans = [&characterTables](char const* table, char const* condition)
+        {
+            if (!characterTables.count(table))
+                return;
+            CharacterDatabase.Execute("DELETE FROM `" + std::string(table) + "` WHERE " + condition);
+        };
+
+        static std::pair<char const*, char const*> const characterKeyedTables[] = {
+            // Core tables the list above misses
+            {"character_achievement_offline_updates", "guid"},
+            {"character_banned", "guid"},
+            {"character_battleground_random", "guid"},
+            {"character_brew_of_the_month", "guid"},
+            {"character_declinedname", "guid"},
+            {"character_equipmentsets", "guid"},
+            {"character_gifts", "guid"},
+            {"character_instance", "guid"},
+            {"character_pet_declinedname", "owner"},
+            {"character_queststatus_daily", "guid"},
+            {"character_queststatus_weekly", "guid"},
+            {"character_queststatus_monthly", "guid"},
+            {"character_queststatus_seasonal", "guid"},
+            {"character_settings", "guid"},
+            {"character_social", "guid"},
+            {"character_stats", "guid"},
+            {"guild_member_withdraw", "guid"},
+            {"item_refund_instance", "player_guid"},
+            {"recovery_item", "Guid"},
+            // CoA core
+            {"ascension_manastorm_bonus", "guid"},
+            {"ascension_manastorm_cache", "guid"},
+            {"ascension_manastorm_clear", "guid"},
+            {"ascension_manastorm_loadout", "guid"},
+            {"ascension_manastorm_xp", "guid"},
+            {"coa_mystic_enchant", "guid"},
+            {"coa_mystic_enchant_known", "guid"},
+            {"coa_mystic_enchant_slot", "guid"},
+            {"coa_lottery_entry", "guid"},
+            // mod-ascension
+            {"character_appearance", "guid"},
+            {"character_appearance_outfit", "guid"},
+            {"character_appearance_settings", "guid"},
+            {"character_ascension_state", "guid"},
+            // mod-coa-challenges
+            {"coa_character_challenge", "guid"},
+            {"coa_challenge_failure", "guid"},
+            {"coa_challenge_failure_new", "guid"},
+            {"coa_character_condition", "guid"},
+            {"coa_character_objective", "guid"},
+            {"coa_challenge_completion", "guid"},
+            {"coa_custom_trial", "guid"},
+            {"coa_custom_trial_entry", "guid"},
+            {"coa_custom_trial_vote", "guid"},
+            {"coa_custom_trial_active", "guid"},
+            {"coa_custom_trial_completion", "guid"},
+            {"coa_character_gamemode", "guid"},
+            {"coa_character_gamemode_lives", "guid"},
+            {"coa_character_survival", "guid"},
+            {"coa_character_fatigue", "guid"},
+            {"coa_character_looted_item", "guid"},
+            // mod-coa-mythic-plus, mod-craftsmans-codex, mod-worldforged-pickups
+            {"coa_mythic_weekly", "guid"},
+            {"coa_mythic_best", "guid"},
+            {"mod_craftsmans_codex", "guid"},
+            {"character_worldforged_loot", "guid"},
+        };
+        for (auto const& [table, column] : characterKeyedTables)
+            deleteOrphans(table, (std::string("`") + column + "` NOT IN (SELECT guid FROM characters)").c_str());
+
+        // Personal bank: owner_kind 0 is a character, 1 is the account-wide bank (kept)
+        for (char const* table : {"mod_ascension_bank_item", "mod_ascension_bank_tab", "mod_ascension_bank_money",
+                                  "mod_ascension_bank_log"})
+            deleteOrphans(table, "owner_kind = 0 AND owner_id NOT IN (SELECT guid FROM characters)");
+
+        // Item-keyed rows must wait for the item_instance purge above, item guids are reused the same way
+        while (CharacterDatabase.QueueSize())
+        {
+            std::this_thread::sleep_for(1s);
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        deleteOrphans("character_item_scaling", "item_guid NOT IN (SELECT guid FROM item_instance)");
+        deleteOrphans("coa_mc_fire_lord_cache_tier", "ItemGuid NOT IN (SELECT guid FROM item_instance)");
+
         // Finally, delete the bot accounts themselves
         LOG_INFO("playerbots", "Deleting random bot accounts...");
         QueryResult results = LoginDatabase.Query("SELECT id FROM account WHERE username LIKE '{}%%'",
@@ -775,7 +898,7 @@ void RandomPlayerbotFactory::CreateRandomBots()
                 continue;
 
             // skip disabled with config classes
-            if ((1 << (cls - 1)) & sWorld->getIntConfig(CONFIG_CHARACTER_CREATING_DISABLED_CLASSMASK))
+            if (cls <= 32 && ((1u << (cls - 1)) & sWorld->getIntConfig(CONFIG_CHARACTER_CREATING_DISABLED_CLASSMASK)))
                 continue;
 
             // Conquest of Azeroth gives its players twenty-one classes of its own and hides the nine
@@ -892,6 +1015,20 @@ void RandomPlayerbotFactory::LoadArenaTeamData()
         _botArenaTeamRegistry[type].push_back(id);
     }
 
+    // A bracket set to 0 has no bot teams: those left from an earlier setting are disbanded (CoA has no 5v5,
+    // and the 1v1 solo queue takes the 5v5 team slot).
+    for (auto const& [type, target] : _configTargets)
+    {
+        if (target > 0 || _botArenaTeamRegistry[type].empty())
+            continue;
+        for (uint32 teamId : _botArenaTeamRegistry[type])
+            if (ArenaTeam* team = sArenaTeamMgr->GetArenaTeamById(teamId))
+                team->Disband(nullptr);
+        LOG_INFO("playerbots", "Disbanded {} random bot {}v{} arena teams (count set to 0)",
+                 _botArenaTeamRegistry[type].size(), uint32(type), uint32(type));
+        _botArenaTeamRegistry[type].clear();
+    }
+
     _availableArenaTeamNames.clear();
 
     QueryResult result = CharacterDatabase.Query(
@@ -920,6 +1057,13 @@ void RandomPlayerbotFactory::LoadArenaTeamData()
     LOG_INFO("playerbots", "Loaded {} available arena team names", _availableArenaTeamNames.size());
 }
 
+// CoA: random bots stop at level 60 there, so arena teams were never made (bots of level 70 and up only):
+// the level asked is 70, or the random bots' highest level when it is lower.
+uint32 RandomPlayerbotFactory::ArenaTeamMinLevel()
+{
+    return std::min<uint32>(70, sPlayerbotAIConfig.randomBotMaxLevel);
+}
+
 void RandomPlayerbotFactory::AssignBotToArenaTeam(Player* bot)
 {
     if (!sPlayerbotAIConfig.IsInRandomAccountList(bot->GetSession()->GetAccountId()))
@@ -928,7 +1072,7 @@ void RandomPlayerbotFactory::AssignBotToArenaTeam(Player* bot)
     if (sPlayerbotAIConfig.deleteRandomBotArenaTeams)
         return;
 
-    if (bot->GetLevel() < 70)
+    if (bot->GetLevel() < ArenaTeamMinLevel())
         return;
 
     for (uint32 arena_slot = 0; arena_slot < MAX_ARENA_SLOT; ++arena_slot)
@@ -1040,6 +1184,17 @@ uint32 RandomPlayerbotFactory::GetBotArenaTeamCount(ArenaType type)
 {
     auto it = _botArenaTeamRegistry.find(type);
     return it != _botArenaTeamRegistry.end() ? static_cast<uint32>(it->second.size()) : 0;
+}
+
+void RandomPlayerbotFactory::GetBotArenaTeamCaptains(ArenaType type, std::vector<ObjectGuid>& out)
+{
+    auto it = _botArenaTeamRegistry.find(type);
+    if (it == _botArenaTeamRegistry.end())
+        return;
+
+    for (uint32 teamId : it->second)
+        if (ArenaTeam* team = sArenaTeamMgr->GetArenaTeamById(teamId))
+            out.push_back(team->GetCaptain());
 }
 
 void RandomPlayerbotFactory::CollectJoinableBotArenaTeams(ArenaType type, TeamId faction, std::vector<ArenaTeam*>& out)

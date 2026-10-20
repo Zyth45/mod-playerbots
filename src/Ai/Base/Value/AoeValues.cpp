@@ -93,9 +93,6 @@ bool HasAreaDebuffValue::Calculate()
     {
         Unit::AuraEffectList const& auras = botAI->GetBot()->GetAuraEffectsByType((AuraType)auraType);
 
-        if (auras.empty())
-            continue;
-
         for (AuraEffect const* aurEff : auras)
         {
             SpellInfo const* proto = aurEff->GetSpellInfo();
@@ -105,13 +102,10 @@ bool HasAreaDebuffValue::Calculate()
 
             uint32 trigger_spell_id = proto->Effects[aurEff->GetEffIndex()].TriggerSpell;
             if (trigger_spell_id == 29767)  // Overload
-            {
                 return true;
-            }
-            else
-            {
-                return (!proto->IsPositive() && aurEff->IsPeriodic() && proto->HasAreaAuraEffect());
-            }
+
+            if (!proto->IsPositive() && aurEff->IsPeriodic() && proto->HasAreaAuraEffect())
+                return true;
         }
     }
 

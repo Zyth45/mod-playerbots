@@ -14,6 +14,7 @@
 #include "CoaSpecStatWeights.h"
 #include "CoaSpecialization.h"
 #include "CoaWildcard.h"
+#include "Config.h"
 #include "DBCStores.h"
 #include "DBCStructure.h"
 #include "GuildMgr.h"
@@ -22,6 +23,7 @@
 #include "ItemPackets.h"
 #include "ItemTemplate.h"
 #include "ItemVisitors.h"
+#include "DatabaseEnv.h"
 #include "Log.h"
 #include "LootMgr.h"
 #include "ObjectMgr.h"
@@ -39,6 +41,7 @@
 #include "ReputationMgr.h"
 #include "SharedDefines.h"
 #include "StatsWeightCalculator.h"
+#include "SpellAuras.h"
 #include "SpellMgr.h"
 #include "Trainer.h"
 #include "World.h"
@@ -54,6 +57,7 @@
 #include <array>
 #include <unordered_set>
 #include <utility>
+#include <vector>
 
 #include <array>
 #include <utility>
@@ -570,6 +574,27 @@ PlayerbotFactory::PlayerbotFactory(Player* bot, uint32 level, uint32 itemQuality
         this->itemQuality = sPlayerbotAIConfig.randomGearQualityLimit;
         this->gearScoreLimit = gs;
     }
+
+    // Epic gear is for the bots at the top level only: below it they keep to rare. Every way of gearing a bot comes
+    // through here: a bot added by its player (legendary limit) or regeared by autogear wore epics at level 13 (#39).
+    static uint32 const epicMinLevel = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaEpicGearMinLevel", 60);
+    if (this->itemQuality > ITEM_QUALITY_RARE && level < epicMinLevel)
+        this->itemQuality = ITEM_QUALITY_RARE;
+}
+
+// Worldforged items (Conquest of Azeroth): found in the open world, their entries above those of the
+// next expansions; the expansion limit lets them through, the item level limit still applies.
+bool PlayerbotFactory::IsCoaWorldforged(uint32 itemId)
+{
+    static std::unordered_set<uint32> const worldforged = []
+    {
+        std::unordered_set<uint32> ids;
+        for (auto const& [id, proto] : *sObjectMgr->GetItemTemplateStore())
+            if (proto.Description.find("Worldforged") != std::string::npos)
+                ids.insert(id);
+        return ids;
+    }();
+    return worldforged.contains(itemId);
 }
 
 void PlayerbotFactory::Init()
@@ -1035,7 +1060,7 @@ void PlayerbotFactory::Randomize(bool incremental)
     if (pmo)
         pmo->finish();
 
-    if (bot->GetLevel() >= 70)
+    if (bot->GetLevel() >= RandomPlayerbotFactory::ArenaTeamMinLevel())
     {
         pmo = sPerfMonitor.start(PERF_MON_RNDBOT, "PlayerbotFactory_Arenas");
         RandomPlayerbotFactory::AssignBotToArenaTeam(bot);
@@ -1770,13 +1795,24 @@ std::unordered_map<uint32, uint32> const& CoaQuestGrantLevels(Player* bot)
             !bot->SatisfyQuestRace(quest, false))
             continue;
         uint32 const level = uint32(std::max<int32>(quest->GetMinLevel(), 1));
-        auto note = [&out, level](uint32 spellId)
+        // A quest teaching another class's spells is that class's quest: all it grants is "granted"
+        // above any level, so DropCoaRanksAbove takes back what was learnt, unless a legitimate source
+        // grants it lower.
+        bool foreign = false;
+        if (int32 const cast = quest->GetRewSpellCast())
+            if (SpellInfo const* info = sSpellMgr->GetSpellInfo(cast))
+                for (SpellEffectInfo const& effect : info->Effects)
+                    if (effect.Effect == SPELL_EFFECT_LEARN_SPELL &&
+                        PlayerbotFactory::IsCoaForeignClassSpell(bot, effect.TriggerSpell))
+                        foreign = true;
+        uint32 const at = foreign ? PlayerbotFactory::NoCoaGrantLevel - 1 : level;
+        auto note = [&out, at](uint32 spellId)
         {
             if (!spellId)
                 return;
             auto found = out.find(spellId);
-            if (found == out.end() || found->second > level)
-                out[spellId] = level;
+            if (found == out.end() || found->second > at)
+                out[spellId] = at;
         };
         note(quest->GetRewSpell());
         if (int32 const cast = quest->GetRewSpellCast())
@@ -1788,6 +1824,19 @@ std::unordered_map<uint32, uint32> const& CoaQuestGrantLevels(Player* bot)
     return out;
 }
 }  // namespace
+
+bool PlayerbotFactory::IsCoaForeignClassSpell(Player* bot, uint32 spellId)
+{
+    if (!IsAscensionCustomClassId(bot->getClass()))
+        return false;
+    SkillLineAbilityMapBounds const bounds = sSpellMgr->GetSkillLineAbilityMapBounds(spellId);
+    if (bounds.first == bounds.second)
+        return false;
+    for (auto i = bounds.first; i != bounds.second; ++i)
+        if (!i->second->ClassMask || (i->second->ClassMask & bot->getClassMask()))
+            return false;
+    return true;
+}
 
 uint32 PlayerbotFactory::CoaGrantLevel(Player* bot, uint32 spellId)
 {
@@ -1839,7 +1888,8 @@ uint32 PlayerbotFactory::DropCoaRanksAbove(Player* bot, uint32 level)
         if (grant != NoCoaGrantLevel && grant > level)
             above.push_back(spellId);
     }
-    // Highest first: each removal gives the rank below back its place in the spellbook.
+    // Highest first. The rank below a removed one stays inactive (Player::removeSpell: "can't be replaced by
+    // previous rank"): ReactivateHighestRanks makes it active again at the end.
     std::sort(above.begin(), above.end(), [bot](uint32 a, uint32 b) { return CoaGrantLevel(bot, a) > CoaGrantLevel(bot, b); });
     for (uint32 spellId : above)
         bot->removeSpell(spellId, SPEC_MASK_ALL, false);
@@ -1850,7 +1900,46 @@ uint32 PlayerbotFactory::DropCoaRanksAbove(Player* bot, uint32 level)
             bot->removeSpell(rank.SpellId, SPEC_MASK_ALL, false);
             above.push_back(rank.SpellId);
         }
+    if (!above.empty())
+        ReactivateHighestRanks(bot);
     return uint32(above.size());
+}
+
+uint32 PlayerbotFactory::ReactivateHighestRanks(Player* bot)
+{
+    uint8 const spec = bot->GetActiveSpec();
+    PlayerSpellMap& spells = bot->GetSpellMap();
+    auto const known = [&spells, spec](uint32 spellId)
+    {
+        auto itr = spells.find(spellId);
+        return itr != spells.end() && itr->second->State != PLAYERSPELL_REMOVED && itr->second->IsInSpec(spec);
+    };
+
+    uint32 reactivated = 0;
+    for (auto& [spellId, spell] : spells)
+    {
+        if (spell->State == PLAYERSPELL_REMOVED || spell->Active || !spell->IsInSpec(spec))
+            continue;
+        SpellInfo const* info = sSpellMgr->GetSpellInfo(spellId);
+        if (!info || !info->IsRanked() || info->IsStackableWithRanks())
+            continue;
+
+        // A higher rank of the chain still known keeps this one inactive, as the core does at login.
+        bool higher = false;
+        for (uint32 next = sSpellMgr->GetNextSpellInChain(spellId); next && !higher;
+             next = sSpellMgr->GetNextSpellInChain(next))
+            higher = known(next);
+        if (higher)
+            continue;
+
+        spell->Active = true;
+        ++reactivated;
+    }
+
+    if (reactivated)
+        LOG_INFO("playerbots", "coa: {} (class {}, level {}) reactivated {} spell ranks after higher ranks were removed",
+                 bot->GetName(), bot->getClass(), bot->GetLevel(), reactivated);
+    return reactivated;
 }
 
 void PlayerbotFactory::ClearSpells()
@@ -2301,6 +2390,14 @@ bool PlayerbotFactory::CanEquipWeapon(ItemTemplate const* proto)
     if (proto->SubClass == ITEM_SUBCLASS_WEAPON_WAND && CoaSpecNeedsShootingWeapon(bot))
         return false;
 
+    // The CoA classes have no case below and took any weapon. A Templar tank held two Jade Bracers (12866, a
+    // miscellaneous "weapon" with 1-1 damage), and its strikes that need a real weapon failed (Condemn,
+    // Righteous Lunge, Holy Cleave: EquippedItemSubClassMask 0x2A5F3, without miscellaneous). A miscellaneous
+    // item or a fishing pole is never their weapon.
+    if (IsAscensionCustomClassId(bot->getClass()) &&
+        (proto->SubClass == ITEM_SUBCLASS_WEAPON_MISC || proto->SubClass == ITEM_SUBCLASS_WEAPON_FISHING_POLE))
+        return false;
+
     switch (bot->getClass())
     {
         case CLASS_PRIEST:
@@ -2580,7 +2677,32 @@ void PlayerbotFactory::DressNakedCoaStarter(Player* bot)
     StoreCoaStarterItems(bot);
 }
 
-void PlayerbotFactory::InitEquipment(bool incremental, bool second_chance)
+bool PlayerbotFactory::IsCoaPvpItem(ItemTemplate const* proto)
+{
+    static std::unordered_set<uint32> const honorItems = []
+    {
+        std::unordered_set<uint32> items;
+        if (QueryResult result = WorldDatabase.Query(
+                "SELECT DISTINCT v.item FROM npc_vendor v LEFT JOIN creature_template c ON c.entry = v.entry WHERE c.subname IN "
+                "('Legacy Armor Quartermaster', 'Legacy Weapon Quartermaster', 'Accessories Quartermaster', "
+                "'Honor Quartermaster', 'Arena Equipment') OR v.entry BETWEEN 9480531 AND 9480535 OR v.entry BETWEEN "
+                "9480661 AND 9480664 OR v.entry BETWEEN 9490531 AND 9490535 OR v.entry BETWEEN 9490661 AND 9490664"))
+            do
+                items.insert(result->Fetch()[0].Get<uint32>());
+            while (result->NextRow());
+        LOG_INFO("playerbots", "CoA PvP gear: {} items of the honor quartermasters", items.size());
+        return items;
+    }();
+
+    if (honorItems.count(proto->ItemId))
+        return true;
+    for (uint32 i = 0; i < proto->StatsCount && i < MAX_ITEM_PROTO_STATS; ++i)
+        if (proto->ItemStat[i].ItemStatType == ITEM_MOD_RESILIENCE_RATING)
+            return true;
+    return false;
+}
+
+void PlayerbotFactory::InitEquipment(bool incremental, bool second_chance, int32 onlySlot)
 {
     if (level < 5)
     {
@@ -2666,6 +2788,9 @@ void PlayerbotFactory::InitEquipment(bool incremental, bool second_chance)
 
     for (int32 slot : initSlotsOrder)
     {
+        if (onlySlot >= 0 && slot != onlySlot)
+            continue;
+
         if (slot == EQUIPMENT_SLOT_TABARD || slot == EQUIPMENT_SLOT_BODY)
             continue;
 
@@ -2719,7 +2844,8 @@ void PlayerbotFactory::InitEquipment(bool incremental, bool second_chance)
         }
 
         int32 desiredQuality = itemQuality;
-        if (urand(0, 100) < 100 * sPlayerbotAIConfig.randomGearLoweringChance && desiredQuality > ITEM_QUALITY_NORMAL)
+        if (!deterministic && urand(0, 100) < 100 * sPlayerbotAIConfig.randomGearLoweringChance &&
+            desiredQuality > ITEM_QUALITY_NORMAL)
             desiredQuality--;
 
         do
@@ -2732,15 +2858,18 @@ void PlayerbotFactory::InitEquipment(bool incremental, bool second_chance)
                     for (uint32 itemId : sRandomItemMgr.GetEquipmentNew(requiredLevel, inventoryType))
                     {
                         uint32 skipProb = 25;
-                        if (urand(1, 100) <= skipProb)
+                        if (!deterministic && urand(1, 100) <= skipProb)
                             continue;
 
                         ItemTemplate const* proto = sObjectMgr->GetItemTemplate(itemId);
                         // disable next expansion gear
-                        if (sPlayerbotAIConfig.limitGearExpansion && bot->GetLevel() <= 60 && itemId >= 23728)
+                        bool const worldforged = IsCoaWorldforged(itemId);
+                        if (sPlayerbotAIConfig.limitGearExpansion && bot->GetLevel() <= 60 && itemId >= 23728 &&
+                            !worldforged)
                             continue;
 
                         if (sPlayerbotAIConfig.limitGearExpansion && bot->GetLevel() <= 70 && itemId >= 35570 &&
+                            !worldforged &&
                             itemId != 36737 && itemId != 37739 &&
                             itemId != 37740)  // transition point from TBC -> WOTLK isn't as clear, and there are other
                                               // wearable TBC items above 35570 but nothing of significance
@@ -2757,6 +2886,9 @@ void PlayerbotFactory::InitEquipment(bool incremental, bool second_chance)
                             continue;
                         }
                         if (proto->Class != ITEM_CLASS_WEAPON && proto->Class != ITEM_CLASS_ARMOR)
+                            continue;
+
+                        if (maxItemLevel && proto->ItemLevel > maxItemLevel)
                             continue;
 
                         if (proto->Quality != uint32(desiredQuality))
@@ -2811,6 +2943,12 @@ void PlayerbotFactory::InitEquipment(bool incremental, bool second_chance)
                     cur_score *= 3.0f;  // 3x multiplier for preferred armor type
             }
 
+            // CoA PvP gear: the resilience weight alone let higher PvE pieces win most slots, and bots went to
+            // battlegrounds in a mix of both. The level 60 honor sets carry no resilience: what the honor
+            // quartermasters sell counts as PvP gear too.
+            if (cur_score > 0.0f && proto && preferResilience && IsCoaPvpItem(proto))
+                cur_score *= 10.0f;
+
             if (cur_score > bestScoreForSlot)
             {
                 // delay heavy check to here
@@ -2835,7 +2973,14 @@ void PlayerbotFactory::InitEquipment(bool incremental, bool second_chance)
             continue;
         }
 
-        if (incremental && oldItem)
+        // CoA: an idol or a wand held by a spec that shoots gives way to the bow whatever it scores, and so
+        // does a weapon CanEquipWeapon no longer allows (a miscellaneous item held before that rule).
+        bool const oldCannotShoot = slot == EQUIPMENT_SLOT_RANGED && oldItem &&
+                                    CoaRangedSlotCannotShoot(bot, oldItem->GetTemplate());
+        bool const oldNoWeapon = oldItem && IsAscensionCustomClassId(bot->getClass()) &&
+                                 oldItem->GetTemplate()->Class == ITEM_CLASS_WEAPON &&
+                                 !CanEquipWeapon(oldItem->GetTemplate());
+        if (incremental && oldItem && !oldCannotShoot && !oldNoWeapon)
         {
             float old_score = calculator.CalculateItem(oldItem->GetEntry(), oldItem->GetItemRandomPropertyId(), slot);
             if (bestScoreForSlot < 1.2f * old_score)
@@ -4408,6 +4553,10 @@ void PlayerbotFactory::InitMounts()
         if (bot->GetLevel() < fourthmount && type == 3)
             continue;
 
+        // A team without flying mounts leaves its list empty: urand(0, size - 1) would draw out of it.
+        if (mounts[bot->getRace()][type].empty())
+            continue;
+
         uint32 index = urand(0, mounts[bot->getRace()][type].size() - 1);
         uint32 spell = mounts[bot->getRace()][type][index];
         if (spell)
@@ -5117,7 +5266,38 @@ void PlayerbotFactory::InitGlyphs(bool increment)
     bot->SendTalentsInfoData(false);
 }
 
-void PlayerbotFactory::CancelAuras() { bot->RemoveAllAuras(); }
+// AiPlayerbot.CoaKeepPassiveAuras: RemoveAllAuras also takes the passives, which the core lays only at login or
+// when a spell is learned anew. A CoA class keeps its spells through ClearSpells, so a randomized bot played
+// without them (Thirst, stat conversions, procs) until its next login, and lost PvE Mode as well. With the
+// option, passives and positive death-persistent auras stay; the rest goes in one pass over a fixed list,
+// so an aura a class script lays back at once stays instead of looping.
+void PlayerbotFactory::CancelAuras()
+{
+    if (!sPlayerbotAIConfig.coaKeepPassiveAuras)
+    {
+        bot->RemoveAllAuras();
+        return;
+    }
+
+    std::vector<std::pair<uint32, Aura const*>> listed;
+    for (auto const& [spellId, application] : bot->GetAppliedAuras())
+    {
+        Aura const* aura = application->GetBase();
+        if (!application->GetRemoveMode() && !aura->IsPassive() &&
+            !(application->IsPositive() && aura->IsDeathPersistent()))
+            listed.emplace_back(spellId, aura);
+    }
+    for (auto const& [spellId, aura] : listed)
+    {
+        auto const range = bot->GetAppliedAuras().equal_range(spellId);
+        for (auto itr = range.first; itr != range.second; ++itr)
+            if (itr->second->GetBase() == aura && !itr->second->GetRemoveMode())
+            {
+                bot->RemoveAura(itr->second);
+                break;
+            }
+    }
+}
 
 void PlayerbotFactory::InitInventory()
 {
@@ -5714,7 +5894,9 @@ std::vector<InventoryType> PlayerbotFactory::GetPossibleInventoryTypeListBySlot(
         case EQUIPMENT_SLOT_RANGED:
             ret.push_back(INVTYPE_RANGED);
             ret.push_back(INVTYPE_RANGEDRIGHT);
-            ret.push_back(INVTYPE_RELIC);
+            // CoA: no relic for a spec that shoots with what this slot holds (CoaSpecNeedsShootingWeapon).
+            if (!CoaSpecNeedsShootingWeapon(bot))
+                ret.push_back(INVTYPE_RELIC);
             // CoA: a thrown weapon is never offered here, so a spec whose only
             // ranged ability throws something runs with an empty belt and the
             // spell is simply uncastable. The Barbarian has no bow or gun skill

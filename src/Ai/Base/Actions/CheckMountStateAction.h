@@ -8,6 +8,7 @@
 #define PLAYERBOTS_CHECKMOUNTSTATEACTION_H
 
 #include "UseItemAction.h"
+#include <mutex>
 #include <unordered_map>
 #include <vector>
 
@@ -43,6 +44,10 @@ public:
     bool Mount();
 
     static void CompleteDismount(Player* bot);
+    // CoA: the "mount" chat command reads and changes the preferred mounts without a restart.
+    static std::vector<uint32> PreferredMounts(uint32 guid, uint8 type);
+    static void SetPreferredMount(uint32 guid, uint8 type, uint32 spellId);
+    static void ClearPreferredMount(uint32 guid, int8 type);
 
 private:
     Player* master;
@@ -50,6 +55,8 @@ private:
     ShapeshiftForm botInShapeshiftForm;
     static std::unordered_map<uint32, PreferredMountCache> mountCache;
     static bool preferredMountTableChecked;
+    static std::mutex mountCacheLock;
+    static void LoadPreferredMounts();
     float CalculateDismountDistance() const;
     float CalculateMountDistance() const;
     void Dismount();

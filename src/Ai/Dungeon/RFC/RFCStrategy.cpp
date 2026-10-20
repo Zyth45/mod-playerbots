@@ -24,6 +24,12 @@ void VanillaDungeonRFCStrategy::InitTriggers(std::vector<TriggerNode*> &triggers
     triggers.push_back(new TriggerNode("taragaman fire nova",
             { NextAction("avoid fire nova", ACTION_MOVE + 5) }));
 
+    // Massive Fire Nova covers the whole room; the rock pillar he raises shortly before is the
+    // only cover. Everyone but the tank goes behind it as soon as it appears, the tank once the
+    // cast has started.
+    triggers.push_back(new TriggerNode("taragaman massive fire nova",
+            { NextAction("hide behind earth pillar", ACTION_EMERGENCY + 6) }));
+
     // Jergosh the Invoker
     triggers.push_back(new TriggerNode("jergosh adds",
             { NextAction("attack jergosh add", ACTION_RAID + 1) }));

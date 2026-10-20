@@ -14,7 +14,7 @@ class WotlkDungeonVHStrategy : public Strategy
 {
 public:
     WotlkDungeonVHStrategy(PlayerbotAI* ai) : Strategy(ai) {}
-    virtual std::string const getName() override { return "violet hold"; }
+    virtual std::string const getName() override { return "wotlk-vh"; }
     virtual void InitTriggers(std::vector<TriggerNode*> &triggers) override;
     virtual void InitMultipliers(std::vector<Multiplier*> &multipliers) override;
 };

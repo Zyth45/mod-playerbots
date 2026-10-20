@@ -48,7 +48,8 @@ public:
     ItemUsage Calculate() override;
 
 protected:
-    ItemUsage QueryItemUsageForEquip(ItemTemplate const* proto, int32 randomPropertyId = 0);
+    ItemUsage QueryItemUsageForEquip(ItemTemplate const* proto, int32 randomPropertyId = 0, bool lookahead = false);
+    ItemUsage QueryItemUsageForLookahead(ItemTemplate const* proto, int32 randomPropertyId);
     ItemUsage QueryItemUsageForAmmo(ItemTemplate const* proto);
     ParsedItemUsage GetItemIdFromQualifier();
 

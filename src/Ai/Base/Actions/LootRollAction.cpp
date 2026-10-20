@@ -66,6 +66,8 @@ bool LootRollAction::Execute(Event /*event*/)
                 case ITEM_CLASS_ARMOR:
                     if (usage == ITEM_USAGE_EQUIP || usage == ITEM_USAGE_REPLACE || usage == ITEM_USAGE_BAD_EQUIP)
                         vote = NEED;
+                    else if (usage == ITEM_USAGE_KEEP)
+                        vote = NEED;  // an upgrade a few levels on (LootNeedLevelLookahead)
                     else if (usage != ITEM_USAGE_NONE)
                         vote = GREED;
                     break;
@@ -83,6 +85,9 @@ bool LootRollAction::Execute(Event /*event*/)
                     break;
             }
         }
+        // A shirt or a tabard only dresses: a player who wants one gets it before a bot (Twilight's Embrace, #6895).
+        if (vote == NEED && (proto->InventoryType == INVTYPE_BODY || proto->InventoryType == INVTYPE_TABARD))
+            vote = GREED;
         if (vote == NEED)
         {
             if (sPlayerbotAIConfig.lootNeedRollLevel == 0 || RollUniqueCheck(proto, bot))
@@ -139,6 +144,13 @@ RollVote LootRollAction::CalculateRollVote(ItemTemplate const* proto, ItemUsage 
         default:
             break;
     }
+
+    // CoA leveling legendaries are scored on their base template (low stats, a required level scaled for the
+    // player): bots passed on those of their own class (Xorothian Bloodseal #6707, a level 24 one at 21 #6725).
+    // They greed on them, so a player who needs one still wins it.
+    if (needVote == PASS && proto->Quality == ITEM_QUALITY_LEGENDARY && (proto->AllowableClass & bot->getClassMask()) &&
+        proto->RequiredLevel <= bot->GetLevel() + 3)
+        needVote = GREED;
 
     return StoreLootAction::IsLootAllowed(proto->ItemId, GET_PLAYERBOT_AI(bot)) ? needVote : PASS;
 }

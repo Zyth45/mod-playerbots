@@ -5,17 +5,18 @@
  */
 
 #include "ChatCommandTrigger.h"
+#include "ObjectAccessor.h"
 #include "Playerbots.h"
 
 ChatCommandTrigger::ChatCommandTrigger(PlayerbotAI* botAI, std::string const command)
-    : Trigger(botAI, command), triggered(false), owner(nullptr)
+    : Trigger(botAI, command), triggered(false)
 {
 }
 
 void ChatCommandTrigger::ExternalEvent(std::string const paramName, Player* eventPlayer)
 {
     param = paramName;
-    owner = eventPlayer;
+    ownerGuid = eventPlayer ? eventPlayer->GetGUID() : ObjectGuid::Empty;
     triggered = true;
 }
 
@@ -24,6 +25,8 @@ Event ChatCommandTrigger::Check()
     if (!triggered)
         return Event();
 
+    // The sender may have logged out since the command arrived: looked up again by guid.
+    Player* owner = ownerGuid ? ObjectAccessor::FindConnectedPlayer(ownerGuid) : nullptr;
     return Event(getName(), param, owner);
 }
 

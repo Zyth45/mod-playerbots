@@ -14,7 +14,7 @@ class WotlkDungeonOccStrategy : public Strategy
 {
 public:
     WotlkDungeonOccStrategy(PlayerbotAI* ai) : Strategy(ai) {}
-    virtual std::string const getName() override { return "oculus"; }
+    virtual std::string const getName() override { return "wotlk-occ"; }
     virtual void InitTriggers(std::vector<TriggerNode*> &triggers) override;
     virtual void InitMultipliers(std::vector<Multiplier*> &multipliers) override;
 };

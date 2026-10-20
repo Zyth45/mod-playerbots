@@ -65,7 +65,8 @@ public:
     StatsCollector(CollectorType type, int32 cls = -1);
     StatsCollector(StatsCollector& stats) = default;
     void Reset();
-    void CollectItemStats(ItemTemplate const* proto);
+    // scalingLevel: the wearer's level, which gives level-scaled (heirloom) items their real values.
+    void CollectItemStats(ItemTemplate const* proto, uint32 scalingLevel = 0);
     void CollectSpellStats(uint32 spellId, float multiplier = 1.0f, Milliseconds spellCooldown = -1ms);
     void CollectEnchantStats(SpellItemEnchantmentEntry const* enchant, uint32 default_enchant_amount = 0);
     bool CanBeTriggeredByType(SpellInfo const* spellInfo, uint32 procFlags, bool strict = true);

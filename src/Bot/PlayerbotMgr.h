@@ -105,6 +105,13 @@ private:
     Player* const master;
     PlayerBotErrorMap errors;
     time_t lastErrorTell;
+
+    // Alt bots log in while the master's client is still on the loading screen, so the party frames miss their
+    // "online" group update and show Unknown / Offline until /reload. A few seconds after the last bot login,
+    // once the master is in the world, the group list and member names are sent again.
+    bool groupRefreshPending = false;
+    uint32 groupRefreshFrom = 0;  // getMSTime() of the last bot login
+    void RefreshGroupForMaster();
 };
 
 class PlayerbotsMgr

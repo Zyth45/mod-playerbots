@@ -20,6 +20,48 @@
 
 namespace
 {
+// Out of a fight in a dungeon, a tank walks a few yards ahead of the real player it follows instead of
+// behind them, so that it leads the group and the next pack is within its pull reach
+// (jealous-sound/azerothcore-wotlk-coa#5753). False, and the usual follow, when that point is not
+// reachable in a straight line (a wall, a ledge, a stair).
+constexpr float TankLeadDistance = 6.0f;
+constexpr float TankHoldDistance = 25.0f;
+
+bool TankLeadPoint(PlayerbotAI* botAI, Player* bot, Unit* leader, float& x, float& y, float& z)
+{
+    if (!leader || !leader->IsPlayer() || leader == bot || !bot->GetMap()->IsDungeon() || bot->IsInCombat() ||
+        leader->IsInCombat() || !botAI->IsTank(bot) || GET_PLAYERBOT_AI(leader->ToPlayer()) ||
+        botAI->IsTank(leader->ToPlayer(), true) || leader->GetMapId() != bot->GetMapId())
+        return false;
+
+    // A tank already ahead of the player, where its last fight left it, stays there: it ran back to the player,
+    // who heals from the room's entrance, after each kill and hung at the back of the group (Deadmines,
+    // jealous-sound/azerothcore-wotlk-coa#5753). The player walking up to it brings it back into the lead below.
+    float const holdDistance = bot->GetExactDist2d(leader);
+    if (holdDistance > TankLeadDistance && holdDistance < TankHoldDistance &&
+        leader->HasInArc(static_cast<float>(M_PI) / 2.0f, bot) &&
+        std::fabs(bot->GetPositionZ() - leader->GetPositionZ()) < 4.0f && leader->IsWithinLOSInMap(bot))
+    {
+        bot->GetPosition(x, y, z);
+        return true;
+    }
+
+    // Only while the player walks forward: turning on the spot, strafing or stopping swung the point round them, and
+    // the tank went back and forth (Ragefire Chasm, jealous-sound/azerothcore-wotlk-coa#6505, #6493). A stopped
+    // player keeps the tank where it stands, if it stands close and in sight.
+    if (!leader->HasUnitMovementFlag(MOVEMENTFLAG_FORWARD) || leader->HasUnitMovementFlag(MOVEMENTFLAG_BACKWARD))
+    {
+        if (bot->GetExactDist2d(leader) > TankHoldDistance || !leader->IsWithinLOSInMap(bot))
+            return false;
+        bot->GetPosition(x, y, z);
+        return true;
+    }
+
+    leader->GetNearPoint(bot, x, y, z, 0.0f, TankLeadDistance, leader->GetOrientation());
+    return std::fabs(z - leader->GetPositionZ()) < 4.0f &&
+           leader->GetExactDist2d(x, y) > TankLeadDistance - 2.0f && leader->IsWithinLOS(x, y, z);
+}
+
     Transport* GetTransportForPosTolerant(Map* map, WorldObject* ref, uint32 phaseMask, float x, float y, float z)
     {
         if (!map || !ref)
@@ -205,6 +247,14 @@ bool FollowAction::Execute(Event /*event*/)
     }
     // end unified transport handling
 
+    Unit* leader = !target.empty()     ? AI_VALUE(Unit*, target)
+                   : botAI->GetMaster() ? static_cast<Unit*>(botAI->GetMaster())
+                                        : AI_VALUE(Unit*, "group leader");
+    float leadX, leadY, leadZ;
+    if (TankLeadPoint(botAI, bot, leader, leadX, leadY, leadZ))
+        return MoveTo(bot->GetMapId(), leadX, leadY, leadZ, false, false, false, true,
+                      MovementPriority::MOVEMENT_NORMAL, true);
+
     bool moved = false;
     if (!target.empty())
     {
@@ -286,6 +336,10 @@ bool FollowAction::isUseful()
     }
     if (botAI->HasStrategy("master fishing", BOT_STATE_NON_COMBAT))
         return ServerFacade::instance().IsDistanceGreaterThan(distance, sPlayerbotAIConfig.fishingDistanceFromMaster);
+
+    float leadX, leadY, leadZ;
+    if (TankLeadPoint(botAI, bot, fTarget, leadX, leadY, leadZ))
+        return bot->GetExactDist2d(leadX, leadY) > 2.5f;
 
     return ServerFacade::instance().IsDistanceGreaterThan(distance, formation->GetMaxDistance());
 }

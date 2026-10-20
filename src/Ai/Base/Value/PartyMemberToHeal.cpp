@@ -25,6 +25,8 @@ public:
     }
 };
 
+static constexpr float OUT_OF_SIGHT_PENALTY = 30.0f;
+
 inline bool compareByHealth(Unit const* u1, Unit const* u2) { return u1->GetHealthPct() < u2->GetHealthPct(); }
 
 Unit* PartyMemberToHeal::Calculate()
@@ -60,8 +62,7 @@ Unit* PartyMemberToHeal::Calculate()
                 else
                     probeValue = health + player->GetDistance2d(bot) / 10.0f;
 
-                if (probeValue < calc.minValue && Check(player))
-                    calc.probe(probeValue, player);
+                Probe(calc, player, probeValue);
             }
         }
 
@@ -87,11 +88,7 @@ Unit* PartyMemberToHeal::Calculate()
                 {
                     probeValue = health + player->GetDistance2d(bot) / 10.0f;
                 }
-                // delay Check player to here for better performance
-                if (probeValue < calc.minValue && Check(player))
-                {
-                    calc.probe(probeValue, player);
-                }
+                Probe(calc, player, probeValue);
             }
         }
 
@@ -102,11 +99,7 @@ Unit* PartyMemberToHeal::Calculate()
             float probeValue = 100.0f;
             if (isRaid || health < sPlayerbotAIConfig.mediumHealth)
                 probeValue = health + 30.0f;
-            // delay Check pet to here for better performance
-            if (probeValue < calc.minValue && Check(pet))
-            {
-                calc.probe(probeValue, pet);
-            }
+            Probe(calc, pet, probeValue);
         }
 
         Unit* charm = player->GetCharm();
@@ -116,11 +109,7 @@ Unit* PartyMemberToHeal::Calculate()
             float probeValue = 100.0f;
             if (isRaid || health < sPlayerbotAIConfig.mediumHealth)
                 probeValue = health + 30.0f;
-            // delay Check charm to here for better performance
-            if (probeValue < calc.minValue && Check(charm))
-            {
-                calc.probe(probeValue, charm);
-            }
+            Probe(calc, charm, probeValue);
         }
     }
     return (Unit*)calc.param;
@@ -132,7 +121,26 @@ bool PartyMemberToHeal::Check(Unit* player)
     //     ServerFacade::instance().GetDistance2d(bot, player) < (player->IsPlayer() && botAI->IsTank((Player*)player) ? 50.0f
     //     : 40.0f);
     return player->GetMapId() == bot->GetMapId() && !player->IsCharmed() &&
-           bot->GetDistance2d(player) < sPlayerbotAIConfig.healDistance * 2 && bot->IsWithinLOSInMap(player);
+           bot->GetDistance2d(player) < sPlayerbotAIConfig.healDistance * 2;
+}
+
+// Line of sight is the costly test, so it runs last and only for candidates that would win
+void PartyMemberToHeal::Probe(MinValueCalculator& calc, Unit* unit, float probeValue)
+{
+    if (probeValue >= calc.minValue || !Check(unit))
+        return;
+
+    if (!bot->IsWithinLOSInMap(unit))
+    {
+        if (!sPlayerbotAIConfig.regainLineOfSight)
+            return;
+
+        probeValue += OUT_OF_SIGHT_PENALTY;
+        if (probeValue >= calc.minValue)
+            return;
+    }
+
+    calc.probe(probeValue, unit);
 }
 
 Unit* HealerLowMana::Calculate()

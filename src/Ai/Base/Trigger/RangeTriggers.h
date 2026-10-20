@@ -92,6 +92,13 @@ public:
     EnemyOutOfSpellRangeTrigger(PlayerbotAI* botAI);
 };
 
+class InFrontOfTankTrigger : public Trigger
+{
+public:
+    InFrontOfTankTrigger(PlayerbotAI* botAI) : Trigger(botAI, "in front of tank") {}
+    bool IsActive() override;
+};
+
 class PartyMemberToHealOutOfSpellRangeTrigger : public OutOfRangeTrigger
 {
 public:
@@ -99,6 +106,14 @@ public:
 
     bool IsActive() override;
     std::string const GetTargetName() override { return "party member to heal"; }
+};
+
+class TargetOutOfSightTrigger : public Trigger
+{
+public:
+    TargetOutOfSightTrigger(PlayerbotAI* botAI) : Trigger(botAI, "target out of sight", 2) {}
+
+    bool IsActive() override;
 };
 
 class FarFromMasterTrigger : public Trigger

@@ -22,6 +22,7 @@ public:
         creators["unlock traded item"] = &ChatTriggerContext::unlock_traded_item;
         creators["quests"] = &ChatTriggerContext::quests;
         creators["stats"] = &ChatTriggerContext::stats;
+        creators["mount"] = &ChatTriggerContext::mount;
         creators["leave"] = &ChatTriggerContext::leave;
         creators["rep"] = &ChatTriggerContext::reputation;
         creators["reputation"] = &ChatTriggerContext::reputation;
@@ -250,6 +251,7 @@ private:
     static Trigger* share(PlayerbotAI* botAI) { return new ChatCommandTrigger(botAI, "share"); }
     static Trigger* quests(PlayerbotAI* botAI) { return new ChatCommandTrigger(botAI, "quests"); }
     static Trigger* stats(PlayerbotAI* botAI) { return new ChatCommandTrigger(botAI, "stats"); }
+    static Trigger* mount(PlayerbotAI* botAI) { return new ChatCommandTrigger(botAI, "mount"); }
     static Trigger* leave(PlayerbotAI* botAI) { return new ChatCommandTrigger(botAI, "leave"); }
     static Trigger* reputation(PlayerbotAI* botAI) { return new ChatCommandTrigger(botAI, "reputation"); }
     static Trigger* pvp_stats(PlayerbotAI* botAI) { return new ChatCommandTrigger(botAI, "pvp stats"); }

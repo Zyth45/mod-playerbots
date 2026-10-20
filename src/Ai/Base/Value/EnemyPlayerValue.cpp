@@ -10,6 +10,24 @@
 #include "ServerFacade.h"
 #include "Vehicle.h"
 
+// CoA rulesets (core: src/server/coa/AscensionRulesets.cpp): High Risk, or War Mode without the PvE marker.
+static bool CoaPvpRuleset(Unit const* unit)
+{
+    return unit->HasAura(1004019) || (unit->HasAura(1004119) && !unit->HasAura(9931032));
+}
+
+// A member of the bot's group, or a friendly player under a mind control: not someone to fight. At Blackheart the
+// charmed members were picked as enemies from the combat references and from the party attackers (ladiabale, 16/10).
+static bool CoaTeammate(Player* bot, Unit* unit)
+{
+    Player* player = unit ? unit->ToPlayer() : nullptr;
+    if (!player || (bot->duel && bot->duel->Opponent == player))
+        return false;
+    if (bot->IsInSameRaidWith(player))
+        return true;
+    return player->IsCharmed() && player->GetTeamId(true) == bot->GetTeamId(true);
+}
+
 bool NearestEnemyPlayersValue::AcceptUnit(Unit* unit)
 {
     // Apply parent's filtering first (includes level difference checks)
@@ -28,6 +46,14 @@ bool NearestEnemyPlayersValue::AcceptUnit(Unit* unit)
         // If with master, only attack if master is PvP flagged
         Player* master = botAI->GetMaster();
         if (master && !master->IsPvP() && !master->IsFFAPvP())
+            return false;
+
+        // With AiPlayerbot.CoaRulesetForBots, a bot on its own only starts an open world fight with a character of
+        // a PvP ruleset, whatever its own: as on Ascension, High Risk and War Mode characters may be attacked by
+        // anyone, PvE characters by no one. Defending itself and helping its group (below) are not affected.
+        // Bots with a real player keep following the rule above.
+        if (sPlayerbotAIConfig.coaRulesetForBots && !bot->InBattleground() && !bot->InArena() &&
+            !IsRealPlayer(master) && !CoaPvpRuleset(enemy))
             return false;
 
         return true;
@@ -58,7 +84,7 @@ Unit* EnemyPlayerValue::Calculate()
     for (auto const& [guid, combatRef] : bot->GetCombatManager().GetPvPCombatRefs())
     {
         Unit* pTarget = combatRef->GetOther(bot);
-        if (!pTarget || pTarget == pVictim || !pTarget->IsPlayer() || !pTarget->CanSeeOrDetect(bot) ||
+        if (!pTarget || pTarget == pVictim || !pTarget->IsPlayer() || CoaTeammate(bot, pTarget) || !pTarget->CanSeeOrDetect(bot) ||
             !bot->IsWithinDist(pTarget, VISIBILITY_DISTANCE_NORMAL))
             continue;
 
@@ -92,7 +118,7 @@ Unit* EnemyPlayerValue::Calculate()
         if (!pTarget)
             continue;
 
-        if (pTarget == pVictim)
+        if (pTarget == pVictim || CoaTeammate(bot, pTarget))
             continue;
 
         if (bot->GetTeamId() == TEAM_HORDE)
@@ -134,7 +160,7 @@ Unit* EnemyPlayerValue::Calculate()
                     continue;
 
                 if (Unit* pAttacker = pMember->getAttackerForHelper())
-                    if (pAttacker->IsPlayer() && bot->IsWithinDist(pAttacker, maxAggroDistance * 2.0f) &&
+                    if (pAttacker->IsPlayer() && !CoaTeammate(bot, pAttacker) && bot->IsWithinDist(pAttacker, maxAggroDistance * 2.0f) &&
                         bot->IsWithinLOSInMap(pAttacker) && pAttacker != pVictim && pAttacker->CanSeeOrDetect(bot))
                         return pAttacker;
             }

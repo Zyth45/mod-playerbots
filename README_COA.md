@@ -13,39 +13,68 @@ This `coa` branch of mod-playerbots adds bots for the **Conquest of Azeroth cust
 ## Current status
 
 > [!NOTE]
-> **Bots play their specialization's rotation since v1.4 (24 September 2026).** `CoaSpecRotations` defaults to 1:
-> each specialization gets an ordered rotation on top of the runtime spell choice, which stays underneath so
-> interrupts, defensive cooldowns and the fallback attack are never lost.
+> **CoA Bots 2.4 (16 October 2026)**: delivered by the **SquidBots launcher**. Smarter dungeons (the tank walks its
+> route, melee out of the boss's cone, damage dealers wait for the pull), buffs on a cooldown back on time, rotations
+> from players' tips, bots leave a battleground queue that will never start, every module's settings in the right place
+> (no more log flood), and a clean server stop. Built on jealous-sound's `main` of 15 October 2026 (`9dc61efc`).
 >
-> Measured over two days on two realms, several hundred arena fights at level 60 per round. Healers were the main
-> work: none stays silent, none burns its mana on damage while someone needs healing. Fourteen rotation lines were
-> corrected across thirteen specializations, checked against the combat logs of real players.
+> **CoA Bots 2.1 (12 October 2026)**: 1v1 skirmish and a ready pylon in arenas, smarter arena bots (kiting, pillars,
+> focus), your alts managed from SquidBots Lite (bot sheet, mounts, talents), dungeon fixes from headless test runs,
+> and a core fix for servers that slowed down over hours. Built on jealous-sound's `main` of 12 October 2026
+> (`d5ff1cfa`).
 >
-> One specialization is set aside by default, **Bloodmage Eternal** (`CoaExcludedSpecializations = 99`): the cursed
-> form it needs is granted by nothing in the core, so it cannot tank at all. Its three other specializations play
-> normally.
+> **CoA Bots 2.0 (11 October 2026)**: tanks that hold, dungeons played like players, battlegrounds and rated arenas.
+> Built on jealous-sound's `main` of 11 October 2026 (`0a0a21d3`). Benched 24/7 on three realms before release.
+>
+> - **Tanking**: damage dealers, healers and pets never taunt; damage dealers stay under the tank's threat and only
+>   use their AoE once the pack is on the tank; tanks keep all their threat auras. No hidden threat bonus
+>   (`CoaTankThreatBonus = 0`).
+> - **Dungeons and mythic+** (`CoaDungeonPriorities`): heals, crowd control, summons and about a hundred dungeon boss
+>   casts are interrupted first; bosses are purged and soothed; adds and totems that heal or protect the boss die first.
+> - **PvP**: bots fill battlegrounds, play High Risk and War Mode, and queue rated 2v2, 3v3 and 5v5 from the PvP
+>   frame; they wear PvP gear (resilience, tiers by rating) there and PvE gear in dungeons (`CoaGearByContent`).
+> - **Rotations**: all 70 specializations, 15 of them reworked for 2.0 from real players' combat logs; no bot build
+>   has a talent a player could not take.
+> - **Quality of life**: old bots are repaired at their next login (level, gear, talents, mounts) instead of being
+>   purged; `lfg bot` recruits at the right level; about 10% of free bots spend time in their capital.
+>
+> One specialization is set aside by default, **Bloodmage Eternal** (`CoaExcludedSpecializations = 99`): it still
+> does not play correctly on the current core.
+
+Full history from 1.1 to 2.4: **[CHANGELOG_COA.md](CHANGELOG_COA.md)** (also `CHANGELOG.md` in the CoA Bots package).
+
+## Download
+
+| You have | Take |
+|---|---|
+| the **CoA Server Manager** | nothing to do: it installs the newest `v*` tag of this module (2.4 = tag `v2.4`) |
+| CoA Bots 2.0, 2.1, 2.2 or 2.3 | the **SquidBots launcher**: it shows "Update available", one click (backup, stop, update, restart) |
+| CoA Bots 1.9.1, 1.9, 1.8 or the CoA repack of 30/09 | the 2.4 update of the launcher takes these too |
+| nothing yet | the **full 2.0 repack** from the launcher, then let it update to 2.4 |
+
+Companions: the **[SquidBots Lite](https://github.com/Zyth45/squidbots-addon)** addon (in the package) and the
+**[SquidBots dashboard](https://github.com/Zyth45/squidbots-dashboard)** with its Armory (in the package, and in the
+Server Manager's "Dashboard" tab).
 
 **Found a crash?** Open an issue with the newest `.txt` file from the `Crashes` folder next to `worldserver.exe`,
 and tell what the bots were doing (class, level, dungeon or open world) if you know.
 
 ## Which versions go together
 
-The module follows jealous-sound's `main`; older releases keep the tag they were built with.
-
 | jealous-sound | This module |
 |---|---|
-| **`main`** from `b3717c1` (19 Sep 2026, repack main-20260919-b3717c137) | branch **`coa`** (same code as the CoA Bots v1.4 zip) |
+| **`main`** of 15 October 2026 (`9dc61efc`), release main-20261016-2ab3ebca | tag **`v2.4`**, branch `coa` |
+| `main` of 12 October 2026 (`d5ff1cfa`), release main-20261012-e91c0624 | tags `v2.1` to `v2.3.1` |
+| `main` of 11 October 2026 (`0a0a21d3`), release main-20261011-a543922b | tag `v2.0` |
+| repack main-20261007 | tags `v1.9`, `v1.9.1`, `v1.9.2` |
+| repack main-20260930 / core of 4 October | tags `v1.8`, `v1.8.1` |
 | issue-batch-20260915 (`a8b28faac98d`) | tag `bots-issue-batch-20260915-v1.1`, with the core tag of the same name from [Zyth45/azerothcore-wotlk-coa](https://github.com/Zyth45/azerothcore-wotlk-coa) |
 
-Since 17 September 2026 jealous-sound's `main` carries everything the bots need from the core: the mod-playerbots
-hooks and the CoA specialization API ([#3069](https://github.com/jealous-sound/azerothcore-wotlk-coa/pull/3069))
-and the fixes for the crashes bots trigger often (#3072, #3075, #3080, #3083, #3085). **No fork of the core is
-needed any more**: the module goes into `modules/`, which the core's `.gitignore` leaves alone, so pulling `main`
-never conflicts with it.
-
-The one core change the bots still needed, teaching them the class abilities of their level
-([#4991](https://github.com/jealous-sound/azerothcore-wotlk-coa/pull/4991)), was merged on 24 September 2026.
-Nothing has to be patched by hand any more.
+jealous-sound's `main` carries everything the bots need from the core (the mod-playerbots hooks and the CoA
+specialization API). **No fork of the core is needed**: the module goes into `modules/`, which the core's
+`.gitignore` leaves alone. The CoA Bots packages add fixes for four crashes under load, a missing setting logged once per load and a server
+stop that no longer hangs, on branch `coa-bots-2.4` of
+[Zyth45/azerothcore-wotlk-coa](https://github.com/Zyth45/azerothcore-wotlk-coa).
 
 ## Build
 
@@ -138,10 +167,11 @@ Things that surprise people:
 
 ## The addon
 
-**SquidBots Lite** ships with the CoA Bots package, in `Client/Interface/AddOns/`. No window: a thin bar of five
-orders and a "+" that asks for a tank, a healer or damage; the bots' roles drawn on the party frames the game
-already has, with their alerts (low mana, pulling, resurrecting); and the offers bots whisper arriving as toasts
-with an Invite button. `/sbl` shows or hides it, `/sbl lang fr|en` switches language.
+**[SquidBots Lite](https://github.com/Zyth45/squidbots-addon)** 2.0 ships with the CoA Bots package, in
+`Client/Interface/AddOns/` (the installer and the update copy it into your client). A thin bar of orders and a "+"
+that asks for a tank, a healer or damage; the bots' roles on the party frames, with their alerts; the offers bots
+whisper as toasts with an Invite button. `/sbl` shows or hides it, `/sbl scale` or Ctrl + wheel resizes it,
+`/sbl lang fr|en` switches language. Its version follows CoA Bots and it warns when the server is newer.
 
 Everything it sends is a chat command the module already understands, so it never asks the server for anything a
 player could not type.

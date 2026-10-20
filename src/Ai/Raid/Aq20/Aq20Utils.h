@@ -16,6 +16,9 @@ public:
     static bool IsOssirianBuffActive(Unit* ossirian);
     static int32 GetOssirianDebuffTimeRemaining(Unit* ossirian);
     static GameObject* GetNearestCrystal(Unit* ossirian);
+    // Conquest of Azeroth rebuilt the fight without crystals; the crystal logic above
+    // only applies to the stock fight.
+    static bool IsCoaOssirian(Unit* ossirian);
 };
 
 #endif

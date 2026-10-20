@@ -166,6 +166,41 @@ bool MovementAction::MoveToLOS(WorldObject* target, bool ranged)
     return false;
 }
 
+bool MovementAction::IsBodyPullRisk(float x, float y, float z)
+{
+    if (!sPlayerbotAIConfig.coaBodyPullGuard || bot->IsInCombat() || !bot->GetMap()->IsDungeon())
+        return false;
+
+    Player* master = botAI->GetMaster();
+    if (master && master->IsInCombat())
+        return false;
+
+    // A real player leads the group and picks the way: within a dungeon room nearly every step of the followers came
+    // within an idle pack's aggro distance + 3 yd, so they stood behind; once the player fought, the guard lifted and
+    // they ran to him through the packs, pulling half of Shadowfang Keep (15/10).
+    if (IsRealPlayer(master))
+        return false;
+
+    // The tank walks to the packs it means to pull: refusing those steps left a dungeon clear tank standing off
+    // its route until the run timed out (Scholomance 0/11 after 8 min), and a tank lagging behind its group.
+    if (PlayerbotAI::IsTank(bot) || botAI->HasStrategy("dc", BOT_STATE_NON_COMBAT))
+        return false;
+
+    Unit* intendedTarget = AI_VALUE(Unit*, "current target");
+    for (ObjectGuid const& guid : AI_VALUE(GuidVector, "possible targets no los"))
+    {
+        Creature* creature = botAI->GetCreature(guid);
+        if (!creature || creature == intendedTarget || !creature->IsAlive() || creature->IsInCombat() ||
+            creature->HasReactState(REACT_PASSIVE) || !creature->IsHostileTo(bot))
+            continue;
+
+        if (creature->GetExactDist(x, y, z) < creature->GetAttackDistance(bot) + 3.0f)
+            return true;
+    }
+
+    return false;
+}
+
 bool MovementAction::MoveTo(uint32 mapId, float x, float y, float z, bool /*idle*/, bool /*react*/, bool normal_only,
                             bool exact_waypoint, MovementPriority priority, bool lessDelay, bool backwards)
 {
@@ -179,6 +214,10 @@ bool MovementAction::MoveTo(uint32 mapId, float x, float y, float z, bool /*idle
         return false;
     }
     if (IsWaitingForLastMove(priority))
+    {
+        return false;
+    }
+    if (priority <= MovementPriority::MOVEMENT_NORMAL && IsBodyPullRisk(x, y, z))
     {
         return false;
     }
@@ -1364,7 +1403,7 @@ bool MovementAction::Flee(Unit* target)
         }
     }
 
-    Unit* currentVictim = target->GetThreatMgr().GetCurrentVictim();
+    Unit* currentVictim = target->IsCreature() ? target->GetThreatMgr().GetCurrentVictim() : nullptr;
     if (currentVictim && currentVictim == bot)  // bot is target - try to flee to tank or master
     {
         if (Group* group = bot->GetGroup())
@@ -2013,7 +2052,7 @@ bool AvoidAoeAction::AvoidUnitWithDamageAura()
         }
         if (!unit->HasUnitFlag(UNIT_FLAG_NOT_SELECTABLE))
         {
-            return false;
+            continue;
         }
         Unit::AuraEffectList const& aurasPeriodicTriggerSpell =
             unit->GetAuraEffectsByType(SPELL_AURA_PERIODIC_TRIGGER_SPELL);
@@ -2033,7 +2072,7 @@ bool AvoidAoeAction::AvoidUnitWithDamageAura()
                     continue;
                 if (sPlayerbotAIConfig.aoeAvoidSpellWhitelist.find(triggerSpellInfo->Id) !=
                     sPlayerbotAIConfig.aoeAvoidSpellWhitelist.end())
-                    return false;
+                    continue;
                 for (int j = 0; j < MAX_SPELL_EFFECTS; j++)
                 {
                     if (triggerSpellInfo->Effects[j].Effect == SPELL_EFFECT_SCHOOL_DAMAGE)
@@ -2058,6 +2097,7 @@ bool AvoidAoeAction::AvoidUnitWithDamageAura()
                                     << " Radius " << radius << " - [Unit Trigger]";
                                 bot->Say(out.str(), LANG_UNIVERSAL);
                             }
+                            return true;
                         }
                     }
                 }
@@ -2416,6 +2456,20 @@ Player* CombatFormationMoveAction::NearestGroupMember(float dis)
     return result;
 }
 
+// Distance to pass GetNearPoint, which adds back only the target's reach. Against a creature the bot keeps more
+// than its boundary (at least 2 yd) from the centre, where cones hit at any angle: parked at 1 yd behind Tinkerer Gizlock, a
+// Barbarian died to every Dragon Gun. Players move too much for a fixed spot.
+static float MeleeSpotDistance(Player* bot, Unit* target)
+{
+    float center = std::max(bot->GetExactDist(target), bot->GetMeleeRange(target) / 2) - bot->GetCombatReach();
+    if (!target->IsPlayer() && !bot->InBattleground() && !bot->InArena())
+    {
+        float const nearest = std::max(bot->GetBoundaryRadius(), MIN_MELEE_REACH) + 0.5f;
+        center = std::clamp(center, nearest, std::max(nearest, bot->GetMeleeRange(target) - 0.5f));
+    }
+    return center - target->GetCombatReach();
+}
+
 bool TankFaceAction::Execute(Event /*event*/)
 {
     Unit* target = AI_VALUE(Unit*, "current target");
@@ -2449,8 +2503,7 @@ bool TankFaceAction::Execute(Event /*event*/)
     float goodAngle2 = Position::NormalizeOrientation(averageAngle - M_PI * 3 / 5);
 
     // if dist < bot->GetMeleeRange(target) / 2, target will move backward
-    float dist = std::max(bot->GetExactDist(target), bot->GetMeleeRange(target) / 2) - bot->GetCombatReach() -
-                 target->GetCombatReach();
+    float dist = MeleeSpotDistance(bot, target);
     std::vector<Position> availablePos;
     float x, y, z;
     target->GetNearPoint(bot, x, y, z, 0.0f, dist, goodAngle1);
@@ -2487,7 +2540,7 @@ bool TankFaceAction::Execute(Event /*event*/)
 
 bool RearFlankAction::isUseful()
 {
-    Unit* target = AI_VALUE(Unit*, "current target");
+    Unit const* target = GetTarget();
     if (!target)
         return false;
 
@@ -2502,7 +2555,7 @@ bool RearFlankAction::isUseful()
 
 bool RearFlankAction::Execute(Event /*event*/)
 {
-    Unit* target = AI_VALUE(Unit*, "current target");
+    Unit const* target = GetTarget();
     if (!target)
         return false;
 
@@ -2525,6 +2578,11 @@ bool RearFlankAction::Execute(Event /*event*/)
 
     return MoveTo(bot->GetMapId(), destination->GetPositionX(), destination->GetPositionY(),
                   destination->GetPositionZ(), false, false, false, true, MovementPriority::MOVEMENT_COMBAT);
+}
+
+Unit* BossRearFlankAction::GetTarget()
+{
+    return AI_VALUE2(Unit*, "find target", bossName);
 }
 
 bool DisperseSetAction::Execute(Event event)
@@ -2683,8 +2741,7 @@ bool SetBehindTargetAction::Execute(Event /*event*/)
     float goodAngle1 = Position::NormalizeOrientation(target->GetOrientation() + M_PI * 3 / 5);
     float goodAngle2 = Position::NormalizeOrientation(target->GetOrientation() - M_PI * 3 / 5);
 
-    float dist = std::max(bot->GetExactDist(target), bot->GetMeleeRange(target) / 2) - bot->GetCombatReach() -
-                 target->GetCombatReach();
+    float dist = MeleeSpotDistance(bot, target);
     std::vector<Position> availablePos;
     float x, y, z;
     target->GetNearPoint(bot, x, y, z, 0.0f, dist, goodAngle1);

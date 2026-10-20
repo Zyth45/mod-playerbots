@@ -13,6 +13,8 @@
 #include "Strategy.h"
 #include "Timer.h"
 
+#include <atomic>
+
 Engine::Engine(PlayerbotAI* botAI, AiObjectContext* factory) : PlayerbotAIAware(botAI), aiObjectContext(factory)
 {
     lastRelevance = 0.0f;
@@ -116,6 +118,9 @@ void Engine::Reset()
 
 void Engine::Init()
 {
+    static std::atomic<uint32> lastInitStamp{0};
+    initStamp = ++lastInitStamp;
+
     Reset();
 
     hasTargetExclusions = false;

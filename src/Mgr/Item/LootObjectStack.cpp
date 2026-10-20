@@ -5,13 +5,65 @@
  */
 
 #include "LootObjectStack.h"
+#include "GameObjectAI.h"
 #include "LootMgr.h"
 #include "Object.h"
 #include "ObjectAccessor.h"
 #include "Playerbots.h"
 #include "Unit.h"
 
+#include <mutex>
+#include <unordered_map>
+#include <unordered_set>
+
 #define MAX_LOOT_OBJECT_COUNT 200
+
+namespace
+{
+std::mutex openedChestsLock;
+std::unordered_map<ObjectGuid, std::unordered_set<ObjectGuid::LowType>> openedChests;
+}
+
+bool LootObject::IsRerolledChest(GameObject const* go)
+{
+    if (!go || go->GetGoType() != GAMEOBJECT_TYPE_CHEST || !go->GetSpawnId())
+        return false;
+
+    GameObjectTemplate const* info = go->GetGOInfo();
+    return info && !info->IsDespawnAtAction() && !info->chest.chestRestockTime;
+}
+
+void LootObject::RememberOpened(Player* bot, GameObject const* go)
+{
+    if (!bot || !IsRerolledChest(go))
+        return;
+
+    std::lock_guard<std::mutex> guard(openedChestsLock);
+    openedChests[bot->GetGUID()].insert(go->GetSpawnId());
+}
+
+bool LootObject::HasOpened(Player* bot, GameObject const* go)
+{
+    if (!bot || !IsRerolledChest(go))
+        return false;
+
+    std::lock_guard<std::mutex> guard(openedChestsLock);
+    auto itr = openedChests.find(bot->GetGUID());
+    return itr != openedChests.end() && itr->second.count(go->GetSpawnId());
+}
+
+bool LootObject::NeedsQuestItemFrom(Player* bot, GameObject const* go)
+{
+    GameObjectQuestItemList const* items = sObjectMgr->GetGameObjectQuestItemList(go->GetEntry());
+    if (!items)
+        return false;
+
+    for (uint32 itemId : *items)
+        if (itemId && IsNeededForQuest(bot, itemId))
+            return true;
+
+    return false;
+}
 
 LootTarget::LootTarget(ObjectGuid guid) : guid(guid), asOfTime(time(nullptr)) {}
 
@@ -310,9 +362,31 @@ bool LootObject::IsLootPossible(Player* bot)
     if (go && (go->HasFlag(GAMEOBJECT_FLAGS, GO_FLAG_NOT_SELECTABLE) || !go->isSpawned()))
         return false;
 
+    // Some scripts give each viewer its own flags: a worldforged pickup this character has already
+    // looted is locked and not selectable for it alone, while the object itself stays openable for
+    // everyone else. A bot has no client to receive those flags, so it ran to the pickup, was
+    // refused, followed its group back and ran out again for ever. Ask for the flags its client
+    // would get.
+    if (go)
+    {
+        if (GameObjectAI* ai = go->AI())
+        {
+            uint16 dynFlags = 0;
+            uint32 goFlags = 0;
+            ai->BuildClientFlags(bot, dynFlags, goFlags);
+            if (goFlags & (GO_FLAG_LOCKED | GO_FLAG_NOT_SELECTABLE))
+                return false;
+        }
+    }
+
     // Conditional objects (quest chests, goobers, ...) are gated client-side on quest state.
     // A bot has no client, so make the same call the server makes for one.
     if (go && go->HasFlag(GAMEOBJECT_FLAGS, GO_FLAG_INTERACT_COND) && !go->ActivateToQuest(bot))
+        return false;
+
+    // A chest that stays and rolls new loot for every opener (worldforged pickups) is opened once: under
+    // group loot rules each opening started a new roll, so the party drew its item again and again.
+    if (go && HasOpened(bot, go) && !NeedsQuestItemFrom(bot, go))
         return false;
 
     // Loot already rolled that holds nothing this bot may take: a worldforged pickup it has spent is
@@ -348,6 +422,14 @@ bool LootObject::IsLootPossible(Player* bot)
 
     uint32 skillValue = uint32(bot->GetSkillValue(skillId));
     if (reqSkillValue > skillValue)
+        return false;
+
+    // Grey for the bot's client: a herb, vein or corpse 100 points or more below its skill raises it no more
+    // (the core's gathering skill-up chance is 0 there). At level 60 bots filled their bags with Peacebloom and
+    // Copper, and two alts with the same profession fought over every node.
+    if (sPlayerbotAIConfig.gatherOnlySkillUp && skillValue >= reqSkillValue + 100 &&
+        (skillId == SKILL_HERBALISM || skillId == SKILL_MINING || skillId == SKILL_SKINNING) &&
+        !botAI->HasStrategy("gather all", BOT_STATE_NON_COMBAT))
         return false;
 
     if (skillId == SKILL_MINING && !bot->HasItemCount(756, 1) && !bot->HasItemCount(778, 1) &&

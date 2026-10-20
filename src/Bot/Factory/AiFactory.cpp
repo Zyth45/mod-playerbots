@@ -300,7 +300,9 @@ void AiFactory::AddDefaultCombatStrategies(Player* player, PlayerbotAI* const fa
     if (!player->InBattleground())
         engine->addStrategiesNoInit("racials", "chat", "default", "cast time", "potions", "duel", "boost", nullptr);
 
-    if (sPlayerbotAIConfig.autoAvoidAoe && facade->HasGameClientMaster())
+    // CoA: a grouped bot steps out of ground effects too, not only one a real player leads: in headless dungeon runs
+    // (11/12/10) two bots stood in Ramstein's Venom Belch down to 19-24 % health.
+    if (sPlayerbotAIConfig.autoAvoidAoe && (facade->HasGameClientMaster() || player->GetGroup()))
         engine->addStrategy("avoid aoe", false);
 
     engine->addStrategy("formation", false);
@@ -458,6 +460,12 @@ void AiFactory::AddDefaultCombatStrategies(Player* player, PlayerbotAI* const fa
             if (std::string_view(coa->position) == "close")
                 engine->addStrategy("coa basic attack", false);
         }
+
+        if (sPlayerbotAIConfig.coaBossKnowledge)
+            engine->addStrategy("coa boss dodge", false);
+
+        // Arenas, duels and battlegrounds; its actions do nothing anywhere else (CoaPvpTactics.cpp).
+        engine->addStrategy("coa pvp", false);
     }
 
     if (PlayerbotAI::IsTank(player, true))
@@ -643,7 +651,7 @@ void AiFactory::AddDefaultNonCombatStrategies(Player* player, PlayerbotAI* const
             if (IsCoaBot(player))
             {
                 nonCombatEngine->addStrategiesNoInit(GetCoaRole(player) == CoaRole::Tank ? "tank assist" : "dps assist",
-                                                     "coa buff", nullptr);
+                                                     "coa buff", "coa pvp", nullptr);
                 // Pulls on its own once the group of a real player is ready ("nc -coa auto pull" stops it).
                 if (GetCoaRole(player) == CoaRole::Tank)
                     nonCombatEngine->addStrategy("coa auto pull", false);

@@ -97,14 +97,14 @@ void StatsWeightCalculator::Reset()
 
 float StatsWeightCalculator::CalculateItem(uint32 itemId, int32 randomPropertyIds, int32 slot)
 {
-    ItemTemplate const* proto = &sObjectMgr->GetItemTemplateStore()->at(itemId);
+    ItemTemplate const* proto = sObjectMgr->GetItemTemplate(itemId);
 
     if (!proto)
         return 0.0f;
 
     Reset();
 
-    collector_->CollectItemStats(proto);
+    collector_->CollectItemStats(proto, lvl);
 
     if (randomPropertyIds != 0)
         CalculateRandomProperty(randomPropertyIds, itemId);
@@ -130,7 +130,8 @@ float StatsWeightCalculator::CalculateItem(uint32 itemId, int32 randomPropertyId
         // Heirloom items scale with player level
         // Use player level as effective item level for heirlooms - Quality EPIC
         // Else - Blend with item quality and level for normal items
-        if (proto->Quality == ITEM_QUALITY_HEIRLOOM)
+        // Other level-scaled items (CoA's Felforged sets, item level 10) scale the same way.
+        if (proto->Quality == ITEM_QUALITY_HEIRLOOM || (proto->ScalingStatDistribution && proto->ScalingStatValue))
             weight_ *= PlayerbotFactory::CalcMixedGearScore(lvl, ITEM_QUALITY_EPIC);
         else
             weight_ *= PlayerbotFactory::CalcMixedGearScore(proto->ItemLevel, proto->Quality);
@@ -294,8 +295,18 @@ void StatsWeightCalculator::GenerateBasicWeights(Player* player)
 
             if (stats)
             {
+                bool shoots = false;
                 for (uint8 i = 0; i < stats->count; ++i)
+                {
                     stats_weights_[stats->weights[i].stat] += stats->weights[i].weight;
+                    shoots |= stats->weights[i].stat == STATS_TYPE_RANGED_DPS;
+                }
+
+                // A spec that never shoots judges a bow by its stats alone: the 0.01 per DPS point, scaled
+                // up by item level and quality, let a Defiance tank need Venomstrike, a bow with no stats,
+                // over its bow with stamina (jealous-sound/azerothcore-wotlk-coa#5509).
+                if (!shoots && !CoaSpecNeedsShootingWeapon(player))
+                    stats_weights_[STATS_TYPE_RANGED_DPS] = 0.0f;
 
                 return;
             }
@@ -600,6 +611,10 @@ void StatsWeightCalculator::GenerateCoaWeights(Player* player)
     }
     else if (style == CoaStyle::Ranged)
         stats_weights_[STATS_TYPE_RANGED_DPS] += 7.0f;
+
+    // As with the per-spec table: a bow's damage counts only for a spec that shoots.
+    if (style != CoaStyle::Ranged)
+        stats_weights_[STATS_TYPE_RANGED_DPS] = 0.0f;
 
     if (PlayerbotAI::IsTank(player))
     {

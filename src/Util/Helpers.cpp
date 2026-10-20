@@ -5,6 +5,7 @@
  */
 
 #include "Helpers.h"
+#include "Util.h"
 #include <algorithm>
 #include <cctype>
 #include <cstdlib>
@@ -111,4 +112,51 @@ std::vector<std::string> split(std::string const s, char delim)
 {
     std::vector<std::string> elems;
     return split(s, delim, elems);
+}
+
+std::wstring CoaNameKey(std::string_view name)
+{
+    std::wstring key;
+    if (!Utf8toWStr(name, key))
+        return std::wstring();
+
+    wstrToLower(key);
+    for (wchar_t& c : key)
+        if (c == 0x2018 || c == 0x2019 || c == 0x02BC)
+            c = L'\'';
+
+    return key;
+}
+
+bool CoaNameIs(std::string_view name, std::wstring const& key)
+{
+    if (key.empty() || name.size() < key.size())
+        return false;
+
+    std::size_t i = 0;
+    for (; i < name.size(); ++i)
+    {
+        unsigned char const b = static_cast<unsigned char>(name[i]);
+        if (b >= 0x80)
+            break;
+
+        if (i >= key.size() || wchar_t(std::tolower(b)) != key[i])
+            return false;
+    }
+
+    if (i == name.size())
+        return i == key.size();
+
+    std::size_t units = i;
+    for (std::size_t j = i; j < name.size(); ++j)
+    {
+        unsigned char const b = static_cast<unsigned char>(name[j]);
+        if ((b & 0xC0) != 0x80)
+            units += (sizeof(wchar_t) == 2 && b >= 0xF0) ? 2 : 1;
+    }
+
+    if (units != key.size())
+        return false;
+
+    return CoaNameKey(name) == key;
 }

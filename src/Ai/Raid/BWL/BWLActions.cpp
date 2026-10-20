@@ -37,7 +37,8 @@ bool BwlOnyxiaScaleCloakAuraCheckAction::Execute(Event /*event*/)
 
 bool BwlOnyxiaScaleCloakAuraCheckAction::isUseful()
 {
-    return !bot->HasAura(static_cast<uint32>(BlackwingLairSpells::SPELL_ONYXIA_SCALE_CLOAK));
+    // CoA's Nefarian accepts 22683 or its own Black Dragon Scale Cloak 2111263.
+    return !HasShadowFlameCloak(bot);
 }
 
 bool BwlTurnOffSuppressionDeviceAction::Execute(Event /*event*/)
@@ -169,7 +170,7 @@ bool BwlVaelastraszMoveAwayAction::CalculateFleeDirection(Unit const* boss, floa
                 continue;
 
             // Boss alive: ignore other Burning Adrenaline bots so they can group together
-            if (!bossDead && p->HasAura(static_cast<uint32>(BlackwingLairSpells::SPELL_BURNING_ADRENALINE)))
+            if (!bossDead && HasBurningAdrenaline(p))
                 continue;
 
             // Compute a flee direction via weighted repulsion from other bots.
@@ -264,24 +265,41 @@ bool BwlVaelastraszMoveAwayAction::MoveAlongFleeDirection(Unit const* boss, floa
     return false;
 }
 
+// Broodlord Lashlayer
+
+bool BwlBroodlordRangedMoveAwayAction::Execute(Event /*event*/)
+{
+    if (Unit* boss = AI_VALUE2(Unit*, "find target", "broodlord lashlayer"))
+    {
+        float distToTravel = BROODLORD_SAFE_DISTANCE - bot->GetDistance2d(boss);
+        if (distToTravel > 0.0f)
+            return MoveAway(boss, distToTravel);
+    }
+    return false;
+}
+
+// Firemaw / Ebonroc / Flamegor
+
+bool BwlBlackDrakeAvoidBreathAction::isUseful()
+{
+    Unit const* boss = GetTarget();
+    if (!boss)
+        return false;
+
+    // Only reposition while standing in the frontal breath cone.
+    // No tail-swipe check: unlike RearFlankAction there is no rear danger zone here.
+    return boss->HasInArc(2.0f * minAngle, bot);
+}
+
 // Chromaggus
 
 bool BwlUseHourglassSandAction::Execute(Event /*event*/)
 {
-    return botAI->CastSpell(static_cast<uint32>(BlackwingLairSpells::SPELL_HOURGLASS_SAND), bot);
-}
-
-bool BwlNefarianFearWardAction::Execute(Event /*event*/)
-{
-    Unit* nefarian = AI_VALUE2(Unit*, "find target", "nefarian");
-    if (!nefarian)
+    // Stock 23645 for 23170, CoA 2111023 for 2111016. The CoA one has a 10-second cooldown: not cast again before.
+    uint32 const spell = GetHourglassSandSpell(bot);
+    if (bot->HasSpellCooldown(spell))
         return false;
-
-    Unit* victim = nefarian->GetVictim();
-    if (!victim)
-        return false;
-
-    return botAI->CastSpell("fear ward", victim);
+    return botAI->CastSpell(spell, bot);
 }
 
 // Trash
@@ -357,7 +375,7 @@ Unit* BwlDeathTalonWyrmguardRangedMoveAwayAction::GetTarget()
 bool BwlDeathTalonWyrmguardRangedMoveAwayAction::Execute(Event /*event*/)
 {
     Unit* target = GetTarget();
-    if (!target)
+    if (!target || target->GetVictim() == bot)
         return false;
 
     float distToTravel = WYRMGUARD_SAFE_DISTANCE - bot->GetDistance2d(target);

@@ -6,6 +6,7 @@
 
 #include "SpellIdValue.h"
 #include "ChatHelper.h"
+#include "Helpers.h"
 #include "Playerbots.h"
 #include "Vehicle.h"
 
@@ -24,13 +25,9 @@ uint32 SpellIdValue::Calculate()
         if (SpellInfo const* spellInfo = sSpellMgr->GetSpellInfo(extractedSpellId))
             namepart = spellInfo->SpellName[0];
 
-    std::wstring wnamepart;
-    if (!Utf8toWStr(namepart, wnamepart))
+    std::wstring const wnamepart = CoaNameKey(namepart);
+    if (wnamepart.empty())
         return 0;
-
-    wstrToLower(wnamepart);
-    char firstSymbol = tolower(namepart[0]);
-    size_t spellLength = wnamepart.length();
 
     LocaleConstant loc = LOCALE_enUS;
 
@@ -61,8 +58,7 @@ uint32 SpellIdValue::Calculate()
         }
 
         char const* spellName = spellInfo->SpellName[loc];
-        if (!useByItem && (tolower(spellName[0]) != firstSymbol || strlen(spellName) != spellLength ||
-                           !Utf8FitTo(spellName, wnamepart)))
+        if (!useByItem && !CoaNameIs(spellName, wnamepart))
             continue;
 
         spellIds.insert(spellId);
@@ -85,8 +81,7 @@ uint32 SpellIdValue::Calculate()
                 continue;
 
             char const* spellName = spellInfo->SpellName[loc];
-            if (tolower(spellName[0]) != firstSymbol || strlen(spellName) != spellLength ||
-                !Utf8FitTo(spellName, wnamepart))
+            if (!CoaNameIs(spellName, wnamepart))
                 continue;
 
             spellIds.insert(spellId);
@@ -186,13 +181,9 @@ uint32 VehicleSpellIdValue::Calculate()
         if (SpellInfo const* spellInfo = sSpellMgr->GetSpellInfo(extractedSpellId))
             namepart = spellInfo->SpellName[0];
 
-    std::wstring wnamepart;
-    if (!Utf8toWStr(namepart, wnamepart))
+    std::wstring const wnamepart = CoaNameKey(namepart);
+    if (wnamepart.empty())
         return 0;
-
-    wstrToLower(wnamepart);
-    char firstSymbol = tolower(namepart[0]);
-    size_t spellLength = wnamepart.length();
 
     const int loc = LocaleConstant::LOCALE_enUS;
 
@@ -208,8 +199,7 @@ uint32 VehicleSpellIdValue::Calculate()
             continue;
 
         char const* spellName = spellInfo->SpellName[loc];
-        if (tolower(spellName[0]) != firstSymbol || strlen(spellName) != spellLength ||
-            !Utf8FitTo(spellName, wnamepart))
+        if (!CoaNameIs(spellName, wnamepart))
             continue;
 
         return spellId;

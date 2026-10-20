@@ -9,5 +9,6 @@
 
 #include "RFCActionContext.h"
 #include "SFKActionContext.h"
+#include "SMActionContext.h"
 
 #endif

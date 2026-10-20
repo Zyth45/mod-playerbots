@@ -366,24 +366,23 @@ private:
 class ChatCommandHolder
 {
 public:
+    // The sender is kept by guid and looked up when the command runs: a raw Player* outlived a player who logged
+    // out in between and crashed the server (PTR, 09/10, LfgAction reading the level of a deleted player).
     ChatCommandHolder(std::string const command, Player* owner = nullptr, uint32 type = CHAT_MSG_WHISPER,
-                      time_t time = 0)
-        : command(command), owner(owner), type(type), time(time)
-    {
-    }
+                      time_t time = 0);
     ChatCommandHolder(ChatCommandHolder const& other)
-        : command(other.command), owner(other.owner), type(other.type), time(other.time)
+        : command(other.command), ownerGuid(other.ownerGuid), type(other.type), time(other.time)
     {
     }
 
     std::string const& GetCommand() { return command; }
-    Player* GetOwner() { return owner; }
+    Player* GetOwner();
     uint32& GetType() { return type; }
     time_t& GetTime() { return time; }
 
 private:
     std::string const command;
-    Player* owner;
+    ObjectGuid ownerGuid;
     uint32 type;
     time_t time;
 };
@@ -434,6 +433,13 @@ public:
     void Reset(bool full = false);
     void LeaveOrDisbandGroup();
     static bool IsTank(Player* player, bool bySpec = false);
+    // The target would most likely send this spell back (Kalithresh's Warlord's Rage, a reflect stance): the spell
+    // itself or the spells it triggers, two levels down.
+    static bool WouldBeReflected(Unit* caster, SpellInfo const* spellInfo, Unit* target);
+    // AiPlayerbot.CoaGearByContent: look at the bot's gear within the next two seconds (it just queued).
+    void CoaCheckGearSoon() { coaGearCheckedAt = getMSTime() - 8000; }
+    // Last time the bot was seen in a battleground, an arena or their queue (RandomPlayerbotMgr::CoaUpdateGear).
+    uint32 coaGearPvpSeenAt = 0;
     static bool IsHeal(Player* player, bool bySpec = false);
     static bool IsDps(Player* player, bool bySpec = false);
     static bool IsRanged(Player* player, bool bySpec = false);
@@ -534,6 +540,9 @@ public:
     bool CanCastSpell(uint32 spellid, GameObject* goTarget, bool checkHasSpell = true);
     bool CanCastSpell(uint32 spellid, float x, float y, float z, bool checkHasSpell = true,
                       Item* itemTarget = nullptr);
+    // True when an enemy area spell centred on (x, y, z) would also hit an attackable creature that
+    // isn't fighting yet (and isn't `skip`), which would pull it. Dungeons and raids only.
+    bool AoeWouldPullIdleCreature(SpellInfo const* spellInfo, float x, float y, float z, Unit const* skip = nullptr);
 
     Aura* GetAura(std::string const spellName, Unit* unit, bool checkIsOwner = false, bool checkDuration = false,
                   int checkStack = -1);
@@ -682,6 +691,8 @@ protected:
     Position jumpDestination = Position();
     uint32 nextTransportCheck = 0;
     bool spellInterruptRequested = false;
+    uint32 coaAncestralCombatCheckedAt = 0;
+    uint32 coaGearCheckedAt = 0;
 };
 
 #endif

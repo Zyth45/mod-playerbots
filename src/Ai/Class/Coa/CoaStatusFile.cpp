@@ -8,6 +8,10 @@
  * SquidBots dashboard (its map and bot cards): where each bot is, its health and power, what it is
  * doing, its group and its quests. Off unless AiPlayerbot.CoaStatusFile names a file.
  *
+ * "k" is the number of creatures the bot (or its pet or totem) has landed the killing blow on since the
+ * server started. The core keeps no achievement progress for bots, so the dashboard's "Mobs killed"
+ * reads this count and keeps its own running total across restarts.
+ *
  * The snapshot is built in the world update, which runs once the map threads have finished their
  * update, so the bots read here are not moving under us. Building it is all the world thread does:
  * the text goes to a writer thread of its own, which writes it whole to a .tmp beside the file and
@@ -20,6 +24,7 @@
  */
 
 #include "Config.h"
+#include "Creature.h"
 #include "Engine.h"
 #include "Group.h"
 #include "Log.h"
@@ -49,6 +54,26 @@
 namespace
 {
 using Clock = std::chrono::steady_clock;
+
+// Killing blows per bot since the server started. Kills happen in the map threads, the snapshot is
+// built in the world update: the lock is held for one map lookup on either side.
+std::mutex KillLock;
+std::unordered_map<ObjectGuid::LowType, uint32> Kills;
+
+void CountKill(Player* player, Creature* killed)
+{
+    if (!sPlayerbotAIConfig.coaStatusEnabled || !player || !killed || killed->IsTotem() || !GET_PLAYERBOT_AI(player))
+        return;
+    std::lock_guard<std::mutex> guard(KillLock);
+    ++Kills[player->GetGUID().GetCounter()];
+}
+
+uint32 KillsOf(Player* bot)
+{
+    std::lock_guard<std::mutex> guard(KillLock);
+    auto const it = Kills.find(bot->GetGUID().GetCounter());
+    return it == Kills.end() ? 0 : it->second;
+}
 
 uint32 MicrosecondsSince(Clock::time_point start)
 {
@@ -321,6 +346,8 @@ void AppendBot(std::string& out, Player* bot, PlayerbotAI* botAI, JsonNames& nam
     AppendCoord(out, bot->GetPositionY());
     out += bot->IsInCombat() ? ",\"combat\":true" : ",\"combat\":false";
     out += bot->IsAlive() ? ",\"dead\":false" : ",\"dead\":true";
+    if (bot->IsMounted())
+        out += ",\"mnt\":true";
 
     Group* group = bot->GetGroup();
     out += ",\"grp\":";
@@ -329,6 +356,12 @@ void AppendBot(std::string& out, Player* bot, PlayerbotAI* botAI, JsonNames& nam
     {
         out += ",\"lead\":";
         AppendJsonString(out, group->GetLeaderName());
+    }
+
+    if (uint32 const kills = KillsOf(bot))
+    {
+        out += ",\"k\":";
+        AppendUInt(out, kills);
     }
 
     out += ",\"task\":";
@@ -457,6 +490,18 @@ private:
     std::atomic<uint32> lastWrite{0};
 };
 
+class CoaStatusFileKillScript : public PlayerScript
+{
+public:
+    CoaStatusFileKillScript()
+        : PlayerScript("CoaStatusFileKillScript", { PLAYERHOOK_ON_CREATURE_KILL, PLAYERHOOK_ON_CREATURE_KILLED_BY_PET })
+    {
+    }
+
+    void OnPlayerCreatureKill(Player* killer, Creature* killed) override { CountKill(killer, killed); }
+    void OnPlayerCreatureKilledByPet(Player* owner, Creature* killed) override { CountKill(owner, killed); }
+};
+
 class CoaStatusFileWorldScript : public WorldScript
 {
 public:
@@ -468,7 +513,7 @@ public:
 
     void OnUpdate(uint32 diff) override
     {
-        if (!sPlayerbotAIConfig.coaStatusEnabled)
+        if (!sPlayerbotAIConfig.enabled || !sPlayerbotAIConfig.coaStatusEnabled)
             return;
         elapsed += diff;
         if (elapsed < sPlayerbotAIConfig.coaStatusIntervalSeconds * IN_MILLISECONDS)
@@ -532,4 +577,8 @@ private:
 };
 }  // namespace
 
-void AddSC_coa_status_file() { new CoaStatusFileWorldScript(); }
+void AddSC_coa_status_file()
+{
+    new CoaStatusFileWorldScript();
+    new CoaStatusFileKillScript();
+}

@@ -5,6 +5,7 @@
  */
 
 #include "OnyActions.h"
+#include "OnyHelpers.h"
 #include "GenericSpellActions.h"
 #include "LastMovementValue.h"
 #include "MovementActions.h"
@@ -55,8 +56,8 @@ bool RaidOnyxiaSpreadOutAction::Execute(Event /*event*/)
     if (!currentSpell || !currentSpell->m_spellInfo)
         return false;
 
-    // Fireball
-    if (currentSpell->m_spellInfo->Id != 18392)
+    // Fireball: stock 18392 / 350121 or CoA Massive Fireball 2108300
+    if (!OnyxiaHelpers::IsFireballCast(currentSpell->m_spellInfo->Id))
         return false;
 
     Unit* unitTarget = currentSpell->m_targets.GetUnitTarget();

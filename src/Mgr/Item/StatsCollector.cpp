@@ -25,26 +25,60 @@ void StatsCollector::Reset()
     }
 }
 
-void StatsCollector::CollectItemStats(ItemTemplate const* proto)
+void StatsCollector::CollectItemStats(ItemTemplate const* proto, uint32 scalingLevel)
 {
-    if (proto->IsRangedWeapon())
+    // Heirlooms keep placeholder damage (1-1) and stats in their template; the real values come from
+    // ScalingStatDistribution/ScalingStatValues at the wearer's level, as in Player::_ApplyItemBonuses.
+    ScalingStatDistributionEntry const* ssd =
+        proto->ScalingStatDistribution ? sScalingStatDistributionStore.LookupEntry(proto->ScalingStatDistribution)
+                                       : nullptr;
+    ScalingStatValuesEntry const* ssv = nullptr;
+    if (scalingLevel && proto->ScalingStatValue)
+    {
+        uint32 const level = ssd && scalingLevel > ssd->MaxLevel ? ssd->MaxLevel : scalingLevel;
+        ssv = sScalingStatValuesStore.LookupEntry(level);
+    }
+
+    if (proto->IsWeapon() && proto->Delay)
     {
         float val = (proto->Damage[0].DamageMin + proto->Damage[0].DamageMax) * 1000 / 2 / proto->Delay;
-        stats[STATS_TYPE_RANGED_DPS] += val;
+        if (ssv)
+            if (uint32 const scaledDps = ssv->getDPSMod(proto->ScalingStatValue))
+                val = float(scaledDps);
+        stats[proto->IsRangedWeapon() ? STATS_TYPE_RANGED_DPS : STATS_TYPE_MELEE_DPS] += val;
     }
-    else if (proto->IsWeapon())
-    {
-        float val = (proto->Damage[0].DamageMin + proto->Damage[0].DamageMax) * 1000 / 2 / proto->Delay;
-        stats[STATS_TYPE_MELEE_DPS] += val;
-    }
-    stats[STATS_TYPE_ARMOR] += proto->Armor;
+
+    uint32 armor = proto->Armor;
+    if (ssv)
+        if (uint32 const scaledArmor = ssv->getArmorMod(proto->ScalingStatValue))
+            armor = scaledArmor;
+    stats[STATS_TYPE_ARMOR] += armor;
     stats[STATS_TYPE_BLOCK_VALUE] += proto->Block;
-    for (uint32 i = 0; i < proto->StatsCount; i++)
+
+    if (ssv && ssd)
     {
-        _ItemStat const& stat = proto->ItemStat[i];
-        int32 const& val = stat.ItemStatValue;
-        CollectByItemStatType(stat.ItemStatType, val);
+        uint32 const multiplier = ssv->getssdMultiplier(proto->ScalingStatValue);
+        for (uint32 i = 0; i < MAX_ITEM_PROTO_STATS; ++i)
+        {
+            if (ssd->StatMod[i] < 0)
+                continue;
+            if (int32 const val = int32(multiplier * ssd->Modifier[i] / 10000))
+                CollectByItemStatType(uint32(ssd->StatMod[i]), val);
+        }
     }
+    else
+    {
+        for (uint32 i = 0; i < proto->StatsCount; i++)
+        {
+            _ItemStat const& stat = proto->ItemStat[i];
+            int32 const& val = stat.ItemStatValue;
+            CollectByItemStatType(stat.ItemStatType, val);
+        }
+    }
+
+    if (ssv)
+        if (uint32 const spellBonus = ssv->getSpellBonus(proto->ScalingStatValue))
+            CollectByItemStatType(ITEM_MOD_SPELL_POWER, int32(spellBonus));
     for (uint8 j = 0; j < MAX_ITEM_PROTO_SPELLS; j++)
     {
         switch (proto->Spells[j].SpellTrigger)

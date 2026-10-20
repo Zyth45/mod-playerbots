@@ -13,6 +13,7 @@
 #include "GossipDef.h"
 #include "GridTerrainData.h"
 #include "IVMapMgr.h"
+#include "LFGMgr.h"
 #include "NewRpgInfo.h"
 #include "NewRpgStrategy.h"
 #include "Object.h"
@@ -39,6 +40,8 @@
 #include "Timer.h"
 #include "TravelMgr.h"
 #include "G3D/Vector2.h"
+#include <atomic>
+#include <ctime>
 
 bool NewRpgBaseAction::MoveFarTo(WorldPosition dest)
 {
@@ -323,6 +326,11 @@ bool NewRpgBaseAction::InteractWithNpcOrGameObjectForQuest(ObjectGuid guid)
         if (!quest)
             continue;
 
+        // Dropped by OrganizeQuestLog: taking it again at once made accept / drop loops (two quests taken
+        // 2,000 times in 4 hours by one bot).
+        if (botAI->lowPriorityQuest.find(item.QuestId) != botAI->lowPriorityQuest.end())
+            continue;
+
         QuestStatus const& status = bot->GetQuestStatus(item.QuestId);
         if (status == QUEST_STATUS_NONE && bot->CanTakeQuest(quest, false) && bot->CanAddQuest(quest, false) &&
             IsQuestWorthDoing(quest) && IsQuestCapableDoing(quest))
@@ -601,6 +609,9 @@ bool NewRpgBaseAction::OrganizeQuestLog()
             if (Player* member = ref->GetSource())
                 if (member != bot && !GET_PLAYERBOT_AI(member))
                     return false;
+    // An altbot's log is its player's too, grouped or not.
+    if (Player* master = botAI->GetMaster(); master && !GET_PLAYERBOT_AI(master))
+        return false;
 
     int32 freeSlotNum = 0;
 
@@ -639,6 +650,7 @@ bool NewRpgBaseAction::OrganizeQuestLog()
                     "Quest dropped %quest",
                     {{"%quest", ChatHelper::FormatQuest(quest)}}));
             botAI->rpgStatistic.questDropped++;
+            botAI->lowPriorityQuest.insert(questId);
             dropped++;
         }
     }
@@ -671,6 +683,7 @@ bool NewRpgBaseAction::OrganizeQuestLog()
                     "Quest dropped %quest",
                     {{"%quest", ChatHelper::FormatQuest(quest)}}));
             botAI->rpgStatistic.questDropped++;
+            botAI->lowPriorityQuest.insert(questId);
             dropped++;
         }
     }
@@ -815,6 +828,9 @@ bool NewRpgBaseAction::HasQuestToAcceptOrReward(WorldObject* object)
         QuestMenuItem const& item = menu.GetItem(idx);
         Quest const* quest = sObjectMgr->GetQuestTemplate(item.QuestId);
         if (!quest)
+            continue;
+
+        if (botAI->lowPriorityQuest.find(item.QuestId) != botAI->lowPriorityQuest.end())
             continue;
 
         QuestStatus const& status = bot->GetQuestStatus(item.QuestId);
@@ -1039,6 +1055,7 @@ namespace
 struct CityPoint
 {
     TeamId team;
+    char const* city;
     uint32 mapId;
     float x, y, z;
 };
@@ -1046,29 +1063,65 @@ struct CityPoint
 // Banks, auction houses and inns of the eight capitals (averaged from the NPC spawns).
 CityPoint const CityPoints[] =
 {
-    {TEAM_ALLIANCE, 0, -8935.3f, 613.2f, 99.6f},     {TEAM_ALLIANCE, 0, -8820.1f, 662.0f, 97.2f},
-    {TEAM_ALLIANCE, 0, -8867.8f, 673.7f, 98.0f},     {TEAM_ALLIANCE, 0, -4886.5f, -997.4f, 504.0f},
-    {TEAM_ALLIANCE, 0, -4959.7f, -907.9f, 505.2f},   {TEAM_ALLIANCE, 0, -4840.7f, -857.1f, 502.0f},
-    {TEAM_ALLIANCE, 1, 9942.0f, 2519.7f, 1317.7f},   {TEAM_ALLIANCE, 1, 9864.5f, 2341.7f, 1326.8f},
-    {TEAM_ALLIANCE, 1, 10127.9f, 2224.8f, 1328.8f},  {TEAM_ALLIANCE, 530, -3919.0f, -11544.7f, -150.1f},
-    {TEAM_ALLIANCE, 530, -4025.5f, -11736.0f, -151.8f}, {TEAM_ALLIANCE, 530, -3746.4f, -11696.1f, -105.8f},
-    {TEAM_HORDE, 1, 1627.5f, -4375.7f, 12.1f},       {TEAM_HORDE, 1, 1683.6f, -4461.3f, 20.4f},
-    {TEAM_HORDE, 1, 1634.0f, -4439.4f, 15.8f},       {TEAM_HORDE, 1, -1257.7f, 22.8f, 128.3f},
-    {TEAM_HORDE, 1, -1204.7f, 102.8f, 134.7f},       {TEAM_HORDE, 1, -1300.3f, 38.5f, 129.3f},
-    {TEAM_HORDE, 0, 1595.8f, 240.3f, -52.1f},        {TEAM_HORDE, 0, 1595.2f, 240.1f, -56.8f},
-    {TEAM_HORDE, 0, 1635.4f, 223.3f, -43.0f},        {TEAM_HORDE, 530, 9666.8f, -7354.9f, 14.9f},
-    {TEAM_HORDE, 530, 9663.3f, -7303.7f, 17.5f},     {TEAM_HORDE, 530, 9624.9f, -7293.2f, 14.2f},
+    {TEAM_ALLIANCE, "Stormwind", 0, -8935.3f, 613.2f, 99.6f},
+    {TEAM_ALLIANCE, "Stormwind", 0, -8820.1f, 662.0f, 97.2f},
+    {TEAM_ALLIANCE, "Stormwind", 0, -8867.8f, 673.7f, 98.0f},
+    {TEAM_ALLIANCE, "Ironforge", 0, -4886.5f, -997.4f, 504.0f},
+    {TEAM_ALLIANCE, "Ironforge", 0, -4959.7f, -907.9f, 505.2f},
+    {TEAM_ALLIANCE, "Ironforge", 0, -4840.7f, -857.1f, 502.0f},
+    {TEAM_ALLIANCE, "Darnassus", 1, 9942.0f, 2519.7f, 1317.7f},
+    {TEAM_ALLIANCE, "Darnassus", 1, 9864.5f, 2341.7f, 1326.8f},
+    {TEAM_ALLIANCE, "Darnassus", 1, 10127.9f, 2224.8f, 1328.8f},
+    {TEAM_ALLIANCE, "Exodar", 530, -3919.0f, -11544.7f, -150.1f},
+    {TEAM_ALLIANCE, "Exodar", 530, -4025.5f, -11736.0f, -151.8f},
+    {TEAM_ALLIANCE, "Exodar", 530, -3746.4f, -11696.1f, -105.8f},
+    {TEAM_HORDE, "Orgrimmar", 1, 1627.5f, -4375.7f, 12.1f},
+    {TEAM_HORDE, "Orgrimmar", 1, 1683.6f, -4461.3f, 20.4f},
+    {TEAM_HORDE, "Orgrimmar", 1, 1634.0f, -4439.4f, 15.8f},
+    {TEAM_HORDE, "Thunder Bluff", 1, -1257.7f, 22.8f, 128.3f},
+    {TEAM_HORDE, "Thunder Bluff", 1, -1204.7f, 102.8f, 134.7f},
+    {TEAM_HORDE, "Thunder Bluff", 1, -1300.3f, 38.5f, 129.3f},
+    {TEAM_HORDE, "Undercity", 0, 1595.8f, 240.3f, -52.1f},
+    {TEAM_HORDE, "Undercity", 0, 1595.2f, 240.1f, -56.8f},
+    {TEAM_HORDE, "Undercity", 0, 1635.4f, 223.3f, -43.0f},
+    {TEAM_HORDE, "Silvermoon", 530, 9666.8f, -7354.9f, 14.9f},
+    {TEAM_HORDE, "Silvermoon", 530, 9663.3f, -7303.7f, 17.5f},
+    {TEAM_HORDE, "Silvermoon", 530, 9624.9f, -7293.2f, 14.2f},
 };
 
 constexpr float CityWalkDistance = 1500.0f;
+// A bot this close to a city point is still in town when its visit ends.
+constexpr float CityLeaveDistance = 500.0f;
+// Below this level a bot only walks to a capital near it: a level 5 bot hearthing across the world looks wrong.
+constexpr uint8 CityTeleportMinLevel = 10;
+// CoA starts Blood Elves and Draenei on Kalimdor and the Eastern Kingdoms (jealous-sound/azerothcore-wotlk-coa#6397)
+// and leaves Outland's map out of the game: Exodar and Silvermoon are not visited.
+constexpr uint32 CityMapOutland = 530;
+// High Risk ruleset aura (CoaApplyRuleset): such a bot belongs out in the world where players hunt it.
+constexpr uint32 CoaHighRiskAura = 1004019;
+
+// Thousands of bots come and go: one line a minute shows the trend without flooding the log.
+void LogCityVisit(Player* bot, bool start, char const* city)
+{
+    static std::atomic<uint32> started{0};
+    static std::atomic<uint32> ended{0};
+    static std::atomic<uint32> nextLog{0};
+    ++(start ? started : ended);
+    uint32 const now = uint32(std::time(nullptr));
+    uint32 next = nextLog.load(std::memory_order_relaxed);
+    if (now < next || !nextLog.compare_exchange_strong(next, now + 60))
+        return;
+    LOG_INFO("playerbots", "coa city: {} (level {}) {} {} (last minute: {} visits started, {} ended)", bot->GetName(),
+             uint32(bot->GetLevel()), start ? "goes to" : "leaves", city, started.exchange(0), ended.exchange(0));
+}
 }
 
-WorldPosition NewRpgBaseAction::SelectRandomCityPos(Player* bot)
+WorldPosition NewRpgBaseAction::SelectRandomCityPos(Player* bot, char const** city)
 {
     std::vector<CityPoint const*> nearby, all;
     for (CityPoint const& point : CityPoints)
     {
-        if (point.team != bot->GetTeamId())
+        if (point.team != bot->GetTeamId() || point.mapId == CityMapOutland)
             continue;
         all.push_back(&point);
         if (point.mapId == bot->GetMapId() && bot->GetExactDist2d(point.x, point.y) < CityWalkDistance)
@@ -1076,11 +1129,14 @@ WorldPosition NewRpgBaseAction::SelectRandomCityPos(Player* bot)
     }
 
     // Mostly the capital the bot can walk to, sometimes a trip to another one.
-    std::vector<CityPoint const*> const& pool = !nearby.empty() && urand(0, 99) < 70 ? nearby : all;
+    bool const walkOnly = bot->GetLevel() < CityTeleportMinLevel;
+    std::vector<CityPoint const*> const& pool = walkOnly || (!nearby.empty() && urand(0, 99) < 70) ? nearby : all;
     if (pool.empty())
         return WorldPosition();
 
     CityPoint const* point = pool[urand(0, pool.size() - 1)];
+    if (city)
+        *city = point->city;
     // Spread the bots around the building instead of stacking them on one spot.
     float const angle = frand(0.0f, 2 * float(M_PI));
     float const radius = frand(2.0f, 8.0f);
@@ -1094,7 +1150,16 @@ void NewRpgBaseAction::LeaveCity()
     info.cityStayMs = 0;
     WorldPosition const back = info.cityReturnPos;
     info.cityReturnPos = WorldPosition();
+    LogCityVisit(bot, false, "town");
     if (back == WorldPosition() || bot->IsInCombat() || !bot->IsAlive() || bot->GetGroup())
+        return;
+
+    // Only from the city: a bot moved meanwhile (battleground, random teleport) stays where it now is.
+    bool inCity = false;
+    for (CityPoint const& point : CityPoints)
+        if (point.mapId == bot->GetMapId() && bot->GetExactDist2d(point.x, point.y) < CityLeaveDistance)
+            inCity = true;
+    if (!inCity)
         return;
 
     bot->TeleportTo(back.GetMapId(), back.GetPositionX(), back.GetPositionY(), back.GetPositionZ(),
@@ -1293,7 +1358,8 @@ bool NewRpgBaseAction::RandomChangeStatus(std::vector<NewRpgStatus> candidateSta
         }
         case RPG_GO_CITY:
         {
-            WorldPosition pos = SelectRandomCityPos(bot);
+            char const* city = "";
+            WorldPosition pos = SelectRandomCityPos(bot, &city);
             if (pos == WorldPosition())
                 return false;
 
@@ -1310,6 +1376,7 @@ bool NewRpgBaseAction::RandomChangeStatus(std::vector<NewRpgStatus> candidateSta
                 }
             }
             botAI->rpgInfo.ChangeToGoCity(pos);
+            LogCityVisit(bot, true, city);
             return true;
         }
         default:
@@ -1381,7 +1448,10 @@ bool NewRpgBaseAction::CheckRpgStatusAvailable(NewRpgStatus status)
             return SelectRandomFlightTaxiNode(flightMasterEntry, flightMasterPos, path);
         }
         case RPG_GO_CITY:
-            return !bot->GetGroup() && bot->IsAlive() && !bot->IsInCombat() && WorldPosition(bot).isOverworld() &&
+            // A free random bot only: never one with a group, in a queue or an instance, nor a High Risk one.
+            return sRandomPlayerbotMgr.IsRandomBot(bot) && !bot->GetGroup() && bot->IsAlive() && !bot->IsInCombat() &&
+                   !bot->IsInFlight() && WorldPosition(bot).isOverworld() && !bot->InBattlegroundQueue() &&
+                   sLFGMgr->GetState(bot->GetGUID()) == lfg::LFG_STATE_NONE && !bot->HasAura(CoaHighRiskAura) &&
                    SelectRandomCityPos(bot) != WorldPosition();
         case RPG_OUTDOOR_PVP:
         {

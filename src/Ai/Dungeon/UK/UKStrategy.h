@@ -14,7 +14,7 @@ class WotlkDungeonUKStrategy : public Strategy
 {
 public:
     WotlkDungeonUKStrategy(PlayerbotAI* ai) : Strategy(ai) {}
-    virtual std::string const getName() override { return "utgarde keep"; }
+    virtual std::string const getName() override { return "wotlk-uk"; }
     virtual void InitTriggers(std::vector<TriggerNode*> &triggers) override;
     virtual void InitMultipliers(std::vector<Multiplier*> &multipliers) override;
 };

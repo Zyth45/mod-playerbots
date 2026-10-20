@@ -17,7 +17,7 @@ public:
     TellTargetStrategy(PlayerbotAI* botAI) : Strategy(botAI) {}
 
     void InitTriggers(std::vector<TriggerNode*>& triggers) override;
-    std::string const getName() override { return "TellTarget"; }
+    std::string const getName() override { return "tell target"; }
 };
 
 #endif

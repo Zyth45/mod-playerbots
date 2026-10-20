@@ -14,6 +14,14 @@
 
 bool UseItemAction::Execute(Event event)
 {
+    ordered = event.getOwner() && !GET_PLAYERBOT_AI(event.getOwner());
+    bool const used = ExecuteUse(event);
+    ordered = false;
+    return used;
+}
+
+bool UseItemAction::ExecuteUse(Event event)
+{
     std::string name = event.getParam();
     if (name.empty())
         name = getName();
@@ -49,8 +57,8 @@ bool UseItemAction::UseGameObject(ObjectGuid guid)
 
     go->Use(bot);
 
-    std::ostringstream out;
-    botAI->TellMasterNoFacing(PlayerbotTextMgr::instance().GetBotTextOrDefault(
+    if (ordered)
+        botAI->TellMasterNoFacing(PlayerbotTextMgr::instance().GetBotTextOrDefault(
         "use_gameobject",
         "Using %gameobject",
         {{"%gameobject", chat->FormatGameobject(go)}}));
@@ -315,13 +323,17 @@ bool UseItemAction::UseItem(Item* item, ObjectGuid goGuid, Item* itemTarget, Uni
             "use_item_on_target", "Using %item on %target", {{"%item", itemText}, {"%target", targetText}})
         : PlayerbotTextMgr::instance().GetBotTextOrDefault(
             "use_item", "Using %item", {{"%item", itemText}});
-    botAI->TellMasterNoFacing(useText);
+    if (ordered)
+        botAI->TellMasterNoFacing(useText);
     bot->GetSession()->HandleUseItemOpcode(packet);
     return true;
 }
 
 void UseItemAction::TellConsumableUse(Item* item, std::string const action, float percent)
 {
+    if (!ordered)
+        return;
+
     std::ostringstream out;
     out << action << " " << chat->FormatItem(item->GetTemplate());
 

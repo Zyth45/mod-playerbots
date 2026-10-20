@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CoA Bots — Guide du joueur</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <img class="logo" src="img/logo.png" alt="SquidBots — les bots de Conquest of Azeroth">
+    <p class="tag">Tout ce que les bots savent faire pour vous : trouver un tank ou un soigneur, enchaîner un donjon, remplir un raid, jouer l'arène et les champs de bataille, incarner vos propres rerolls. Et une partie complète pour qui héberge son serveur.</p>
+    <div class="langs">
+      <a href="index.html">English</a>
+      <a class="on" href="index-fr.html">Français</a>
+      <a href="https://github.com/Zyth45/squidbots-addon">Addon SquidBots Lite</a>
+    </div>
+  </div>
+</header>
+
+<div class="wrap cols">
+
+<nav class="toc">
+  <strong>Pour commencer</strong>
+  <a href="#first">Votre premier bot</a>
+  <a href="#addon">L'addon</a>
+  <strong>Jouer avec les bots</strong>
+  <a href="#lfg">Trouver un tank, un soigneur</a>
+  <a href="#talking">Parler à un bot</a>
+  <a href="#dungeons">Donjons</a>
+  <a href="#raids">Raids</a>
+  <a href="#pvp">Arènes et champs de bataille</a>
+  <a href="#gear">Équipement et butin</a>
+  <a href="#alts">Vos rerolls</a>
+  <strong>Héberger un serveur</strong>
+  <a href="#gm">Commandes MJ</a>
+  <a href="#population">Population et niveaux</a>
+  <a href="#tuning">Réglages utiles</a>
+  <a href="#trouble">Quand ça coince</a>
+</nav>
+
+<main>
+
+<h2 id="first">Votre premier bot <span class="tag-player">sans être MJ</span></h2>
+
+<p>Ni droits MJ, ni addon, ni installation. Tapez ceci comme un <strong>message normal</strong> dans l'un des canaux publics (Général, Monde, Recherche de groupe, Zone, Nouveaux venus) — sans point devant :</p>
+
+<pre><code>lfg bot heal</code></pre>
+
+<p>Les bots libres capables de tenir ce rôle vous chuchotent, chacun avec sa classe, sa spécialisation et son niveau. Invitez celui qui vous plaît : il rejoint aussitôt, se téléporte à vous, et joue ensuite comme n'importe quel membre du groupe.</p>
+
+<p>Le rôle est facultatif, et on peut en demander plusieurs :</p>
+
+<pre><code>lfg bot            → tous les rôles
+lfg bot tank
+lfg bot heal
+lfg bot tank dps   → les deux à la fois</code></pre>
+
+<div class="note">
+<strong>Durée de l'offre.</strong> Un bot qui vous a répondu vous est réservé environ <strong>2 minutes</strong> et accepte votre invitation quelles que soient ses règles habituelles. Passé ce délai, il retourne à sa vie. Vous pouvez redemander après un court délai.
+</div>
+
+<p>Les bots proposés sont choisis près de votre niveau (deux niveaux d'écart par défaut) : cela marche aussi bien au niveau 12 qu'au 80.</p>
+
+<h3>Pourquoi pas <code>/who</code> ?</h3>
+<p>Sur la plupart des royaumes les bots sont masqués dans <code>/who</code>, pour que la liste des joueurs reste lisible. C'est précisément à ça que sert <code>lfg bot</code> : les trouver sans commande MJ.</p>
+
+<h2 id="addon">L'addon SquidBots Lite <span class="tag-player">facultatif, conseillé</span></h2>
+
+<p>Tout ce qui suit se fait au clavier. L'addon rend simplement la chose confortable : une barre déplaçable, des icônes de rôle sur les cadres de groupe, un menu par bot, et une fiche de personnage complète pour chacun.</p>
+
+<figure>
+  <img src="img/bar.png" alt="La barre SquidBots Lite">
+  <figcaption>La barre. Déplacez-la où vous voulez. Chaque bouton ouvre l'un des panneaux ci-dessous.</figcaption>
+</figure>
+
+<figure>
+  <img src="img/bot-sheet-gear.png" alt="Fiche d'un bot, onglet équipement">
+  <figcaption>La fiche d'un bot (<code>/sbl bot &lt;nom&gt;</code>) : modèle 3D, niveau d'objet, chaque emplacement. Glissez-déposez un objet dessus pour le lui donner, clic droit sur une pièce pour la reprendre. La fiche s'ouvre d'elle-même quand un bot vous propose un échange.</figcaption>
+</figure>
+
+<figure>
+  <img src="img/bot-sheet-talents.png" alt="Onglet talents">
+  <figcaption>Onglet talents : la spécialisation du bot, et celles vers lesquelles vous pouvez le basculer.</figcaption>
+</figure>
+
+<figure>
+  <img src="img/bot-sheet-mounts.png" alt="Onglet montures">
+  <figcaption>Onglet montures : choisissez la monture du bot, ou effacez le choix pour le laisser décider.</figcaption>
+</figure>
+
+<p>Autres panneaux : <code>/sbl specs</code> (fenêtre des spécialisations), <code>/sbl alts</code> (voir plus bas). Les raccourcis clavier sont dans <em>Échap &gt; Raccourcis &gt; SquidBots Lite</em>. L'addon vous prévient à la connexion si le serveur est plus récent que votre copie.</p>
+
+<p>Téléchargement et documentation complète de l'addon : <a href="https://github.com/Zyth45/squidbots-addon">github.com/Zyth45/squidbots-addon</a></p>
+
+<h2 id="talking">Parler à un bot <span class="tag-player">sans être MJ</span></h2>
+
+<p>Deux façons de donner un ordre :</p>
+
+<ul>
+  <li><strong>À tout le groupe</strong> — écrivez simplement dans le canal du groupe ou du raid. Tous les bots obéissent.</li>
+  <li><strong>À un seul bot</strong> — chuchotez-lui : <code>/w Kegarink Bot stats</code>.</li>
+</ul>
+
+<p>Un <code>?</code> à la fin <strong>affiche</strong> au lieu de modifier. <code>co ?</code> liste ses stratégies de combat, <code>co +truc</code> en ajoute une, <code>co -truc</code> en retire une.</p>
+
+<table>
+<tr><th>Commande</th><th>Effet</th></tr>
+<tr><td><code>follow</code> / <code>stay</code> / <code>flee</code></td><td>déplacement</td></tr>
+<tr><td><code>attack</code></td><td>attaque votre cible</td></tr>
+<tr><td><code>summon</code></td><td>le fait venir à vous</td></tr>
+<tr><td><code>formation &lt;nom&gt;</code>, <code>position</code></td><td>sa place dans le groupe</td></tr>
+<tr><td><code>co ?</code> / <code>nc ?</code></td><td>ses stratégies, en combat et hors combat</td></tr>
+<tr><td><code>co +passive</code> / <code>co -passive</code></td><td>l'empêche d'attaquer / le remet au combat</td></tr>
+<tr><td><code>stats</code></td><td>vie, mana, or, place dans les sacs</td></tr>
+<tr><td><code>talents spec list</code></td><td>toutes les spés de sa classe avec leur rôle, <code>&gt;</code> marque la sienne</td></tr>
+<tr><td><code>talents spec &lt;nom&gt;</code></td><td>change sa spécialisation (<code>tank</code>, <code>heal</code>, <code>dps</code>, <code>random</code> marchent aussi)</td></tr>
+<tr><td><code>give leader</code></td><td>chuchoté à un bot : il vous passe chef de groupe</td></tr>
+<tr><td><code>release</code></td><td>chuchoté à un bot mort : il libère son esprit</td></tr>
+<tr><td><code>help</code></td><td>la liste complète</td></tr>
+</table>
+
+<div class="note">
+<strong>Le bot doit être dans votre groupe.</strong> En dehors, il ne répond qu'à une ou deux commandes.
+</div>
+
+<h2 id="dungeons">Donjons <span class="tag-player">sans être MJ</span></h2>
+
+<p>Montez votre groupe avec <code>lfg bot tank</code> / <code>lfg bot heal</code> et entrez à pied, ou passez par l'<strong>outil de recherche de donjon</strong> : les bots s'y inscrivent aussi et complètent votre groupe.</p>
+
+<p>À l'intérieur, rien à micro-gérer. Les bots lisent ce que lancent les ennemis de donjon et de raid, interrompent et se déplacent en conséquence. Quelques points utiles :</p>
+
+<ul>
+  <li><strong>Engager.</strong> Par défaut, c'est vous qui engagez. Pour qu'un bot tank engage seul, chuchotez-lui <code>nc +coa auto pull</code> (et <code>nc -coa auto pull</code> pour arrêter).</li>
+  <li><strong>Marquage.</strong> <code>rti skull</code> chuchoté à un bot en fait sa cible ; <code>co +mark rti</code> le fait toujours attaquer la cible marquée (<code>co -mark rti</code> pour arrêter).</li>
+  <li><strong>Soin ciblé.</strong> Chuchotez à un soigneur <code>focus heal +&lt;nom&gt;</code> pour qu'il privilégie quelqu'un, <code>focus heal clear</code> pour revenir à la normale.</li>
+  <li><strong>Fuyards.</strong> Les DPS basculent sur un monstre qui part chercher du renfort, au lieu de le laisser ramener le pack suivant.</li>
+  <li>Un bot cesse de poursuivre un ennemi qui l'entraîne trop loin du combat.</li>
+</ul>
+
+<div class="note">
+<strong>File d'attente.</strong> Les bots DPS ne se retiennent que tant qu'un groupe de vrais joueurs en file manque encore d'un tank ou d'un soigneur que personne ne couvre — vous n'attendez donc pas derrière un mur de DPS robots.
+</div>
+
+<h2 id="raids">Raids <span class="tag-player">sans être MJ</span></h2>
+
+<p>Une commande remplit un raid entier, avec une composition saine :</p>
+
+<pre><code>.playerbots coa raid 10
+.playerbots coa raid 25</code></pre>
+
+<p>Un 25 arrive avec 3 tanks et 6 soigneurs par défaut. Vous pouvez imposer les vôtres : <code>.playerbots coa raid 25 2 5</code> (taille, tanks, soigneurs).</p>
+
+<div class="note">
+<strong>Limites pour les joueurs.</strong> Un raid toutes les <strong>30 minutes</strong> chacun, et seulement tant que le royaume compte moins de <strong>5</strong> raids de bots montés par des joueurs. Les MJ n'ont aucune limite. (Les deux chiffres sont des réglages serveur, voir <a href="#tuning">Réglages utiles</a>.)
+</div>
+
+<h2 id="pvp">Arènes et champs de bataille <span class="tag-player">sans être MJ</span></h2>
+
+<p>Les bots s'inscrivent seuls aux champs de bataille, et jouent l'arène pour de bon plutôt que de s'aligner :</p>
+
+<ul>
+  <li>ils se placent avant l'ouverture des portes, chaque rôle à sa place ;</li>
+  <li>ils jouent la ligne de vue et les couverts, kitent quand il faut, et focalisent une cible ensemble ;</li>
+  <li>ils dégagent celui qui se fait entraîner (peel) ;</li>
+  <li>ils dissipent les buffs adverses — en arène, aussi sur les joueurs ennemis visibles à moins de 30 mètres, leur cible d'abord, un bot par buff.</li>
+</ul>
+
+<p>Avant les portes, le serveur peut afficher un marqueur de préparation avec un décompte : actif par défaut.</p>
+
+<h2 id="gear">Équipement et butin <span class="tag-player">sans être MJ</span></h2>
+
+<p>Un bot recruté arrive équipé pour son niveau. Ensuite :</p>
+
+<ul>
+  <li>il équipe les améliorations qu'il ramasse lui-même (l'objet doit nettement battre le sien, 10 % par défaut) ;</li>
+  <li>vous pouvez lui donner de l'équipement : échange, ou glisser-déposer sur sa fiche dans l'addon ;</li>
+  <li><code>autogear</code> le rééquipe à la qualité autorisée par le serveur — qui peut l'avoir désactivé, ne comptez pas dessus ;</li>
+  <li><code>repair</code>, <code>sell</code>, <code>bank</code> et <code>trainer learn</code> (avec un maître cible) règlent l'intendance.</li>
+</ul>
+
+<div class="note">
+<strong>Envie d'une expérience classique ?</strong> Demandez à votre hébergeur de désactiver les commandes d'autogear. Les bots ne porteront alors que ce qu'ils ramassent, exactement comme vous.
+</div>
+
+<h2 id="alts">Vos rerolls en bots <span class="tag-player">sans être MJ</span></h2>
+
+<p>Vos autres personnages peuvent jouer à vos côtés, pilotés par l'IA des bots. Ce sont <strong>vos</strong> personnages : leur équipement, leur niveau, leurs sacs.</p>
+
+<pre><code>.playerbots bot add &lt;nom&gt;       appelle l'un de vos personnages
+.playerbots bot list            la liste des vôtres
+.playerbots bot remove &lt;nom&gt;    le renvoie
+.playerbots bot addaccount      appelle les personnages d'un compte lié</code></pre>
+
+<figure>
+  <img src="img/my-alts.png" alt="Le panneau Mes alts">
+  <figcaption>Mes alts (<code>/sbl alts</code> ou le bouton Alts) : chaque personnage appelable, sa barre d'XP, vos équipes enregistrées et vos comptes liés.</figcaption>
+</figure>
+
+<h3>Lier un second compte</h3>
+
+<p>Pour utiliser les personnages d'un autre de vos comptes, liez-les une fois :</p>
+
+<pre><code>.playerbots account setKey &lt;clé&gt;       sur le compte à lier
+.playerbots account link &lt;compte&gt;      depuis votre compte principal
+.playerbots account linkedAccounts
+.playerbots account unlink &lt;compte&gt;</code></pre>
+
+<p>Deux réglages serveur comptent ici, et c'est l'hébergeur qui décide : vos rerolls se connectent-ils automatiquement avec vous, et restent-ils dans le groupe quand vous le quittez.</p>
+
+<h2 id="gm">Commandes MJ <span class="tag-gm">auto-hébergement</span></h2>
+
+<p>Tout ce qui suit demande les droits MJ. Sur votre propre serveur :</p>
+
+<pre><code>.account set gmlevel &lt;compte&gt; 3 -1</code></pre>
+
+<p>puis reconnectez-vous.</p>
+
+<h3>Recruter</h3>
+
+<table>
+<tr><th>Commande</th><th>Effet</th></tr>
+<tr><td><code>.playerbots coa tank|heal|dps</code></td><td>recrute un bot CoA de ce rôle, refait exactement à votre niveau — équipement et talents, à la hausse comme à la baisse — et téléporté à vous</td></tr>
+<tr><td><code>.playerbots coa heal sun cleric</code></td><td>idem, d'une classe donnée</td></tr>
+<tr><td><code>.playerbots coa raid 25 3 6</code></td><td>remplit votre raid ; ni limite ni délai pour un MJ</td></tr>
+<tr><td><code>.playerbots coa regear [niveau]</code></td><td>rééquipe tous les bots aléatoires connectés de ce niveau et au-dessus (60 par défaut) à la qualité réglée actuellement</td></tr>
+</table>
+
+<div class="gm">
+<strong>Pas accessible aux joueurs.</strong> <code>.playerbots coa tank|heal|dps</code> est réservée aux MJ. Les joueurs passent par <code>lfg bot</code> — et par <code>.playerbots coa raid</code>, qui leur <em>est</em> ouverte, dans les limites ci-dessus.
+</div>
+
+<h3>Gérer les bots</h3>
+
+<table>
+<tr><th>Commande</th><th>Effet</th></tr>
+<tr><td><code>.playerbots bot addclass &lt;classe&gt;</code></td><td>crée un bot d'une classe donnée</td></tr>
+<tr><td><code>.playerbots bot self</code></td><td>pilote votre propre personnage comme un bot</td></tr>
+<tr><td><code>.playerbots rndbot stats</code></td><td>l'état de la population de bots aléatoires</td></tr>
+<tr><td><code>.playerbots rndbot teleport</code></td><td>les envoie tous dans une zone de leur niveau, tout de suite</td></tr>
+<tr><td><code>.playerbots rndbot grind</code></td><td>les envoie chasser</td></tr>
+<tr><td><code>.playerbots rndbot init</code></td><td>refait niveau, équipement et talents</td></tr>
+<tr><td><code>.playerbots rndbot levelup</code></td><td>leur donne un niveau</td></tr>
+</table>
+
+<div class="warn">
+<strong>Noms en deux mots.</strong> Les bots s'appellent <code>Prénom Bot</code>. Les commandes du cœur qui prennent un nom de joueur (<code>.summon</code>, <code>.appear</code>) coupent au premier espace, et les guillemets n'y changent rien. Ciblez le bot et tapez la commande seule, ou shift-clic sur son nom pour obtenir un lien de joueur.
+</div>
+
+<h2 id="population">Population et niveaux <span class="tag-gm">auto-hébergement</span></h2>
+
+<h3>Combien, et à quel niveau</h3>
+
+<pre><code>AiPlayerbot.RandomBotMinLevel = 1
+AiPlayerbot.RandomBotMaxLevel = 60</code></pre>
+
+<p>Rien ne peut placer un bot hors de cette fourchette. Si votre maximum est sous votre propre niveau, aucun bot ne vous rejoindra jamais.</p>
+
+<h3>Tranches de niveaux</h3>
+
+<p>Les bots sont répartis en tranches, rééquilibrées régulièrement : les zones de départ voient ainsi arriver de nouveaux venus pendant que ceux déjà là montent et s'en vont.</p>
+
+<pre><code>AiPlayerbot.LevelBrackets.Enabled = 1
+AiPlayerbot.LevelBrackets.NumRanges = 8
+AiPlayerbot.LevelBrackets.CheckFrequency = 300
+AiPlayerbot.LevelBrackets.FreshStart = 1
+AiPlayerbot.LevelBrackets.FreshStartSpread = 1</code></pre>
+
+<p><strong>Vous jouez seul et montez plus vite qu'eux ?</strong> Faites-les vous suivre :</p>
+
+<pre><code>AiPlayerbot.LevelBrackets.Dynamic.UseDynamicDistribution = 1
+AiPlayerbot.LevelBrackets.Dynamic.RealPlayerWeight = 10</code></pre>
+
+<p>Le poids attire les bots vers les tranches où se trouvent de vrais joueurs. <code>1.0</code> est un léger penchant, <code>3.0</code> se voit, <strong>10 à 15</strong> est ce qu'il faut en solo. Le rééquilibrage a lieu toutes les <code>CheckFrequency</code> secondes.</p>
+
+<h3>Classes et races</h3>
+
+<pre><code>AiPlayerbot.CoaClassesOnly = 1</code></pre>
+
+<p>Activé : les bots ne tirent que les 21 classes CoA (ids 12 à 32). Désactivé : ils tirent aussi les neuf classes WotLK qu'aucun joueur ne peut créer — sans sorts CoA, sans spé, et absentes des tables de rotation. Laissez-le activé.</p>
+
+<p>Un bot garde sa classe et sa race à vie. Pour appliquer un changement, il faut refaire le vivier :</p>
+
+<pre><code>AiPlayerbot.DeleteRandomBotAccounts = 1   → démarrer le worldserver, laisser finir
+AiPlayerbot.DeleteRandomBotAccounts = 0   → redémarrer</code></pre>
+
+<h2 id="tuning">Réglages utiles <span class="tag-gm">auto-hébergement</span></h2>
+
+<p>Tous dans <code>playerbots.conf</code>.</p>
+
+<table>
+<tr><th>Réglage</th><th>Effet</th></tr>
+<tr><td><code>AiPlayerbot.CoaLfgBots</code></td><td>le système <code>lfg bot</code>, actif par défaut</td></tr>
+<tr><td><code>AiPlayerbot.CoaLfgChannels</code></td><td>les canaux qu'il écoute</td></tr>
+<tr><td><code>AiPlayerbot.CoaLfgTankOffers</code> / <code>HealOffers</code> / <code>DpsOffers</code></td><td>combien de bots répondent (2 / 2 / 3, max 5)</td></tr>
+<tr><td><code>AiPlayerbot.CoaLfgLevelRange</code></td><td>écart de niveau toléré (2)</td></tr>
+<tr><td><code>AiPlayerbot.CoaLfgOfferMinutes</code></td><td>durée de réservation d'une offre (2)</td></tr>
+<tr><td><code>AiPlayerbot.CoaRaidPlayerMax</code> / <code>CoaRaidPlayerCooldown</code></td><td>raids montés par des joueurs : 5 à la fois, un toutes les 30 min</td></tr>
+<tr><td><code>AiPlayerbot.AutoEquipUpgradeLoot</code> / <code>EquipUpgradeThreshold</code></td><td>le bot équipe son propre butin (actif, 1,1×)</td></tr>
+<tr><td><code>AiPlayerbot.AutoGearCommand</code> / <code>AutoGearCommandAltBots</code></td><td>les commandes d'autogear — à 0 pour un royaume « butin seul »</td></tr>
+<tr><td><code>AiPlayerbot.RandomGearQualityLimit</code> / <code>RandomGearScoreLimit</code></td><td>qualité et niveau d'objet maximum générés</td></tr>
+<tr><td><code>AiPlayerbot.RandomGearLoweringChance</code></td><td>part de bots volontairement moins bien équipés</td></tr>
+<tr><td><code>AiPlayerbot.BotAutologin</code></td><td>connecte les rerolls d'un joueur avec lui</td></tr>
+<tr><td><code>AiPlayerbot.KeepAltsInGroup</code></td><td>les rerolls restent dans le groupe quand le maître part</td></tr>
+<tr><td><code>AiPlayerbot.MaxAddedBots</code></td><td>combien de bots un joueur peut tenir</td></tr>
+<tr><td><code>AiPlayerbot.CoaArenaPurge</code>, <code>CoaArenaFocus</code>, <code>CoaArenaPeel</code>, <code>CoaArenaKite</code>…</td><td>comportements d'arène, désactivables un par un</td></tr>
+</table>
+
+<div class="note">
+<strong>La plupart sont relus par <code>.reload config</code></strong> — sans redémarrage. Tout ce qui touche à la <em>création</em> des bots (classe, race, fourchette de niveaux) demande en revanche de refaire le vivier.
+</div>
+
+<h2 id="trouble">Quand ça coince <span class="tag-gm">auto-hébergement</span></h2>
+
+<table>
+<tr><th>Symptôme</th><th>Cause habituelle</th></tr>
+<tr><td>Vos modifications de config disparaissent</td><td>le lanceur régénère <code>worldserver.conf</code> à chaque démarrage — modifiez le modèle dans <code>Settings\</code>, pas le fichier produit</td></tr>
+<tr><td>Aucun bot ne répond à <code>lfg bot</code></td><td>le canal n'est pas dans <code>CoaLfgChannels</code>, ou aucun bot libre n'est à <code>CoaLfgLevelRange</code> de vous</td></tr>
+<tr><td>Les bots n'atteignent jamais votre niveau</td><td><code>RandomBotMaxLevel</code> est en dessous</td></tr>
+<tr><td>Personne autour de vous pendant que vous montez</td><td>la distribution dynamique est coupée — voir <a href="#population">Population et niveaux</a></td></tr>
+<tr><td>Une commande ne répond rien du tout</td><td>votre version est plus ancienne que la commande ; regardez ce qu'affiche <code>.playerbots</code> seule</td></tr>
+<tr><td>Un bot vous ignore</td><td>il n'est pas dans votre groupe</td></tr>
+</table>
+
+</main>
+</div>
+
+<footer>
+  <div class="wrap">
+    CoA Bots — <a href="https://github.com/Zyth45/mod-playerbots/tree/coa">mod-playerbots, branche <code>coa</code></a> ·
+    <a href="https://github.com/Zyth45/squidbots-addon">Addon SquidBots Lite</a> ·
+    <a href="index.html">English version</a>
+  </div>
+</footer>
+
+</body>
+</html>

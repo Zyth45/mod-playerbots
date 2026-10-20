@@ -19,6 +19,7 @@
  *   aura stacks::Fury,6        > cast::Consuming Strike    (spend at full stacks)
  *   coa resource::Static,75    > cast::Arm of Thorim       (from three quarters of the resource)
  *   coa summon missing         > cast::Tentacle of C'Thun  (only while no summon of our own stands)
+ *   coa summon missing::Sentry Turret > cast::Build: Sentry Turret  (only while that one is down)
  *
  * And for a healer, with the base triggers that rank the group by damage
  * taken:
@@ -59,10 +60,65 @@
         std::string const getName() override { return Label "::" + qualifier; } \
     };
 
-COA_QUALIFIED_CAST(CoaCastAction, CastSpellAction, "cast")
-COA_QUALIFIED_CAST(CoaCastMeleeAction, CastMeleeSpellAction, "cast melee")
-COA_QUALIFIED_CAST(CoaCastBuffAction, CastBuffSpellAction, "cast buff")
-COA_QUALIFIED_CAST(CoaCastDebuffAction, CastDebuffSpellAction, "cast debuff")
+/* "cast::<spell>" - as the original, but a cleave or cone centred on the bot is not cast from beyond its reach,
+ * and no spell the bot lacks the power for (the probe ignores power, so the line ran and failed every tick). */
+class CoaCastAction : public CastSpellAction, public Qualified
+{
+public:
+    CoaCastAction(PlayerbotAI* botAI) : CastSpellAction(botAI, "") {}
+    void Qualify(std::string const qual) override
+    {
+        Qualified::Qualify(qual);
+        spell = qual;
+    }
+    std::string const getName() override { return "cast::" + qualifier; }
+    bool isUseful() override;
+    Unit* GetTarget() override;
+};
+
+/* "cast melee::<spell>" - as the original, not without the power for it. */
+class CoaCastMeleeAction : public CastMeleeSpellAction, public Qualified
+{
+public:
+    CoaCastMeleeAction(PlayerbotAI* botAI) : CastMeleeSpellAction(botAI, "") {}
+    void Qualify(std::string const qual) override
+    {
+        Qualified::Qualify(qual);
+        spell = qual;
+    }
+    std::string const getName() override { return "cast melee::" + qualifier; }
+    bool isUseful() override;
+    Unit* GetTarget() override;
+};
+/* "cast buff::<spell>" - as the original, a passive aura of the same name not taken for the buff (CoaWornBuff). */
+class CoaCastBuffAction : public CastBuffSpellAction, public Qualified
+{
+public:
+    CoaCastBuffAction(PlayerbotAI* botAI) : CastBuffSpellAction(botAI, "") {}
+    void Qualify(std::string const qual) override
+    {
+        Qualified::Qualify(qual);
+        spell = qual;
+    }
+    std::string const getName() override { return "cast buff::" + qualifier; }
+    bool isUseful() override;
+    // a buff makes no threat: the threat hold held Light's Hope, which takes threat away, 530 times in two runs
+    ActionThreatType getThreatType() override { return ActionThreatType::None; }
+};
+/* "cast debuff::<spell>" - as the original. With AiPlayerbot.CoaShortLivedDebuffs, the target only has
+ * to live as long as the spell needs (CoaDebuffNeedLifeTime), not the fixed 8 s of the original. */
+class CoaCastDebuffAction : public CastDebuffSpellAction, public Qualified
+{
+public:
+    CoaCastDebuffAction(PlayerbotAI* botAI) : CastDebuffSpellAction(botAI, "") {}
+    void Qualify(std::string const qual) override
+    {
+        Qualified::Qualify(qual);
+        spell = qual;
+    }
+    std::string const getName() override { return "cast debuff::" + qualifier; }
+    bool isUseful() override;
+};
 // Resurrection: aims at the dead party member, not at the current target.
 // Together with the base trigger "party member dead" that is enough.
 COA_QUALIFIED_CAST(CoaCastRezAction, ResurrectPartyMemberAction, "cast rez")
@@ -153,6 +209,7 @@ public:
         spell = qual;
     }
     std::string const getName() override { return "cast buff party::" + qualifier; }
+    bool isUseful() override;
 };
 
 /* Removing a harmful effect from a group member.
@@ -228,6 +285,17 @@ public:
     bool IsActive() override;
 };
 
+/* "aoe has aura::<aura>" - "medium aoe" (3 enemies within 8 yards of the target) while the bot itself has the
+ * aura: a rotation line has a single trigger, so a pack spender kept for a state (Cultist Godblade: Entropic Slam
+ * only during Total Madness, when it costs nothing) needs both in one. */
+class CoaAoeHasAuraTrigger : public MediumAoeTrigger, public Qualified
+{
+public:
+    CoaAoeHasAuraTrigger(PlayerbotAI* botAI) : MediumAoeTrigger(botAI) {}
+    std::string const getName() override { return "aoe has aura::" + qualifier; }
+    bool IsActive() override;
+};
+
 /* "aura stacks::<spell>,<count>" - carries the builder/spender pattern that
  * several CoA specs use (Felsworn Fury up to 6, for instance). It assumes the
  * resource is implemented as a stacking aura. */
@@ -285,13 +353,28 @@ private:
  * end up there - they are created through SummonProperties with the player as
  * their summoner. So the surroundings are searched as well, for creatures the
  * bot owns.
+ *
+ * "coa summon missing::<creature>" looks only at the bot's own creatures of that name, or of that
+ * entry when the qualifier is a number. Without it, ANY creature of the bot counts: a Tinker's
+ * Mechsuit or drone kept "coa summon missing > cast::Build: Sentry Turret" off, and Mechanics bots
+ * put their turret down in 2 fights out of 6 (02/10).
  */
-class CoaSummonMissingTrigger : public Trigger
+class CoaSummonMissingTrigger : public Trigger, public Qualified
 {
 public:
     CoaSummonMissingTrigger(PlayerbotAI* botAI) : Trigger(botAI, "coa summon missing") {}
-    std::string const getName() override { return "coa summon missing"; }
+    void Qualify(std::string const qual) override;
+    std::string const getName() override
+    {
+        return qualifier.empty() ? "coa summon missing" : "coa summon missing::" + qualifier;
+    }
     bool IsActive() override;
+
+private:
+    bool Counts(Unit* unit) const;
+
+    uint32 entry = 0;
+    std::wstring nameKey;
 };
 
 /* "cure party::<spell>" - a group member carries something this spell removes.
@@ -345,6 +428,41 @@ public:
         std::string const getName() override { return Label "::" + qualifier; } \
     };
 
+/* A rotation line that stays true while the bot acts on it gets nowhere: the aura never comes. It is
+ * set aside for a while, so the lines below it get their turn. A Chronomancer's "buff missing::
+ * Incarnation of Chaos" named a spell with no effect: at priority 87 it won every tick, and the bot
+ * never even took a target (test arena, 22/09). A buff that works lands well within 5 seconds. */
+struct CoaLineBackoff
+{
+    uint32 window = 5 * IN_MILLISECONDS;  // how long a line may stay true without result
+    uint32 activeSince = 0;
+    uint32 asideUntil = 0;
+
+    // cooling: the spell is on its cooldown. A buff shorter than its cooldown is missing all that time, which
+    // is no sign the line never lands (Unbridled Rage, Light's Hope waited 15-30 s per cycle once ready).
+    bool Allow(bool active, bool cooling = false)
+    {
+        uint32 const now = getMSTime();
+        if (asideUntil && getMSTimeDiff(now, asideUntil) > 0 && getMSTimeDiff(now, asideUntil) < 60 * IN_MILLISECONDS)
+            return false;  // still set aside
+        asideUntil = 0;
+        if (!active || cooling)
+        {
+            activeSince = 0;
+            return false;
+        }
+        if (!activeSince)
+            activeSince = now;
+        else if (getMSTimeDiff(activeSince, now) > window)
+        {
+            activeSince = 0;
+            asideUntil = now + 30 * IN_MILLISECONDS;
+            return false;
+        }
+        return true;
+    }
+};
+
 /* "can cast::<spell>" - the spell can be cast now. Unlike the original, not when the bot already
  * carries the lasting aura it gives (an Ascension resistance aura was recast 23 times in one fight,
  * 20% of base mana each), nor for a healer keeping its mana for heals. */
@@ -361,40 +479,12 @@ public:
     bool IsActive() override;
 
 private:
+    bool CanCastNow();
     // The last search for a summon of this spell still standing: a grid search, not every tick.
     uint32 summonCheckedAt = 0;
     bool summonStanding = false;
-};
-/* A rotation line that stays true while the bot acts on it gets nowhere: the aura never comes. It is
- * set aside for a while, so the lines below it get their turn. A Chronomancer's "buff missing::
- * Incarnation of Chaos" named a spell with no effect: at priority 87 it won every tick, and the bot
- * never even took a target (test arena, 22/09). A buff that works lands well within 5 seconds. */
-struct CoaLineBackoff
-{
-    uint32 activeSince = 0;
-    uint32 asideUntil = 0;
-
-    bool Allow(bool active)
-    {
-        uint32 const now = getMSTime();
-        if (asideUntil && getMSTimeDiff(now, asideUntil) > 0 && getMSTimeDiff(now, asideUntil) < 60 * IN_MILLISECONDS)
-            return false;  // still set aside
-        asideUntil = 0;
-        if (!active)
-        {
-            activeSince = 0;
-            return false;
-        }
-        if (!activeSince)
-            activeSince = now;
-        else if (getMSTimeDiff(activeSince, now) > 5 * IN_MILLISECONDS)
-        {
-            activeSince = 0;
-            asideUntil = now + 30 * IN_MILLISECONDS;
-            return false;
-        }
-        return true;
-    }
+    // A summon line still true 10 s on: the summon never came (see IsActive).
+    CoaLineBackoff summonBackoff{10 * IN_MILLISECONDS};
 };
 
 /* "buff missing::<spell>" - as the original, except for a form a healer's heals cannot be cast in. */
@@ -414,7 +504,8 @@ private:
     CoaLineBackoff backoff;
 };
 /* "debuff missing::<spell>" - as the original, except for a healer keeping its mana for heals
- * (a Chronomancer healer put Unmake back 12 times in one fight and ran dry for 20 s). */
+ * (a Chronomancer healer put Unmake back 12 times in one fight and ran dry for 20 s), and, with
+ * AiPlayerbot.CoaShortLivedDebuffs, for the life the target must have left (CoaDebuffNeedLifeTime). */
 class CoaDebuffMissingTrigger : public DebuffTrigger, public Qualified
 {
 public:
@@ -511,6 +602,7 @@ public:
         creators["has aura"] = &CoaGenericTriggerContext::has_aura;
         creators["target has aura"] = &CoaGenericTriggerContext::target_has_aura;
         creators["no aura"] = &CoaGenericTriggerContext::no_aura;
+        creators["aoe has aura"] = &CoaGenericTriggerContext::aoe_has_aura;
         creators["aura stacks"] = &CoaGenericTriggerContext::aura_stacks;
         creators["coa resource"] = &CoaGenericTriggerContext::coa_resource;
         creators["coa summon missing"] = &CoaGenericTriggerContext::coa_summon_missing;
@@ -525,6 +617,7 @@ private:
     static Trigger* has_aura(PlayerbotAI* botAI) { return new CoaHasAuraTrigger(botAI); }
     static Trigger* target_has_aura(PlayerbotAI* botAI) { return new CoaTargetHasAuraTrigger(botAI); }
     static Trigger* no_aura(PlayerbotAI* botAI) { return new CoaHasNoAuraTrigger(botAI); }
+    static Trigger* aoe_has_aura(PlayerbotAI* botAI) { return new CoaAoeHasAuraTrigger(botAI); }
     static Trigger* aura_stacks(PlayerbotAI* botAI) { return new CoaAuraStacksTrigger(botAI); }
     static Trigger* coa_resource(PlayerbotAI* botAI) { return new CoaResourceTrigger(botAI); }
     static Trigger* coa_summon_missing(PlayerbotAI* botAI)

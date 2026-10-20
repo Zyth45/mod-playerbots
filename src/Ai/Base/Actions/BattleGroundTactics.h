@@ -112,6 +112,7 @@ public:
     BGTactics(PlayerbotAI* botAI, std::string const name = "bg tactics") : MovementAction(botAI, name) {}
 
     bool Execute(Event event) override;
+    bool isUseful() override;
 
 private:
     static std::string const HandleConsoleCommandPrivate(WorldSession* session, char const* args);
@@ -132,6 +133,11 @@ private:
     bool useBuff();
     uint32 getPlayersInArea(TeamId teamId, Position point, float range, bool combat = true);
     bool IsLockedInsideKeep();
+    bool Unstuck(Battleground* bg);
+    uint8 StuckState(Battleground* bg);
+    Position stuckAt;
+    uint32 stuckSince = 0;  // getMSTime() since when the bot has stood within 3 yards of stuckAt
+    uint32 lastStep = 0;    // getMSTime() of its last few steps out
 };
 
 class ArenaTactics : public MovementAction

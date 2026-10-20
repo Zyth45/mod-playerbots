@@ -66,8 +66,12 @@ bool DropQuestAction::Execute(Event event)
 
 bool CleanQuestLogAction::Execute(Event event)
 {
-    Player* requester = event.getOwner() ? event.getOwner() : GetMaster();
-    if (!requester)
+    // Only on a player's order ("clean quest log"). Run by itself, it needed a master, so it only ever
+    // ran for bots playing with a player - altbots, bots in a player's group - and dropped the quests
+    // grey to the bot that it was doing with that player: "Playerbots are abandoning quests that we
+    // are doing together!" (30/09).
+    Player* requester = event.getOwner();
+    if (!requester || GET_PLAYERBOT_AI(requester))
         return false;
 
     if (!sPlayerbotAIConfig.dropObsoleteQuests)

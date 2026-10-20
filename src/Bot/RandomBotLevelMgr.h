@@ -43,6 +43,11 @@ public:
     // teleports stay around it instead of around its own race's start, or it would walk home.
     static PlayerInfo const* AssignedStart(ObjectGuid::LowType guid);
 
+    // A bot a test bench holds for a match: never moved to another level bracket meanwhile. The
+    // rebalancing sent bench bots back to level 1 in the middle of their fight (30/09).
+    static void SetHeld(ObjectGuid guid, bool held);
+    static bool IsHeld(ObjectGuid guid);
+
 private:
     RandomBotLevelMgr() = default;
     ~RandomBotLevelMgr() = default;

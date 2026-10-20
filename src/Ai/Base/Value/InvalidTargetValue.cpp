@@ -24,7 +24,8 @@ bool InvalidTargetValue::Calculate()
                // it run, and CoA puts fear on many rotations (reported in game, 27/09).
                !target->IsVisible() || !target->IsAlive() || target->IsPolymorphed() || target->IsCharmed() ||
                target->HasUnitState(UNIT_STATE_ISOLATED) || target->IsFriendlyTo(bot) ||
-               !AttackersValue::IsValidTarget(target, bot);
+               !(sPlayerbotAIConfig.coaKeepTargetOutOfSight ? AttackersValue::IsPossibleTarget(target, bot)
+                                                             : AttackersValue::IsValidTarget(target, bot));
     }
 
     return !target;

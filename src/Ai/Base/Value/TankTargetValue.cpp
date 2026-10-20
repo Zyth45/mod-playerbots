@@ -51,8 +51,6 @@ class FindTankTargetSmartStrategy : public FindTargetStrategy
 public:
     FindTankTargetSmartStrategy(PlayerbotAI* botAI) : FindTargetStrategy(botAI) {}
 
-    TargetValueExclusionType GetExclusionType() override { return TargetValueExclusionType::Tank; }
-
     void CheckAttacker(Unit* attacker, ThreatManager* /*threatMgr*/) override
     {
         if (Group* group = botAI->GetBot()->GetGroup())
@@ -65,12 +63,21 @@ public:
         if (!attacker->IsAlive())
             return;
 
+        // Passive summons that hit nobody never give aggro: the tank walked to them (Amanitar mushrooms).
+        if (Creature* creature = attacker->ToCreature())
+            if (creature->HasReactState(REACT_PASSIVE) && !creature->GetVictim())
+                return;
+
         if (!result || IsBetter(attacker, result))
             result = attacker;
     }
     bool IsBetter(Unit* new_unit, Unit* old_unit)
     {
         Player* bot = botAI->GetBot();
+        // A mob running for help hits nobody, so it ranked first and the tank followed it into the next
+        // packs, 7 to 17 times a dungeon (headless runs, 11/10): it comes last (AiPlayerbot.CoaSmartTank).
+        if (sPlayerbotAIConfig.coaSmartTank && IsFleeing(new_unit) != IsFleeing(old_unit))
+            return IsFleeing(old_unit);
         // if group has multiple tanks, explicit main tank just focus on the current target
         Unit* currentTarget = botAI->GetAiObjectContext()->GetValue<Unit*>("current target")->Get();
         if (currentTarget && botAI->IsExplicitMainTank(bot) && botAI->GetGroupTankNum(bot) > 1)
@@ -123,6 +130,19 @@ public:
             danger += 10;
         return danger;
     }
+    static bool IsFleeing(Unit* unit)
+    {
+        if (unit->HasUnitState(UNIT_STATE_FLEEING))
+            return true;
+        switch (unit->GetMotionMaster()->GetCurrentMovementGeneratorType())
+        {
+            case FLEEING_MOTION_TYPE: case ASSISTANCE_MOTION_TYPE: case ASSISTANCE_DISTRACT_MOTION_TYPE:
+            case TIMED_FLEEING_MOTION_TYPE:
+                return true;
+            default:
+                return false;
+        }
+    }
     int32_t GetIntervalLevel(Unit* unit)
     {
         if (!botAI->HasAggro(unit))
@@ -137,9 +157,11 @@ public:
 
 Unit* TankTargetValue::Calculate()
 {
+    GuidSet const exclusions = GatherStrategyTargetExclusions(botAI, TargetValueExclusionType::TankTarget);
     std::string const rti = botAI->GetAiObjectContext()->GetValue<std::string>("rti")->Get();
     Unit* rtiTarget = RtiTargetValue::Calculate();
-    if (rtiTarget)
+    if (rtiTarget &&
+        (!sPlayerbotAIConfig.coaExclusionsEverywhere || exclusions.find(rtiTarget->GetGUID()) == exclusions.end()))
     {
         Unit* victim = rtiTarget->GetVictim();
 
@@ -160,5 +182,5 @@ Unit* TankTargetValue::Calculate()
 
     // FindTargetForTankStrategy strategy(botAI);
     FindTankTargetSmartStrategy strategy(botAI);
-    return FindTarget(&strategy);
+    return FindTarget(&strategy, exclusions);
 }

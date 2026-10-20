@@ -15,6 +15,7 @@
 #include <array>
 #include <atomic>
 #include <mutex>
+#include <unordered_map>
 #include <unordered_set>
 
 struct BattlegroundInfo
@@ -46,9 +47,59 @@ struct BattlegroundInfo
     // Players (Battleground)
     uint32 bgHordePlayerCount = 0;
     uint32 bgAlliancePlayerCount = 0;
+
+    // Sum of the levels of the players and bots counted above, per faction (CoaBgLevelBalanceChance)
+    uint32 bgHordeLevelSum = 0;
+    uint32 bgAllianceLevelSum = 0;
+
+    // Where a real player waits: how many more of each faction the core queue needs before the
+    // battleground can start (its minimum per team), taken down as bots join.
+    uint32 bgAllianceMissing = 0;
+    uint32 bgHordeMissing = 0;
+
+    // Rated solo queues (AiPlayerbot.CoaRatedSoloQueue), kept out of the rated team counts above: real players
+    // and bots waiting there uninvited, by role, and how many more bots of each role complete their matches.
+    uint32 ratedSoloPlayerHealers = 0;
+    uint32 ratedSoloPlayerDamage = 0;
+    uint32 ratedSoloBotHealers = 0;
+    uint32 ratedSoloBotDamage = 0;
+    uint32 ratedSoloHealersNeeded = 0;
+    uint32 ratedSoloDamageNeeded = 0;
+    // Bots a real player's other role may need (CoaRatedSoloRoleFallback), and bots no lineup needs:
+    // these leave the queue after their usual wait, the 1v1 ones in the damage count.
+    uint32 ratedSoloFallbackHealers = 0;
+    uint32 ratedSoloFallbackDamage = 0;
+    uint32 ratedSoloHealersSurplus = 0;
+    uint32 ratedSoloDamageSurplus = 0;
+    // Parties waiting there as one entry (rated "Join as Group"), and the slots their matches leave to others.
+    uint32 ratedSoloPremades = 0;
+    uint32 ratedSoloPremadeHealerSlots = 0;
+    uint32 ratedSoloPremadeDamageSlots = 0;
+};
+
+// A party waiting in a rated solo 2v2 or 3v3 queue: its members, and how many of them are healers by their spec.
+struct RatedSoloPremade
+{
+    uint32 queueTypeId;
+    uint32 bracketId;
+    uint32 players;
+    uint32 healers;
+};
+
+// A real player waiting in a rated solo queue, and the role read from their spec; or a party waiting there,
+// under its first member, and whether it was read as holding a healer.
+struct RatedSoloWait
+{
+    ObjectGuid guid;
+    uint32 joinTime;
+    uint32 queueTypeId;
+    uint32 bracketId;
+    bool healer;
+    bool party;
 };
 
 class ChatHandler;
+class Group;
 class PerfMonitorOperation;
 class WorldLocation;
 
@@ -122,6 +173,12 @@ public:
     void OnPlayerLogout(Player* player);
     void OnPlayerLogin(Player* player);
     void OnPlayerLoginError(uint32 bot);
+    // A group whose random bots wait for their player (AiPlayerbot.CoaOrphanGroupReleaseDelay): a character of a
+    // player's account is in it and none of the players is connected, not even in a battleground or on a loading
+    // screen. Never a battleground or dungeon finder group. Only reads, so map threads may ask too.
+    bool CoaIsOrphanGroup(Group const* group);
+    // World thread, every tick: every 10 s, the random bots of the groups orphaned for that delay leave them.
+    void CoaReleaseOrphanGroups();
     Player* GetRandomPlayer();
     std::vector<Player*> GetPlayers() { return players; };
     PlayerBotMap GetAllBots() { return playerBots; };
@@ -137,6 +194,7 @@ public:
     void RandomTeleportGrindForLevel(Player* bot);
     void RandomTeleportForRpg(Player* bot);
     uint32 GetMaxAllowedBotCount();
+    uint32 GetTargetBotCount();
     bool ProcessBot(Player* player);
     void Revive(Player* player);
     void ChangeStrategy(Player* player);
@@ -147,6 +205,8 @@ public:
     void SetValue(uint32 bot, std::string const& type, uint32 value, std::string const& data = "");
     void SetValue(Player* bot, std::string const& type, uint32 value, std::string const& data = "");
     bool IsSpecPvp(uint32 bot, uint8 cls);
+    // AiPlayerbot.CoaGearByContent: PvP or PvE gear for what the random bot does, at its grouping player's item level.
+    void CoaUpdateGear(Player* bot);
     void Remove(Player* bot);
     ObjectGuid GetBattleMasterGUID(Player* bot, BattlegroundTypeId bgTypeId);
     CreatureData const* GetCreatureDataByEntry(uint32 entry);
@@ -155,9 +215,21 @@ public:
     std::map<uint32, std::map<uint32, std::map<TeamId, uint32>>> VisualBots;
     std::map<uint32, std::map<uint32, std::map<uint32, uint32>>> Supporters;
     std::map<TeamId, std::vector<uint32>> LfgDungeons;
+    // A random dungeon spans the whole range of its dungeons: true when a bot of this level is within a few
+    // levels of the real players of its team waiting for that dungeon (or when none waits for it).
+    bool IsNearLfgPlayerLevels(TeamId team, uint32 dungeonId, uint32 level);
     // A queued real player of this team still lacks a tank or a healer: damage dealers hold back.
     std::array<std::atomic<bool>, 2> LfgNeedTankOrHeal{};
     void CheckBgQueue();
+    // How many healer and damage bots the rated solo queues real players wait in still need (CheckBgQueue).
+    void CountRatedSoloNeeds();
+    std::vector<RatedSoloWait> ratedSoloWaiting;
+    std::unordered_map<uint32, RatedSoloPremade> ratedSoloPremades;  // by the leader's personal team
+    // Real players given a bot of their other role: guid -> join time of that wait, and whether it was a healer.
+    std::unordered_map<ObjectGuid, std::pair<uint32, bool>> ratedSoloFallbacks;
+    // Last needs line of each rated solo queue and bracket: when, and what it said.
+    std::unordered_map<uint32, std::pair<time_t, std::string>> ratedSoloNeedsLogged;
+    void KeepArenaCaptainsOnline();
     void CheckLfgQueue();
     void CheckPlayers();
     void LogBattlegroundInfo();
@@ -182,6 +254,8 @@ public:
 
 protected:
     void OnBotLoginInternal(Player* const bot) override;
+    // AiPlayerbot.CoaRulesetForBots: puts a random bot in its High Risk / War Mode / PvE ruleset (see the .dist).
+    void CoaApplyRuleset(Player* bot);
 
 private:
     RandomPlayerbotMgr() : PlayerbotHolder()
@@ -235,12 +309,16 @@ private:
     void GetBots();
     std::vector<uint32> GetBgBots(uint32 bracket);
     time_t BgCheckTimer;
+    time_t ArenaCaptainCheckTimer = 0;
     time_t LfgCheckTimer;
     time_t PlayersCheckTimer;
     time_t RealPlayerLastTimeSeen = 0;
     time_t DelayLoginBotsTimer;
     time_t printStatsTimer;
+    std::unordered_map<ObjectGuid::LowType, time_t> coaOrphanGroups;  // group -> since when it has been orphaned
+    time_t coaOrphanCheckAt = 0;
     uint32 AddRandomBots();
+    void CoaTrimBotsForPlayers(uint32 target);
     bool ProcessBot(uint32 bot);
     void ScheduleRandomize(uint32 bot, uint32 time);
     void RandomTeleport(Player* bot);
@@ -253,6 +331,11 @@ private:
     // std::map<uint32, std::vector<WorldLocation>> rpgLocsCache;
     std::map<uint32, std::map<uint32, std::vector<WorldLocation>>> rpgLocsCacheLevel;
     std::map<TeamId, std::map<BattlegroundTypeId, std::vector<uint32>>> BattleMastersCache;
+    std::unordered_map<uint32, ObjectGuid::LowType> BattleMasterSpawnIds;
+    // Lowest and highest level of the real players of a team waiting for a dungeon. Written by CheckLfgQueue,
+    // read by the bots from the map update threads.
+    std::map<TeamId, std::map<uint32, std::pair<uint8, uint8>>> lfgPlayerLevels;
+    std::mutex lfgPlayerLevelsLock;
     // Bot AI reads and writes these values from the map update threads.
     std::mutex eventCacheLock;
     std::unordered_map<uint32, BotEventCache> eventCache;

@@ -79,6 +79,9 @@ struct MemberStats
     uint32 diedUnhealed = 0;
     // As a tank: taunts that went off.
     uint32 taunts = 0;
+    // Kicks it cast at enemy casts, and how many of them went to a cast another bot had already kicked.
+    uint32 interrupts = 0;
+    uint32 interruptsWasted = 0;
     // Every heal this member tried, by spell and outcome (0 = cast).
     std::map<std::pair<uint32, uint16>, uint32> healTries;
     // Damage dealt by spell (0 = melee swing): the amount, and how many times it landed.
@@ -197,6 +200,8 @@ void Write(Fight const& fight, uint32 now)
         line << ", hit " << Seconds(m.hit);
         if (m.role == CoaRole::Tank)
             line << ", taunts " << m.taunts;
+        if (m.interrupts)
+            line << ", interrupts " << m.interrupts << " (" << m.interruptsWasted << " on a cast already kicked)";
         if (m.criticalTimes)
         {
             line << ", under 25% " << m.criticalTimes << " times";
@@ -644,24 +649,49 @@ public:
         if (!reload)
             return;
 
-        sPlayerbotAIConfig.coaGroupTelemetry = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaGroupTelemetry", true);
+        sPlayerbotAIConfig.coaGroupTelemetry = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaGroupTelemetry", false);
         sPlayerbotAIConfig.coaSmartHeal = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaSmartHeal", true);
         sPlayerbotAIConfig.coaSmartTank = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaSmartTank", true);
-        sPlayerbotAIConfig.coaThreatHold = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaThreatHold", 0);
+        sPlayerbotAIConfig.coaThreatHold = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaThreatHold", 90);
+        sPlayerbotAIConfig.coaTankThreatBonus = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaTankThreatBonus", 0);
         sPlayerbotAIConfig.coaTankOpenerSeconds = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaTankOpenerSeconds", 2);
+        sPlayerbotAIConfig.coaOrphanGroupReleaseDelay = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaOrphanGroupReleaseDelay", 300);
+        sPlayerbotAIConfig.coaTellEquipUpgrades = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaTellEquipUpgrades", false);
+        sPlayerbotAIConfig.coaRulesetForBots = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaRulesetForBots", false);
+        sPlayerbotAIConfig.coaRulesetHighRiskPct = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaRulesetHighRiskPct", 30);
+        sPlayerbotAIConfig.coaRulesetWarModePct = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaRulesetWarModePct", 0);
+        sPlayerbotAIConfig.coaGearByContent = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaGearByContent", true);
+        sPlayerbotAIConfig.coaGearMatchGroup = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaGearMatchGroup", true);
+        sPlayerbotAIConfig.coaGearHighRiskPvp = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaGearHighRiskPvp", true);
+        sPlayerbotAIConfig.coaRatedSoloQueue = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaRatedSoloQueue", true);
+        sPlayerbotAIConfig.coaRatedSoloRoleFallback = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaRatedSoloRoleFallback", 40);
+        // City life is tuned live too: its share of the bots and how long they stay.
+        sPlayerbotAIConfig.RpgStatusProbWeight[RPG_GO_CITY] = sConfigMgr->GetOption<int32>("AiPlayerbot.RpgStatusProbWeight.GoCity", 10);
+        sPlayerbotAIConfig.coaCityStayMinMinutes = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaCityStayMinMinutes", 10);
+        sPlayerbotAIConfig.coaCityStayMaxMinutes = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaCityStayMaxMinutes", 30);
+        sPlayerbotAIConfig.coaInterruptCoordination = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaInterruptCoordination", true);
+        sPlayerbotAIConfig.coaDungeonPriorities = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaDungeonPriorities", true);
+        sPlayerbotAIConfig.coaAncestralCombatFix = sConfigMgr->GetOption<bool>("AiPlayerbot.Coa.AncestralCombatFix", true);
+        sPlayerbotAIConfig.coaKeepPassiveAuras = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaKeepPassiveAuras", true);
+        sPlayerbotAIConfig.coaShortLivedDebuffs = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaShortLivedDebuffs", 0);
+        sPlayerbotAIConfig.coaKeepChannels = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaKeepChannels", true);
+        sPlayerbotAIConfig.coaExclusiveFamilies = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaExclusiveFamilies", true);
         sPlayerbotAIConfig.coaExcludedSpecializations.clear();
-        std::string const excluded = sConfigMgr->GetOption<std::string>("AiPlayerbot.CoaExcludedSpecializations", "51,101");
+        std::string const excluded = sConfigMgr->GetOption<std::string>("AiPlayerbot.CoaExcludedSpecializations", "99");
         std::istringstream ids(excluded);
         for (std::string id; std::getline(ids, id, ',');)
             if (!id.empty())
                 sPlayerbotAIConfig.coaExcludedSpecializations.insert(uint32(std::stoul(id)));
         sPlayerbotAIConfig.coaOffensiveHealerSpecs.clear();
-        std::istringstream offensive(sConfigMgr->GetOption<std::string>("AiPlayerbot.CoaOffensiveHealerSpecs", "40"));
+        std::istringstream offensive(sConfigMgr->GetOption<std::string>("AiPlayerbot.CoaOffensiveHealerSpecs", "40,43"));
         for (std::string id; std::getline(offensive, id, ',');)
             if (!id.empty())
                 sPlayerbotAIConfig.coaOffensiveHealerSpecs.insert(uint32(std::stoul(id)));
-        LOG_INFO("playerbots.coa", "coa settings reloaded: smart heal {}, smart tank {}, group telemetry {}",
-                 sPlayerbotAIConfig.coaSmartHeal, sPlayerbotAIConfig.coaSmartTank, sPlayerbotAIConfig.coaGroupTelemetry);
+        LOG_INFO("playerbots.coa", "coa settings reloaded: smart heal {}, smart tank {}, group telemetry {}, interrupt coordination {}, "
+                 "keep channels {}, exclusive families {}",
+                 sPlayerbotAIConfig.coaSmartHeal, sPlayerbotAIConfig.coaSmartTank, sPlayerbotAIConfig.coaGroupTelemetry,
+                 sPlayerbotAIConfig.coaInterruptCoordination, sPlayerbotAIConfig.coaKeepChannels,
+                 sPlayerbotAIConfig.coaExclusiveFamilies);
     }
 };
 }  // namespace
@@ -680,6 +710,25 @@ void CoaTelemetryNoteTaunt(Player* bot)
     auto member = fight->second.members.find(bot->GetGUID().GetRawValue());
     if (member != fight->second.members.end())
         ++member->second.taunts;
+}
+
+// A kick of `bot` went off, `wasted` when another bot had already kicked that cast: counted in its
+// group's fight, if one is being followed.
+void CoaTelemetryNoteInterrupt(Player* bot, bool wasted)
+{
+    Group* group = bot->GetGroup();
+    if (!group || !ActiveFights.load(std::memory_order_relaxed))
+        return;
+
+    std::lock_guard<std::mutex> guard(Lock);
+    auto fight = Fights.find(group->GetGUID().GetRawValue());
+    if (fight == Fights.end())
+        return;
+    auto member = fight->second.members.find(bot->GetGUID().GetRawValue());
+    if (member == fight->second.members.end())
+        return;
+    ++member->second.interrupts;
+    member->second.interruptsWasted += wasted;
 }
 
 // A heal `bot` tried, and what came of it: counted in its group's fight, if one is being followed.

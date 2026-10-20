@@ -23,6 +23,7 @@
 #include "PathGenerator.h"
 #include "Player.h"
 #include "PlayerbotAI.h"
+#include "PlayerbotAIConfig.h"
 #include "PlayerbotTextMgr.h"
 #include "QuestDef.h"
 #include "Random.h"
@@ -295,11 +296,16 @@ bool NewRpgStatusUpdateAction::Execute(Event /*event*/)
         case RPG_GO_CITY:
         {
             auto& data = std::get<NewRpgInfo::GoCity>(info.data);
-            // GO_CITY -> WANDER_NPC for 10 to 30 minutes among the city NPCs
+            // GO_CITY -> WANDER_NPC for CoaCityStayMin/MaxMinutes among the city NPCs
             if (bot->GetExactDist(data.pos) < 15.0f)
             {
                 info.ChangeToWanderNpc();
-                info.cityStayMs = urand(10, 30) * MINUTE * IN_MILLISECONDS;
+                uint32 const shortest =
+                    std::min(sPlayerbotAIConfig.coaCityStayMinMinutes, sPlayerbotAIConfig.coaCityStayMaxMinutes);
+                uint32 const longest =
+                    std::max(sPlayerbotAIConfig.coaCityStayMinMinutes, sPlayerbotAIConfig.coaCityStayMaxMinutes);
+                // At least a minute: a zero stay would fall back to the short stop of a plain NPC visit.
+                info.cityStayMs = std::max<uint32>(urand(shortest, longest), 1) * MINUTE * IN_MILLISECONDS;
                 return true;
             }
             if (info.HasStatusPersisted(statusGoCityDuration))

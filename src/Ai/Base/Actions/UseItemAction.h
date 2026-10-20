@@ -26,6 +26,7 @@ public:
     bool isPossible() override;
 
 protected:
+    bool ExecuteUse(Event event);
     bool UseItemAuto(Item* item);
     bool UseItemOnGameObject(Item* item, ObjectGuid go);
     bool UseItemOnItem(Item* item, Item* itemTarget);
@@ -33,6 +34,9 @@ protected:
     bool UseGameObject(ObjectGuid guid);
     void TellConsumableUse(Item* item, std::string const action, float percent);
     bool SocketItem(Item* item, Item* gem, bool replace = false);
+
+    // A real player asked for this use: only then does the bot say what it uses.
+    bool ordered = false;
 
 private:
     bool selfOnly;

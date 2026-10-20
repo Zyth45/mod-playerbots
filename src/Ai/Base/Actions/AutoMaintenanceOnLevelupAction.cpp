@@ -36,6 +36,7 @@ bool AutoMaintenanceOnLevelupAction::Execute(Event /*event*/)
 
     // One Character Advancement point per level from 10.
     ApplyCoaTalents(bot);
+    SpendAltBotTalentPoints(bot);
 
     AutoPickTalents();
     AutoLearnSpell();
@@ -51,6 +52,12 @@ void AutoMaintenanceOnLevelupAction::AutoTeleportForLevel()
         return;
 
     if (botAI->HasGameClientMaster())
+        return;
+
+    // CoA: a bot re-rolled to the level of the player it was just offered to (lfg bot) stays where it is: the far
+    // teleport resets its AI, which dropped the queued "accept invitation", and every later invite said "already
+    // in a group" (12/10). Accepting brings it to the player anyway.
+    if (CoaLfgOfferedToOther(bot, nullptr) || bot->GetGroupInvite())
         return;
 
     sRandomPlayerbotMgr.RandomTeleportForLevel(bot);
@@ -140,6 +147,9 @@ void AutoMaintenanceOnLevelupAction::LearnQuestSpells(std::ostringstream* out)
             if (spellInfo->Effects[i].Effect == SPELL_EFFECT_LEARN_SPELL && spellInfo->Effects[i].TriggerSpell &&
                 !bot->HasSpell(spellInfo->Effects[i].TriggerSpell))
             {
+                if (PlayerbotFactory::IsCoaForeignClassSpell(bot, spellInfo->Effects[i].TriggerSpell))
+                    break;
+
                 if (SpellInfo const* triggeredInfo = sSpellMgr->GetSpellInfo(spellInfo->Effects[i].TriggerSpell))
                     if (triggeredInfo->Effects[0].Effect == SPELL_EFFECT_TRADE_SKILL)
                         break;

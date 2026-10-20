@@ -20,6 +20,11 @@ bool RandomBotUpdateAction::Execute(Event /*event*/)
             return true;
     }
 
+    // A bot waiting for its player to log back in is not refreshed out of his group meanwhile: the release
+    // of the whole group after AiPlayerbot.CoaOrphanGroupReleaseDelay comes from RandomPlayerbotMgr.
+    if (sPlayerbotAIConfig.coaOrphanGroupReleaseDelay && sRandomPlayerbotMgr.CoaIsOrphanGroup(bot->GetGroup()))
+        return true;
+
     if (botAI->HasPlayerNearby(sPlayerbotAIConfig.grindDistance))
         return true;
 

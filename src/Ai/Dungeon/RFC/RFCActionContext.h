@@ -20,12 +20,14 @@ class VanillaDungeonRFCActionContext : public NamedObjectContext<Action>
             creators["attack jergosh add"] = &VanillaDungeonRFCActionContext::attack_jergosh_add;
             creators["attack bazzalan"] = &VanillaDungeonRFCActionContext::attack_bazzalan;
             creators["avoid fire nova"] = &VanillaDungeonRFCActionContext::avoid_fire_nova;
+            creators["hide behind earth pillar"] = &VanillaDungeonRFCActionContext::hide_behind_earth_pillar;
         }
     private:
         static Action* attack_oggleflint_add(PlayerbotAI* ai) { return new AttackOggleflintAddAction(ai); }
         static Action* attack_jergosh_add(PlayerbotAI* ai) { return new AttackJergoshAddAction(ai); }
         static Action* attack_bazzalan(PlayerbotAI* ai) { return new AttackBazzalanAction(ai); }
         static Action* avoid_fire_nova(PlayerbotAI* ai) { return new TaragamanAvoidFireNovaAction(ai); }
+        static Action* hide_behind_earth_pillar(PlayerbotAI* ai) { return new TaragamanHideBehindPillarAction(ai); }
 };
 
 #endif

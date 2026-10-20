@@ -5,10 +5,14 @@
  */
 
 #include "PlayerbotAI.h"
+
+#include <functional>
+#include "RaceMgr.h"
 #include "CoaSpecialization.h"
 #include "CoaWildcard.h"
 #include "AiFactory.h"
 #include "BudgetValues.h"
+#include "CellImpl.h"
 #include "ChannelMgr.h"
 #include "CharacterPackets.h"
 #include "ChatHelper.h"
@@ -22,7 +26,10 @@
 #include "ExternalEventHelper.h"
 #include "GameObjectData.h"
 #include "GameTime.h"
+#include "GridNotifiers.h"
+#include "GridNotifiersImpl.h"
 #include "GuildMgr.h"
+#include "Helpers.h"
 #include "LFGMgr.h"
 #include "LastMovementValue.h"
 #include "LastSpellCastValue.h"
@@ -73,6 +80,70 @@ constexpr uint32 SPELL_TITAN_GRIP = 49152;
 constexpr uint32 SPELL_DK_FROST_PRESENCE = 48263;
 constexpr uint32 SPELL_GRAVITY_LAPSE_TK = 39432;
 constexpr uint32 SPELL_GRAVITY_LAPSE_MGT = 44226;
+
+// A creature an enemy area spell centred on (x, y, z) would hit although it isn't fighting yet:
+// neutral or hostile, attackable, not a critter, totem, trigger or player-controlled unit.
+class IdleCreatureInAoeCheck
+{
+public:
+    IdleCreatureInAoeCheck(Player* bot, SpellInfo const* spellInfo, float x, float y, float z, float radius,
+                           Unit const* skip)
+        : _bot(bot), _spellInfo(spellInfo), _x(x), _y(y), _z(z), _radius(radius), _skip(skip) {}
+
+    bool operator()(Unit* unit)
+    {
+        Creature* creature = unit->ToCreature();
+        if (!creature || creature == _skip || !creature->IsAlive() || creature->IsInCombat() ||
+            creature->IsInEvadeMode())
+            return false;
+
+        if (creature->IsCritter() || creature->IsTotem() || creature->IsTrigger() ||
+            creature->IsControlledByPlayer() || !creature->IsVisible())
+            return false;
+
+        return creature->IsWithinDist3d(_x, _y, _z, _radius) && _bot->IsValidAttackTarget(creature, _spellInfo);
+    }
+
+private:
+    Player* _bot;
+    SpellInfo const* _spellInfo;
+    float _x, _y, _z, _radius;
+    Unit const* _skip;
+};
+}
+
+bool PlayerbotAI::AoeWouldPullIdleCreature(SpellInfo const* spellInfo, float x, float y, float z, Unit const* skip)
+{
+    // AiPlayerbot.CoaAoeNoIdlePull, in dungeons and raids only: outside, a pulled mob is one more mob, and the
+    // grid search would run for every area spell of thousands of random bots.
+    if (!sPlayerbotAIConfig.coaAoeNoIdlePull || !bot->GetMap() || !bot->GetMap()->IsDungeon())
+        return false;
+
+    if (!spellInfo || spellInfo->IsPositive() || !spellInfo->IsAffectingArea())
+        return false;
+
+    float radius = 0.0f;
+    for (uint8 i = EFFECT_0; i < MAX_SPELL_EFFECTS; ++i)
+    {
+        SpellEffectInfo const& effect = spellInfo->Effects[i];
+        if (!effect.IsEffect())
+            continue;
+
+        bool const enemyArea = (effect.TargetA.IsArea() && effect.TargetA.GetCheckType() == TARGET_CHECK_ENEMY) ||
+                               (effect.TargetB.IsArea() && effect.TargetB.GetCheckType() == TARGET_CHECK_ENEMY);
+        if (enemyArea || effect.IsEffect(SPELL_EFFECT_PERSISTENT_AREA_AURA))
+            radius = std::max(radius, effect.CalcRadius(bot));
+    }
+
+    if (radius <= 0.0f)
+        return false;
+
+    Unit* found = nullptr;
+    IdleCreatureInAoeCheck check(bot, spellInfo, x, y, z, radius, skip);
+    Acore::UnitSearcher<IdleCreatureInAoeCheck> searcher(bot, found, check);
+    // The check adds each creature's own size, so search a little wider than the spell's radius.
+    Cell::VisitObjects(x, y, bot->GetMap(), searcher, radius + 10.0f);
+    return found != nullptr;
 }
 
 std::vector<std::string> PlayerbotAI::dispel_whitelist = {
@@ -293,6 +364,17 @@ void PlayerbotAI::UpdateAI(uint32 elapsed, bool minimal)
         bot->GetSession()->isLogingOut() || bot->IsDuringRemoveFromWorld())
         return;
 
+    // A bot left with the taxi flag but no flight (flight path cut short, map change mid-flight) stays
+    // mounted and frozen: clean up what the end of the flight should have.
+    if (bot->HasUnitFlag(UNIT_FLAG_TAXI_FLIGHT) && !bot->IsInFlight() &&
+        bot->GetMotionMaster()->GetCurrentMovementGeneratorType() != FLIGHT_MOTION_TYPE)
+    {
+        LOG_INFO("playerbots", "Bot {} stuck after taxi flight on map {} at {:.1f} {:.1f} {:.1f}, cleaning up",
+                 bot->GetName(), bot->GetMapId(), bot->GetPositionX(), bot->GetPositionY(), bot->GetPositionZ());
+        bot->GetMotionMaster()->MovementExpired();
+        bot->CleanupAfterTaxiFlight();
+    }
+
     // Handle cheat options (set bot health and power if cheats are enabled)
     if (bot->IsAlive() &&
         (static_cast<uint32>(GetCheat()) > 0 || static_cast<uint32>(sPlayerbotAIConfig.botCheatMask) > 0))
@@ -311,6 +393,13 @@ void PlayerbotAI::UpdateAI(uint32 elapsed, bool minimal)
 
     if (!CanUpdateAI())
         return;
+
+    // Under a mind control the charmer's AI drives the bot: its own engine kept casting and moving against it.
+    if (bot->IsCharmed())
+    {
+        YieldThread(bot, GetReactDelay());
+        return;
+    }
 
     // Handle a spell that is still in its preparing phase (including channeled spells).
     Spell* currentSpell = bot->GetCurrentSpell(CURRENT_GENERIC_SPELL);
@@ -336,6 +425,14 @@ void PlayerbotAI::UpdateAI(uint32 elapsed, bool minimal)
                 Unit* spellTarget = currentSpell->m_targets.GetUnitTarget();
                 // Interrupt if target is dead or spell can't target dead units
                 if (spellTarget && !spellTarget->IsAlive() && !spellInfo->IsAllowingDeadTarget())
+                {
+                    bot->InterruptSpell(currentSpell->GetCurrentContainer());
+                    YieldThread(bot, GetReactDelay());
+                    return;
+                }
+
+                // The target raised a reflect during the cast: the spell would come back at the bot.
+                if (spellTarget && WouldBeReflected(bot, spellInfo, spellTarget))
                 {
                     bot->InterruptSpell(currentSpell->GetCurrentContainer());
                     YieldThread(bot, GetReactDelay());
@@ -493,10 +590,10 @@ void PlayerbotAI::UpdateAIGroupMaster()
                 botAI->ChangeStrategy("+follow", BOT_STATE_NON_COMBAT);
 
                 if (botAI->GetMaster() == botAI->GetGroupLeader())
-                    botAI->TellMaster(PlayerbotTextMgr::instance().GetBotTextOrDefault(
+                    botAI->TellMasterGreeting(PlayerbotTextMgr::instance().GetBotTextOrDefault(
                         "hello_follow", "Hello, I follow you!", {}));
                 else
-                    botAI->TellMaster(PlayerbotTextMgr::instance().GetBotTextOrDefault(
+                    botAI->TellMasterGreeting(PlayerbotTextMgr::instance().GetBotTextOrDefault(
                         "hello", "Hello!", {}));
             }
             else
@@ -1671,6 +1768,9 @@ void PlayerbotAI::ChangeEngine(BotState type)
 
 void PlayerbotAI::ChangeEngineOnCombat()
 {
+    CoaRestoreAncestralCombat(bot);
+    coaAncestralCombatCheckedAt = getMSTime();
+
     if (HasStrategy("wait for attack", BOT_STATE_COMBAT))
         aiObjectContext->GetValue<time_t>("combat start time")->Set(time(nullptr));
 
@@ -1742,6 +1842,64 @@ void PlayerbotAI::DoNextAction(bool min)
         if (currentTarget != nullptr)
         {
             aiObjectContext->GetValue<Unit*>("current target")->Set(nullptr);
+        }
+
+        if (sPlayerbotAIConfig.coaKeepCombatEngine && !aiObjectContext->GetValue<GuidVector>("attackers")->Get().empty())
+        {
+            ChangeEngine(BOT_STATE_COMBAT);
+            return;
+        }
+    }
+
+    // AiPlayerbot.Coa.AncestralCombatFix: a Barbarian that stays in combat from one pack to the next, or
+    // changes form, loses the aura without a new start of fight; looked at again every 5 seconds.
+    if (sPlayerbotAIConfig.coaAncestralCombatFix && currentEngine == engines[BOT_STATE_COMBAT] &&
+        GetMSTimeDiffToNow(coaAncestralCombatCheckedAt) >= 5000)
+    {
+        coaAncestralCombatCheckedAt = getMSTime();
+        CoaRestoreAncestralCombat(bot);
+    }
+
+    if (!bot->IsInCombat() && GetMSTimeDiffToNow(coaGearCheckedAt) >= 10000)
+    {
+        coaGearCheckedAt = getMSTime();
+        if (sPlayerbotAIConfig.coaGearByContent)
+            sRandomPlayerbotMgr.CoaUpdateGear(bot);
+
+        CoaTankThreatBonus(bot);
+        CoaTankThreatBuffs(this, bot);
+
+        // In a group with a tank, the pet of a bot that is no tank leaves its taunt (Growl, Torment) to the tank; on its
+        // own it casts it again, to hold the mobs off its master. Only in dungeons before: since pets assist in 2.0, they
+        // took the boss off a bench tank in the open world up to 10 times a fight (10/10).
+        if (Pet* pet = bot->GetPet(); pet && GetCoaRole(bot) != CoaRole::Tank)
+        {
+            bool instance = bot->GetMap()->IsDungeon();
+            if (Group* group = bot->GetGroup(); group && !instance)
+                for (GroupReference* ref = group->GetFirstMember(); ref && !instance; ref = ref->next())
+                    if (Player* member = ref->GetSource(); member && member != bot && member->IsAlive() && IsTank(member))
+                        instance = true;
+            for (auto const& [spellId, petSpell] : pet->m_spells)
+                if (SpellInfo const* info = sSpellMgr->GetSpellInfo(spellId);
+                    petSpell.state != PETSPELL_REMOVED && info && info->IsAutocastable() && CoaTankOnlySpell(bot, info, pet) &&
+                    (petSpell.active == ACT_ENABLED) == instance)
+                    pet->ToggleAutocast(info, !instance);
+        }
+
+        // A bot standing still indoors gets off its mount: one stayed mounted in the Scarlet Raven Tavern
+        // (jealous-sound/azerothcore-wotlk-coa#6802).
+        if (bot->IsMounted() && !bot->isMoving() && !bot->IsInFlight() && !bot->GetTransport() && !bot->IsOutdoors())
+            bot->RemoveAurasByType(SPELL_AURA_MOUNTED);
+
+        // A bot out of a taxi kept its flying or gravity flag and floated over the flight master: it sends no landing
+        // packet (Orgrimmar, jealous-sound/azerothcore-wotlk-coa#6261).
+        if (!bot->IsInFlight() && !bot->GetTransport() && !bot->IsInWater() && !bot->HasAuraType(SPELL_AURA_FLY) &&
+            !bot->HasAuraType(SPELL_AURA_MOD_INCREASE_MOUNTED_FLIGHT_SPEED) &&
+            (bot->HasUnitMovementFlag(MOVEMENTFLAG_FLYING) || bot->HasUnitMovementFlag(MOVEMENTFLAG_DISABLE_GRAVITY)))
+        {
+            bot->SetDisableGravity(false);
+            bot->RemoveUnitMovementFlag(MOVEMENTFLAG_FLYING);
+            bot->GetMotionMaster()->MoveFall();
         }
     }
 
@@ -1850,11 +2008,11 @@ void PlayerbotAI::ApplyInstanceStrategies(uint32 mapId, bool tellMaster)
 {
     static const std::vector<std::string> allInstanceStrategies =
     {
-        "aq20", "blacktemple", "bwl", "gruulslair", "hyjal", "icc", "karazhan", "magtheridon",
-        "moltencore", "naxx", "onyxia", "rs", "ssc", "tbc-ac", "tbc-mech", "tbc-mgt", "tbc-seth", "tbc-ub",
-        "tempestkeep", "ulduar", "vanilla-rfc", "vanilla-sfk", "voa", "wotlk-an", "wotlk-cos", "wotlk-dtk",
-        "wotlk-eoe", "wotlk-fos", "wotlk-gd", "wotlk-hol", "wotlk-hos", "wotlk-nex", "wotlk-occ", "wotlk-ok",
-        "wotlk-os", "wotlk-pos", "wotlk-toc", "wotlk-uk", "wotlk-up", "wotlk-vh", "zulaman"
+        "aq20", "blacktemple", "bwl", "gruulslair", "hyjal", "icc", "karazhan", "magtheridon", "moltencore", "naxx",
+        "onyxia", "rs", "ssc", "tbc-ac", "tbc-mech", "tbc-mgt", "tbc-seth", "tbc-ub", "tempestkeep", "ulduar",
+        "vanilla-rfc", "vanilla-sfk", "vanilla-sm", "voa", "wotlk-an", "wotlk-cos", "wotlk-dtk", "wotlk-eoe",
+        "wotlk-fos", "wotlk-gd", "wotlk-hol", "wotlk-hos", "wotlk-nex", "wotlk-occ", "wotlk-ok", "wotlk-os",
+        "wotlk-pos", "wotlk-toc", "wotlk-uk", "wotlk-up", "wotlk-vh", "zulaman"
     };
 
     for (std::string const& strat : allInstanceStrategies)
@@ -1868,6 +2026,9 @@ void PlayerbotAI::ApplyInstanceStrategies(uint32 mapId, bool tellMaster)
     {
         case 33:
             strategyName = "vanilla-sfk";  // Shadowfang Keep
+            break;
+        case 189:
+            strategyName = "vanilla-sm";  // Scarlet Monastery
             break;
         case 249:
             strategyName = "onyxia";  // Onyxia's Lair
@@ -2506,6 +2667,52 @@ int32 PlayerbotAI::GetMeleeIndex(Player* player)
     return 0;
 }
 
+// Spell::Spell's m_canReflect rule, then the chance Unit::SpellHitResult rolls. Under half, the bot casts anyway: a
+// passive 10 % reflect must not stop it fighting. Before 2.5 nothing looked: in the Steamvault two bots started 100
+// casts on Kalithresh during his 6 s full reflect (ladiabale, 16/10).
+bool PlayerbotAI::WouldBeReflected(Unit* caster, SpellInfo const* spellInfo, Unit* target)
+{
+    if (!caster || !spellInfo || !target || target == caster || !caster->IsValidAttackTarget(target))
+        return false;
+
+    if (!target->HasAuraType(SPELL_AURA_REFLECT_SPELLS) && !target->HasAuraType(SPELL_AURA_REFLECT_SPELLS_SCHOOL))
+        return false;
+
+    std::function<bool(SpellInfo const*, uint8)> reflected = [&](SpellInfo const* info, uint8 depth)
+    {
+        bool const canReflect = info->DmgClass == SPELL_DAMAGE_CLASS_MAGIC &&
+                                !info->HasAttribute(SPELL_ATTR0_IS_ABILITY) &&
+                                !info->HasAttribute(SPELL_ATTR1_NO_REFLECTION) &&
+                                !info->HasAttribute(SPELL_ATTR0_NO_IMMUNITIES) && !info->IsPassive() &&
+                                (!info->IsPositive() || info->HasEffect(SPELL_EFFECT_DISPEL));
+        if (canReflect)
+        {
+            int32 chance = target->GetTotalAuraModifier(SPELL_AURA_REFLECT_SPELLS);
+            chance += target->GetTotalAuraModifierByMiscMask(SPELL_AURA_REFLECT_SPELLS_SCHOOL, info->GetSchoolMask());
+            if (chance >= 50)
+                return true;
+        }
+
+        if (depth >= 2)
+            return false;
+
+        for (SpellEffectInfo const& effect : info->Effects)
+        {
+            bool const triggers = effect.Effect == SPELL_EFFECT_TRIGGER_SPELL ||
+                                  effect.Effect == SPELL_EFFECT_TRIGGER_MISSILE ||
+                                  effect.ApplyAuraName == SPELL_AURA_PERIODIC_TRIGGER_SPELL;
+            if (!triggers || !effect.TriggerSpell || effect.TriggerSpell == info->Id)
+                continue;
+            if (SpellInfo const* triggered = sSpellMgr->GetSpellInfo(effect.TriggerSpell))
+                if (reflected(triggered, depth + 1))
+                    return true;
+        }
+        return false;
+    };
+
+    return reflected(spellInfo, 0);
+}
+
 bool PlayerbotAI::IsTank(Player* player, bool bySpec)
 {
     PlayerbotAI* botAi = GET_PLAYERBOT_AI(player);
@@ -2888,13 +3095,13 @@ Player* PlayerbotAI::GetPlayer(ObjectGuid guid)
 
 uint32 GetCreatureIdForCreatureTemplateId(uint32 creatureTemplateId)
 {
-    QueryResult results =
-        WorldDatabase.Query("SELECT guid FROM `creature` WHERE id = {} LIMIT 1;", creatureTemplateId);
-    if (results)
+    // Map-thread safe: resolve from memory, never the world DB.
+    for (auto const& [spawnId, creatureData] : sObjectMgr->GetAllCreatureData())
     {
-        Field* fields = results->Fetch();
-        return fields[0].Get<uint32>();
+        if (creatureData.id == creatureTemplateId)
+            return spawnId;
     }
+
     return 0;
 }
 
@@ -3361,6 +3568,9 @@ bool PlayerbotAI::MasterWantsThis()
 
 bool PlayerbotAI::TellMasterGreeting(std::string const text, PlayerbotSecurityLevel securityLevel)
 {
+    // AiPlayerbot.EnableGreet = 0: no "Hello" whispered on joining a group, a dungeon or coming back to life.
+    if (!sPlayerbotAIConfig.enableGreet)
+        return false;
     greeting = true;
     bool const told = TellMaster(text, securityLevel);
     greeting = false;
@@ -3446,11 +3656,9 @@ bool PlayerbotAI::HasAura(std::string const name, Unit* unit, bool maxStack, boo
     if (!IsValidUnit(unit))
         return false;
 
-    std::wstring wnamepart;
-    if (!Utf8toWStr(name, wnamepart))
+    std::wstring const wnamepart = CoaNameKey(name);
+    if (wnamepart.empty())
         return false;
-
-    wstrToLower(wnamepart);
 
     int auraAmount = 0;
 
@@ -3473,7 +3681,7 @@ bool PlayerbotAI::HasAura(std::string const name, Unit* unit, bool maxStack, boo
 
             // Check if the aura name matches
             std::string_view const auraName = spellInfo->SpellName[0];
-            if (auraName.empty() || auraName.length() != wnamepart.length() || !Utf8FitTo(auraName, wnamepart))
+            if (!CoaNameIs(auraName, wnamepart))
                 continue;
 
             // Check if this is a valid aura for the bot
@@ -3532,11 +3740,9 @@ Aura* PlayerbotAI::GetAura(std::string const name, Unit* unit, bool checkIsOwner
     if (!IsValidUnit(unit))
         return nullptr;
 
-    std::wstring wnamepart;
-    if (!Utf8toWStr(name, wnamepart))
+    std::wstring const wnamepart = CoaNameKey(name);
+    if (wnamepart.empty())
         return nullptr;
-
-    wstrToLower(wnamepart);
 
     for (uint32 auraType = SPELL_AURA_BIND_SIGHT; auraType < TOTAL_AURAS; ++auraType)
     {
@@ -3553,7 +3759,7 @@ Aura* PlayerbotAI::GetAura(std::string const name, Unit* unit, bool checkIsOwner
             std::string const& auraName = spellInfo->SpellName[0];
 
             // Directly skip if name mismatch (both length and content)
-            if (auraName.empty() || auraName.length() != wnamepart.length() || !Utf8FitTo(auraName, wnamepart))
+            if (!CoaNameIs(auraName, wnamepart))
                 continue;
 
             if (!IsRealAura(bot, aurEff, unit))
@@ -3644,6 +3850,65 @@ bool PlayerbotAI::CanCastSpell(uint32 spellid, Unit* target, bool checkHasSpell,
      if (!IsValidUnit(target))
         return false;
 
+    if (CoaTankOnlySpell(bot, sSpellMgr->GetSpellInfo(spellid), target))
+        return false;
+
+    if (CoaRivalBuffBlocks(bot, sSpellMgr->GetSpellInfo(spellid), target))
+        return false;
+
+    // A purge on an enemy wearing nothing it can take off: a Felsworn Tyrant cast Consume Magic 20 times every 2
+    // minutes on a boss with no magic buff, global cooldowns its threat lacked (bench, 10/10).
+    if (target != bot && bot->IsValidAttackTarget(target))
+        if (SpellInfo const* info = sSpellMgr->GetSpellInfo(spellid))
+        {
+            uint32 mask = 0;
+            bool otherEffect = false;
+            for (SpellEffectInfo const& effect : info->Effects)
+            {
+                if (effect.Effect == SPELL_EFFECT_DISPEL || effect.Effect == SPELL_EFFECT_STEAL_BENEFICIAL_BUFF)
+                    mask |= SpellInfo::GetDispelMask(DispelType(effect.MiscValue));
+                else if (effect.IsEffect())
+                    otherEffect = true;
+            }
+            if (mask && !otherEffect)
+            {
+                bool dispellable = false;
+                for (auto const& [id, application] : target->GetAppliedAuras())
+                    if (application->IsPositive() && (application->GetBase()->GetSpellInfo()->GetDispelMask() & mask))
+                    {
+                        dispellable = true;
+                        break;
+                    }
+                if (!dispellable)
+                    return false;
+            }
+        }
+
+    if (CoaCarriesBotAway(bot, sSpellMgr->GetSpellInfo(spellid)))
+        return false;
+
+    // A spell that deals no damage is not cast again on an enemy still wearing the bot's own aura of it for more than
+    // 3 seconds: a spec rotation recast Cripple 28 times in a 3 minute fight on a boss already slowed, global cooldowns
+    // its tank lacked for threat (Felsworn Tyrant, bench, 10/10).
+    if (target != bot)
+        if (SpellInfo const* info = sSpellMgr->GetSpellInfo(spellid); info && !info->IsPositive())
+            if (Aura const* worn = target->GetAura(spellid, bot->GetGUID()); worn && worn->GetDuration() > 3000)
+            {
+                bool damages = false;
+                for (SpellEffectInfo const& effect : info->Effects)
+                    if (effect.Effect == SPELL_EFFECT_SCHOOL_DAMAGE || effect.Effect == SPELL_EFFECT_WEAPON_DAMAGE ||
+                        effect.Effect == SPELL_EFFECT_WEAPON_DAMAGE_NOSCHOOL || effect.Effect == SPELL_EFFECT_NORMALIZED_WEAPON_DMG ||
+                        effect.Effect == SPELL_EFFECT_WEAPON_PERCENT_DAMAGE || effect.Effect == SPELL_EFFECT_HEALTH_LEECH ||
+                        effect.Effect == SPELL_EFFECT_TRIGGER_SPELL || effect.Effect == SPELL_EFFECT_TRIGGER_MISSILE ||
+                        (effect.IsAura() && (effect.ApplyAuraName == SPELL_AURA_PERIODIC_DAMAGE ||
+                                             effect.ApplyAuraName == SPELL_AURA_PERIODIC_LEECH ||
+                                             effect.ApplyAuraName == SPELL_AURA_PERIODIC_DAMAGE_PERCENT)))
+                        damages = true;
+                // A debuff that stacks (Sunder) still climbs to its top.
+                if (!damages && (info->StackAmount <= 1 || worn->GetStackAmount() >= info->StackAmount))
+                    return false;
+            }
+
     if (Pet* pet = bot->GetPet())
         if (pet->HasSpell(spellid))
             return true;
@@ -3657,7 +3922,15 @@ bool PlayerbotAI::CanCastSpell(uint32 spellid, Unit* target, bool checkHasSpell,
         return false;
     }
 
-    if (bot->GetCurrentSpell(CURRENT_CHANNELED_SPELL) != nullptr)
+    // What the core lets through without breaking the bot's channel (Unit::SetCurrentCastedSpell) stays
+    // possible with AiPlayerbot.CoaKeepChannels: a spell the class may cast during it (Brine during a
+    // Stormbringer's Stormflow, Unit::CanCastDuringChannel), or any spell but another channel during a
+    // channel that allows actions (a Barbarian's Berserker). The rotation line that names it is how the bot
+    // weaves it in.
+    Spell const* const channel = bot->GetCurrentSpell(CURRENT_CHANNELED_SPELL);
+    SpellInfo const* const info = sSpellMgr->GetSpellInfo(spellid);
+    if (channel && !(sPlayerbotAIConfig.coaKeepChannels && info && !info->IsChanneled() &&
+                     (channel->GetSpellInfo()->IsActionAllowedChannel() || bot->CanCastDuringChannel(info))))
     {
         if (!sPlayerbotAIConfig.logInGroupOnly || (bot->GetGroup() && HasGameClientMaster()))
             LOG_DEBUG("playerbots", "CanCastSpell() target name: {}, spellid: {}, bot name: {}, failed because has current channeled spell",
@@ -3694,6 +3967,21 @@ bool PlayerbotAI::CanCastSpell(uint32 spellid, Unit* target, bool checkHasSpell,
         return false;
     }
 
+    // Area spells land around the bot unless they are aimed at a unit or a spot (then around the target).
+    // Don't pull creatures that aren't fighting yet with them: a tank's Thunder Clap pulled the Ring of Law
+    // spectators in Blackrock Depths, and the group's area spells kept pulling more.
+    Unit* aoeCenter =
+        (spellInfo->GetExplicitTargetMask() & (TARGET_FLAG_DEST_LOCATION | TARGET_FLAG_UNIT_MASK)) ? target : bot;
+    if (AoeWouldPullIdleCreature(spellInfo, aoeCenter->GetPositionX(), aoeCenter->GetPositionY(),
+                                 aoeCenter->GetPositionZ(), target))
+    {
+        if (!sPlayerbotAIConfig.logInGroupOnly || (bot->GetGroup() && HasGameClientMaster()))
+            LOG_DEBUG("playerbots", "Can cast spell failed. Area spell would pull an idle creature. - target name: {}, spellid: {}, bot name: {}",
+                target->GetName(), spellid, bot->GetName());
+
+        return false;
+    }
+
     uint32 CastingTime = !spellInfo->IsChanneled() ? spellInfo->CalcCastTime(bot) : spellInfo->GetDuration();
     // bool interruptOnMove = spellInfo->InterruptFlags & SPELL_INTERRUPT_FLAG_MOVEMENT;
     if ((CastingTime || spellInfo->IsAutoRepeatRangedSpell()) && bot->isMoving())
@@ -3720,6 +4008,9 @@ bool PlayerbotAI::CanCastSpell(uint32 spellid, Unit* target, bool checkHasSpell,
             }
             // Otherwise, allow Deep Freeze even if immune
         }
+
+        if (WouldBeReflected(bot, spellInfo, target))
+            return false;
 
         if (bot != target && ServerFacade::instance().GetDistance2d(bot, target) > sPlayerbotAIConfig.sightDistance)
         {
@@ -3841,6 +4132,9 @@ bool PlayerbotAI::CanCastSpell(uint32 spellid, float x, float y, float z, bool c
     if (!spellid)
         return false;
 
+    if (CoaTankOnlySpell(bot, sSpellMgr->GetSpellInfo(spellid), nullptr))
+        return false;
+
     Pet* pet = bot->GetPet();
     if (pet && pet->HasSpell(spellid))
         return true;
@@ -3860,6 +4154,9 @@ bool PlayerbotAI::CanCastSpell(uint32 spellid, float x, float y, float z, bool c
         if (bot->GetDistance(x, y, z) > sPlayerbotAIConfig.sightDistance)
             return false;
     }
+
+    if (AoeWouldPullIdleCreature(spellInfo, x, y, z))
+        return false;
 
     Spell* spell = new Spell(bot, spellInfo, TRIGGERED_NONE);
 
@@ -3917,7 +4214,30 @@ bool PlayerbotAI::CastSpell(uint32 spellId, Unit* target, Item* itemTarget)
     // directly and the proc is never consumed. Umbral Glaive has no global
     // cooldown and could then be repeated without end.
     if (uint32 const replacement = bot->GetTemporarySpellReplacement(spellId); replacement && replacement != spellId)
+    {
         spellId = replacement;
+
+        // A swapped-in spell that only puts back a permanent aura the bot already wears won the turn at every tick:
+        // a Knight of Xoroth tank's rotation asked for Call: Hellfire Imp, swapped for Impcaller, and cast it 299
+        // times in a 3 minute fight and almost nothing else (bench, 10/10).
+        if (SpellInfo const* swapped = sSpellMgr->GetSpellInfo(spellId);
+            swapped && swapped->GetMaxDuration() == -1 && bot->HasAura(spellId, bot->GetGUID()))
+        {
+            bool selfOnly = true;
+            for (SpellEffectInfo const& effect : swapped->Effects)
+                if (effect.IsEffect() && effect.TargetA.GetTarget() != TARGET_UNIT_CASTER && effect.TargetA.GetTarget() != 0)
+                    selfOnly = false;
+            if (selfOnly)
+                return false;
+        }
+    }
+
+    // The swapped-in spell may taunt where the one checked did not.
+    if (CoaTankOnlySpell(bot, sSpellMgr->GetSpellInfo(spellId), target ? target : bot))
+        return false;
+
+    if (CoaCarriesBotAway(bot, sSpellMgr->GetSpellInfo(spellId)))
+        return false;
 
     if (!target)
         target = bot;
@@ -3927,6 +4247,9 @@ bool PlayerbotAI::CastSpell(uint32 spellId, Unit* target, Item* itemTarget)
 
     SpellInfo const* spellInfo = sSpellMgr->GetSpellInfo(spellId);
     if (!spellInfo)
+        return false;
+
+    if (WouldBeReflected(bot, spellInfo, target))
         return false;
 
     Pet* pet = bot->GetPet();
@@ -4197,6 +4520,9 @@ bool PlayerbotAI::CastSpell(uint32 spellId, float x, float y, float z, Item* ite
     if (!spellId)
         return false;
 
+    if (CoaTankOnlySpell(bot, sSpellMgr->GetSpellInfo(spellId), nullptr))
+        return false;
+
     Pet* pet = bot->GetPet();
     SpellInfo const* spellInfo = sSpellMgr->GetSpellInfo(spellId);
     if (pet && pet->HasSpell(spellId))
@@ -4285,16 +4611,14 @@ bool PlayerbotAI::CastSpell(uint32 spellId, float x, float y, float z, Item* ite
         return false;
     }
 
-    spell->prepare(&targets);
-
-    if (bot->isMoving() && spell->GetCastTime())
+    if (bot->isMoving() && spellInfo->CalcCastTime(bot))
     {
-        // bot->StopMoving();
         SetNextCheckDelay(sPlayerbotAIConfig.reactDelay);
-        spell->cancel();
         delete spell;
         return false;
     }
+
+    spell->prepare(&targets);
 
     if (spellInfo->Effects[0].Effect == SPELL_EFFECT_OPEN_LOCK || spellInfo->Effects[0].Effect == SPELL_EFFECT_SKINNING)
     {
@@ -4749,10 +5073,25 @@ bool IsSelfBot(Player* player)
     return botAI && botAI->GetMaster() == player;
 }
 
+ChatCommandHolder::ChatCommandHolder(std::string const command, Player* owner, uint32 type, time_t time)
+    : command(command), ownerGuid(owner ? owner->GetGUID() : ObjectGuid::Empty), type(type), time(time)
+{
+}
+
+Player* ChatCommandHolder::GetOwner() { return ownerGuid ? ObjectAccessor::FindConnectedPlayer(ownerGuid) : nullptr; }
+
 bool IsAlliance(uint8 race)
 {
-    return race == RACE_HUMAN || race == RACE_DWARF || race == RACE_NIGHTELF || race == RACE_GNOME ||
-           race == RACE_DRAENEI;
+    if (race == RACE_HUMAN || race == RACE_DWARF || race == RACE_NIGHTELF || race == RACE_GNOME || race == RACE_DRAENEI)
+        return true;
+
+    // Races a realm adds (Worgen, Vrykul, Saberon 97...) take their side from ChrRaces.dbc: they all counted as Horde
+    // (idea of rrawnsley, Zyth45/mod-playerbots#17). Not the race mask, which stops at id 32.
+    if (race <= RACE_DRAENEI)
+        return false;
+
+    ChrRacesEntry const* entry = sChrRacesStore.LookupEntry(race);
+    return entry && entry->TeamID == 7;
 }
 
 Player* PlayerbotAI::FindNewMaster()
@@ -4764,9 +5103,24 @@ Player* PlayerbotAI::FindNewMaster()
         return nullptr;
 
     Player* groupLeader = GetGroupLeader();
-    PlayerbotAI* leaderBotAI = GET_PLAYERBOT_AI(groupLeader);
-    if (!leaderBotAI || IsSelfBot(groupLeader))
-        return groupLeader;
+    if (sPlayerbotAIConfig.coaOrphanGroupReleaseDelay)
+    {
+        // A leader who logged out leaves GetGroupLeader() on the master, null since that logout: another player of
+        // the group is looked for below. A master who is no longer in the group is not kept either.
+        if (groupLeader && !bot->InBattleground() && groupLeader->GetGroup() != group &&
+            groupLeader->GetOriginalGroup() != group)
+            groupLeader = nullptr;
+        if (!groupLeader && bot->InBattleground())
+            return nullptr;
+        if (groupLeader && (!GET_PLAYERBOT_AI(groupLeader) || IsSelfBot(groupLeader)))
+            return groupLeader;
+    }
+    else
+    {
+        PlayerbotAI* leaderBotAI = GET_PLAYERBOT_AI(groupLeader);
+        if (!leaderBotAI || IsSelfBot(groupLeader))
+            return groupLeader;
+    }
 
     // Find the real player in group
     for (GroupReference* gref = group->GetFirstMember(); gref; gref = gref->next())
@@ -4946,6 +5300,14 @@ bool PlayerbotAI::AllowActive(ActivityType activityType)
     {
         if (bot->IsInCombat())
             return true;
+
+        // A member of its group fights nearby: asleep, the bot saw no enemy and never joined the fight that would
+        // have woken it, standing 30 yards away while the others fought (measured in our test arena, 23/09).
+        if (Group* group = bot->GetGroup())
+            for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+                if (Player* member = ref->GetSource(); member && member != bot && member->IsInCombat() &&
+                                                        member->IsInMap(bot) && bot->IsWithinDistInMap(member, 60.0f))
+                    return true;
     }
 
     // bot is inside a BG, dungeon, or raid — always active

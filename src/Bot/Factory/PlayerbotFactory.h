@@ -77,19 +77,35 @@ public:
                                              Trainer::Spell const* trainerSpell);
     void InitClassSpells();
     void InitSpecialSpells();
-    void InitEquipment(bool incremental, bool second_chance = false);
+    // onlySlot: with an EquipmentSlots value, that slot alone is looked at.
+    void InitEquipment(bool incremental, bool second_chance = false, int32 onlySlot = -1);
+    // Gear without its random parts (the quality lowered by RandomGearLoweringChance, the items skipped
+    // at random): every bot of a class and specialization gets the same items, for the test benches.
+    void SetDeterministic(bool on) { deterministic = on; }
+    bool IsDeterministic() const { return deterministic; }
     // A CoA bot under level 5 left naked by an older version gets its class starter kit back.
     static void DressNakedCoaStarter(Player* bot);
     // Takes off the CoA spell ranks above `level`: the core grants them on the way up only, so a bot
     // brought down in level kept the ranks of the level it had. Returns how many were removed.
     static uint32 DropCoaRanksAbove(Player* bot, uint32 level);
+    // Player::removeSpell() never makes the rank below active again: it stays learnt but inactive, and
+    // "spell id" skips inactive ranks, so the bot no longer finds the spell by name until its next login.
+    // Makes the highest rank left of each chain active again, as a login would. Returns how many.
+    static uint32 ReactivateHighestRanks(Player* bot);
     // The lowest level a player of the bot's CoA class is granted that spell at, by the core's tables or
     // the class trainers; NoCoaGrantLevel when none of them knows it.
     static constexpr uint32 NoCoaGrantLevel = 0xFFFF;
     static uint32 CoaGrantLevel(Player* bot, uint32 spellId);
+    // A spell of another class's skill lines, for a CoA class bot: the core hands CoA classes the class
+    // quests of the class they fall back on (a Knight of Xoroth takes warrior quests), and with them
+    // that class's spells (Berserker Stance from "The Affray", jealous-sound #5714).
+    static bool IsCoaForeignClassSpell(Player* bot, uint32 spellId);
+    static bool IsCoaWorldforged(uint32 itemId);
     void InitPet();
     void InitAmmo();
     static uint32 CalcMixedGearScore(uint32 gs, uint32 quality);
+    // An item of the honor quartermasters or with resilience.
+    static bool IsCoaPvpItem(ItemTemplate const* proto);
     static void DestroyEquippedGear(Player* bot);
     static void AutoGear(Player* bot, uint32 itemQuality, uint32 ilvl, bool incremental, bool secondChance = false,
                         bool applyFinishers = true);
@@ -109,6 +125,11 @@ public:
     void InitReputation();
     void InitAttunementQuests();
     void InitGuild();
+
+    // Highest item level InitEquipment takes, whatever the quality (0 = no limit).
+    uint32 maxItemLevel = 0;
+    // PvP gear: an item with resilience is preferred over any without (CoaUpdateGear).
+    bool preferResilience = false;
 
 private:
     enum class ProfessionSpecializationSpell : uint32
@@ -239,6 +260,7 @@ private:
     uint32 level;
     uint32 itemQuality;
     uint32 gearScoreLimit;
+    bool deterministic = false;
     static std::list<uint32> specialQuestIds;
     static std::unordered_map<uint32, std::vector<uint32>> trainerIdCache;
     static std::vector<uint32> enchantSpellIdCache;

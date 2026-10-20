@@ -15,6 +15,7 @@
 
 #include "InviteToGroupAction.h"
 #include "BroadcastHelper.h"
+#include "CoaSpecialization.h"
 #include "Event.h"
 #include "GuildMgr.h"
 #include "PlayerbotOperations.h"
@@ -25,6 +26,10 @@
 bool InviteToGroupAction::Invite(Player* inviter, Player* player)
 {
     if (!player)
+        return false;
+
+    // A bot offered to a player by "lfg bot" neither invites nor is invited by anyone else meanwhile.
+    if (CoaLfgOfferedToOther(player, inviter) || CoaLfgOfferedToOther(inviter, player))
         return false;
 
     if (inviter == player)

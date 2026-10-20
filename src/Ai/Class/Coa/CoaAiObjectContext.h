@@ -8,9 +8,14 @@
 #define _PLAYERBOT_COAAIOBJECTCONTEXT_H
 
 #include "AiObjectContext.h"
+#include "ObjectGuid.h"
 
+#include <array>
 #include <ctime>
+#include <string>
 #include <unordered_map>
+#include <utility>
+#include <vector>
 
 class PlayerbotAI;
 
@@ -49,6 +54,14 @@ public:
     // touched by the bot's own AI update, so no locking.
     std::unordered_map<uint32, time_t> benchedSpells;
 
+    // The spells this bot's rotation lines name (spell name, priority), highest priority first: in a
+    // "buff missing" or "can cast" trigger, or in a cast action. Of a family the world database makes
+    // exclusive (spell_group_stack_rules), the member the highest of them names is the one kept (see
+    // CoaRotationMayCast). Read from the combat and non-combat engines, again whenever one of them is
+    // built anew (a new specialization, "co", a strategy change). Same owner as benchedSpells.
+    std::vector<std::pair<std::string, float>> rotationBuffs;
+    std::array<uint32, 2> rotationBuffsStamps{};
+
     // Ce qu'un soin rend vraiment, pour ce bot : les données du jeu mentent parfois (un sort
     // annoncé « heals for 0 », un autre « heals for 1 104 384 »), seule l'observation tranche.
     // Chez le bot et non sur le serveur : pas de verrou partagé, et cela survit à la coupure des
@@ -59,6 +72,15 @@ public:
 
     // When this tank last pulled on its own (strategy "coa auto pull").
     time_t lastAutoPull = 0;
+    time_t autoPullWaitLogged = 0;
+
+    // getMSTime() of this bot's last kick in a group: the duty to interrupt goes to the bot that
+    // kicked longest ago (AiPlayerbot.CoaInterruptCoordination).
+    uint32 lastInterrupt = 0;
+
+    // The add this bot put in its "prioritized targets" (AiPlayerbot.CoaDungeonPriorities): only that
+    // entry is ever replaced, never a target the player chose.
+    ObjectGuid priorityAdd;
 
     // Since when this bot has been far from the real player it follows, out of a fight.
     time_t farFromPlayerSince = 0;

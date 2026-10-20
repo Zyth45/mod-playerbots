@@ -61,6 +61,9 @@ bool ResetAiAction::Execute(Event event)
     }
     PlayerbotRepository::instance().Reset(botAI);
     botAI->ResetStrategies(false);
-    botAI->TellMaster("AI was reset to defaults");
+    // Said when the player asked for it, not on every change of the group (joining by the dungeon finder whispered it
+    // to the player, 11/10).
+    if (event.getPacket().empty())
+        botAI->TellMaster("AI was reset to defaults");
     return true;
 }

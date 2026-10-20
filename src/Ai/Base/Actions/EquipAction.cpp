@@ -12,7 +12,50 @@
 #include "ItemVisitors.h"
 #include "Playerbots.h"
 #include "StatsWeightCalculator.h"
+#include "DBCStores.h"
+#include "ObjectMgr.h"
+#include "World.h"
 #include <utility>
+
+namespace
+{
+// The link of an equipped item with its random suffix: FormatItem only knows the template, and a bot
+// that put on Watcher's Cape of Spirit told "Watcher's Cape" (jealous-sound/azerothcore-wotlk-coa#6278).
+std::string FormatEquipped(Item* item)
+{
+    ItemTemplate const* proto = item->GetTemplate();
+    int32 const random = item->GetItemRandomPropertyId();
+    LocaleConstant const locale = sWorld->GetDefaultDbcLocale();
+    auto const localised = [locale](auto const& names) -> char const*
+    { return names[locale] && *names[locale] ? names[locale] : names[LOCALE_enUS]; };
+
+    char const* suffix = nullptr;
+    if (random > 0)
+    {
+        if (ItemRandomPropertiesEntry const* entry = sItemRandomPropertiesStore.LookupEntry(uint32(random)))
+            suffix = localised(entry->Name);
+    }
+    else if (random < 0)
+    {
+        if (ItemRandomSuffixEntry const* entry = sItemRandomSuffixStore.LookupEntry(uint32(-random)))
+            suffix = localised(entry->Name);
+    }
+    if (!suffix || !*suffix)
+        return ChatHelper::FormatItem(proto);
+
+    std::string name = proto->Name1;
+    if (ItemLocale const* names = sObjectMgr->GetItemLocale(proto->ItemId))
+        if (names->Name.size() > size_t(locale) && !names->Name[locale].empty())
+            name = names->Name[locale];
+
+    char color[32];
+    snprintf(color, sizeof(color), "%x", ItemQualityColors[proto->Quality]);
+    std::ostringstream out;
+    out << "|c" << color << "|Hitem:" << proto->ItemId << ":0:0:0:0:0:" << random << ":"
+        << item->GetItemSuffixFactor() << "|h[" << name << " " << suffix << "]|h|r";
+    return out.str();
+}
+}  // namespace
 
 bool EquipAction::Execute(Event event)
 {
@@ -76,6 +119,7 @@ void EquipAction::EquipItem(Item* item)
         bot->SetAmmo(itemId);
         std::ostringstream out;
         out << "equipping " << chat->FormatItem(itemProto);
+        if (!silent)
         botAI->TellMaster(out);
         return;
     }
@@ -112,8 +156,9 @@ void EquipAction::EquipItem(Item* item)
             bot->GetSession()->HandleAutoEquipItemSlotOpcode(nicePacket);
 
             std::ostringstream out;
-            out << "Equipping " << chat->FormatItem(itemProto) << " in ranged slot";
-            botAI->TellMaster(out);
+            out << "Equipping " << FormatEquipped(item) << " in ranged slot";
+            if (!silent)
+        botAI->TellMaster(out);
             return;
         }
 
@@ -225,12 +270,14 @@ void EquipAction::EquipItem(Item* item)
 
                     std::ostringstream moveMsg;
                     moveMsg << "Main hand upgrade found. Moving " << chat->FormatItem(oldMHProto) << " to offhand";
-                    botAI->TellMaster(moveMsg);
+                    if (!silent)
+        botAI->TellMaster(moveMsg);
                 }
 
                 std::ostringstream out;
-                out << "Equipping " << chat->FormatItem(itemProto) << " in main hand";
-                botAI->TellMaster(out);
+                out << "Equipping " << FormatEquipped(item) << " in main hand";
+                if (!silent)
+        botAI->TellMaster(out);
                 return;
             }
 
@@ -246,8 +293,9 @@ void EquipAction::EquipItem(Item* item)
                 bot->GetSession()->HandleAutoEquipItemSlotOpcode(nicePacket);
 
                 std::ostringstream out;
-                out << "Equipping " << chat->FormatItem(itemProto) << " in offhand";
-                botAI->TellMaster(out);
+                out << "Equipping " << FormatEquipped(item) << " in offhand";
+                if (!silent)
+        botAI->TellMaster(out);
                 return;
             }
             else
@@ -326,8 +374,9 @@ void EquipAction::EquipItem(Item* item)
     }
 
     std::ostringstream out;
-    out << "Equipping " << chat->FormatItem(itemProto);
-    botAI->TellMaster(out);
+    out << "Equipping " << FormatEquipped(item);
+    if (!silent)
+        botAI->TellMaster(out);
 }
 
 ItemIds EquipAction::SelectInventoryItemsToEquip()
@@ -335,10 +384,16 @@ ItemIds EquipAction::SelectInventoryItemsToEquip()
     CollectItemsVisitor visitor;
     IterateItems(&visitor, ITERATE_ITEMS_IN_BAGS);
 
+    std::vector<ObjectGuid> guids;
+    guids.reserve(visitor.items.size());
+    for (Item* item : visitor.items)
+        if (item)
+            guids.push_back(item->GetGUID());
+
     ItemIds items;
-    for (auto i = visitor.items.begin(); i != visitor.items.end(); ++i)
+    for (ObjectGuid const& guid : guids)
     {
-        Item* item = *i;
+        Item* item = bot->GetItemByGuid(guid);
         if (!item)
             continue;
 
@@ -404,13 +459,17 @@ bool EquipUpgradesPacketAction::Execute(Event event)
     }
 
     ItemIds items = SelectInventoryItemsToEquip();
+    silent = !sPlayerbotAIConfig.coaTellEquipUpgrades;
     EquipItems(items);
+    silent = false;
     return true;
 }
 
 bool EquipUpgradeAction::Execute(Event /*event*/)
 {
     ItemIds items = SelectInventoryItemsToEquip();
+    silent = !sPlayerbotAIConfig.coaTellEquipUpgrades;
     EquipItems(items);
+    silent = false;
     return true;
 }

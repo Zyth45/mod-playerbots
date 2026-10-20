@@ -5,6 +5,8 @@
  */
 
 #include "BattleGroundTactics.h"
+#include "CoaPvpTactics.h"
+#include "GameGraveyard.h"
 #include "ArenaTeam.h"
 #include "ArenaTeamMgr.h"
 #include "BattleGroundJoinAction.h"
@@ -1575,6 +1577,9 @@ bool BGTactics::Execute(Event /*event*/)
         return false;
     }
 
+    if (getName() == "unstuck")
+        return Unstuck(bg);
+
     if (bg->GetStatus() == STATUS_IN_PROGRESS)
         botAI->ChangeStrategy("-buff", BOT_STATE_NON_COMBAT);
 
@@ -2394,10 +2399,36 @@ bool BGTactics::selectObjective(bool reset)
                 break;
             }
 
+            // --- CoA PRIORITY 2b: a base being taken by the enemy: the bots near enough go and take it back.
+            // On CoA test realms bases were assaulted 27 times a game and defended 2: the defenders all went
+            // to the base of the team closest to them, and no other bot ever turned back for one.
+            if (urand(0, 99) < 70)
+            {
+                float closestDist = 150.0f;
+                for (uint32 nodeId : AB_AttackObjectives)
+                {
+                    uint8 state = ab->GetCapturePointInfo(nodeId)._state;
+                    bool underAttack = (team == TEAM_ALLIANCE && state == BG_AB_NODE_STATE_HORDE_CONTESTED) ||
+                                       (team == TEAM_HORDE && state == BG_AB_NODE_STATE_ALLY_CONTESTED);
+                    if (!underAttack)
+                        continue;
+
+                    GameObject* go = bg->GetBGObject(nodeId * BG_AB_OBJECTS_PER_NODE);
+                    if (go && bot->GetDistance(go) < closestDist)
+                    {
+                        closestDist = bot->GetDistance(go);
+                        BgObjective = go;
+                    }
+                }
+            }
+
             // --- PRIORITY 3: Defender logic ---
-            if (isDefender && urand(0, 99) < 85)
+            // CoA: a base under attack first, the closest; otherwise each defender guards one base of the team,
+            // spread by guid, so that every base has its guards instead of all of them standing on one.
+            if (!BgObjective && isDefender && urand(0, 99) < 85)
             {
                 float closestDist = FLT_MAX;
+                std::vector<GameObject*> owned;
                 for (uint32 nodeId : AB_AttackObjectives)
                 {
                     uint8 state = ab->GetCapturePointInfo(nodeId)._state;
@@ -2414,6 +2445,12 @@ bool BGTactics::selectObjective(bool reset)
                     if (!go)
                         continue;
 
+                    if (isOwned)
+                    {
+                        owned.push_back(go);
+                        continue;
+                    }
+
                     float dist = bot->GetDistance(go);
                     if (dist < closestDist)
                     {
@@ -2421,6 +2458,8 @@ bool BGTactics::selectObjective(bool reset)
                         BgObjective = go;
                     }
                 }
+                if (!BgObjective && !owned.empty())
+                    BgObjective = owned[bot->GetGUID().GetCounter() % owned.size()];
             }
 
             // --- PRIORITY 4: Attack objectives ---
@@ -3358,6 +3397,74 @@ bool BGTactics::selectObjectiveWp(std::vector<BattleBotPath*> const& vPaths)
     return moveToObjectiveWp(chosenPath, chosenPathPoint, chosenPathReverse);
 }
 
+// CoA: a bot that stands on one spot for 30 s, out of combat, without a flag and away from its objective, is
+// caught by the terrain: on two CoA test realms the same spot near the Alliance base of Warsong Gulch held bots
+// 3 to 5 minutes, re-picking an objective they could not reach. It takes a few steps in a random direction, and
+// still there after 90 s it is put back at the graveyard of its side. A bot at its objective (a guard on a tower
+// being captured, a base defender) is left alone. Its own action ("bg unstuck", above any rotation line): inside
+// "bg move to objective" (priority 1) it never ran for a bot busy with anything else, such as a Knight of Xoroth
+// recasting a summon for 170 s in Arathi Basin. It is only useful when there is something to do.
+uint8 BGTactics::StuckState(Battleground* bg)
+{
+    if (bg->isArena() || bg->GetStatus() != STATUS_IN_PROGRESS || !bot->IsAlive() || bot->IsInCombat() ||
+        PlayerHasFlag::IsCapturingFlag(bot) || bot->GetVehicle())
+    {
+        stuckSince = 0;
+        return 0;
+    }
+    uint32 const now = getMSTime();
+    if (!stuckSince || bot->GetExactDist2d(stuckAt.GetPositionX(), stuckAt.GetPositionY()) > 3.0f)
+    {
+        stuckAt.Relocate(bot->GetPositionX(), bot->GetPositionY(), bot->GetPositionZ());
+        stuckSince = now;
+        return 0;
+    }
+    uint32 const still = getMSTimeDiff(stuckSince, now);
+    if (still < 30 * IN_MILLISECONDS)
+        return 0;
+    PositionInfo objective = context->GetValue<PositionMap&>("position")->Get()["bg objective"];
+    if (objective.isSet() && bot->GetExactDist2d(objective.x, objective.y) < 15.0f)
+        return 0;
+    if (still >= 90 * IN_MILLISECONDS)
+        return 2;
+    if (lastStep && getMSTimeDiff(lastStep, now) < 10 * IN_MILLISECONDS)
+        return 0;
+    return 1;
+}
+
+bool BGTactics::isUseful()
+{
+    if (getName() != "unstuck")
+        return MovementAction::isUseful();
+    Battleground* bg = bot->GetBattleground();
+    return bg && StuckState(bg) != 0;
+}
+
+bool BGTactics::Unstuck(Battleground* bg)
+{
+    uint8 const state = StuckState(bg);
+    if (state == 2)
+    {
+        stuckSince = 0;
+        if (GraveyardStruct const* graveyard = bg->GetClosestGraveyard(bot))
+        {
+            LOG_INFO("playerbots", "BG unstuck: {} sent to the graveyard (map {})", bot->GetName(), bot->GetMapId());
+            bot->CastStop();
+            bot->TeleportTo(graveyard->Map, graveyard->x, graveyard->y, graveyard->z, bot->GetOrientation());
+            return true;
+        }
+        return false;
+    }
+    if (state != 1)
+        return false;
+    LOG_INFO("playerbots", "BG unstuck: {} steps aside (map {})", bot->GetName(), bot->GetMapId());
+    lastStep = getMSTime();
+    bot->CastStop();
+    float x = bot->GetPositionX(), y = bot->GetPositionY(), z = bot->GetPositionZ();
+    bot->GetRandomPoint(bot->GetPosition(), 12.0f, x, y, z);
+    return MoveTo(bot->GetMapId(), x, y, z);
+}
+
 bool BGTactics::resetObjective()
 {
     Battleground* bg = bot->GetBattleground();
@@ -3685,6 +3792,21 @@ bool BGTactics::atFlag(std::vector<BattleBotPath*> const& vPaths, std::vector<ui
 
         targetFlag = go;
         break;
+    }
+
+    // A player hitting the bot is fought first: each hit interrupts the capture, so a bot pulled to a flag
+    // kept restarting it and let itself be killed when its attacker stood a bit away from the flag.
+    if (targetFlag && bgType != BATTLEGROUND_WS)
+    {
+        for (Unit* attacker : bot->getAttackers())
+        {
+            if (attacker && attacker->IsAlive() && attacker->GetCharmerOrOwnerPlayerOrPlayerItself() &&
+                bot->IsWithinDistInMap(attacker, 40.0f))
+            {
+                context->GetValue<Unit*>("current target")->Set(attacker);
+                return false;
+            }
+        }
     }
 
     // If we found a valid flag/base to interact with
@@ -4277,6 +4399,14 @@ bool ArenaTactics::Execute(Event /*event*/)
     {
         bool losBlocked = !bot->IsWithinLOSInMap(target) || fabs(bot->GetPositionZ() - target->GetPositionZ()) > 5.0f;
 
+        // A CoA ranged bot or healer looks for a spot in sight from range rather than the target's own spot.
+        if (losBlocked && CoaPvp::HandlesLineOfSight(bot))
+        {
+            Position spot;
+            if (CoaPvp::FindSightSpot(bot, target, 28.0f, spot))
+                return MoveTo(target->GetMapId(), spot.GetPositionX(), spot.GetPositionY(), spot.GetPositionZ(), false, true);
+        }
+
         if (losBlocked)
         {
             PathGenerator path(bot);
@@ -4328,6 +4458,10 @@ bool ArenaTactics::moveToCenter(Battleground* bg)
             Preference = 9;
             break;
     }
+
+    // CoA classes all share class id 27: their role picks the spot instead.
+    if (uint32 const coaSpot = CoaPvp::ArenaSpot(bot))
+        Preference = coaSpot;
 
     switch (bg->GetBgTypeID())
     {

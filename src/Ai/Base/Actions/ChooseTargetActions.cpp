@@ -23,11 +23,13 @@ bool AttackEnemyPlayerAction::isUseful()
     return !sPlayerbotAIConfig.IsPvpProhibited(bot->GetZoneId(), bot->GetAreaId());
 }
 
+// CoA: the test was inverted, so only a bot carrying a flag itself ever went for the enemy carrier and the
+// others never hunted it down. A carrier runs home instead.
 bool AttackEnemyFlagCarrierAction::isUseful()
 {
     Unit* target = context->GetValue<Unit*>("enemy flag carrier")->Get();
     return target && ServerFacade::instance().IsDistanceLessOrEqualThan(ServerFacade::instance().GetDistance2d(bot, target), 100.0f) &&
-           PlayerHasFlag::IsCapturingFlag(bot);
+           !PlayerHasFlag::IsCapturingFlag(bot);
 }
 
 bool AggressiveTargetAction::isUseful()
@@ -36,6 +38,14 @@ bool AggressiveTargetAction::isUseful()
         return false;
 
     return true;
+}
+
+bool DropTargetAction::isUseful()
+{
+    if (!sPlayerbotAIConfig.coaKeepCombatEngine || context->GetValue<Unit*>("current target")->Get())
+        return true;
+
+    return !bot->IsInCombat() || context->GetValue<GuidVector>("attackers")->Get().empty();
 }
 
 bool DropTargetAction::Execute(Event /*event*/)
@@ -60,7 +70,9 @@ bool DropTargetAction::Execute(Event /*event*/)
 
     bot->SetTarget(ObjectGuid::Empty);
     bot->SetSelection(ObjectGuid());
-    botAI->ChangeEngine(BOT_STATE_NON_COMBAT);
+    if (!sPlayerbotAIConfig.coaKeepCombatEngine || !bot->IsInCombat() ||
+        context->GetValue<GuidVector>("attackers")->Get().empty())
+        botAI->ChangeEngine(BOT_STATE_NON_COMBAT);
     if (bot->getClass() == CLASS_HUNTER) // Check for Hunter Class
     {
         Spell const* spell = bot->GetCurrentSpell(CURRENT_AUTOREPEAT_SPELL); // Get the current spell being cast by the bot
@@ -81,6 +93,14 @@ bool DropTargetAction::Execute(Event /*event*/)
     //         pet->GetMotionMaster()->MoveFollow(bot, PET_FOLLOW_DIST, pet->GetFollowAngle());
     //     }
     // }
+
+    if (sPlayerbotAIConfig.coaNextTargetSameTick && !botAI->IsHeal(bot) && bot->IsInCombat() &&
+        !context->GetValue<GuidVector>("attackers")->Get().empty())
+    {
+        Unit* next = context->GetValue<Unit*>(PlayerbotAI::IsTank(bot) ? "tank target" : "dps target")->Get();
+        if (next && next->IsInWorld() && next->IsAlive() && !bot->IsFriendlyTo(next))
+            Attack(next);
+    }
 
     return true;
 }

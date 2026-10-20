@@ -14,9 +14,20 @@
 class PlayerbotAI;
 class ThreatManager;
 class Unit;
+struct Position;
 enum class TargetValueExclusionType : uint8;
 
 GuidSet GatherStrategyTargetExclusions(PlayerbotAI* botAI, TargetValueExclusionType type);
+bool HasEnoughAoeTargets(PlayerbotAI* botAI, Position const& center, float range, uint32 minCount);
+
+enum class TargetPriority : uint8
+{
+    Normal = 0,
+    FleeingForAssistance = 1,
+    Marked = 2
+};
+
+bool IsFleeingForAssistance(Unit* unit);
 
 class FindTargetStrategy
 {
@@ -24,17 +35,19 @@ public:
     FindTargetStrategy(PlayerbotAI* botAI) : result(nullptr), botAI(botAI) {}
 
     Unit* GetResult();
-    virtual TargetValueExclusionType GetExclusionType();
     virtual void CheckAttacker(Unit* attacker, ThreatManager* threatMgr) = 0;
     void GetPlayerCount(Unit* creature, uint32* tankCount, uint32* dpsCount);
+    TargetPriority GetPriority(Unit* attacker);
     bool IsHighPriority(Unit* attacker);
 
 protected:
+    bool CheckPriority(Unit* attacker);
+
     Unit* result;
     PlayerbotAI* botAI;
     std::map<Unit*, uint32> tankCountCache;
     std::map<Unit*, uint32> dpsCountCache;
-    bool foundHighPriority = false;
+    TargetPriority highestPriority = TargetPriority::Normal;
 };
 
 class FindNonCcTargetStrategy : public FindTargetStrategy
@@ -55,7 +68,7 @@ public:
     }
 
 protected:
-    Unit* FindTarget(FindTargetStrategy* strategy);
+    Unit* FindTarget(FindTargetStrategy* strategy, GuidSet const& exclusions = {});
 };
 
 class RpgTargetValue : public ManualSetValue<GuidPosition>

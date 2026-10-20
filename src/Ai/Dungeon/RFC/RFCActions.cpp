@@ -52,3 +52,30 @@ bool TaragamanAvoidFireNovaAction::Execute(Event /*event*/)
 
     return MoveAway(boss, wanted - distance);
 }
+
+bool TaragamanHideBehindPillarAction::Execute(Event /*event*/)
+{
+    Unit* boss = TaragamanPillar::Boss(botAI, context);
+    Creature* pillar = TaragamanPillar::Find(bot);
+    if (!boss || !pillar)
+        return false;
+
+    // Holding still counts as success, so nothing of lower priority pulls the bot back into sight.
+    if (TaragamanPillar::HasCore(pillar) &&
+        TaragamanPillar::SafelyHidden(bot, boss, bot->GetPositionX(), bot->GetPositionY(), bot->GetPositionZ()))
+    {
+        if (bot->isMoving())
+            bot->StopMoving();
+        return true;
+    }
+
+    Position const spot = TaragamanPillar::CoverSpot(bot, boss, pillar);
+    if (bot->GetExactDist2d(spot.GetPositionX(), spot.GetPositionY()) <= EARTH_PILLAR_TOLERANCE)
+        return true;
+
+    if (bot->IsNonMeleeSpellCast(false))
+        bot->InterruptNonMeleeSpells(false);
+
+    return MoveTo(bot->GetMapId(), spot.GetPositionX(), spot.GetPositionY(), spot.GetPositionZ(), false, false,
+                  false, true, MovementPriority::MOVEMENT_FORCED);
+}

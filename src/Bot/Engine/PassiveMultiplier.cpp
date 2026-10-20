@@ -19,6 +19,8 @@ PassiveMultiplier::PassiveMultiplier(PlayerbotAI* botAI) : Multiplier(botAI, "pa
         allowedActions.push_back("reset botAI");
         allowedActions.push_back("check mount state");
         allowedActions.push_back("lfg");
+        // A passive bot still steps out of a boss's area cast rather than standing in it.
+        allowedActions.push_back("coa boss dodge");
     }
 
     if (allowedParts.empty())

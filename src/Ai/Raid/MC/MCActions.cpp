@@ -176,7 +176,7 @@ bool McGolemaggTankAction::FindCoreRagers(Unit*& coreRager1, Unit*& coreRager2) 
     for (auto const& target : AI_VALUE(GuidVector, "possible targets no los"))
     {
         Unit* unit = botAI->GetUnit(target);
-        if (unit && unit->IsAlive() && unit->GetEntry() == NPC_CORE_RAGER)
+        if (unit && unit->IsAlive() && IsMcEntry(unit->GetEntry(), NPC_CORE_RAGER))
         {
             if (coreRager1 == nullptr)
                 coreRager1 = unit;
@@ -305,7 +305,7 @@ Unit* McCoreHoundMarkAction::GetTarget()
     for (auto const& [guid, ref] : bot->GetThreatMgr().GetThreatenedByMeList())
     {
         Unit* unit = ref->GetOwner();
-        if (unit && unit->IsAlive() && unit->GetEntry() == NPC_CORE_HOUND)
+        if (unit && unit->IsAlive() && IsMcEntry(unit->GetEntry(), NPC_CORE_HOUND))
         {
             if (!highestHealthHound || unit->GetHealth() > highestHealthHound->GetHealth())
                 highestHealthHound = unit;

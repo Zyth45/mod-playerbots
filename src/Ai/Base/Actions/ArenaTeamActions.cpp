@@ -6,6 +6,7 @@
 
 #include "ArenaTeamActions.h"
 #include "ArenaTeamMgr.h"
+#include "RandomPlayerbotFactory.h"
 #include "PlayerbotTextMgr.h"
 #include "Playerbots.h"
 
@@ -28,6 +29,20 @@ bool ArenaTeamAcceptAction::Execute(Event event)
         return false;
 
     bool accept = true;
+
+    // Invited by its master to play rated arenas together: a bot gives up the team it holds in that slot when that
+    // team is only its own solo queue team or a random bot team it does not lead.
+    if (uint32 heldId = bot->GetArenaTeamId(at->GetSlot()))
+    {
+        ArenaTeam* held = sArenaTeamMgr->GetArenaTeamById(heldId);
+        if (held && inviter == botAI->GetMaster())
+        {
+            if (held->GetMembersSize() <= 1)
+                held->Disband(nullptr);
+            else if (RandomPlayerbotFactory::IsBotArenaTeam(held) && held->GetCaptain() != bot->GetGUID())
+                held->DelMember(bot->GetGUID(), true);
+        }
+    }
 
     if (bot->GetArenaTeamId(at->GetSlot()))
     {

@@ -24,6 +24,11 @@ public:
     void EquipItems(ItemIds ids);
     ItemIds SelectInventoryItemsToEquip();
 
+protected:
+    // Automatic upgrades (loot, trade, "equip upgrade") say nothing unless AiPlayerbot.CoaTellEquipUpgrades is on;
+    // an item the player asks for ("e <item>") is always answered.
+    bool silent = false;
+
 private:
     void EquipItem(FindItemVisitor* visitor);
     uint8 GetSmallestBagSlot();

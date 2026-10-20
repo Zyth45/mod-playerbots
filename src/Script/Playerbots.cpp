@@ -7,6 +7,7 @@
 #include "Playerbots.h"
 #include "CoaSpecialization.h"
 #include "BattleGroundTactics.h"
+#include "CoaBossKnowledge.h"
 #include "BattlefieldScript.h"
 #include "Channel.h"
 #include "Config.h"
@@ -16,6 +17,7 @@
 #include "PlayerScript.h"
 #include "PlayerbotAIConfig.h"
 #include "PlayerbotCommandScript.h"
+#include "PlayerbotCommandServer.h"
 #include "PlayerbotGuildMgr.h"
 #include "PlayerbotSpellRepository.h"
 #include "PlayerbotOperations.h"
@@ -23,9 +25,13 @@
 #include "RandomPlayerbotMgr.h"
 #include "ScriptMgr.h"
 #include "cmath"
+#include <algorithm>
 
 // Shown to players at login: bump it with every CoA Bots release.
-static constexpr char const* COA_BOTS_VERSION = "1.6";
+static constexpr char const* COA_BOTS_VERSION = "2.5";
+
+// For ".playerbots version", which still answers when a host removed the login message.
+char const* CoaBotsVersion() { return COA_BOTS_VERSION; }
 
 class PlayerbotsDatabaseScript : public DatabaseScript
 {
@@ -74,6 +80,7 @@ class PlayerbotsPlayerScript : public PlayerScript
 public:
     PlayerbotsPlayerScript() : PlayerScript("PlayerbotsPlayerScript", {
         PLAYERHOOK_ON_LOGIN,
+        PLAYERHOOK_ON_SAVE,
         PLAYERHOOK_ON_AFTER_UPDATE,
         PLAYERHOOK_ON_BEFORE_CRITERIA_PROGRESS,
         PLAYERHOOK_ON_BEFORE_ACHI_COMPLETE,
@@ -119,6 +126,25 @@ public:
                 }));
     }
 
+    // Player::SaveToDB has just set the next autosave to PlayerSaveInterval. For a randombot without a real
+    // player as master, push it out to AiPlayerbot.RandomBotSaveInterval: fewer database writes with
+    // thousands of bots.
+    void OnPlayerSave(Player* player) override
+    {
+        uint32 const interval =
+            std::min<uint32>(sPlayerbotAIConfig.randomBotSaveInterval, UINT32_MAX / IN_MILLISECONDS) * IN_MILLISECONDS;
+        if (interval <= player->GetSaveTimer() || !player->GetSession() || !player->GetSession()->IsBot() ||
+            !sRandomPlayerbotMgr.IsRandomBot(player))
+            return;
+
+        if (PlayerbotAI* botAI = GET_PLAYERBOT_AI(player))
+            if (Player* master = botAI->GetMaster())
+                if (master->GetSession() && !master->GetSession()->IsBot())
+                    return;
+
+        player->SetSaveTimer(interval);
+    }
+
     void OnPlayerLogin(Player* player) override
     {
         if (!player->GetSession()->IsBot())
@@ -133,11 +159,12 @@ public:
             if (sPlayerbotAIConfig.enabled)
             {
                 ChatHandler(player->GetSession()).SendSysMessage(
-                    "|cff00ff00This server runs with |cff00ccffmod-playerbots|r "
-                    "|cffcccccchttps://github.com/mod-playerbots/mod-playerbots|r");
+                    "|cff00ff00For easy bot control, use the SquidBots addon:|r "
+                    "|cffcccccchttps://github.com/Zyth45/squidbots-addon|r");
+                // The source of this build (mod-playerbots and every CoA change) stays linked here.
                 ChatHandler(player->GetSession()).SendSysMessage(
                     std::string("|cff00ff00CoA Bots|r |cff00ccffv") + COA_BOTS_VERSION +
-                    "|r |cffcccccchttps://github.com/Zyth45/mod-playerbots|r");
+                    "|r (|cff00ccffmod-playerbots|r) |cffcccccchttps://github.com/Zyth45/mod-playerbots|r");
             }
 
             if (sPlayerbotAIConfig.enabled || sPlayerbotAIConfig.randomBotAutologin)
@@ -213,9 +240,9 @@ public:
 
     using PlayerScript::OnPlayerCanUseChat;  // keep the base overloads visible
 
-    bool OnPlayerCanUseChat(Player* player, uint32 type, uint32 /*lang*/, std::string& msg, Player* receiver) override
+    bool OnPlayerCanUseChat(Player* player, uint32 type, uint32 lang, std::string& msg, Player* receiver) override
     {
-        if (type != CHAT_MSG_WHISPER)
+        if (type != CHAT_MSG_WHISPER || lang == LANG_ADDON)
         {
             return true;
         }
@@ -238,8 +265,12 @@ public:
         return true;
     }
 
-    bool OnPlayerCanUseChat(Player* player, uint32 type, uint32 /*lang*/, std::string& msg, Group* group) override
+    bool OnPlayerCanUseChat(Player* player, uint32 type, uint32 lang, std::string& msg, Group* group) override
     {
+        // Addon traffic (DBM, Carbonite, ...) is no bot command; its text used to trigger item commands like trade.
+        if (lang == LANG_ADDON)
+            return true;
+
         for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
         {
             Player* const member = itr->GetSource();
@@ -258,9 +289,9 @@ public:
         return true;
     }
 
-    bool OnPlayerCanUseChat(Player* player, uint32 type, uint32 /*lang*/, std::string& msg, Guild* /*guild*/) override
+    bool OnPlayerCanUseChat(Player* player, uint32 type, uint32 lang, std::string& msg, Guild* /*guild*/) override
     {
-        if (type != CHAT_MSG_GUILD)
+        if (type != CHAT_MSG_GUILD || lang == LANG_ADDON)
             return true;
 
         PlayerbotMgr* playerbotMgr = PlayerbotsMgr::instance().GetPlayerbotMgr(player);
@@ -375,7 +406,8 @@ class PlayerbotsWorldScript : public WorldScript
 public:
     PlayerbotsWorldScript() : WorldScript("PlayerbotsWorldScript", {
         WORLDHOOK_ON_BEFORE_WORLD_INITIALIZED,
-        WORLDHOOK_ON_UPDATE
+        WORLDHOOK_ON_UPDATE,
+        WORLDHOOK_ON_SHUTDOWN
     }) {}
 
     void OnBeforeWorldInitialized() override
@@ -407,6 +439,9 @@ public:
 
         PlayerbotSpellRepository::Instance().Initialize();
 
+        if (sPlayerbotAIConfig.coaBossKnowledge)
+            CoaBossKnowledge::Load();
+
         LOG_INFO("server.loading", "Playerbots World Thread Processor initialized");
     }
 
@@ -414,6 +449,13 @@ public:
     {
         PlayerbotWorldThreadProcessor::instance().Update(diff);
         sRandomPlayerbotMgr.UpdateAI(diff);  // World thread only
+        sRandomPlayerbotMgr.CoaReleaseOrphanGroups();
+    }
+
+    void OnShutdown() override
+    {
+        // Command server sessions run on detached threads that would otherwise outlive the world thread processor.
+        PlayerbotCommandServer::instance().Stop();
     }
 };
 
@@ -567,6 +609,7 @@ void AddSC_randombot_level_mgr();
 
 void AddSC_coa_group_telemetry();
 void AddSC_coa_status_file();
+void AddSC_coa_arena_ready();
 
 void AddPlayerbotsScripts()
 {
@@ -590,5 +633,6 @@ void AddPlayerbotsScripts()
     AddSC_randombot_level_mgr();
     AddSC_coa_group_telemetry();
     AddSC_coa_status_file();
+    AddSC_coa_arena_ready();
     AddSC_coa_lfg();
 }

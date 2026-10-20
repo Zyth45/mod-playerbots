@@ -16,10 +16,10 @@
 
 enum class TargetValueExclusionType : uint8
 {
-    None = 0,
-    Tank,
-    Dps,
-    Attacker
+    TankTarget,
+    DpsTarget,     // also "dps aoe target"
+    DebuffTarget,  // "attacker without aura", "melee attacker without aura"
+    Aoe,
 };
 
 enum StrategyType : uint32

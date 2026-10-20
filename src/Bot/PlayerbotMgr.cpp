@@ -5,6 +5,7 @@
  */
 
 #include "PlayerbotMgr.h"
+#include "CoaSpecialization.h"
 #include "BroadcastHelper.h"
 #include "ChannelMgr.h"
 #include "CharacterCache.h"
@@ -28,6 +29,7 @@
 #include "Playerbots.h"
 #include "RandomPlayerbotMgr.h"
 #include "SharedDefines.h"
+#include "Timer.h"
 #include "WorldSession.h"
 #include "WorldSessionMgr.h"
 #include <algorithm>
@@ -574,7 +576,7 @@ void PlayerbotHolder::OnBotLogin(Player* const bot)
     // set delay on login
     botAI->SetNextCheckDelay(urand(2000, 4000));
 
-    botAI->TellMaster(PlayerbotTextMgr::instance().GetBotTextOrDefault(
+    botAI->TellMasterGreeting(PlayerbotTextMgr::instance().GetBotTextOrDefault(
         "hello", "Hello!", {}), PLAYERBOT_SECURITY_TALK);
 
     // Queue group operations for world thread
@@ -654,6 +656,9 @@ void PlayerbotHolder::OnBotLogin(Player* const bot)
         pkt << "";  // Pass
         bot->GetSession()->HandleJoinChannel(pkt);
     }
+
+    // An alt that levelled while its owner played it, or before AutoPickTalentsAltBots existed, catches up here.
+    SpendAltBotTalentPoints(bot);
 
     JoinBotChannels(bot);
 }
@@ -1589,6 +1594,31 @@ void PlayerbotMgr::UpdateAIInternal(uint32 elapsed, bool /*minimal*/)
 {
     SetNextCheckDelay(sPlayerbotAIConfig.reactDelay);
     CheckTellErrors(elapsed);
+    RefreshGroupForMaster();
+}
+
+// Wall-clock delay: `elapsed` above is only the last world tick, not the time since the previous call.
+void PlayerbotMgr::RefreshGroupForMaster()
+{
+    if (!groupRefreshPending || getMSTimeDiff(groupRefreshFrom, getMSTime()) < 3000)
+        return;
+
+    if (!master || !master->IsInWorld())
+        return;  // still loading: try again on a later tick
+
+    groupRefreshPending = false;
+    Group* group = master->GetGroup();
+    if (!group)
+        return;
+
+    group->SendUpdate();
+
+    // The client asked for these names when the master logged in, while the bots were still offline, and does
+    // not ask again when they come online, so the frames kept showing "Unknown" until /reload.
+    if (WorldSession* session = master->GetSession())
+        for (Group::MemberSlot const& slot : group->GetMemberSlots())
+            if (slot.guid != master->GetGUID())
+                session->SendNameQueryOpcode(slot.guid);
 }
 
 void PlayerbotMgr::HandleCommand(uint32 type, std::string const text)
@@ -1729,6 +1759,10 @@ void PlayerbotMgr::OnBotLoginInternal(Player* const bot)
     }
     botAI->SetMaster(master);
     botAI->ResetStrategies();
+
+    // Resend the master's group list a few seconds after the last bot login.
+    groupRefreshPending = true;
+    groupRefreshFrom = getMSTime();
 
     LOG_INFO("playerbots", "Bot {} logged in", bot->GetName().c_str());
 }
@@ -1938,9 +1972,23 @@ void PlayerbotMgr::HandleSetSecurityKeyCommand(Player* player, std::string const
     ChatHandler(player->GetSession()).PSendSysMessage("Security key set successfully.");
 }
 
+static bool IsValidAccountName(std::string const& name)
+{
+    if (name.empty() || name.size() > 32)
+        return false;
+
+    for (char c : name)
+        if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')))
+            return false;
+
+    return true;
+}
+
 void PlayerbotMgr::HandleLinkAccountCommand(Player* player, std::string const& accountName, std::string const& key)
 {
-    QueryResult result = LoginDatabase.Query("SELECT id FROM account WHERE username = '{}'", accountName);
+    QueryResult result = IsValidAccountName(accountName)
+        ? LoginDatabase.Query("SELECT id FROM account WHERE username = '{}'", accountName)
+        : nullptr;
     if (!result)
     {
         ChatHandler(player->GetSession()).PSendSysMessage("Account not found.");
@@ -2018,7 +2066,9 @@ void PlayerbotMgr::HandleViewLinkedAccountsCommand(Player* player)
 
 void PlayerbotMgr::HandleUnlinkAccountCommand(Player* player, std::string const& accountName)
 {
-    QueryResult result = LoginDatabase.Query("SELECT id FROM account WHERE username = '{}'", accountName);
+    QueryResult result = IsValidAccountName(accountName)
+        ? LoginDatabase.Query("SELECT id FROM account WHERE username = '{}'", accountName)
+        : nullptr;
     if (!result)
     {
         ChatHandler(player->GetSession()).PSendSysMessage("Account not found.");

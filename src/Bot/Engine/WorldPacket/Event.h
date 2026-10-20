@@ -7,9 +7,9 @@
 #ifndef PLAYERBOTS_EVENT_H
 #define PLAYERBOTS_EVENT_H
 
+#include "ObjectGuid.h"
 #include "WorldPacket.h"
 
-class ObjectGuid;
 class Player;
 
 class Event
@@ -19,14 +19,8 @@ public:
     Event& operator=(Event const& other) = default;
     Event() {}
     Event(std::string const source) : source(source) {}
-    Event(std::string const source, std::string const param, Player* owner = nullptr)
-        : source(source), param(param), owner(owner)
-    {
-    }
-    Event(std::string const source, WorldPacket& packet, Player* owner = nullptr)
-        : source(source), packet(packet), owner(owner)
-    {
-    }
+    Event(std::string const source, std::string const param, Player* owner = nullptr);
+    Event(std::string const source, WorldPacket& packet, Player* owner = nullptr);
     Event(std::string const source, ObjectGuid object, Player* owner = nullptr);
     virtual ~Event() {}
 
@@ -34,14 +28,15 @@ public:
     std::string const getParam() { return param; }
     WorldPacket& getPacket() { return packet; }
     ObjectGuid getObject();
-    Player* getOwner() { return owner; }
+    // Looked up again by guid: an action queued for later must not use a player who logged out meanwhile.
+    Player* getOwner();
     bool operator!() const { return source.empty(); }
 
 protected:
     std::string source;
     std::string param;
     WorldPacket packet;
-    Player* owner = nullptr;
+    ObjectGuid ownerGuid;
 };
 
 #endif

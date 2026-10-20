@@ -49,7 +49,20 @@ float BazzalanMultiplier::GetValue(Action* action)
 float TaragamanTheHungererMultiplier::GetValue(Action* action)
 {
     Unit* boss = AI_VALUE2(Unit*, "find target", "taragaman the hungerer");
-    if (!boss || !botAI->IsRanged(bot))
+    if (!boss)
+        return 1.0f;
+
+    // Behind the pillar the bot has no line of sight to the boss, and every movement or chase
+    // action would walk it back out into the nova.
+    if (TaragamanPillar::ShouldHide(botAI, bot, context))
+    {
+        if (dynamic_cast<TaragamanHideBehindPillarAction*>(action))
+            return 1.0f;
+
+        return dynamic_cast<MovementAction*>(action) || IsAssist(action) ? 0.0f : 1.0f;
+    }
+
+    if (!botAI->IsRanged(bot))
         return 1.0f;
 
     // While a ranged bot is still inside the nova, nothing else may move it: the formation and

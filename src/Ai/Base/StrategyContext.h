@@ -22,6 +22,7 @@
 #include "EmoteStrategy.h"
 #include "FleeStrategy.h"
 #include "FocusTargetStrategy.h"
+#include "GatherAllStrategy.h"
 #include "FollowMasterStrategy.h"
 #include "ForceRebuff.h"
 #include "GrindingStrategy.h"
@@ -133,6 +134,7 @@ public:
         creators["master fishing"] = &StrategyContext::master_fishing;
         creators["wait for attack"] = &StrategyContext::wait_for_attack;
         creators["focus heal targets"] = &StrategyContext::focus_heal_targets;
+        creators["gather all"] = &StrategyContext::gather_all;
     }
 
 private:
@@ -143,6 +145,7 @@ private:
     static Strategy* tell_target(PlayerbotAI* botAI) { return new TellTargetStrategy(botAI); }
     static Strategy* threat(PlayerbotAI* botAI) { return new ThreatStrategy(botAI); }
     static Strategy* focus(PlayerbotAI* botAI) { return new FocusStrategy(botAI); }
+    static Strategy* gather_all(PlayerbotAI* botAI) { return new GatherAllStrategy(botAI); }
     static Strategy* cast_time(PlayerbotAI* botAI) { return new CastTimeStrategy(botAI); }
     static Strategy* potions(PlayerbotAI* botAI) { return new UsePotionsStrategy(botAI); }
     static Strategy* kite(PlayerbotAI* botAI) { return new KiteStrategy(botAI); }

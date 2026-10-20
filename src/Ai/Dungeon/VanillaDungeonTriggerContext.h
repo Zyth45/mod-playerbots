@@ -9,5 +9,6 @@
 
 #include "RFCTriggerContext.h"
 #include "SFKTriggerContext.h"
+#include "SMTriggerContext.h"
 
 #endif

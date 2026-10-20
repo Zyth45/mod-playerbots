@@ -5,11 +5,27 @@
  */
 
 #include "RangeTriggers.h"
+#include "Formations.h"
 #include "MoveSplineInit.h"
 #include "PlayerbotAIConfig.h"
 #include "Playerbots.h"
 #include "ServerFacade.h"
 #include "SharedDefines.h"
+
+bool InFrontOfTankTrigger::IsActive()
+{
+    if (botAI->IsTank(bot) || (!PlayerbotAI::IsRanged(bot) && !botAI->IsHeal(bot)))
+        return false;
+
+    Unit* target = AI_VALUE(Unit*, "current target");
+    if (!target || !bot->IsValidAttackTarget(target))
+        return false;
+
+    if (bot->GetCurrentSpell(CURRENT_CHANNELED_SPELL) != nullptr)
+        return false;
+
+    return BotIsInFrontOfLivingTank(botAI, bot, target);
+}
 
 bool EnemyTooCloseForSpellTrigger::IsActive()
 {
@@ -203,6 +219,25 @@ bool PartyMemberToHealOutOfSpellRangeTrigger::IsActive()
 PartyMemberToHealOutOfSpellRangeTrigger::PartyMemberToHealOutOfSpellRangeTrigger(PlayerbotAI* botAI)
     : OutOfRangeTrigger(botAI, "party member to heal out of spell range", botAI->GetRange("heal") + 1.0f)
 {
+}
+
+bool TargetOutOfSightTrigger::IsActive()
+{
+    if (!sPlayerbotAIConfig.regainLineOfSight)
+        return false;
+
+    if (botAI->IsHeal(bot))
+        return false;
+
+    Unit* target = AI_VALUE(Unit*, "current target");
+    if (!target || !target->IsAlive())
+        return false;
+
+    // Sight checks are unreliable against large models at point-blank range
+    if (!PlayerbotAI::IsRanged(bot) && bot->IsWithinMeleeRange(target))
+        return false;
+
+    return !bot->IsWithinLOSInMap(target);
 }
 
 bool FarFromMasterTrigger::IsActive()

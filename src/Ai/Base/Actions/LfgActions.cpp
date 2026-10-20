@@ -131,7 +131,8 @@ bool LfgJoinAction::JoinLFG()
 
         /*LFG_TYPE_RANDOM on classic is 15-58 so bot over level 25 will never queue*/
         if ((dungeon->MinLevel && (botLevel < dungeon->MinLevel || botLevel > dungeon->MaxLevel)) ||
-            (botLevel > dungeon->MinLevel + 10 && dungeon->TypeID == LFG_TYPE_DUNGEON))
+            (botLevel > dungeon->MinLevel + 10 && dungeon->TypeID == LFG_TYPE_DUNGEON) ||
+            !RandomPlayerbotMgr::instance().IsNearLfgPlayerLevels(bot->GetTeamId(), dungeon->ID, botLevel))
             continue;
 
         // The finder range comes from the DBC, the entrance checks dungeon_access_template: a bot below

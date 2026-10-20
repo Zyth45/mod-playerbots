@@ -6,7 +6,9 @@
 
 #include "TargetValue.h"
 #include "CombatManager.h"
+#include "Helpers.h"
 #include "LastMovementValue.h"
+#include "MotionMaster.h"
 #include "ObjectGuid.h"
 #include "Playerbots.h"
 #include "RtiTargetValue.h"
@@ -17,7 +19,7 @@
 GuidSet GatherStrategyTargetExclusions(PlayerbotAI* botAI, TargetValueExclusionType type)
 {
     GuidSet exclusions;
-    if (!botAI || type == TargetValueExclusionType::None || !botAI->HasTargetExclusions())
+    if (!botAI || !botAI->HasTargetExclusions())
         return exclusions;
 
     for (auto const& strategyName : botAI->GetStrategies(BOT_STATE_COMBAT))
@@ -32,18 +34,41 @@ GuidSet GatherStrategyTargetExclusions(PlayerbotAI* botAI, TargetValueExclusionT
     return exclusions;
 }
 
-Unit* FindTargetStrategy::GetResult() { return result; }
-
-TargetValueExclusionType FindTargetStrategy::GetExclusionType() { return TargetValueExclusionType::None; }
-
-Unit* TargetValue::FindTarget(FindTargetStrategy* strategy)
+bool HasEnoughAoeTargets(PlayerbotAI* botAI, Position const& center, float range, uint32 minCount)
 {
     GuidVector attackers = botAI->GetAiObjectContext()->GetValue<GuidVector>("attackers")->Get();
-    GuidSet const dynamicExclusions = GatherStrategyTargetExclusions(botAI, strategy->GetExclusionType());
+    auto const isInRange = [&center, range](Unit* unit)
+    { return unit && unit->IsAlive() && unit->GetDistance(center) <= range; };
+
+    uint32 count = 0;
+    for (ObjectGuid const guid : attackers)
+    {
+        if (isInRange(botAI->GetUnit(guid)))
+            ++count;
+    }
+
+    if (count < minCount || !sPlayerbotAIConfig.coaExclusionsEverywhere || !botAI->HasTargetExclusions())
+        return count >= minCount;
+
+    GuidSet const exclusions = GatherStrategyTargetExclusions(botAI, TargetValueExclusionType::Aoe);
+    for (ObjectGuid const guid : attackers)
+    {
+        if (exclusions.find(guid) != exclusions.end() && isInRange(botAI->GetUnit(guid)))
+            --count;
+    }
+
+    return count >= minCount;
+}
+
+Unit* FindTargetStrategy::GetResult() { return result; }
+
+Unit* TargetValue::FindTarget(FindTargetStrategy* strategy, GuidSet const& exclusions)
+{
+    GuidVector attackers = botAI->GetAiObjectContext()->GetValue<GuidVector>("attackers")->Get();
     for (ObjectGuid const guid : attackers)
     {
         Unit* unit = botAI->GetUnit(guid);
-        if (!unit || dynamicExclusions.find(guid) != dynamicExclusions.end())
+        if (!unit || exclusions.find(guid) != exclusions.end())
             continue;
 
         ThreatManager& threatMgr = unit->GetThreatMgr();
@@ -121,25 +146,62 @@ void FindTargetStrategy::GetPlayerCount(Unit* creature, uint32* tankCount, uint3
     dpsCountCache[creature] = *dpsCount;
 }
 
-bool FindTargetStrategy::IsHighPriority(Unit* attacker)
+bool IsFleeingForAssistance(Unit* unit)
 {
-    if (Group* group = botAI->GetBot()->GetGroup())
+    if (!unit || !unit->IsCreature())
+        return false;
+
+    switch (unit->GetMotionMaster()->GetCurrentMovementGeneratorType())
+    {
+        case ASSISTANCE_MOTION_TYPE:
+        case ASSISTANCE_DISTRACT_MOTION_TYPE:
+        case TIMED_FLEEING_MOTION_TYPE:
+            return true;
+        default:
+            return false;
+    }
+}
+
+TargetPriority FindTargetStrategy::GetPriority(Unit* attacker)
+{
+    Player* bot = botAI->GetBot();
+    if (Group* group = bot->GetGroup())
     {
         ObjectGuid guid = group->GetTargetIcon(7);
         if (guid && attacker->GetGUID() == guid)
-        {
-            return true;
-        }
+            return TargetPriority::Marked;
     }
+
     GuidVector prioritizedTargets = botAI->GetAiObjectContext()->GetValue<GuidVector>("prioritized targets")->Get();
     for (ObjectGuid targetGuid : prioritizedTargets)
-    {
         if (targetGuid && attacker->GetGUID() == targetGuid)
-        {
-            return true;
-        }
+            return TargetPriority::Marked;
+
+    if (sPlayerbotAIConfig.coaFocusRunners && IsFleeingForAssistance(attacker) && bot->GetMap()->IsDungeon())
+    {
+        Creature* creature = attacker->ToCreature();
+        if (!creature->isWorldBoss() && !creature->IsDungeonBoss())
+            return TargetPriority::FleeingForAssistance;
     }
-    return false;
+
+    return TargetPriority::Normal;
+}
+
+bool FindTargetStrategy::IsHighPriority(Unit* attacker) { return GetPriority(attacker) == TargetPriority::Marked; }
+
+bool FindTargetStrategy::CheckPriority(Unit* attacker)
+{
+    if (highestPriority == TargetPriority::Marked)
+        return true;
+
+    TargetPriority const priority = GetPriority(attacker);
+    if (priority > highestPriority)
+    {
+        highestPriority = priority;
+        result = attacker;
+    }
+
+    return highestPriority != TargetPriority::Normal;
 }
 
 WorldPosition LastLongMoveValue::Calculate()
@@ -173,10 +235,7 @@ Unit* FindTargetValue::Calculate()
         if (!unit)
             continue;
 
-        std::wstring wnamepart;
-        Utf8toWStr(unit->GetName(), wnamepart);
-        wstrToLower(wnamepart);
-        if (!qualifier.empty() && qualifier.length() == wnamepart.length() && Utf8FitTo(qualifier, wnamepart))
+        if (CoaNameIs(qualifier, CoaNameKey(unit->GetName())))
             return unit;
     }
 

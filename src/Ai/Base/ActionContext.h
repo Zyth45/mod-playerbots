@@ -93,6 +93,7 @@ public:
         creators["switch to melee"] = &ActionContext::switch_to_melee;
         creators["switch to ranged"] = &ActionContext::switch_to_ranged;
         creators["reach spell"] = &ActionContext::ReachSpell;
+        creators["reach line of sight"] = &ActionContext::reach_line_of_sight;
         creators["reach melee"] = &ActionContext::ReachMelee;
         creators["reach party member to heal"] = &ActionContext::reach_party_member_to_heal;
         creators["reach party member to resurrect"] = &ActionContext::reach_party_member_to_resurrect;
@@ -222,6 +223,7 @@ public:
         creators["bg move to objective"] = &ActionContext::bg_move_to_objective;
         creators["bg select objective"] = &ActionContext::bg_select_objective;
         creators["bg check objective"] = &ActionContext::bg_check_objective;
+        creators["bg unstuck"] = &ActionContext::bg_unstuck;
         creators["bg attack fc"] = &ActionContext::bg_attack_fc;
         creators["bg protect fc"] = &ActionContext::bg_protect_fc;
         creators["bg use buff"] = &ActionContext::bg_use_buff;
@@ -312,6 +314,7 @@ private:
     static Action* switch_to_melee(PlayerbotAI* botAI) { return new SwitchToMeleeAction(botAI); }
     static Action* switch_to_ranged(PlayerbotAI* botAI) { return new SwitchToRangedAction(botAI); }
     static Action* ReachSpell(PlayerbotAI* botAI) { return new ReachSpellAction(botAI); }
+    static Action* reach_line_of_sight(PlayerbotAI* botAI) { return new ReachLineOfSightAction(botAI); }
     static Action* ReachMelee(PlayerbotAI* botAI) { return new ReachMeleeAction(botAI); }
     static Action* reach_party_member_to_heal(PlayerbotAI* botAI) { return new ReachPartyMemberToHealAction(botAI); }
     static Action* reach_party_member_to_resurrect(PlayerbotAI* botAI) { return new ReachPartyMemberToResurrectAction(botAI); }
@@ -429,6 +432,7 @@ private:
     static Action* bg_move_to_objective(PlayerbotAI* botAI) { return new BGTactics(botAI, "move to objective"); }
     static Action* bg_select_objective(PlayerbotAI* botAI) { return new BGTactics(botAI, "select objective"); }
     static Action* bg_check_objective(PlayerbotAI* botAI) { return new BGTactics(botAI, "check objective"); }
+    static Action* bg_unstuck(PlayerbotAI* botAI) { return new BGTactics(botAI, "unstuck"); }
     static Action* bg_attack_fc(PlayerbotAI* botAI) { return new BGTactics(botAI, "attack fc"); }
     static Action* bg_protect_fc(PlayerbotAI* botAI) { return new BGTactics(botAI, "protect fc"); }
     static Action* attack_enemy_fc(PlayerbotAI* botAI) { return new AttackEnemyFlagCarrierAction(botAI); }

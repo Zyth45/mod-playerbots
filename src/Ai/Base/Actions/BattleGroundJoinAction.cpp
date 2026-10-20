@@ -6,23 +6,69 @@
 
 #include "BattleGroundJoinAction.h"
 #include "ArenaTeam.h"
+#include "CoaSpecialization.h"
 #include "ArenaTeamMgr.h"
+#include "ArenaSeasonMgr.h"
 #include "BattlegroundMgr.h"
 #include "Event.h"
+#include "Group.h"
 #include "GroupMgr.h"
+#include "LFGMgr.h"
 #include "PlayerbotAI.h"
 #include "Playerbots.h"
 #include "PositionValue.h"
+#include "RandomPlayerbotFactory.h"
+#include "ScriptMgr.h"
+
+namespace
+{
+// CoA: the battles random bots keep going on their own in a battleground, RandomBotAutoJoinBG<type>Count.
+uint32 AutoJoinBgCount(BattlegroundQueueTypeId queueTypeId)
+{
+    switch (queueTypeId)
+    {
+        case BATTLEGROUND_QUEUE_AV: return sPlayerbotAIConfig.randomBotAutoJoinBGAVCount;
+        case BATTLEGROUND_QUEUE_WS: return sPlayerbotAIConfig.randomBotAutoJoinBGWSCount;
+        case BATTLEGROUND_QUEUE_AB: return sPlayerbotAIConfig.randomBotAutoJoinBGABCount;
+        case BATTLEGROUND_QUEUE_EY: return sPlayerbotAIConfig.randomBotAutoJoinBGEYCount;
+        case BATTLEGROUND_QUEUE_IC: return sPlayerbotAIConfig.randomBotAutoJoinBGICCount;
+        default: return 0;
+    }
+}
+
+// CoA: bots filled TeamSize places per open battle. Bots leaving a battle queued again to be replaced, the core
+// opened a new battle with them, and that new battle raised the limit by a full battle: on a 500-bot test realm
+// set to one Alterac Valley, four ran at once with 318 bots (12/10/2026). Where no real player is in that queue,
+// the limit is the number of battles the bots keep going, not the number open.
+uint32 BotBattles(BattlegroundQueueTypeId queueTypeId, uint32 activeBgQueue, uint32 bgInstanceCount, uint32 players)
+{
+    uint32 const battles = activeBgQueue + bgInstanceCount;
+    if (players)
+        return battles;
+    return std::min(battles, std::max(AutoJoinBgCount(queueTypeId), activeBgQueue));
+}
+}
 
 bool BGJoinAction::Execute(Event /*event*/)
 {
+    // A real player waits in a rated solo queue for this bot: before any other.
+    if (!ratedSoloList.empty())
+        return JoinRatedSolo(BattlegroundQueueTypeId(ratedSoloList[urand(0, ratedSoloList.size() - 1)]));
+
     uint32 queueType = AI_VALUE(uint32, "bg type");
     if (!queueType)  // force join to fill bg
     {
         if (bgList.empty())
             return false;
 
-        BattlegroundQueueTypeId queueTypeId = (BattlegroundQueueTypeId)bgList[urand(0, bgList.size() - 1)];
+        // A queue a real player waits in, short of the bot's faction, comes before the rest: drawn at
+        // random among all, bots filled battlegrounds of their own and the player's never started.
+        std::vector<uint32> wanted;
+        for (uint32 listed : bgList)
+            if (FactionMissing(BattlegroundQueueTypeId(listed)))
+                wanted.push_back(listed);
+        std::vector<uint32> const& pool = wanted.empty() ? bgList : wanted;
+        BattlegroundQueueTypeId queueTypeId = (BattlegroundQueueTypeId)pool[urand(0, pool.size() - 1)];
         BattlegroundTypeId bgTypeId = BattlegroundMgr::BGTemplateId(queueTypeId);
         bool isRated = false;
 
@@ -54,6 +100,17 @@ bool BGJoinAction::Execute(Event /*event*/)
     }
 
     return JoinQueue(queueType);
+}
+
+uint32* BGJoinAction::FactionMissing(BattlegroundQueueTypeId queueTypeId)
+{
+    Battleground* bg = sBattlegroundMgr->GetBattlegroundTemplate(BattlegroundMgr::BGTemplateId(queueTypeId));
+    PvPDifficultyEntry const* pvpDiff = bg ? GetBattlegroundBracketByLevel(bg->GetMapId(), bot->GetLevel()) : nullptr;
+    if (!pvpDiff)
+        return nullptr;
+    BattlegroundInfo& info = sRandomPlayerbotMgr.BattlegroundData[queueTypeId][pvpDiff->GetBracketId()];
+    uint32* missing = bot->GetTeamId() == TEAM_ALLIANCE ? &info.bgAllianceMissing : &info.bgHordeMissing;
+    return *missing ? missing : nullptr;
 }
 
 bool BGJoinAction::gatherArenaTeam(ArenaType type)
@@ -158,7 +215,7 @@ bool BGJoinAction::gatherArenaTeam(ArenaType type)
         if (!member)
             continue;
 
-        if (member->GetLevel() < 70)
+        if (member->GetLevel() < RandomPlayerbotFactory::ArenaTeamMinLevel())
             continue;
 
         if (!group->AddMember(member))
@@ -242,6 +299,12 @@ bool BGJoinAction::shouldJoinBg(BattlegroundQueueTypeId queueTypeId, Battlegroun
         BracketSize = (uint32)(type * 2);
         TeamSize = (uint32)type;
 
+        if (RatedSoloNeed(queueTypeId, bracketId))
+        {
+            ratedSoloList.push_back(queueTypeId);
+            return true;
+        }
+
         // Check if bots should join Rated Arena (Only captains can queue)
         uint32 ratedArenaBotCount = sRandomPlayerbotMgr.BattlegroundData[queueTypeId][bracketId].ratedArenaBotCount;
         uint32 ratedArenaPlayerCount =
@@ -256,7 +319,9 @@ bool BGJoinAction::shouldJoinBg(BattlegroundQueueTypeId queueTypeId, Battlegroun
 
         if (isRated)
         {
-            if (sArenaTeamMgr->GetArenaTeamByCaptain(bot->GetGUID(), type))
+            // The personal team of a rated solo queue has no one else to gather.
+            ArenaTeam* captainTeam = sArenaTeamMgr->GetArenaTeamByCaptain(bot->GetGUID(), type);
+            if (captainTeam && captainTeam->GetMembersSize() > 1)
             {
                 sRandomPlayerbotMgr.BattlegroundData[queueTypeId][bracketId].ratedArenaBotCount += TeamSize;
                 ratedList.push_back(queueTypeId);
@@ -286,6 +351,14 @@ bool BGJoinAction::shouldJoinBg(BattlegroundQueueTypeId queueTypeId, Battlegroun
         return false;
     }
 
+    // A real player waits and the bot's faction lacks players for the battleground to start.
+    if (FactionMissing(queueTypeId))
+        return true;
+
+    // Queues a real player waits in are filled above, as before.
+    if (LevelUnbalances(queueTypeId, bracketId))
+        return false;
+
     // Check if bots should join Battleground
     uint32 bgAllianceBotCount = sRandomPlayerbotMgr.BattlegroundData[queueTypeId][bracketId].bgAllianceBotCount;
     uint32 bgAlliancePlayerCount = sRandomPlayerbotMgr.BattlegroundData[queueTypeId][bracketId].bgAlliancePlayerCount;
@@ -293,25 +366,64 @@ bool BGJoinAction::shouldJoinBg(BattlegroundQueueTypeId queueTypeId, Battlegroun
     uint32 bgHordePlayerCount = sRandomPlayerbotMgr.BattlegroundData[queueTypeId][bracketId].bgHordePlayerCount;
     uint32 activeBgQueue = sRandomPlayerbotMgr.BattlegroundData[queueTypeId][bracketId].activeBgQueue;
     uint32 bgInstanceCount = sRandomPlayerbotMgr.BattlegroundData[queueTypeId][bracketId].bgInstanceCount;
+    uint32 const battles = BotBattles(queueTypeId, activeBgQueue, bgInstanceCount,
+                                      bgAlliancePlayerCount + bgHordePlayerCount);
 
     if (teamId == TEAM_ALLIANCE)
     {
-        if ((bgAllianceBotCount + bgAlliancePlayerCount) < TeamSize * (activeBgQueue + bgInstanceCount))
+        if ((bgAllianceBotCount + bgAlliancePlayerCount) < TeamSize * battles)
             return true;
     }
     else
     {
-        if ((bgHordeBotCount + bgHordePlayerCount) < TeamSize * (activeBgQueue + bgInstanceCount))
+        if ((bgHordeBotCount + bgHordePlayerCount) < TeamSize * battles)
             return true;
     }
 
     return false;
 }
 
+// CoA: random bots filled a battleground on a first come, first served basis, whatever their level in the
+// bracket; on a 1,000-bot test realm the two sides started up to 5.5 levels apart and the higher one won 9
+// games out of 10. Bots of every level still join (low ones are part of the game), but one that would take
+// its side's average level more than 2 levels away from the other side's, and further than it is, only joins
+// on CoaBgLevelBalanceChance percent of its tries. A refused bot stays out of that queue for a minute: it tried
+// again about every second, so on a realm of a few hundred bots the chance let it in within seconds anyway and
+// the sides of a Warsong Gulch still started up to 11 levels apart.
+bool BGJoinAction::LevelUnbalances(BattlegroundQueueTypeId queueTypeId, BattlegroundBracketId bracketId)
+{
+    if (sPlayerbotAIConfig.coaBgLevelBalanceChance >= 100)
+        return false;
+    uint32 const now = getMSTime();
+    auto const refused = levelRefusedAt.find(queueTypeId);
+    if (refused != levelRefusedAt.end() && getMSTimeDiff(refused->second, now) < 60 * IN_MILLISECONDS)
+        return true;
+    BattlegroundInfo const& info = sRandomPlayerbotMgr.BattlegroundData[queueTypeId][bracketId];
+    bool const alliance = bot->GetTeamId() == TEAM_ALLIANCE;
+    uint32 const mine = alliance ? info.bgAllianceBotCount + info.bgAlliancePlayerCount
+                                 : info.bgHordeBotCount + info.bgHordePlayerCount;
+    uint32 const theirs = alliance ? info.bgHordeBotCount + info.bgHordePlayerCount
+                                   : info.bgAllianceBotCount + info.bgAlliancePlayerCount;
+    if (!theirs)
+        return false;
+    uint32 const mineSum = alliance ? info.bgAllianceLevelSum : info.bgHordeLevelSum;
+    float const target = float(alliance ? info.bgHordeLevelSum : info.bgAllianceLevelSum) / theirs;
+    float const after = std::fabs(float(mineSum + bot->GetLevel()) / (mine + 1) - target);
+    float const before = mine ? std::fabs(float(mineSum) / mine - target) : after;
+    if (after <= 2.0f || after < before || urand(1, 100) <= sPlayerbotAIConfig.coaBgLevelBalanceChance)
+        return false;
+    levelRefusedAt[queueTypeId] = now;
+    return true;
+}
+
 bool BGJoinAction::isUseful()
 {
     // do not try if BG bots disabled
     if (!sPlayerbotAIConfig.randomBotJoinBG)
+        return false;
+
+    // Offered to a player by "lfg bot": it waits for the invitation.
+    if (CoaLfgOfferedToOther(bot, nullptr))
         return false;
 
     // can't queue while in BG/Arena
@@ -358,6 +470,7 @@ bool BGJoinAction::isUseful()
 
     bgList.clear();
     ratedList.clear();
+    ratedSoloList.clear();
 
     for (int bracket = BG_BRACKET_ID_FIRST; bracket < MAX_BATTLEGROUND_BRACKETS; ++bracket)
     {
@@ -485,6 +598,10 @@ bool BGJoinAction::JoinQueue(uint32 type)
 
         switch (arenaType)
         {
+            case ARENA_TYPE_1v1:
+                arenaslot = 2;
+                _bgType = "1v1";
+                break;
             case ARENA_TYPE_2v2:
                 arenaslot = 0;
                 _bgType = "2v2";
@@ -508,6 +625,10 @@ bool BGJoinAction::JoinQueue(uint32 type)
              : isArena ? "Arena"
                        : "");
 
+    if (!isArena)
+        if (uint32* missing = FactionMissing(queueTypeId))
+            *missing -= std::min(*missing, joinAsGroup ? bot->GetGroup()->GetMembersCount() : 1u);
+
     if (isArena)
     {
         if (!isRated)
@@ -515,21 +636,20 @@ bool BGJoinAction::JoinQueue(uint32 type)
             sRandomPlayerbotMgr.BattlegroundData[queueTypeId][bracketId].skirmishArenaBotCount++;
         }
     }
-    else if (!joinAsGroup)
-    {
-        if (teamId == TEAM_ALLIANCE)
-            sRandomPlayerbotMgr.BattlegroundData[queueTypeId][bracketId].bgAllianceBotCount++;
-        else
-            sRandomPlayerbotMgr.BattlegroundData[queueTypeId][bracketId].bgHordeBotCount++;
-    }
     else
     {
+        BattlegroundInfo& info = sRandomPlayerbotMgr.BattlegroundData[queueTypeId][bracketId];
+        uint32 const members = joinAsGroup ? bot->GetGroup()->GetMembersCount() : 1;
         if (teamId == TEAM_ALLIANCE)
-            sRandomPlayerbotMgr.BattlegroundData[queueTypeId][bracketId].bgAllianceBotCount +=
-                bot->GetGroup()->GetMembersCount();
+        {
+            info.bgAllianceBotCount += members;
+            info.bgAllianceLevelSum += members * bot->GetLevel();
+        }
         else
-            sRandomPlayerbotMgr.BattlegroundData[queueTypeId][bracketId].bgHordeBotCount +=
-                bot->GetGroup()->GetMembersCount();
+        {
+            info.bgHordeBotCount += members;
+            info.bgHordeLevelSum += members * bot->GetLevel();
+        }
     }
 
     botAI->GetAiObjectContext()->GetValue<uint32>("bg type")->Set(0);
@@ -546,6 +666,82 @@ bool BGJoinAction::JoinQueue(uint32 type)
         *packet << unit->GetGUID() << arenaslot << asGroup << uint8(isRated);
     }
     bot->GetSession()->QueuePacket(packet);
+    // Its PvP gear goes on in the queue, not in the arena's preparation (CoaGearByContent).
+    botAI->CoaCheckGearSoon();
+    return true;
+}
+
+uint32* BGJoinAction::RatedSoloNeed(BattlegroundQueueTypeId queueTypeId, BattlegroundBracketId bracketId)
+{
+    if (!sPlayerbotAIConfig.coaRatedSoloQueue || !sRandomPlayerbotMgr.IsRandomBot(bot) || bot->GetGroup() ||
+        !bot->IsAlive() || bot->IsInCombat() || sLFGMgr->GetState(bot->GetGUID()) != lfg::LFG_STATE_NONE ||
+        sArenaSeasonMgr->GetSeasonState() == ARENA_SEASON_STATE_DISABLED)
+        return nullptr;
+
+    ArenaType const type = ArenaType(BattlegroundMgr::BGArenaType(queueTypeId));
+    if (type != ARENA_TYPE_1v1 && type != ARENA_TYPE_2v2 && type != ARENA_TYPE_3v3)
+        return nullptr;
+
+    BattlegroundInfo& info = sRandomPlayerbotMgr.BattlegroundData[queueTypeId][bracketId];
+    uint32* need = type != ARENA_TYPE_1v1 && GetCoaRole(bot) == CoaRole::Heal ? &info.ratedSoloHealersNeeded
+                                                                              : &info.ratedSoloDamageNeeded;
+    if (!*need)
+        return nullptr;
+
+    // The core plays it with a personal team in that slot (the 5v5 one for 1v1), one it creates or the bot
+    // already has from an earlier match: a bot of a real team there is left out.
+    uint8 const slot = ArenaTeam::GetSlotByType(type == ARENA_TYPE_1v1 ? uint32(ARENA_TEAM_5v5) : uint32(type));
+    if (uint32 teamId = bot->GetArenaTeamId(slot))
+    {
+        ArenaTeam* team = sArenaTeamMgr->GetArenaTeamById(teamId);
+        if (!team || team->GetMembersSize() != 1)
+            return nullptr;
+    }
+    // The core names a new personal team "<name> <bracket>" and refuses the queue when that name is taken, as
+    // by a bot team its captain named so: the need would be spent on a bot that never queues.
+    else if (sArenaTeamMgr->GetArenaTeamByName(bot->GetName() + " " +
+                                               (type == ARENA_TYPE_1v1 ? "1v1" : type == ARENA_TYPE_2v2 ? "2v2" : "3v3")))
+        return nullptr;
+
+    return need;
+}
+
+// The rated solo queue is joined by a CoA client packet, claimed by the core before any handler and read only
+// from the network (AscensionCompat): a bot's own session never goes there, so the hook is called directly. It
+// only stores the request under a lock; the core queues the bot from its next update.
+bool BGJoinAction::JoinRatedSolo(BattlegroundQueueTypeId queueTypeId)
+{
+    uint16 constexpr CMSG_BATTLEMASTER_JOIN_ARENA_WITH_ROLE = 0x05C1;
+    uint32 constexpr ARENA_ROLE_HEALER = 0x04;
+
+    Battleground* bg = sBattlegroundMgr->GetBattlegroundTemplate(BATTLEGROUND_AA);
+    PvPDifficultyEntry const* pvpDiff = bg ? GetBattlegroundBracketByLevel(bg->GetMapId(), bot->GetLevel()) : nullptr;
+    if (!pvpDiff)
+        return false;
+
+    uint32* need = RatedSoloNeed(queueTypeId, pvpDiff->GetBracketId());
+    if (!need)
+        return false;
+
+    ArenaType const type = ArenaType(BattlegroundMgr::BGArenaType(queueTypeId));
+    bool const healer = type != ARENA_TYPE_1v1 && GetCoaRole(bot) == CoaRole::Heal;
+    WorldPacket packet(CMSG_BATTLEMASTER_JOIN_ARENA_WITH_ROLE, 8);
+    packet << uint32(type == ARENA_TYPE_1v1 ? 5 : type) << uint32(healer ? ARENA_ROLE_HEALER : 0);
+    if (sScriptMgr->CanPacketReceiveEarly(bot->GetSession(), packet))
+    {
+        LOG_DEBUG("playerbots", "Bot {} <{}>: the rated solo queue is not available", bot->GetGUID().ToString(),
+                  bot->GetName());
+        return false;
+    }
+
+    --*need;
+    LOG_INFO("playerbots", "Bot {} {}:{} <{}> queued rated solo {}v{} as {}", bot->GetGUID().ToString().c_str(),
+             bot->GetTeamId() == TEAM_ALLIANCE ? "A" : "H", bot->GetLevel(), bot->GetName().c_str(), uint32(type),
+             uint32(type), healer ? "healer" : "damage");
+
+    botAI->GetAiObjectContext()->GetValue<uint32>("bg type")->Set(0);
+    // Its PvP gear goes on in the queue, not in the arena's preparation (CoaGearByContent).
+    botAI->CoaCheckGearSoon();
     return true;
 }
 
@@ -587,7 +783,9 @@ bool FreeBGJoinAction::shouldJoinBg(BattlegroundQueueTypeId queueTypeId, Battleg
 
         if (isRated)
         {
-            if (sArenaTeamMgr->GetArenaTeamByCaptain(bot->GetGUID(), type))
+            // The personal team of a rated solo queue has no one else to gather.
+            ArenaTeam* captainTeam = sArenaTeamMgr->GetArenaTeamByCaptain(bot->GetGUID(), type);
+            if (captainTeam && captainTeam->GetMembersSize() > 1)
             {
                 sRandomPlayerbotMgr.BattlegroundData[queueTypeId][bracketId].ratedArenaBotCount += TeamSize;
                 ratedList.push_back(queueTypeId);
@@ -617,6 +815,10 @@ bool FreeBGJoinAction::shouldJoinBg(BattlegroundQueueTypeId queueTypeId, Battleg
         return false;
     }
 
+    // Not where a real player waits for the bot's faction: that queue fills as before.
+    if (!FactionMissing(queueTypeId) && LevelUnbalances(queueTypeId, bracketId))
+        return false;
+
     // Check if bots should join Battleground
     uint32 bgAllianceBotCount = sRandomPlayerbotMgr.BattlegroundData[queueTypeId][bracketId].bgAllianceBotCount;
     uint32 bgAlliancePlayerCount = sRandomPlayerbotMgr.BattlegroundData[queueTypeId][bracketId].bgAlliancePlayerCount;
@@ -624,15 +826,17 @@ bool FreeBGJoinAction::shouldJoinBg(BattlegroundQueueTypeId queueTypeId, Battleg
     uint32 bgHordePlayerCount = sRandomPlayerbotMgr.BattlegroundData[queueTypeId][bracketId].bgHordePlayerCount;
     uint32 activeBgQueue = sRandomPlayerbotMgr.BattlegroundData[queueTypeId][bracketId].activeBgQueue;
     uint32 bgInstanceCount = sRandomPlayerbotMgr.BattlegroundData[queueTypeId][bracketId].bgInstanceCount;
+    uint32 const battles = BotBattles(queueTypeId, activeBgQueue, bgInstanceCount,
+                                      bgAlliancePlayerCount + bgHordePlayerCount);
 
     if (teamId == TEAM_ALLIANCE)
     {
-        if ((bgAllianceBotCount + bgAlliancePlayerCount) < TeamSize * (activeBgQueue + bgInstanceCount))
+        if ((bgAllianceBotCount + bgAlliancePlayerCount) < TeamSize * battles)
             return true;
     }
     else
     {
-        if ((bgHordeBotCount + bgHordePlayerCount) < TeamSize * (activeBgQueue + bgInstanceCount))
+        if ((bgHordeBotCount + bgHordePlayerCount) < TeamSize * battles)
             return true;
     }
 
@@ -708,8 +912,8 @@ bool BGStatusAction::LeaveBG(PlayerbotAI* botAI)
     botAI->ChangeStrategy("-eye", BOT_STATE_NON_COMBAT);
     botAI->ChangeStrategy("-isle", BOT_STATE_COMBAT);
     botAI->ChangeStrategy("-isle", BOT_STATE_NON_COMBAT);
-    botAI->ChangeStrategy("-Battleground", BOT_STATE_COMBAT);
-    botAI->ChangeStrategy("-Battleground", BOT_STATE_NON_COMBAT);
+    botAI->ChangeStrategy("-battleground", BOT_STATE_COMBAT);
+    botAI->ChangeStrategy("-battleground", BOT_STATE_NON_COMBAT);
     botAI->ChangeStrategy("-arena", BOT_STATE_COMBAT);
     botAI->ChangeStrategy("-arena", BOT_STATE_NON_COMBAT);
 
@@ -847,6 +1051,9 @@ bool BGStatusAction::Execute(Event event)
 
     switch (arenaType)
     {
+        case ARENA_TYPE_1v1:
+            _bgType = "1v1";
+            break;
         case ARENA_TYPE_2v2:
             _bgType = "2v2";
             break;
@@ -944,7 +1151,19 @@ bool BGStatusAction::Execute(Event event)
         {
             //TeamId teamId = bot->GetTeamId(); //not used, line marked for removal.
             bool realPlayers = false;
-            if (isRated)
+            BattlegroundInfo& info = sRandomPlayerbotMgr.BattlegroundData[queueTypeId][bracketId];
+            // A bot of a rated solo queue waits as long as a real player waits there, unless no lineup needs it.
+            if (isRated && ginfo.Players.size() == 1)
+            {
+                uint32& surplus = arenaType != ARENA_TYPE_1v1 && GetCoaRole(bot) == CoaRole::Heal
+                                      ? info.ratedSoloHealersSurplus
+                                      : info.ratedSoloDamageSurplus;
+                realPlayers =
+                    !surplus && info.ratedSoloPlayerHealers + info.ratedSoloPlayerDamage + info.ratedSoloPremades > 0;
+                if (surplus)
+                    --surplus;
+            }
+            else if (isRated)
                 realPlayers = sRandomPlayerbotMgr.BattlegroundData[queueTypeId][bracketId].ratedArenaPlayerCount > 0;
             else
                 realPlayers =
@@ -1023,6 +1242,9 @@ bool BGStatusAction::Execute(Event event)
         WorldPacket emptyPacket;
         bot->GetSession()->HandleCancelMountAuraOpcode(emptyPacket);
 
+        if (bot->IsInCombat() && !botAI->GetMaster() && sRandomPlayerbotMgr.IsRandomBot(bot))
+            bot->CombatStopWithPets(true);
+
         action = 0x1;
 
         WorldPacket packet(CMSG_BATTLEFIELD_PORT, 20);
@@ -1056,6 +1278,11 @@ bool BGStatusCheckAction::Execute(Event /*event*/)
     if (bot->IsBeingTeleported())
         return false;
 
+    // The core refuses the port of a player in combat: a random bot fighting outside (a mob, a High-Risk
+    // player) would let the invitation run out and leave its team one short.
+    if (bot->IsInCombat() && !botAI->GetMaster() && sRandomPlayerbotMgr.IsRandomBot(bot))
+        bot->CombatStop(true);
+
     WorldPacket packet(CMSG_BATTLEFIELD_STATUS);
     bot->GetSession()->HandleBattlefieldStatusOpcode(packet);
 
@@ -1073,6 +1300,26 @@ bool BGStrategyCheckAction::Execute(Event /*event*/)
     ;
     if (!inside_bg && botAI->HasStrategy("battleground", BOT_STATE_NON_COMBAT))
     {
+        // A random bot without a master that comes back from a battleground or an arena still grouped with a real
+        // player (solo queue team mates kept in the party) leaves that party: nobody invited it there.
+        if (!botAI->GetMaster() && sRandomPlayerbotMgr.IsRandomBot(bot))
+        {
+            Group* group = bot->GetGroup();
+            if (group && !group->isBGGroup() && !group->isBFGroup())
+            {
+                for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+                {
+                    Player* member = ref->GetSource();
+                    if (member && member != bot && !GET_PLAYERBOT_AI(member))
+                    {
+                        LOG_INFO("playerbots", "Bot {} <{}> leaves the party it was left in after a battleground",
+                                 bot->GetGUID().ToString().c_str(), bot->GetName());
+                        bot->RemoveFromGroup();
+                        break;
+                    }
+                }
+            }
+        }
         botAI->ResetStrategies();
         return true;
     }

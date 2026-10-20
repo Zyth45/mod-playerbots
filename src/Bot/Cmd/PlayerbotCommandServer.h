@@ -18,6 +18,7 @@ public:
     }
 
     void Start();
+    void Stop();
 
 private:
     PlayerbotCommandServer() = default;

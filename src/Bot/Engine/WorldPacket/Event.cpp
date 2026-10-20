@@ -5,12 +5,26 @@
  */
 
 #include "Event.h"
+#include "ObjectAccessor.h"
 #include "Playerbots.h"
 
-Event::Event(std::string const source, ObjectGuid object, Player* owner) : source(source), owner(owner)
+Event::Event(std::string const source, std::string const param, Player* owner)
+    : source(source), param(param), ownerGuid(owner ? owner->GetGUID() : ObjectGuid::Empty)
+{
+}
+
+Event::Event(std::string const source, WorldPacket& packet, Player* owner)
+    : source(source), packet(packet), ownerGuid(owner ? owner->GetGUID() : ObjectGuid::Empty)
+{
+}
+
+Event::Event(std::string const source, ObjectGuid object, Player* owner)
+    : source(source), ownerGuid(owner ? owner->GetGUID() : ObjectGuid::Empty)
 {
     packet << object;
 }
+
+Player* Event::getOwner() { return ownerGuid ? ObjectAccessor::FindConnectedPlayer(ownerGuid) : nullptr; }
 
 ObjectGuid Event::getObject()
 {

@@ -8,6 +8,7 @@
 #define PLAYERBOTS_HELPERS_H
 
 #include <string>
+#include <string_view>
 #include <vector>
 
 /**
@@ -70,5 +71,21 @@ std::vector<std::string>& split(std::string const s, char delim, std::vector<std
  * @return Vector containing split tokens
  */
 std::vector<std::string> split(std::string const s, char delim);
+
+/**
+ * A spell, aura or creature name in the form the bot compares names in: lower case, with the
+ * typographic apostrophes U+2018, U+2019 and U+02BC turned into '. Empty when the text is not
+ * valid UTF-8.
+ *
+ * Greater Mark of Korth'azz (680300) carries U+2019, three bytes in UTF-8 but one character:
+ * comparing the byte length of the name with the character length of the search left it out of
+ * every spellbook and aura lookup, so no bot ever cast it (02/10).
+ */
+std::wstring CoaNameKey(std::string_view name);
+
+/**
+ * Whether a UTF-8 name is the one a key from CoaNameKey stands for (whole name, not a part of it).
+ */
+bool CoaNameIs(std::string_view name, std::wstring const& key);
 
 #endif

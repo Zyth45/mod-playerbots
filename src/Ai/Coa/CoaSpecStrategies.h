@@ -145,7 +145,7 @@ static constexpr CoaSpecStrategy CoaSpecStrategies[] =
     // Primalist
     { 31,  59, "Wildwalker", CoaSpecRole::Dps, "close", "custom::primalist-wildwalker", nullptr, false },  // default
     { 31,  95, "Geomancy", CoaSpecRole::Dps, "ranged", "custom::primalist-geomancy", nullptr, false },
-    { 31,  58, "Grovekeeper", CoaSpecRole::Dps, "ranged", "custom::primalist-grovekeeper", nullptr, true },
+    { 31,  58, "Grovekeeper", CoaSpecRole::Dps, "close", "custom::primalist-grovekeeper", nullptr, true },
     { 31,  60, "Mountain King", CoaSpecRole::Tank, "close", "custom::primalist-mountain-king", nullptr, false },
 
     // Runemaster

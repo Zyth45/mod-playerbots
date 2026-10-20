@@ -257,7 +257,7 @@ uint32 ChatHelper::parseMoney(std::string const text)
     // if user specified money in ##g##s##c format
     std::string acum = "";
     uint32 copper = 0;
-    for (uint8 i = 0; i < text.length(); i++)
+    for (size_t i = 0; i < text.length(); i++)
     {
         if (text[i] == 'g')
         {
@@ -291,7 +291,7 @@ ItemIds ChatHelper::parseItems(std::string const text)
 {
     ItemIds itemIds;
 
-    uint8 pos = 0;
+    size_t pos = 0;
     while (true)
     {
         auto i = text.find("Hitem:", pos);
@@ -513,7 +513,7 @@ GuidVector ChatHelper::parseGameobjects(std::string const text)
     //    |cFFFFFF00|Hfound:" << guid << ':'  << entry << ':'  <<  "|h[" << gInfo->name << "]|h|r";
     //    |cFFFFFF00|Hfound:9582:1731|h[Copper Vein]|h|r
 
-    uint8 pos = 0;
+    size_t pos = 0;
     while (true)
     {
         // extract GO guid

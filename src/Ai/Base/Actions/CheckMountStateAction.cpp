@@ -18,7 +18,6 @@
 #include "Playerbots.h"
 #include "ServerFacade.h"
 #include "SpellAuraEffects.h"
-#include <mutex>
 
 static constexpr uint32 SPELL_COLD_WEATHER_FLYING = 54197;
 static constexpr float PARACHUTE_LAND_THRESHOLD = 15.0f;
@@ -26,8 +25,7 @@ static constexpr float PARACHUTE_LAND_THRESHOLD = 15.0f;
 // Define the static map / init bool for caching bot preferred mount data globally
 std::unordered_map<uint32, PreferredMountCache> CheckMountStateAction::mountCache;
 bool CheckMountStateAction::preferredMountTableChecked = false;
-// Bots mount in the map update threads.
-static std::mutex MountCacheLock;
+std::mutex CheckMountStateAction::mountCacheLock;
 
 MountData CollectMountData(Player const* bot)
 {
@@ -349,75 +347,118 @@ bool CheckMountStateAction::TryForms(Player* master, int32 masterMountType, int3
     return false;
 }
 
+// Caller holds mountCacheLock. The table is read once; the "mount" command keeps the cache and the table in step.
+void CheckMountStateAction::LoadPreferredMounts()
+{
+    if (preferredMountTableChecked)
+        return;
+
+    // Verify preferred mounts table existance in the database. DATABASE() is the schema of this connection
+    // (PlayerbotsDatabaseInfo), whatever its name: with a fixed 'acore_playerbots' the table was never found
+    // on a server whose playerbots database has another name.
+    QueryResult checkTable = PlayerbotsDatabase.Query(
+        "SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'playerbots_preferred_mounts')");
+
+    if (checkTable && checkTable->Fetch()[0].Get<uint32>() == 1)
+    {
+        preferredMountTableChecked = true;
+
+        // Cache all mounts of both types globally, for all entries
+        QueryResult result = PlayerbotsDatabase.Query("SELECT guid, spellid, type FROM playerbots_preferred_mounts");
+
+        if (result)
+        {
+            uint32 totalResults = 0;
+            while (auto row = result->Fetch())
+            {
+                uint32 guid = row[0].Get<uint32>();
+                uint32 spellId = row[1].Get<uint32>();
+                uint32 mountType = row[2].Get<uint32>();
+
+                if (mountType == 0)
+                    mountCache[guid].groundMounts.push_back(spellId);
+
+                else if (mountType == 1)
+                    mountCache[guid].flightMounts.push_back(spellId);
+
+                totalResults++;
+
+                result->NextRow();
+            }
+            LOG_INFO("playerbots", "Preferred mounts initialized | Total records: {}", totalResults);
+        }
+    }
+    else // If the SQL table is missing, log it
+    {
+        preferredMountTableChecked = true;
+
+        LOG_DEBUG("playerbots", "Preferred mounts SQL table playerbots_preferred_mounts does not exist!");
+
+        return;
+    }
+}
+
+std::vector<uint32> CheckMountStateAction::PreferredMounts(uint32 guid, uint8 type)
+{
+    std::lock_guard<std::mutex> guard(mountCacheLock);
+    LoadPreferredMounts();
+    auto const found = mountCache.find(guid);
+    if (found == mountCache.end())
+        return {};
+    return type ? found->second.flightMounts : found->second.groundMounts;
+}
+
+void CheckMountStateAction::SetPreferredMount(uint32 guid, uint8 type, uint32 spellId)
+{
+    std::lock_guard<std::mutex> guard(mountCacheLock);
+    LoadPreferredMounts();
+    PreferredMountCache& cache = mountCache[guid];
+    (type ? cache.flightMounts : cache.groundMounts) = { spellId };
+    auto trans = PlayerbotsDatabase.BeginTransaction();
+    trans->Append("DELETE FROM playerbots_preferred_mounts WHERE guid = {} AND type = {}", guid, type);
+    trans->Append("INSERT INTO playerbots_preferred_mounts (guid, type, spellid) VALUES ({}, {}, {})", guid, type, spellId);
+    PlayerbotsDatabase.CommitTransaction(trans);
+}
+
+void CheckMountStateAction::ClearPreferredMount(uint32 guid, int8 type)
+{
+    std::lock_guard<std::mutex> guard(mountCacheLock);
+    LoadPreferredMounts();
+    auto const found = mountCache.find(guid);
+    if (found != mountCache.end())
+    {
+        if (type != 1)
+            found->second.groundMounts.clear();
+        if (type != 0)
+            found->second.flightMounts.clear();
+    }
+    if (type < 0)
+        PlayerbotsDatabase.Execute("DELETE FROM playerbots_preferred_mounts WHERE guid = {}", guid);
+    else
+        PlayerbotsDatabase.Execute("DELETE FROM playerbots_preferred_mounts WHERE guid = {} AND type = {}", guid, type);
+}
+
 bool CheckMountStateAction::TryPreferredMount(Player* master) const
 {
     uint32 botGUID = bot->GetGUID().GetRawValue();
-    std::unique_lock<std::mutex> cacheLock(MountCacheLock);
 
-    // Build cache (only once)
-    if (!preferredMountTableChecked)
-    {
-        // Verify preferred mounts table existance in the database
-        QueryResult checkTable = PlayerbotsDatabase.Query(
-            "SELECT EXISTS(SELECT * FROM information_schema.tables WHERE table_schema = 'acore_playerbots' AND table_name = 'playerbots_preferred_mounts')");
-
-        if (checkTable && checkTable->Fetch()[0].Get<uint32>() == 1)
-        {
-            preferredMountTableChecked = true;
-
-            // Cache all mounts of both types globally, for all entries
-            QueryResult result = PlayerbotsDatabase.Query("SELECT guid, spellid, type FROM playerbots_preferred_mounts");
-
-            if (result)
-            {
-                uint32 totalResults = 0;
-                while (auto row = result->Fetch())
-                {
-                    uint32 guid = row[0].Get<uint32>();
-                    uint32 spellId = row[1].Get<uint32>();
-                    uint32 mountType = row[2].Get<uint32>();
-
-                    if (mountType == 0)
-                        mountCache[guid].groundMounts.push_back(spellId);
-
-                    else if (mountType == 1)
-                        mountCache[guid].flightMounts.push_back(spellId);
-
-                    totalResults++;
-
-                    result->NextRow();
-                }
-                LOG_INFO("playerbots", "Preferred mounts initialized | Total records: {}", totalResults);
-            }
-        }
-        else // If the SQL table is missing, log an error and return false
-        {
-            preferredMountTableChecked = true;
-
-            LOG_DEBUG("playerbots", "Preferred mounts SQL table playerbots_preferred_mounts does not exist!");
-
-            return false;
-        }
-    }
+    std::vector<uint32> const groundMounts = PreferredMounts(botGUID, 0);
+    std::vector<uint32> const flightMounts = PreferredMounts(botGUID, 1);
 
     // Pick a random preferred mount from the selection, if available
     uint32 chosenMountId = 0;
-    auto const cached = mountCache.find(botGUID);
-    PreferredMountCache const noMounts;
-    PreferredMountCache const& mounts = cached == mountCache.end() ? noMounts : cached->second;
 
-    if (GetMountType(master) == 0 && !mounts.groundMounts.empty())
+    if (GetMountType(master) == 0 && !groundMounts.empty())
     {
-        uint32 index = urand(0, mounts.groundMounts.size() - 1);
-        chosenMountId = mounts.groundMounts[index];
+        uint32 index = urand(0, groundMounts.size() - 1);
+        chosenMountId = groundMounts[index];
     }
 
-    else if (GetMountType(master) == 1 && !mounts.flightMounts.empty())
+    else if (GetMountType(master) == 1 && !flightMounts.empty())
     {
-        uint32 index = urand(0, mounts.flightMounts.size() - 1);
-        chosenMountId = mounts.flightMounts[index];
+        uint32 index = urand(0, flightMounts.size() - 1);
+        chosenMountId = flightMounts[index];
     }
-    cacheLock.unlock();
 
     // No suitable preferred mount found
     if (chosenMountId == 0)

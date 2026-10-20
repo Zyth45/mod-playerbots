@@ -109,6 +109,9 @@ AiPlayerbot.RandomBotAccountPrefix = "rndbot"
 # Delete all randombot accounts
 # To apply this, set the number to 1 and run the Worldserver. Once deletion is complete, if you would
 # like to recreate randombots, set the number back to 0 and rerun the Worldserver.
+# Set it back to 0 right after that one start, otherwise every start wipes all random bots again.
+# The purge also cleans the Conquest of Azeroth character tables (Mystic Enchants, challenges, Manastorm,
+# Mythic+, personal bank...) so new bots never inherit data from deleted bots that had the same guid.
 AiPlayerbot.DeleteRandomBotAccounts = 0
 
 # Disable randombots when no real players are logged in
@@ -118,6 +121,15 @@ AiPlayerbot.DeleteRandomBotAccounts = 0
 AiPlayerbot.DisabledWithoutRealPlayer = 0
 AiPlayerbot.DisabledWithoutRealPlayerLoginDelay = 30
 AiPlayerbot.DisabledWithoutRealPlayerLogoutDelay = 300
+
+# Autosave interval for randombots, in seconds
+# Default: 0 (randombots autosave every PlayerSaveInterval, like players)
+# The core autosaves every character in the world every PlayerSaveInterval (15 minutes by default).
+# With thousands of randombots that is a steady stream of database writes. A longer interval here
+# only spaces out their autosaves: bots still save on logout, at shutdown and when the code saves
+# them on purpose. A randombot whose master is a real player is back on the normal interval from
+# its next save. Values shorter than PlayerSaveInterval are ignored.
+AiPlayerbot.RandomBotSaveInterval = 0
 
 ####################################################################################################
 
@@ -320,6 +332,12 @@ AiPlayerbot.LootNeedRollLevel = 1
 # If disabled, bots will PASS instead of GREED on all items
 # Default: 0 (disabled - bots only NEED or PASS)
 AiPlayerbot.LootGreedRollLevel = 0
+
+# Treat weapons and armor up to this many levels above the bot as upgrades it can grow into:
+# the bot rolls NEED, including against real players in its group, and keeps the item until it can
+# wear it, unless it already holds something at least as good for that slot.
+# Default: 0 (disabled)
+AiPlayerbot.LootNeedLevelLookahead = 0
 
 # Enable bots to roll on recipes. Will NEED on learnable profession recipes they don't already know
 # Bots will roll GREED on BoE recipes they can't learn if LootRollGreed is enabled.
@@ -925,12 +943,14 @@ AiPlayerbot.LevelBrackets.FreshStartSpread = 1
 #            the additional bracket lines below (e.g. Range10, Range11, etc.) to both your
 #            playerbots.conf and this playerbots.conf.dist. Ensure that the sum of the Pct values
 #            for each faction remains 100.
-AiPlayerbot.LevelBrackets.NumRanges = 9
+# Conquest of Azeroth: eight brackets on the battleground ones (1-9 ... 50-59, 60), most bots at the
+# top levels, so that battlegrounds start and raids fill on both sides.
+AiPlayerbot.LevelBrackets.NumRanges = 8
 
 # Enables dynamic recalculation of bot distribution percentages based on the number of non-bot
 # players present in each level bracket. This overrides any custom brackets in the conf.
 # Default: 0 (disabled)
-AiPlayerbot.LevelBrackets.Dynamic.UseDynamicDistribution = 1
+AiPlayerbot.LevelBrackets.Dynamic.UseDynamicDistribution = 0
 
 # Controls how much extra weight is given to brackets (level ranges) that contain real (non-bot)
 # players, when dynamic distribution is enabled. The higher this value, the more bots move to the
@@ -993,40 +1013,36 @@ AiPlayerbot.LevelBrackets.Dynamic.SyncFactions = 0
 # NOTE: The sum of all Pct values for the Alliance brackets must equal 100.
 #
 AiPlayerbot.LevelBrackets.Alliance.Range1.Lower = 1
-AiPlayerbot.LevelBrackets.Alliance.Range1.Upper = 3
-AiPlayerbot.LevelBrackets.Alliance.Range1.Pct   = 11
+AiPlayerbot.LevelBrackets.Alliance.Range1.Upper = 9
+AiPlayerbot.LevelBrackets.Alliance.Range1.Pct   = 6
 
-AiPlayerbot.LevelBrackets.Alliance.Range2.Lower = 4
-AiPlayerbot.LevelBrackets.Alliance.Range2.Upper = 7
-AiPlayerbot.LevelBrackets.Alliance.Range2.Pct   = 11
+AiPlayerbot.LevelBrackets.Alliance.Range2.Lower = 10
+AiPlayerbot.LevelBrackets.Alliance.Range2.Upper = 19
+AiPlayerbot.LevelBrackets.Alliance.Range2.Pct   = 7
 
-AiPlayerbot.LevelBrackets.Alliance.Range3.Lower = 8
-AiPlayerbot.LevelBrackets.Alliance.Range3.Upper = 12
-AiPlayerbot.LevelBrackets.Alliance.Range3.Pct   = 11
+AiPlayerbot.LevelBrackets.Alliance.Range3.Lower = 20
+AiPlayerbot.LevelBrackets.Alliance.Range3.Upper = 29
+AiPlayerbot.LevelBrackets.Alliance.Range3.Pct   = 8
 
-AiPlayerbot.LevelBrackets.Alliance.Range4.Lower = 13
-AiPlayerbot.LevelBrackets.Alliance.Range4.Upper = 17
-AiPlayerbot.LevelBrackets.Alliance.Range4.Pct   = 11
+AiPlayerbot.LevelBrackets.Alliance.Range4.Lower = 30
+AiPlayerbot.LevelBrackets.Alliance.Range4.Upper = 39
+AiPlayerbot.LevelBrackets.Alliance.Range4.Pct   = 9
 
-AiPlayerbot.LevelBrackets.Alliance.Range5.Lower = 18
-AiPlayerbot.LevelBrackets.Alliance.Range5.Upper = 23
+AiPlayerbot.LevelBrackets.Alliance.Range5.Lower = 40
+AiPlayerbot.LevelBrackets.Alliance.Range5.Upper = 49
 AiPlayerbot.LevelBrackets.Alliance.Range5.Pct   = 11
 
-AiPlayerbot.LevelBrackets.Alliance.Range6.Lower = 24
-AiPlayerbot.LevelBrackets.Alliance.Range6.Upper = 30
-AiPlayerbot.LevelBrackets.Alliance.Range6.Pct   = 11
+AiPlayerbot.LevelBrackets.Alliance.Range6.Lower = 50
+AiPlayerbot.LevelBrackets.Alliance.Range6.Upper = 54
+AiPlayerbot.LevelBrackets.Alliance.Range6.Pct   = 10
 
-AiPlayerbot.LevelBrackets.Alliance.Range7.Lower = 31
-AiPlayerbot.LevelBrackets.Alliance.Range7.Upper = 40
-AiPlayerbot.LevelBrackets.Alliance.Range7.Pct   = 12
+AiPlayerbot.LevelBrackets.Alliance.Range7.Lower = 55
+AiPlayerbot.LevelBrackets.Alliance.Range7.Upper = 59
+AiPlayerbot.LevelBrackets.Alliance.Range7.Pct   = 14
 
-AiPlayerbot.LevelBrackets.Alliance.Range8.Lower = 41
-AiPlayerbot.LevelBrackets.Alliance.Range8.Upper = 50
-AiPlayerbot.LevelBrackets.Alliance.Range8.Pct   = 11
-
-AiPlayerbot.LevelBrackets.Alliance.Range9.Lower = 51
-AiPlayerbot.LevelBrackets.Alliance.Range9.Upper = 60
-AiPlayerbot.LevelBrackets.Alliance.Range9.Pct   = 11
+AiPlayerbot.LevelBrackets.Alliance.Range8.Lower = 60
+AiPlayerbot.LevelBrackets.Alliance.Range8.Upper = 60
+AiPlayerbot.LevelBrackets.Alliance.Range8.Pct   = 35
 
 ##############################################
 # Horde Level Brackets Configuration
@@ -1053,40 +1069,36 @@ AiPlayerbot.LevelBrackets.Alliance.Range9.Pct   = 11
 # NOTE: The sum of all Pct values for the Horde brackets must equal 100.
 #
 AiPlayerbot.LevelBrackets.Horde.Range1.Lower = 1
-AiPlayerbot.LevelBrackets.Horde.Range1.Upper = 3
-AiPlayerbot.LevelBrackets.Horde.Range1.Pct   = 11
+AiPlayerbot.LevelBrackets.Horde.Range1.Upper = 9
+AiPlayerbot.LevelBrackets.Horde.Range1.Pct   = 6
 
-AiPlayerbot.LevelBrackets.Horde.Range2.Lower = 4
-AiPlayerbot.LevelBrackets.Horde.Range2.Upper = 7
-AiPlayerbot.LevelBrackets.Horde.Range2.Pct   = 11
+AiPlayerbot.LevelBrackets.Horde.Range2.Lower = 10
+AiPlayerbot.LevelBrackets.Horde.Range2.Upper = 19
+AiPlayerbot.LevelBrackets.Horde.Range2.Pct   = 7
 
-AiPlayerbot.LevelBrackets.Horde.Range3.Lower = 8
-AiPlayerbot.LevelBrackets.Horde.Range3.Upper = 12
-AiPlayerbot.LevelBrackets.Horde.Range3.Pct   = 11
+AiPlayerbot.LevelBrackets.Horde.Range3.Lower = 20
+AiPlayerbot.LevelBrackets.Horde.Range3.Upper = 29
+AiPlayerbot.LevelBrackets.Horde.Range3.Pct   = 8
 
-AiPlayerbot.LevelBrackets.Horde.Range4.Lower = 13
-AiPlayerbot.LevelBrackets.Horde.Range4.Upper = 17
-AiPlayerbot.LevelBrackets.Horde.Range4.Pct   = 11
+AiPlayerbot.LevelBrackets.Horde.Range4.Lower = 30
+AiPlayerbot.LevelBrackets.Horde.Range4.Upper = 39
+AiPlayerbot.LevelBrackets.Horde.Range4.Pct   = 9
 
-AiPlayerbot.LevelBrackets.Horde.Range5.Lower = 18
-AiPlayerbot.LevelBrackets.Horde.Range5.Upper = 23
+AiPlayerbot.LevelBrackets.Horde.Range5.Lower = 40
+AiPlayerbot.LevelBrackets.Horde.Range5.Upper = 49
 AiPlayerbot.LevelBrackets.Horde.Range5.Pct   = 11
 
-AiPlayerbot.LevelBrackets.Horde.Range6.Lower = 24
-AiPlayerbot.LevelBrackets.Horde.Range6.Upper = 30
-AiPlayerbot.LevelBrackets.Horde.Range6.Pct   = 11
+AiPlayerbot.LevelBrackets.Horde.Range6.Lower = 50
+AiPlayerbot.LevelBrackets.Horde.Range6.Upper = 54
+AiPlayerbot.LevelBrackets.Horde.Range6.Pct   = 10
 
-AiPlayerbot.LevelBrackets.Horde.Range7.Lower = 31
-AiPlayerbot.LevelBrackets.Horde.Range7.Upper = 40
-AiPlayerbot.LevelBrackets.Horde.Range7.Pct   = 12
+AiPlayerbot.LevelBrackets.Horde.Range7.Lower = 55
+AiPlayerbot.LevelBrackets.Horde.Range7.Upper = 59
+AiPlayerbot.LevelBrackets.Horde.Range7.Pct   = 14
 
-AiPlayerbot.LevelBrackets.Horde.Range8.Lower = 41
-AiPlayerbot.LevelBrackets.Horde.Range8.Upper = 50
-AiPlayerbot.LevelBrackets.Horde.Range8.Pct   = 11
-
-AiPlayerbot.LevelBrackets.Horde.Range9.Lower = 51
-AiPlayerbot.LevelBrackets.Horde.Range9.Upper = 60
-AiPlayerbot.LevelBrackets.Horde.Range9.Pct   = 11
+AiPlayerbot.LevelBrackets.Horde.Range8.Lower = 60
+AiPlayerbot.LevelBrackets.Horde.Range8.Upper = 60
+AiPlayerbot.LevelBrackets.Horde.Range8.Pct   = 35
 
 ##############################################
 # Level Reset
@@ -1185,7 +1197,7 @@ AiPlayerbot.EquipAndSpecPersistenceLevel = 1
 # Equipment quality limitation for randombots (1 = normal, 2 = uncommon, 3 = rare, 4 = epic, 5 = legendary)
 # This also sets the maximum quality that can be generated by autogear for randombots and altbots
 # Default: 3 (rare)
-AiPlayerbot.RandomGearQualityLimit = 3
+AiPlayerbot.RandomGearQualityLimit = 4
 
 # Equipment item level (not gearscore) limitation for randombots (0 = no limit)
 # Classic
@@ -1198,7 +1210,13 @@ AiPlayerbot.RandomGearQualityLimit = 3
 # Max iLVL Tier 7(10/25) = 200/213 | Tier 8(10/25) = 225/232 | Tier 9(10/25) = 232/245 | Tier 10(10/25/HC) = 251/264/290
 # Max iLVL Phase 1(Naxx) = 224 | Phase 2(Ulduar) = 245 | Phase 3(ToC) = 258 | Phase 4(ICC) = 290
 # Default: 0 (no limit)
-AiPlayerbot.RandomGearScoreLimit = 0
+AiPlayerbot.RandomGearScoreLimit = 78
+
+# With RandomGearQualityLimit = 4 (epic), the level from which bots may wear epic gear; below it they
+# keep to rare. Conquest of Azeroth Worldforged items count as gear of their level, whatever
+# LimitGearExpansion says. ".playerbots coa regear [level]" gears the bots online again (game masters).
+# Default: 60
+AiPlayerbot.CoaEpicGearMinLevel = 60
 
 # Prefer armor of the class's ideal type: apply 3x score multiplier to class-appropriate armor.
 # When enabled, Warriors strongly prefer plate, Shamans prefer mail, etc.
@@ -1237,7 +1255,7 @@ AiPlayerbot.LimitGearExpansion = 1
 
 # Chance randombot will have less-than-optimized generated gear
 # Set between 0 (0%) and 1 (100%)
-AiPlayerbot.RandomGearLoweringChance = 0
+AiPlayerbot.RandomGearLoweringChance = 0.3
 
 # Unobtainable or unusable items (comma-separated list of item IDs)
 # Defaults: Chilton Wand (12468), Frenzyheart Insignia of Fury test/on-use row (44869),
@@ -1394,6 +1412,28 @@ AiPlayerbot.AutoLearnTradeskillSpells = 1
 # Default: 1 (enabled)
 AiPlayerbot.CoaClassesOnly = 1
 
+# Gathering bots (herbalism, mining, skinning) only gather what still raises their skill: green, yellow or orange
+# for their client, never grey (100 points or more below their skill). One bot can gather everything again with the
+# chat command "nc +gather all" ("nc -gather all" to go back).
+# Default: 1 (enabled)
+AiPlayerbot.GatherOnlySkillUp = 1
+
+# Races of the custom races module (CoA Server Manager) that random bots never use, as race ids separated by
+# commas, e.g. "55,63,97". The races that module makes playable (Goblin 9, 12 to 32, 47 to 97) only go to random bots
+# when its own setting CoACustomRaces.BotsEnable = 1; CharacterCreating.Disabled.RaceMask (worldserver.conf) only
+# reaches ids 1 to 32. Added to AiPlayerbot.CrashingBotRaces below. Applies to bots created afterwards: bots already
+# created keep their race; delete the bot accounts (AiPlayerbot.DeleteRandomBotAccounts) to renew them.
+# Commented out on purpose: the custom races module writes this line itself, and the first copy of a key in a .conf
+# file wins, so a line here would hide its own.
+# Default: "" (none)
+# AiPlayerbot.ExcludedBotRaces = ""
+
+# Custom races never given to random bots, on top of AiPlayerbot.ExcludedBotRaces, from a race by race client test
+# (15/10): 32 (Thin Human) and 97 (Saberon) crash a client that sees them, 72 and 77 (Skyborne) have no model in the
+# patched client. 65, 80, 81 and 82 showed no crash as bots (Sethrak only crashes when played, at its first login).
+# Default: "32,72,77,97"
+AiPlayerbot.CrashingBotRaces = "32,72,77,97"
+
 # Authored combat rotations for the Conquest of Azeroth specializations.
 # Off: CoA bots are driven by the runtime classifier alone, which picks a spell
 # every tick from what the bot knows.
@@ -1432,6 +1472,70 @@ AiPlayerbot.CoaCasterManaReserve = 15
 # Default: 0 (disabled)
 AiPlayerbot.CoaGroupTelemetry = 0
 
+# ".playerbots coa raid [size] [tanks] [healers]" fills the raid of the one who types it with bots.
+# Game masters have no limit. A player may build one raid every CoaRaidPlayerCooldown minutes, and
+# only while the realm has fewer than CoaRaidPlayerMax raids of bots built by players.
+# Default: 5 raids at a time, 30 minutes
+AiPlayerbot.CoaRaidPlayerMax = 5
+AiPlayerbot.CoaRaidPlayerCooldown = 30
+
+# Random bots left in the group of a player who logged out (the core keeps him in a raid, and in a
+# party too with LeaveGroupOnLogout.Enabled = 0) stood there with no master until he came back.
+# Once none of the group's players has been connected for this many seconds, its random bots leave
+# it and go back to their own life; the core disbands the group when the last ones are gone. A
+# player who comes back in time keeps his bots, and one in a battleground, an arena or on a loading
+# screen still counts as connected. While they wait, the bots are neither moved to another level
+# bracket nor randomized or teleported, and a second player still in the group becomes their master.
+# Groups of bots only (test benches, random parties), battleground, arena and dungeon finder groups,
+# and the players' own bots (alts, addclass bots, selfbots) are never touched. Checked every 10
+# seconds, one group released at a time. Read again by ".reload config".
+# Default: 300 (0 = the bots stay until their player comes back, as before)
+AiPlayerbot.CoaOrphanGroupReleaseDelay = 300
+
+# Bots whisper their master each item they put on by themselves (loot, trade, regear: "Equipping [item]").
+# In a raid of 25 bots that is a lot of whispers. An item you ask for (e <item>) is always answered.
+# Default: 0 (silent), 1 = whisper every automatic upgrade, as before. Read again by ".reload config".
+AiPlayerbot.CoaTellEquipUpgrades = 0
+
+# The CoA core puts every character without a ruleset in PvE at login, so all random bots are in PvE.
+# With 1, a share of the random bots is put in High Risk (open world PvP, full loss rules for players;
+# bots never lose items) or War Mode instead; the rest stays in PvE. Each bot always gets the same
+# ruleset (chosen from its guid). High Risk and War Mode bots keep the PvP flag on (the core only puts the
+# aura, so on a PvE realm nobody was flagged by it), and in the open world a bot on its own only starts a
+# fight with a High Risk or War Mode character, whatever its own ruleset: as on Ascension, those may be
+# attacked by anyone and PvE characters by no one (a bot still defends itself and helps its group).
+# In dungeons and raids the ruleset changes nothing, and grouping with
+# such a bot does not change yours. 0 = as before (every bot in PvE, bots keep the ruleset they have).
+# Read again by ".reload config"; ungrouped bots move at their next update, the others at login.
+# CoA Bots 1.9 (PvP): on by default, 30 % of the random bots in High Risk.
+AiPlayerbot.CoaRulesetForBots = 1
+# Shares, in percent of the random bots, when CoaRulesetForBots = 1 (the rest is PvE).
+AiPlayerbot.CoaRulesetHighRiskPct = 30
+AiPlayerbot.CoaRulesetWarModePct = 0
+
+# Random bots wear the gear of what they do. PvP gear (resilience) in a battleground, an arena, their queue, and
+# for a High Risk bot all the time; PvE gear otherwise, put back as soon as a PvE bot leaves the battleground or
+# arena. Grouped with a player, a bot is geared at the player's own item level (a High Risk bot in PvP gear). At
+# level 60 and on its own, a PvP bot's tier follows its best arena rating (a fixed tier per bot without one).
+# Never the player's own characters. 0 = gear as before.
+AiPlayerbot.CoaGearByContent = 1
+# With CoaGearByContent = 1. A bot grouped with a player is geared at the player's own item level (never left
+# without gear of its level). 0 = a grouped bot keeps the gear it has, as on its own (it still switches to PvP gear
+# for a battleground or an arena).
+AiPlayerbot.CoaGearMatchGroup = 1
+# With CoaGearByContent = 1. High Risk bots wear PvP gear all the time. 0 = only in a battleground or an arena, as
+# the other bots (a test server that measures bots on a boss sets 0).
+AiPlayerbot.CoaGearHighRiskPvp = 1
+
+# Random bots filled a battleground on a first come, first served basis, whatever their level in the
+# bracket: the two sides of a game could start several levels apart, and the higher side won nearly
+# every game. Bots of every level still join, but one that would take its side's average level more
+# than 2 levels away from the other side's (and further than it is) only joins on this share of its
+# tries (and then stays out of that queue for a minute), so the two teams have about the same levels.
+# Queues a real player waits in are filled as before.
+# In percent; 100 = as before. Read again by ".reload config".
+AiPlayerbot.CoaBgLevelBalanceChance = 15
+
 # A snapshot of every random bot online, written as JSON for the SquidBots dashboard (bot-status.json,
 # its "botStatusFile" setting): position, health, power, what the bot is doing, its group and its
 # quests, shown on the map and on each bot's card. The file is written whole under a .tmp name and
@@ -1457,10 +1561,172 @@ AiPlayerbot.CoaStatusIntervalSeconds = 5
 AiPlayerbot.CoaSmartHeal = 1
 
 # Tanks of Conquest of Azeroth: of the enemies hitting someone else, take first the one
-# on the healer, then the one on whoever is lowest, rather than the nearest one.
+# on the healer, then the one on whoever is lowest, rather than the nearest one; a mob
+# running away or for help comes last, so the tank no longer follows it into other packs.
 # Read again by ".reload config".
 # Default: 1 (enabled)
 AiPlayerbot.CoaSmartTank = 1
+
+# Bots of Conquest of Azeroth read the casts of dungeon and raid enemies: melee damage
+# dealers step out of a point blank cast (Whirlwind, Fire Nova, War Stomp) or from in front of
+# a cone (breaths, Arcing Smash) while its cast bar runs, anyone leaves the spot of an area
+# cast (Flamestrike), and ranged members keep out of the reach of instant point blank spells
+# that the smart_scripts rows of the creature hold. A point blank cast of any nearby enemy, not
+# only of the bot's target, is stepped out of too (a boss's Bladestorm while the group kills an
+# add). Radius limit: AiPlayerbot.MaxAoeAvoidRadius.
+# Takes effect when a bot's strategies are reset (login, ".playerbots bot init", spec change).
+# Default: 1 (enabled)
+AiPlayerbot.CoaBossKnowledge = 1
+
+# CoA 2.2, ideas taken from other mod-playerbots forks. Each one can be turned off on its own.
+# They are read once at start-up (and again by ".reload config").
+
+# Move to regain line of sight in combat. Ranged bots in a group whose target is behind an
+# obstacle walk to the nearest group member that can see it, and hold position if none can.
+# Melee and solo bots walk towards the target. Healers (CoA healers too) keep the group
+# members they cannot see as candidates, at a penalty, and walk until they see them.
+# Default: 1 (enabled)
+AiPlayerbot.CoaRegainLineOfSight = 1
+
+# A moving bot no longer stops to turn to its target: the movement rewrites its facing every
+# update, so "set facing" fired again each tick, above every heal, and healers on the move
+# cast nothing.
+# Default: 1 (enabled)
+AiPlayerbot.CoaNoFacingWhileMoving = 1
+
+# A bot in a fight with an enemy at hand always runs its combat strategies. A healer whose
+# target went invalid dropped into the out of combat strategies, where "coa heal" does not
+# exist, and healed nobody until something hit it (boss submerged, flying phase).
+# Default: 1 (enabled)
+AiPlayerbot.CoaKeepCombatEngine = 1
+
+# When its target dies in a fight, a bot attacks the next one in the same update instead of
+# going through four updates (drop, assist, reach, face), and a target within 85 degrees of
+# its front counts as faced (the game's own test is 90; it was 45).
+# Default: 1 (enabled)
+AiPlayerbot.CoaNextTargetSameTick = 1
+
+# A CoA healer under 65% health (MediumHealth) heals itself first, unless the member it would
+# heal instead is under 45% (LowHealth). With the tank a little lower, the healer was always
+# second and died while full of mana.
+# Default: 1 (enabled)
+AiPlayerbot.CoaHealSelfFirst = 1
+
+# A CoA healer saving its mana stops picking its cheapest heal once the target is under 45%
+# (LowHealth) instead of 25% (CriticalHealth): one boss hit took a tank from 45% to dead.
+# Default: 1 (enabled)
+AiPlayerbot.CoaFastHealBelowLow = 1
+
+# Raid and dungeon target exclusions (Molten Core, Blackwing Lair, Karazhan...) also apply to
+# raid marks and to the count of enemies that starts an area attack: a skull on an excluded
+# unit no longer overrides them, and excluded units no longer trigger "coa aoe".
+# Default: 1 (enabled)
+AiPlayerbot.CoaExclusionsEverywhere = 1
+
+# Damage dealers keep their target unless another one is clearly better (dies a quarter sooner,
+# or stands 5 yards closer), and the list of attackers comes in a stable order (distance, then
+# id): bots no longer flip between two mobs every second and stand still in between.
+# Default: 1 (enabled)
+AiPlayerbot.CoaStickyTarget = 1
+
+# In dungeons, damage dealers switch to a mob that runs off to fetch help (not a boss, not a
+# feared mob) and snares slow it down; a skull mark still comes first, and tanks keep the pack.
+# Default: 1 (enabled)
+AiPlayerbot.CoaFocusRunners = 1
+
+# A target that steps out of sight for a moment (pillar, wall, a player in the way) is kept:
+# the bot walks around instead of dropping the fight and taking the same target back next
+# update. Works best with CoaRegainLineOfSight.
+# Default: 1 (enabled)
+AiPlayerbot.CoaKeepTargetOutOfSight = 1
+
+# In dungeons and raids, out of combat, a routine move (follow, loot, positioning) that would
+# end inside the aggro radius of an idle hostile mob is refused: bots no longer pull a pack by
+# walking past it. Moves toward the bot's own target, fights and orders are not affected.
+# Default: 1 (enabled)
+AiPlayerbot.CoaBodyPullGuard = 1
+
+# In a dungeon or raid fight, a bot no longer runs after an enemy farther than healing range
+# from the main tank (from its healer, for a tank): casters and melee stopped dying alone at an
+# add spawn point. A tank may still fetch an enemy nobody holds yet (the pull).
+# Default: 1 (enabled)
+AiPlayerbot.CoaChaseLeash = 1
+
+# In a party of five, ranged damage dealers and healers stand behind the living tank (next to
+# the healer when it is already back there), step back when they end up on the mob's side,
+# and melee close on the tank's side of the mob. Follow between pulls uses the same spot. Works
+# with the CoA healer rules (within 18 yards of the tank): the spot is 12 yards behind it.
+# Off since 2.3: it could take a player who is not a tank for the group's tank.
+# Default: 0 (disabled)
+AiPlayerbot.CoaHoldBehindTank = 0
+
+# Real players take the place of random bots, so the world keeps about the same population. Percentage
+# of a bot removed per real player online: 100 = one bot fewer per player (500 bots, 40 players online:
+# 460 bots), 50 = one bot fewer per two players. Bots leave a few at a time, never while grouped, in a
+# dungeon, a battleground, an arena or a queue, and come back when players log out. Your alt bots and
+# other bots of a real player are not random bots: never counted, never removed.
+# Default: 0 (disabled)
+AiPlayerbot.CoaPlayersReplaceBots = 0
+
+# Random bots always kept with CoaPlayersReplaceBots, however many players are online (e.g. 100 keeps
+# a hundred bots for the auction house, the battlegrounds and the dungeon finder).
+# Default: 0
+AiPlayerbot.CoaPlayersReplaceBotsMin = 0
+
+# Dungeon finder: random damage dealers hold back only while a queued party of real players
+# still misses a tank or a healer that no queued bot covers. The old test held them back
+# whenever a queued player was not tank and healer at once, nearly always, so players waited
+# for damage dealers.
+# Default: 1 (enabled)
+AiPlayerbot.CoaLfgMissingRoles = 1
+
+# CoA 2.3, ideas taken from other mod-playerbots forks. Each one can be turned off on its own.
+# They are read once at start-up (and again by ".reload config").
+
+# CoA dispels. A member stunned, feared, polymorphed or silenced by an aura the bot can take off
+# is freed first (a healer does it before topping anyone up), healers then tanks before the
+# others; a member another bot is already cleansing is left to it. Cleanses laid on the ground
+# are cast at the member, cleanses around the caster when the member stands in their radius,
+# and a spell that also strikes enemies still cleanses.
+# Default: 1 (enabled)
+AiPlayerbot.CoaSmartDispel = 1
+
+# CoA bots in a group fight step out of the reach of a member who carries a mark that hurts the
+# allies around him (a bomb, a brand, a beacon: an aura that casts or spreads a damaging or
+# controlling spell on the carrier's allies in an area, read from the spell data), and a bot that
+# carries one steps away from the others. A spell whose damage is meant to be shared is left out.
+# Default: 1 (enabled)
+AiPlayerbot.CoaAvoidMarkedAlly = 1
+
+# CoA melee specializations in a fight no longer stop at range to cast an attack with a cast time
+# or a channel (hybrids stood 20 yards off hardcasting): they close in and use only their instants
+# on the way. A rooted bot, or a target it cannot walk to (far above or below), still casts.
+# Default: 1 (enabled)
+AiPlayerbot.CoaMeleeNoRangedHardcast = 1
+
+# A bot whose bags are full (or, for a random bot, over 80% full) no longer leaves a quest item or
+# an item of uncommon quality or better on the corpse: it destroys its cheapest grey item to make
+# room for it. Random bots only: the bags of a real player's own bots are never touched.
+# Default: 1 (enabled)
+AiPlayerbot.CoaLootMakeRoom = 1
+
+# In a dungeon or a raid, a bot no longer casts an area spell (its own AoE, a ground spell, a tank's
+# Thunder Clap) that would also hit an attackable creature not yet in combat: the next pack, or the
+# spectators of an arena, are no longer pulled by the group's AoE. Outside instances nothing changes.
+# Default: 1 (enabled)
+AiPlayerbot.CoaAoeNoIdlePull = 1
+
+# In an arena, a battleground or a duel, a CoA bot stunned, feared, polymorphed or charmed for 2
+# seconds or more uses the PvP trinket it wears (spell 42292) to break free. Bots wore it and never
+# used it.
+# Default: 1 (enabled)
+AiPlayerbot.CoaPvpTrinket = 1
+
+# In an arena, CoA bots with a purge (magic buffs, enrages) take them off the enemy players they
+# see within 30 yards, their target first, one bot per buff. Until now "coa purge" only worked on
+# dungeon bosses and elites (AiPlayerbot.CoaDungeonPriorities).
+# Default: 1 (enabled)
+AiPlayerbot.CoaArenaPurge = 1
 
 #    AiPlayerbot.CoaTankOpenerSeconds
 #        Description: With CoaSmartTank, a CoA damage dealer lets the tank open: on a target no tank
@@ -1473,11 +1739,338 @@ AiPlayerbot.CoaTankOpenerSeconds = 2
 
 #    AiPlayerbot.CoaThreatHold
 #        Description: With CoaSmartTank, a CoA damage dealer also holds its attacks on a target where
-#                     its threat reaches this percent of the tank's (aggro passes at 110% in melee,
-#                     130% at range). Off by default: holding aggro is the tank's job.
-#        Default:     0 - off
+#                     its threat reaches this percent of the tank's, 20 points more at range (aggro
+#                     passes at 110% in melee, 130% at range), while the tank holds that target; an
+#                     area attack also waits for the mobs the tank holds around it. Players tanking for
+#                     bots in dungeons lost their mobs to damage dealers (jealous-sound #7080).
+#        Default:     90
+#                     0 - off: holding aggro is the tank's job
 
-AiPlayerbot.CoaThreatHold = 0
+AiPlayerbot.CoaThreatHold = 90
+
+#    AiPlayerbot.CoaTankThreatBonus
+#        Description: A CoA tank bot causes this much more threat, in percent, through a hidden passive aura
+#                     (Increased Threat, 35773): a player dealing heavy damage beside a bot tank kept taking
+#                     its mobs. Removed as soon as the bot is no tank any more. Off by default: a tank
+#                     wearing its threat auras and playing its rotation should hold aggro on its own.
+#        Default:     0 - off
+#                     100 - twice the threat
+
+AiPlayerbot.CoaTankThreatBonus = 0
+
+#    AiPlayerbot.CoaAttackLoop
+#        Description: 1 - a CoA bot attacks through the same cast path as its heals: a spell refused for
+#                     a passing reason (moving, sitting, casting) is set aside 8 seconds instead of a
+#                     minute after three refusals, cleaves wait for melee reach, summons are not recast
+#                     while up, and area attacks, defensives and interrupts log why they fail.
+#                     0 - the attack loop of 1.6.
+#        Default:     1
+
+AiPlayerbot.CoaAttackLoop = 1
+
+#    AiPlayerbot.CoaKeepChannels
+#        Description: 1 - a CoA bot lets its own attack channel run to its end, one that strikes enemies
+#                     and heals no one (Stormflow, Aortic Assault, Twilight Frenzy, Carve): its attacks
+#                     and area attacks wait, except the spells the class may cast during that channel
+#                     without breaking it (Brine and Electrocute for a Stormbringer during Stormflow),
+#                     which its rotation may now cast, as any spell but another channel during a channel
+#                     that allows actions (a Barbarian's Berserker). Heals, defensives, taunts,
+#                     interrupts and movement still break the channel. Not held: a healing, defensive or
+#                     other channel (Mojo Beam, Ripple, Testament of Fortitude), any channel of a healer,
+#                     of a bot at critical health, or longer than 15 seconds.
+#                     0 - as in 1.6: the next attack breaks the channel once the global cooldown ends.
+#                     Read again by .reload config.
+#        Default:     1
+
+AiPlayerbot.CoaKeepChannels = 1
+
+#    AiPlayerbot.CoaExclusiveFamilies
+#        Description: 1 - of a family of buffs the world database makes exclusive (spell_group_stack_rules:
+#                     Stormbringer Aegis and Pressures, Barbarian shouts, Starcaller Aspects), a CoA bot
+#                     keeps the member named by the highest priority line of its rotation, in a "buff
+#                     missing" or "can cast" trigger or in a cast action; the other lines of the family
+#                     wait until it wears none of it, and the kept member never replaces one another
+#                     caster put on. "coa buff" leaves that family to the rotation on the bot itself, and
+#                     gives the other members of the group a buff of the family when they wear none of it
+#                     from the bot, again at once to one who lost it (raised from the dead).
+#                     0 - as before: only the families of mod-ascension-compat's aura scripts (Pyromancer
+#                     skins, Cultist) are kept to one.
+#                     Read again by .reload config.
+#        Default:     1
+
+AiPlayerbot.CoaExclusiveFamilies = 1
+
+#    AiPlayerbot.CoaSpellReplacement
+#        Description: 1 - checks, cooldowns and the set-aside list follow the spell a proc swaps in
+#                     (Malefic Wrath -> Malefic Arrow), the cast keeps the listed id. 0 - as in 1.6.
+#        Default:     1
+
+AiPlayerbot.CoaSpellReplacement = 1
+
+#    AiPlayerbot.Coa.AncestralCombatFix
+#        Description: 1 - a Barbarian bot that knows the passive Ancestral Combat (801782) without its aura
+#                     gets it once, when its fight starts. The core asks for a form no Barbarian takes and
+#                     lays the aura only now and then (43 % of the boss bench fights of 02/10), and Ancestry
+#                     loses about a third of its damage without it. A stopgap until the core is fixed.
+#                     0 - the aura is left to the core.
+#                     Read again by ".reload config".
+#        Default:     1
+
+AiPlayerbot.Coa.AncestralCombatFix = 1
+
+#    AiPlayerbot.CoaKeepPassiveAuras
+#        Description: 1 - when a bot is randomized (level change by the PvP bench or a range, the randomize
+#                     timer, init= commands), its passive auras and its positive auras that stay through
+#                     death (PvE Mode) are kept; buffs, debuffs and procs go in one pass, as before.
+#                     The core lays passives only at login or when a spell is learned anew, and a CoA class
+#                     keeps its spells, so without this a randomized bot plays without its passives (Thirst,
+#                     stat conversions, procs) until its next login: 0.42 of the damage of a converted bot
+#                     of the same spec on the boss bench of 02/10.
+#                     0 - all auras are removed, as in 1.6.
+#                     Read again by ".reload config".
+#        Default:     1
+
+AiPlayerbot.CoaKeepPassiveAuras = 1
+
+#    AiPlayerbot.CoaRatedSoloQueue
+#        Description: 1 - while a real player waits in a rated solo queue (1v1, 2v2 or 3v3 with roles), random
+#                     bots of their level bracket join it, just enough to complete the matches: healers and
+#                     damage dealers as the 2v2 and 3v3 lineups need them. A bot gets a personal arena team
+#                     of that bracket, as a player does. The role of a real player is read from their spec.
+#                     0 - bots never join the rated solo queues.
+#                     Read again by ".reload config".
+#        Default:     1
+
+AiPlayerbot.CoaRatedSoloQueue = 1
+
+#    AiPlayerbot.CoaRatedSoloRoleFallback
+#        Description: seconds a real player waits in a rated solo 2v2 or 3v3 queue, bots already queued with
+#                     them and no match started, before their role is taken for the other one: one more bot,
+#                     a healer if they were read as a damage dealer and a damage dealer if read as a healer,
+#                     once per wait. A bot no lineup needs leaves the queue after its usual wait.
+#                     0 - never. Read again by ".reload config".
+#        Default:     40
+
+AiPlayerbot.CoaRatedSoloRoleFallback = 40
+
+#    AiPlayerbot.CoaArenaReady
+#        Description: 1 - an arena shows a ready pylon in each starting room, as on the original CoA realm.
+#                     A player clicks it when ready; a bot is ready by itself once settled. When every
+#                     combatant is ready, the preparation drops to AiPlayerbot.CoaArenaReadyCountdown seconds.
+#                     0 - the full preparation time, as before.
+#                     Read again by ".reload config".
+#        Default:     1
+
+AiPlayerbot.CoaArenaReady = 1
+
+#    AiPlayerbot.CoaArenaReadyCountdown
+#        Description: seconds left before the gates open once everyone is ready.
+#        Default:     6
+
+AiPlayerbot.CoaArenaReadyCountdown = 5
+
+#    AiPlayerbot.CoaArenaReadyBotDelay
+#        Description: seconds a bot waits after it enters the arena (gear, buffs, pet) before it is ready.
+#        Default:     10
+
+AiPlayerbot.CoaArenaReadyBotDelay = 10
+
+#    AiPlayerbot.CoaArenaReadyEntry
+#    AiPlayerbot.CoaArenaReadyDisplay
+#        Description: gameobject template spawned as the pylon (a clickable object without lock or script)
+#                     and an optional display id to give it another look (0 - the template's own).
+#        Default:     184615, 0
+
+AiPlayerbot.CoaArenaReadyEntry = 184615
+AiPlayerbot.CoaArenaReadyDisplay = 0
+
+#    AiPlayerbot.CoaArenaReadyScale
+#        Description: size of the pylon (the default crystal is far taller than a player at 1).
+#        Default:     0.5
+
+AiPlayerbot.CoaArenaReadyScale = 0.5
+
+#    AiPlayerbot.CoaArenaReadyDistance
+#        Description: yards from the team start point towards the other team, where the pylon stands.
+#        Default:     5
+
+AiPlayerbot.CoaArenaReadyDistance = 6
+
+#    AiPlayerbot.CoaArenaReadySide
+#        Description: yards to the right of that line (negative: to the left), out of the way to the gate.
+#        Default:     3
+
+AiPlayerbot.CoaArenaReadySide = 3
+
+#    AiPlayerbot.CoaArenaReadyHeight
+#        Description: yards above the ground the pylon floats (the crystal sinks halfway into the floor at 0).
+#        Default:     1.2
+
+AiPlayerbot.CoaArenaReadyHeight = 1.2
+
+#    AiPlayerbot.CoaArenaRoleSpot
+#        Description: 1 - in an arena a CoA bot takes the spot of its role before the fight (healers at the back,
+#                     ranged in the middle, melee and tanks in front). 0 - all CoA bots take the melee spot, as
+#                     before (they all share class id 27). Every CoaArena*, CoaPvp* and CoaDuel* switch below is
+#                     read again by ".reload config".
+#        Default:     1
+
+AiPlayerbot.CoaArenaRoleSpot = 1
+
+#    AiPlayerbot.CoaArenaPreparation
+#        Description: 1 - before the gates open, a CoA bot takes a place of its role in its starting room, between
+#                     the start point and the gate (healers at the back, ranged in the middle, melee in front, side
+#                     by side), faces the gate, then keeps its buffs and pet up. It never leaves the room, stays on
+#                     the Ring of Valor lift, and is still marked ready (AiPlayerbot.CoaArenaReady).
+#                     0 - the bots wait on their start point.
+#        Default:     1
+
+AiPlayerbot.CoaArenaPreparation = 1
+
+#    AiPlayerbot.CoaArenaLineOfSight
+#        Description: 1 - in an arena, a CoA ranged bot or healer whose target (or most hurt team member) is out of
+#                     sight steps to the nearest reachable point that sees it from casting range, away from enemy
+#                     melee, or joins a team member who sees it. 0 - it walks onto the target's spot, as before.
+#        Default:     1
+
+AiPlayerbot.CoaArenaLineOfSight = 1
+
+#    AiPlayerbot.CoaArenaCover
+#        Description: 1 - the CoA arena moves (kiting, hiding when under pressure, running after a crowd control)
+#                     know the pillars of each arena: found once per arena map by a walk over its floor (written
+#                     to the log as "coa arena cover: ..." to check them in game), plus the Ring of Valor pillars
+#                     and the Dalaran waterfall the core spawns as objects. 0 - they only try points around the bot.
+#        Default:     1
+
+AiPlayerbot.CoaArenaCover = 1
+
+#    AiPlayerbot.CoaArenaKite
+#        Description: 1 - in an arena, a CoA ranged bot or healer with an enemy melee on it steps 7 to 11 yards
+#                     away (towards a pillar when one is near), staying within casting range and sight of its
+#                     target or of the most hurt team member; at most 5 seconds of steps, then 6 seconds of
+#                     fighting before it kites again. Arenas only. 0 - it stands in the melee, as before.
+#        Default:     1
+
+AiPlayerbot.CoaArenaKite = 1
+
+#    AiPlayerbot.CoaArenaFocus
+#        Description: 1 - in an arena, a CoA damage dealer goes for the enemy healer it sees within reach (35 yards
+#                     from range, 25 in melee), else for the most hurt enemy it sees; it finishes a target under
+#                     25% and switches at most every 4 seconds ("dps assist" waits meanwhile). 0 - as before.
+#        Default:     1
+
+AiPlayerbot.CoaArenaFocus = 1
+
+#    AiPlayerbot.CoaArenaPeel
+#        Description: 1 - in an arena, a CoA tank (or a melee damage dealer once its healer is under 60%) turns on
+#                     the enemy hitting its team's healer and puts a crowd control on it, every 12 seconds at most.
+#        Default:     1
+
+AiPlayerbot.CoaArenaPeel = 1
+
+#    AiPlayerbot.CoaArenaPressure
+#        Description: 1 - in an arena, a CoA ranged bot or healer under 45% health that enemies aim at hides from
+#                     the casters among them (behind a pillar, preferably still in sight of its own healer), or
+#                     falls back behind its tank or melee team mate when only melee are on it. 6 seconds at most,
+#                     then 10 seconds before it hides again.
+#        Default:     1
+
+AiPlayerbot.CoaArenaPressure = 1
+
+#    AiPlayerbot.CoaDuelOpening
+#        Description: 1 - during the duel countdown, a CoA melee bot closes in to 3.5 yards and a ranged bot or
+#                     healer steps back to 20 yards (in sight, near the duel flag), then faces the opponent and
+#                     refreshes its buffs. Works in the .coapvp duel bench too (the held duellist does not move;
+#                     the distance logged at the start of a bench duel grows for ranged bots).
+#                     0 - both stay where the challenge left them, as before.
+#        Default:     1
+
+AiPlayerbot.CoaDuelOpening = 1
+
+#    AiPlayerbot.CoaPvpRecovery
+#        Description: 1 - in a duel, arena or battleground, a CoA bot under 40% health with an enemy player in its
+#                     face puts a crowd control on it (every 20 seconds at most), then runs 9 to 14 yards away for
+#                     up to 4 seconds, out of the enemy's sight when it can. 0 - as before.
+#        Default:     1
+
+AiPlayerbot.CoaPvpRecovery = 1
+
+#    AiPlayerbot.CoaPvpBandage
+#        Description: 1 - in a duel, arena or battleground, a CoA bot under 65% health bandages itself when it
+#                     carries a bandage it has the First Aid for and no free enemy can reach it (held, out of
+#                     sight or far); never while Recently Bandaged, under a damage over time, moving or eating.
+#                     Eating and drinking between fights stay with the "food" strategy.
+#        Default:     1
+
+AiPlayerbot.CoaPvpBandage = 1
+
+#    AiPlayerbot.CoaShortLivedDebuffs
+#        Description: life a target must have left (its health over the estimated damage of the group)
+#                     for the rotation lines "debuff missing::<spell>" and "cast debuff::<spell>".
+#                     0 - 8 seconds for every spell, as in 1.6. A trial or trash creature never lives that
+#                     long, so these lines never fire there (7 of the 64 lines of the web DPS rotations on
+#                     the dungeon trials of 02-03/10: no Conjure Storm, Melt Reality, Unmake, Earthquake...).
+#                     1 - half the duration of the debuff, 8 seconds at most (a DoT of 16 s or more keeps
+#                     8 s, Unmake of 1.5 s needs 0.75 s); 2 seconds at most when the spell also hits at once;
+#                     and for a spell that strikes an area, the health of the enemies inside the area is
+#                     counted, not that of the target alone. Boss fights hardly change (a boss lives long).
+#                     2 - as 1, for the bots whose GUID is a multiple of 4 only: half of the even-GUID
+#                     bots of the A/B bench, the other half (GUID % 4 = 2) keeps 8 s and serves as control.
+#                     Only the CoA lines above; the class strategies of the nine base classes keep 8 s.
+#                     Read again by ".reload config".
+#        Default:     0
+
+AiPlayerbot.CoaShortLivedDebuffs = 0
+
+#    AiPlayerbot.CoaAttackCheckBench
+#        Description: with AiPlayerbot.CoaAttackLoop = 1, what becomes of an attack the strict check turns
+#                     down (target or caster aura missing, bad target, short of rage, energy or mana).
+#                     0 - skipped for this tick only, as in 1.6: the next tick tries it again.
+#                     1 - set aside 20 seconds (5 when short of power), as heals are.
+#                     A stunned bot sets its attacks aside either way.
+#        Default:     0
+
+AiPlayerbot.CoaAttackCheckBench = 0
+
+#    AiPlayerbot.CoaStealthIsNotStance
+#        Description: 1 - a stealth or an invisibility the bot casts on itself (Ranger Elude, Venomancer
+#                     Skulk, Reaper Underwalk, Runemaster Runeshroud) no longer counts as a stance: out of
+#                     combat the bot stops wearing it, so it no longer walks slowed and hidden in towns or
+#                     between trial waves, and takes its real stance (quiver, form, tattoo) instead. A
+#                     rotation can still cast it by name. Spells that need it (Flank, Toxic Dart, Spectre
+#                     Stride, Palm Sigils) then only come with a proc or a stealth cast in the fight.
+#                     0 - stealth is a stance like any other, as in 1.6.
+#                     Read once, when the first bot loads: a restart is needed to change it.
+#        Default:     0
+
+AiPlayerbot.CoaStealthIsNotStance = 0
+
+#    AiPlayerbot.CoaInterruptCoordination
+#        Description: 1 - in a group, one bot kicks each enemy cast: the first to see it picks a bot
+#                     with a kick ready and in reach, a damage dealer before a healer before the tank,
+#                     the one that kicked longest ago first; the others hold theirs until the kick has
+#                     landed. In a dungeon a routine cast is let through when only one kick is left in
+#                     reach, kept for a heal, crowd control or long cast. Kicks are only tried on casters
+#                     they reach. Bots without a group are not affected; real players are never counted on.
+#                     0 - every bot kicks the first cast it sees, as in 1.6. Either way CoaBots.log counts
+#                     the enemy casts seen and kicked and the kicks wasted on a cast already kicked.
+#                     Read again by ".reload config".
+#        Default:     1
+
+AiPlayerbot.CoaInterruptCoordination = 1
+
+#    AiPlayerbot.CoaDungeonPriorities
+#        Description: 1 - bots deal first with what keeps the enemy going, as players do: they kick a heal,
+#                     crowd control or summon before an ordinary cast (and a short list of classic dungeon
+#                     boss casts before anything else); in a dungeon they also take a magic buff or an
+#                     enrage off a boss or elite with their purge or soothe, and damage dealers switch to
+#                     a totem, ward or add that heals or shields its side (tanks keep the boss). The
+#                     "coa dungeon:" lines of Playerbots.log show each kind of decision once a minute.
+#                     0 - none of it, as in 1.9.
+#                     Read again by ".reload config".
+#        Default:     1
+
+AiPlayerbot.CoaDungeonPriorities = 1
 
 # Conquest of Azeroth specializations bots never play, by id, comma separated. A bot holding one
 # switches to another of its role, and ".playerbots coa" never recruits one.
@@ -1493,6 +2086,8 @@ AiPlayerbot.CoaThreatHold = 0
 #       24/09 over ten arena runs at level 60: 0 taunts, 90 damage a second where the other eleven
 #       tanks do 289 to 668, and 4.2 group deaths a run, the worst of the twelve. Nothing on the bot
 #       side can repair it. Take it out again once the form is granted.
+#       10/10: tried again (the core grants the form since jealous-sound#5655): still broken on the tank
+#       bench, 12 to 53% of the fight held, Scarlet Delirium cast 80 times in 3 minutes and almost nothing else.
 # Read again by ".reload config".
 # Default: 99
 AiPlayerbot.CoaExcludedSpecializations = 99
@@ -1595,9 +2190,9 @@ AiPlayerbot.CoaLfgLevelRange = 2
 #    AiPlayerbot.CoaLfgOfferMinutes
 #        Description: How long an offer holds: meanwhile the bot is offered to nobody else and
 #                     accepts that player's invitation. Afterwards it goes back to its own life.
-#        Default:     5
+#        Default:     2
 
-AiPlayerbot.CoaLfgOfferMinutes = 5
+AiPlayerbot.CoaLfgOfferMinutes = 2
 
 #    AiPlayerbot.CoaLfgCooldown
 #        Description: Seconds before the same player is answered again for the same role.
@@ -1613,7 +2208,7 @@ AiPlayerbot.CoaLfgCooldown = 15
 AiPlayerbot.CoaLfgAnnounceMinutes = 10
 
 #    AiPlayerbot.CoaLfgAnnounceText
-#        Description: That message. Empty: "[Bots] Need a healer, a tank or damage? Say lfg bot
+#        Description: That message. Empty: "[SquidBots] Need a healer, a tank or damage? Say lfg bot
 #                     heal, lfg bot tank, lfg bot dps or lfg bot heal tank dps in the General or
 #                     LookingForGroup channel, then invite the bots that whisper you."
 #        Default:     (empty)
@@ -1631,6 +2226,14 @@ AiPlayerbot.LootLogMinQuality = 3
 # Randombots automatically spend talent points on levelup
 # Default: 1 (enabled)
 AiPlayerbot.AutoPickTalents = 1
+
+# Altbots (your own characters added as bots) spend their free talent points by themselves, on levelup and when
+# they log in: CoA classes along their specialization's level build, other classes with the talent template of
+# their main tree. Points already spent are kept: nothing is lowered, reset or swapped, and a free choice you made
+# stays yours. "talents autopick" does the same on demand. Off by default: it spends points on players' own
+# characters; set it to 1 on a server of your own.
+# Default: 0 (disabled)
+AiPlayerbot.AutoPickTalentsAltBots = 0
 
 # Spells every randombot will learn automatically and every altbot will learn with maintenance
 # Default: 54197 (Cold Weather Flying)
@@ -1692,8 +2295,9 @@ AiPlayerbot.EnableNewRpgStrategy = 1
 # TravelFlight  (Default: 15  Go to the nearest flightmaster and fly to a level-appropriate area)
 # Rest          (Default: 5   Take a break for a while and do nothing)
 # OutdoorPvp    (Default: 10  Participate in outdoor PvP capture points if already in an outdoor PvP zone)
-# GoCity        (Default: 10  Visit a capital of the bot's faction for 10-30 minutes: bank, auction house,
-#                             trainers and vendors; bots too far away teleport there and back)
+# GoCity        (Default: 10  Visit a capital of the bot's faction for a while (see CoaCityStay below): bank,
+#                             auction house, inn, trainers and vendors; bots too far away (from level 10) teleport
+#                             there and back. Never a bot in a group, a queue, an instance or High Risk)
 AiPlayerbot.RpgStatusProbWeight.WanderRandom = 15
 AiPlayerbot.RpgStatusProbWeight.WanderNpc = 20
 AiPlayerbot.RpgStatusProbWeight.GoGrind = 15
@@ -1703,6 +2307,12 @@ AiPlayerbot.RpgStatusProbWeight.TravelFlight = 15
 AiPlayerbot.RpgStatusProbWeight.Rest = 5
 AiPlayerbot.RpgStatusProbWeight.OutdoorPvp = 10
 AiPlayerbot.RpgStatusProbWeight.GoCity = 10
+
+# How long a bot on a city visit (GoCity above) stays among the city NPCs, in minutes: a random time between the
+# two. Both are read again by ".reload config", like the GoCity weight.
+# Default: 10 and 30
+AiPlayerbot.CoaCityStayMinMinutes = 10
+AiPlayerbot.CoaCityStayMaxMinutes = 30
 
 # Bots' minimum and maximum level when teleporting in and out of a zone, according to the new RPG strategy
 # Format: AiPlayerbot.ZoneBracket.zoneID = minLevel,maxLevel
@@ -1899,7 +2509,9 @@ AiPlayerbot.AutoTeleportForLevel = 1
 AiPlayerbot.RandomBotJoinBG = 1
 
 # Enable auto-joining of battlegrounds - have bots start battlegrounds and arenas on their own
-AiPlayerbot.RandomBotAutoJoinBG = 0
+# CoA Bots 1.9 (PvP): on by default, with one Warsong Gulch, one Arathi Basin, one rated 2v2 and one rated 3v3
+# kept going at level 60 (the counts below). 0 = bots only fill the queues of players.
+AiPlayerbot.RandomBotAutoJoinBG = 1
 
 # Required Configuration for RandomBotAutoJoinBG
 #
@@ -1950,12 +2562,14 @@ AiPlayerbot.RandomBotAutoJoinBGEYCount = 0
 AiPlayerbot.RandomBotAutoJoinBGICCount = 0
 
 # Arena bracket (single bracket only):
-# Custom code changes are required for lower-level arena brackets to function properly.
+# CoA: 10 is the 60-64 bracket of the arenas, that of level 60 bots. Random bots make arena teams at
+# AiPlayerbot.RandomBotMaxLevel (60) when it is below 70 (before 1.9, only from level 70: no team on CoA).
 AiPlayerbot.RandomBotAutoJoinArenaBracket = 10
 
 # Arena battles count:
-AiPlayerbot.RandomBotAutoJoinBGRatedArena2v2Count = 0
-AiPlayerbot.RandomBotAutoJoinBGRatedArena3v3Count = 0
+# CoA: one rated 2v2 and one rated 3v3 kept going by the bots by default (1.9, PvP).
+AiPlayerbot.RandomBotAutoJoinBGRatedArena2v2Count = 1
+AiPlayerbot.RandomBotAutoJoinBGRatedArena3v3Count = 1
 AiPlayerbot.RandomBotAutoJoinBGRatedArena5v5Count = 0
 
 # Randombot arena team count
@@ -1963,10 +2577,10 @@ AiPlayerbot.RandomBotAutoJoinBGRatedArena5v5Count = 0
 # You may need to first delete all arena teams, then reinitialize bots.
 # Warning: Reinitializing bots completely resets them (command in game: .playerbots rndbot init)
 # Bots only join one arena team to avoid queueing issues. Take that into account when increasing count.
-# Default: 2v2: 10 (20 Bots), 3v3: 10 (30 bots), 5v5: 5 (25 bots)
+# Default: 2v2: 10 (20 Bots), 3v3: 10 (30 bots), 5v5: 0 (CoA has no 5v5; bot 5v5 teams left from before are disbanded at start)
 AiPlayerbot.RandomBotArenaTeam2v2Count = 10
 AiPlayerbot.RandomBotArenaTeam3v3Count = 10
-AiPlayerbot.RandomBotArenaTeam5v5Count = 5
+AiPlayerbot.RandomBotArenaTeam5v5Count = 0
 
 # Arena rating is randomized on team creation.
 # Default: Max: 2000, Min: 1000
@@ -2807,6 +3421,11 @@ Playerbots.Updates.EnableDatabases = 1
 
 # Command server port, 0 - disabled
 AiPlayerbot.CommandServerPort = 8888
+
+# Command server bind address (IPv4 or IPv6), the server does not start if the address is invalid
+# The command server has no authentication: keep it on a loopback address (127.0.0.1 or ::1)
+# Default: 127.0.0.1
+AiPlayerbot.CommandServerBind = 127.0.0.1
 
 #
 #

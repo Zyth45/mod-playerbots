@@ -20,7 +20,7 @@ void RaidMcStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
                         { NextAction("mc lucifron shadow resistance", ACTION_RAID) }));
 
     // Magmadar
-    // TODO: Fear ward / tremor totem, or general anti-fear strat development. Same as King Dred (Drak'Tharon) and faction commander (Nexus).
+    // TODO: tremor totem, or general anti-fear strat development. Same as King Dred (Drak'Tharon) and faction commander (Nexus).
     triggers.push_back(
         new TriggerNode("mc magmadar fire resistance",
                         { NextAction("mc magmadar fire resistance", ACTION_RAID) }));
@@ -107,7 +107,8 @@ void RaidMcStrategy::InitMultipliers(std::vector<Multiplier*>& multipliers)
 
 void RaidMcStrategy::AppendTargetExclusions(GuidSet& exclusions, TargetValueExclusionType type)
 {
-    if (type != TargetValueExclusionType::Dps && type != TargetValueExclusionType::Attacker)
+    if (type == TargetValueExclusionType::TankTarget ||
+        (type == TargetValueExclusionType::Aoe && PlayerbotAI::IsTank(botAI->GetBot())))
         return;
 
     // Damage into these is wasted: Core Ragers are unkillable while Golemagg
@@ -122,7 +123,9 @@ void RaidMcStrategy::AppendTargetExclusions(GuidSet& exclusions, TargetValueExcl
         if (!unit)
             continue;
 
-        if ((golemaggAlive && unit->GetEntry() == NPC_CORE_RAGER) || unit->GetEntry() == NPC_MAJORDOMO_EXECUTUS)
+        // CoA: Majordomo Executus is fought down to 20% (he then yields and turns friendly, which ends the
+        // attack by itself); stock AzerothCore's "never attack him" stalled the encounter (raid report, 08/10).
+        if (golemaggAlive && unit->GetEntry() == NPC_CORE_RAGER)
             exclusions.insert(guid);
     }
 }

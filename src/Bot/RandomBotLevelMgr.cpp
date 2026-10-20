@@ -28,6 +28,7 @@
 #include <limits>
 #include <mutex>
 #include <string>
+#include <unordered_set>
 #include <unordered_map>
 #include <vector>
 
@@ -116,9 +117,33 @@ static bool BotInArenaTeam(Player* bot)
 
 // Checks if a bot is currently in a safe state to perform a level reset (alive, not in combat, not
 // in a battleground/arena/dungeon queue or flight, and grouped only with other bots).
+namespace
+{
+std::mutex HeldLock;
+std::unordered_set<ObjectGuid> HeldBots;
+}
+
+void RandomBotLevelMgr::SetHeld(ObjectGuid guid, bool held)
+{
+    std::lock_guard<std::mutex> guard(HeldLock);
+    if (held)
+        HeldBots.insert(guid);
+    else
+        HeldBots.erase(guid);
+}
+
+bool RandomBotLevelMgr::IsHeld(ObjectGuid guid)
+{
+    std::lock_guard<std::mutex> guard(HeldLock);
+    return HeldBots.count(guid) != 0;
+}
+
 static bool IsBotSafeForLevelReset(Player* bot)
 {
     if (!bot || !bot->GetSession() || bot->GetSession()->isLogingOut() || bot->IsDuringRemoveFromWorld())
+        return false;
+
+    if (RandomBotLevelMgr::IsHeld(bot->GetGUID()))
         return false;
 
     if (!bot->IsInWorld())
@@ -153,6 +178,9 @@ static bool IsBotSafeForLevelReset(Player* bot)
             if (member && member->IsInWorld() && !GET_PLAYERBOT_AI(member))
                 return false;
         }
+        // Nor while it waits for a player who logged out to come back (AiPlayerbot.CoaOrphanGroupReleaseDelay).
+        if (sPlayerbotAIConfig.coaOrphanGroupReleaseDelay && sRandomPlayerbotMgr.CoaIsOrphanGroup(group))
+            return false;
     }
     return true;
 }
@@ -478,6 +506,9 @@ int RandomBotLevelMgr::GetOrFlagPlayerBracket(Player* player)
                 if (member && member->IsInWorld() && !GET_PLAYERBOT_AI(member))
                     return -1;
             }
+            // Or with one who logged out, while they wait for him (AiPlayerbot.CoaOrphanGroupReleaseDelay).
+            if (sPlayerbotAIConfig.coaOrphanGroupReleaseDelay && sRandomPlayerbotMgr.CoaIsOrphanGroup(group))
+                return -1;
         }
     }
 
@@ -731,6 +762,8 @@ void RandomBotLevelMgr::RunLevelBracketsDistribution()
         if (!sRandomPlayerbotMgr.IsRandomBot(player))
             continue;
         if (IsNameInExcludeList(player, sPlayerbotAIConfig.levelBracketsExcludeNames))
+            continue;
+        if (IsHeld(player->GetGUID()))
             continue;
 
         PlayerbotAI* botAI = GET_PLAYERBOT_AI(player);
@@ -1192,7 +1225,8 @@ public:
 
     void OnUpdate(uint32 diff) override
     {
-        RandomBotLevelMgr::instance().Update(diff);
+        if (sPlayerbotAIConfig.enabled)
+            RandomBotLevelMgr::instance().Update(diff);
     }
 };
 
@@ -1210,21 +1244,22 @@ public:
 
     void OnPlayerLogin(Player* player) override
     {
-        if (!sPlayerbotAIConfig.resetBotLevelEnabled)
+        if (!sPlayerbotAIConfig.enabled || !sPlayerbotAIConfig.resetBotLevelEnabled)
             return;
         RandomBotLevelMgr::instance().OnBotLogin(player);
     }
 
     void OnPlayerLevelChanged(Player* player, uint8 oldLevel) override
     {
-        if (!sPlayerbotAIConfig.resetBotLevelEnabled)
+        if (!sPlayerbotAIConfig.enabled || !sPlayerbotAIConfig.resetBotLevelEnabled)
             return;
         RandomBotLevelMgr::instance().OnBotLevelChanged(player, oldLevel);
     }
 
     void OnPlayerLogout(Player* player) override
     {
-        RandomBotLevelMgr::instance().OnPlayerLogout(player);
+        if (sPlayerbotAIConfig.enabled)
+            RandomBotLevelMgr::instance().OnPlayerLogout(player);
     }
 };
 

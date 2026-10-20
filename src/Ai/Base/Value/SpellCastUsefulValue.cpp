@@ -5,6 +5,7 @@
  */
 
 #include "SpellCastUsefulValue.h"
+#include "Helpers.h"
 #include "LastSpellCastValue.h"
 #include "Playerbots.h"
 
@@ -60,12 +61,7 @@ bool SpellCastUsefulValue::Calculate()
         if (!skipSpellInfo)
             continue;
 
-        std::wstring wnamepart;
-        if (!Utf8toWStr(skipSpellInfo->SpellName[0], wnamepart))
-            continue;
-
-        wstrToLower(wnamepart);
-        if (!spellName.empty() && spellName.length() == wnamepart.length() && Utf8FitTo(spellName, wnamepart))
+        if (CoaNameIs(spellName, CoaNameKey(skipSpellInfo->SpellName[0])))
             return false;
     }
 

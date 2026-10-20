@@ -5,7 +5,10 @@
  */
 
 #include "RandomPlayerbotMgr.h"
+#include "BattlegroundUtils.h"
 #include "AiFactory.h"
+#include "ArenaTeam.h"
+#include "ArenaTeamMgr.h"
 #include "Battleground.h"
 #include "BattlegroundMgr.h"
 #include "Cell.h"
@@ -28,11 +31,15 @@
 #include "PlayerbotAI.h"
 #include "PlayerbotAIConfig.h"
 #include "PlayerbotFactory.h"
+#include "CoaSpecialization.h"
+#include "AscensionSpecialization.h"
+#include "SpellMgr.h"
 #include "PlayerbotTextMgr.h"
 #include "Playerbots.h"
 #include "Position.h"
 #include "RaceMgr.h"
 #include "Random.h"
+#include "RandomBotLevelMgr.h"
 #include "RandomPlayerbotFactory.h"
 #include "ServerFacade.h"
 #include "SharedDefines.h"
@@ -169,7 +176,70 @@ double botPIDImpl::calculate(double setpoint, double pv)
 
 botPIDImpl::~botPIDImpl() {}
 
-uint32 RandomPlayerbotMgr::GetMaxAllowedBotCount() { return GetEventValue(0, "bot_count"); }
+uint32 RandomPlayerbotMgr::GetMaxAllowedBotCount() { return GetTargetBotCount(); }
+
+// AiPlayerbot.CoaPlayersReplaceBots: real players take the place of random bots, so the world keeps about the same
+// population. At 100 (%), 500 bots and 40 players online leave 460 bots; never fewer than CoaPlayersReplaceBotsMin.
+// Alt bots and other bots of a real player are not random bots and are never counted or removed.
+uint32 RandomPlayerbotMgr::GetTargetBotCount()
+{
+    uint32 const count = GetEventValue(0, "bot_count");
+    if (!sPlayerbotAIConfig.coaPlayersReplaceBots || !count)
+        return count;
+
+    uint32 const players = sWorldSessionMgr->GetActiveSessionCount();
+    uint32 const replaced = players * sPlayerbotAIConfig.coaPlayersReplaceBots / 100;
+    uint32 const floor = std::min(count, sPlayerbotAIConfig.coaPlayersReplaceBotsMin);
+    return replaced >= count - floor ? floor : count - replaced;
+}
+
+// Sends random bots home while more are in the world than the players leave room for, a few per pass. A margin keeps
+// a player logging in and out from swapping bots each time. Bots grouped, in a dungeon, a battleground, an arena or a
+// queue stay: ProcessBot() then logs out the ones marked here.
+void RandomPlayerbotMgr::CoaTrimBotsForPlayers(uint32 target)
+{
+    if (!sPlayerbotAIConfig.coaPlayersReplaceBots)
+        return;
+
+    // Bots already leaving stay in currentBots until ProcessBot() logs them out: not counted again.
+    uint32 staying = 0;
+    for (uint32 const bot : currentBots)
+        if (GetEventValue(bot, "add"))
+            ++staying;
+
+    if (staying <= target + 2 + target / 100)
+        return;
+
+    uint32 const toRemove =
+        std::min<uint32>(staying - target, std::max<uint32>(1, sPlayerbotAIConfig.randomBotsPerInterval));
+    std::vector<uint32> picked;
+    for (uint32 const bot : currentBots)
+    {
+        if (picked.size() >= toRemove)
+            break;
+
+        if (!GetEventValue(bot, "add"))
+            continue;  // already leaving
+
+        Player* player = GetPlayerBot(ObjectGuid::Create<HighGuid::Player>(bot));
+        if (player && (player->GetGroup() || player->InBattleground() || player->InArena() ||
+                       player->InBattlegroundQueue() || !player->IsInWorld() || player->GetMap()->IsDungeon()))
+            continue;
+
+        picked.push_back(bot);
+    }
+
+    for (uint32 const bot : picked)
+    {
+        SetEventValue(bot, "add", 0, 0);
+        if (!GetPlayerBot(ObjectGuid::Create<HighGuid::Player>(bot)))
+            currentBots.erase(bot);  // not in the world yet: nothing to log out
+    }
+
+    if (!picked.empty())
+        LOG_INFO("playerbots", "{} random bots leave for real players ({} staying, {} wanted)", picked.size(),
+                 staying - picked.size(), target);
+}
 
 void RandomPlayerbotMgr::LogPlayerLocation()
 {
@@ -307,7 +377,10 @@ void RandomPlayerbotMgr::UpdateAIInternal(uint32 /*elapsed*/, bool /*minimal*/)
                             sPlayerbotAIConfig.randomBotCountChangeMaxInterval));
     }
 
+    maxAllowedBotCount = GetTargetBotCount();
+
     GetBots();
+    CoaTrimBotsForPlayers(maxAllowedBotCount);
     // Copied deliberately: ProcessBot() erases from currentBots while this is
     // being iterated below, so the loops must run over a snapshot.
     std::unordered_set<uint32> availableBots = currentBots;
@@ -382,6 +455,10 @@ void RandomPlayerbotMgr::UpdateAIInternal(uint32 /*elapsed*/, bool /*minimal*/)
     {
         if (time(nullptr) > (BgCheckTimer + 35))
             sRandomPlayerbotMgr.CheckBgQueue();
+
+        if (time(nullptr) > (ArenaCaptainCheckTimer + 60) &&
+            (!sPlayerbotAIConfig.disabledWithoutRealPlayer || realPlayerIsLogged))
+            KeepArenaCaptainsOnline();
     }
 
     if (sPlayerbotAIConfig.randomBotJoinLfg /* && !players.empty()*/)
@@ -639,7 +716,7 @@ bool RandomPlayerbotMgr::IsAccountType(uint32 accountId, uint8 accountType)
 // Phase 4 is reached if and only if the value of RandomBotAccountCount is lower than it should.
 uint32 RandomPlayerbotMgr::AddRandomBots()
 {
-    uint32 maxAllowedBotCount = GetEventValue(0, "bot_count");
+    uint32 maxAllowedBotCount = GetTargetBotCount();
     static time_t missingBotsTimer = 0;
 
     if (currentBots.size() < maxAllowedBotCount)
@@ -825,26 +902,39 @@ uint32 RandomPlayerbotMgr::AddRandomBots()
 void RandomPlayerbotMgr::LoadBattleMastersCache()
 {
     BattleMastersCache.clear();
+    BattleMasterSpawnIds.clear();
 
     LOG_INFO("playerbots", "Loading Battlemasters Cache...");
 
     QueryResult result = WorldDatabase.Query("SELECT `entry`,`bg_template` FROM `battlemaster_entry`");
-
-    uint32 count = 0;
 
     if (!result)
     {
         return;
     }
 
+    std::vector<std::pair<uint32, uint32>> battleMasterEntries;
     do
     {
-        ++count;
-
         Field* fields = result->Fetch();
-
         uint32 entry = fields[0].Get<uint32>();
-        uint32 bgTypeId = fields[1].Get<uint32>();
+        battleMasterEntries.emplace_back(entry, fields[1].Get<uint32>());
+        BattleMasterSpawnIds.emplace(entry, 0);
+    } while (result->NextRow());
+
+    // Resolve every entry to its first spawn once; 0 marks entries with no static spawn.
+    for (auto const& [spawnId, creatureData] : sObjectMgr->GetAllCreatureData())
+    {
+        auto spawnIt = BattleMasterSpawnIds.find(creatureData.id);
+        if (spawnIt != BattleMasterSpawnIds.end() && !spawnIt->second)
+            spawnIt->second = spawnId;
+    }
+
+    uint32 count = 0;
+
+    for (auto const& [entry, bgTypeId] : battleMasterEntries)
+    {
+        ++count;
 
         CreatureTemplate const* bmaster = sObjectMgr->GetCreatureTemplate(entry);
         if (!bmaster)
@@ -873,8 +963,7 @@ void RandomPlayerbotMgr::LoadBattleMastersCache()
                   bmTeam == TEAM_ALLIANCE ? "Alliance"
                   : bmTeam == TEAM_HORDE  ? "Horde"
                                           : "Neutral");
-
-    } while (result->NextRow());
+    }
 
     LOG_INFO("playerbots", ">> Loaded {} battlemaster entries", count);
 }
@@ -891,6 +980,64 @@ std::vector<uint32> parseBrackets(std::string const& str)
     }
 
     return brackets;
+}
+
+// A rated solo queue entry (AscensionArenaQueue) is rated and holds one player: no rated team queues alone.
+// Its 2v2 and 3v3 matches are played by two temporary teams, its 1v1 matches by personal teams. A party joined
+// as a group with personal teams waits there as one entry too: the core files it with the solos, in the normal
+// queues, where a rated arena team never goes.
+enum class RatedSolo : uint8
+{
+    None,
+    Waiting,
+    Premade,
+    Taken  // invited or in its match
+};
+
+static RatedSolo GetRatedSolo(Player* player, BattlegroundQueueTypeId queueTypeId, GroupQueueInfo* queued = nullptr)
+{
+    GroupQueueInfo ginfo;
+    if (sBattlegroundMgr->GetBattlegroundQueue(queueTypeId).GetPlayerGroupInfoData(player->GetGUID(), &ginfo))
+    {
+        bool const premade = ginfo.Players.size() > 1 &&
+                             (ginfo.GroupType == BG_QUEUE_NORMAL_ALLIANCE || ginfo.GroupType == BG_QUEUE_NORMAL_HORDE);
+        if (!ginfo.IsRated || (ginfo.Players.size() != 1 && !premade))
+            return RatedSolo::None;
+        if (ginfo.IsInvitedToBGInstanceGUID)
+            return RatedSolo::Taken;
+        if (queued)
+            *queued = ginfo;
+        return premade ? RatedSolo::Premade : RatedSolo::Waiting;
+    }
+
+    Battleground* bg = player->GetBattleground();
+    if (bg && bg->isArena() && bg->isRated() &&
+        (bg->GetArenaType() == ARENA_TYPE_1v1 || bg->GetArenaTeamIdForTeam(TEAM_ALLIANCE) >= MAX_ARENA_TEAM_ID))
+        return RatedSolo::Taken;
+    return RatedSolo::None;
+}
+
+// A random bot leaves a battleground queue that will not start: 2 minutes after the last real player of that queue
+// left it, or after 10 minutes in any case. Bots had filled a queue to 26/20 for a duo who then left it; the battle
+// never started and the next players of that bracket waited behind them. Queues the bots fill on their own
+// (RandomBotAutoJoinBG) keep them while no player is queued.
+static bool LeavesStuckBgQueue(Player* bot, BattlegroundQueueTypeId queueTypeId, BattlegroundInfo const& info)
+{
+    if (bot->InBattleground() || bot->GetGroup())
+        return false;
+    BattlegroundQueue& queue = sBattlegroundMgr->GetBattlegroundQueue(queueTypeId);
+    GroupQueueInfo ginfo;
+    if (!queue.GetPlayerGroupInfoData(bot->GetGUID(), &ginfo) || ginfo.IsInvitedToBGInstanceGUID)
+        return false;
+    uint32 const waited = getMSTimeDiff(ginfo.JoinTime, GameTime::GetGameTimeMS().count());
+    bool const noPlayer = !sPlayerbotAIConfig.randomBotAutoJoinBG && !(info.bgAlliancePlayerCount + info.bgHordePlayerCount);
+    if (waited < (noPlayer ? 2 : 10) * MINUTE * IN_MILLISECONDS)
+        return false;
+    bot->RemoveBattlegroundQueueId(queueTypeId);
+    queue.RemovePlayer(bot->GetGUID(), true);
+    LOG_DEBUG("playerbots", "Bot {} left battleground queue {} after {} s ({})", bot->GetName(), uint32(queueTypeId),
+              waited / IN_MILLISECONDS, noPlayer ? "no player queued" : "never started");
+    return true;
 }
 
 void RandomPlayerbotMgr::CheckBgQueue()
@@ -920,6 +1067,9 @@ void RandomPlayerbotMgr::CheckBgQueue()
             BattlegroundData[queueType][bracket] = BattlegroundInfo();
         }
     }
+
+    ratedSoloWaiting.clear();
+    ratedSoloPremades.clear();
 
     // Process real players and populate Battleground Data with player/queue count
     // Opens a queue for bots to join
@@ -957,6 +1107,33 @@ void RandomPlayerbotMgr::CheckBgQueue()
             bool isRated = false;
             if (BattlegroundMgr::BGArenaType(queueTypeId))
             {
+                // A rated solo player opens no queue for the rated teams of bots: they would wait for nothing.
+                GroupQueueInfo queued;
+                if (RatedSolo solo = GetRatedSolo(player, queueTypeId, &queued); solo != RatedSolo::None)
+                {
+                    BattlegroundInfo& info = BattlegroundData[queueTypeId][bracketId];
+                    if (solo == RatedSolo::Waiting)
+                    {
+                        bool const healer = GetCoaRole(player) == CoaRole::Heal;
+                        ++(healer ? info.ratedSoloPlayerHealers : info.ratedSoloPlayerDamage);
+                        ratedSoloWaiting.push_back(
+                            { player->GetGUID(), queued.JoinTime, queueTypeId, bracketId, healer, false });
+                    }
+                    // A party once, whichever of its real members is seen; its role read from the specs.
+                    else if (solo == RatedSolo::Premade && !ratedSoloPremades.count(queued.ArenaTeamId))
+                    {
+                        uint32 healers = 0;
+                        for (ObjectGuid const& guid : queued.Players)
+                            if (Player* member = ObjectAccessor::FindPlayer(guid))
+                                healers += GetCoaRole(member) == CoaRole::Heal ? 1 : 0;
+                        ratedSoloPremades[queued.ArenaTeamId] = { queueTypeId, bracketId,
+                                                                  uint32(queued.Players.size()), healers };
+                        ratedSoloWaiting.push_back(
+                            { *queued.Players.begin(), queued.JoinTime, queueTypeId, bracketId, healers > 0, true });
+                    }
+                    continue;
+                }
+
                 BattlegroundQueue& bgQueue = sBattlegroundMgr->GetBattlegroundQueue(queueTypeId);
                 GroupQueueInfo ginfo;
 
@@ -978,9 +1155,15 @@ void RandomPlayerbotMgr::CheckBgQueue()
             else
             {
                 if (teamId == TEAM_ALLIANCE)
+                {
                     BattlegroundData[queueTypeId][bracketId].bgAlliancePlayerCount++;
+                    BattlegroundData[queueTypeId][bracketId].bgAllianceLevelSum += player->GetLevel();
+                }
                 else
+                {
                     BattlegroundData[queueTypeId][bracketId].bgHordePlayerCount++;
+                    BattlegroundData[queueTypeId][bracketId].bgHordeLevelSum += player->GetLevel();
+                }
 
                 // If a player has joined the BG, update the instance count in BattlegroundData (for consistency)
                 if (player->InBattleground())
@@ -1014,6 +1197,37 @@ void RandomPlayerbotMgr::CheckBgQueue()
         }
     }
 
+    // A real player's battleground starts only once each faction holds its minimum in the core queue:
+    // "21/20" was announced for a random battleground that never started, the 21 almost all of one
+    // faction (jealous-sound #5826). What each faction still lacks is read from the queue itself.
+    for (int bracket = BG_BRACKET_ID_FIRST; bracket < MAX_BATTLEGROUND_BRACKETS; ++bracket)
+    {
+        for (int queueType = BATTLEGROUND_QUEUE_AV; queueType < MAX_BATTLEGROUND_QUEUE_TYPES; ++queueType)
+        {
+            BattlegroundInfo& info = BattlegroundData[queueType][bracket];
+            if (!info.activeBgQueue || !(info.bgAlliancePlayerCount + info.bgHordePlayerCount) ||
+                BattlegroundMgr::BGArenaType(BattlegroundQueueTypeId(queueType)))
+                continue;
+
+            Battleground* bg =
+                sBattlegroundMgr->GetBattlegroundTemplate(BattlegroundMgr::BGTemplateId(BattlegroundQueueTypeId(queueType)));
+            PvPDifficultyEntry const* bracketEntry =
+                bg ? GetBattlegroundBracketById(bg->GetMapId(), BattlegroundBracketId(bracket)) : nullptr;
+            if (!bracketEntry)
+                continue;
+
+            uint32 const needed = GetMinPlayersPerTeam(bg, bracketEntry);
+            BattlegroundQueue& queue = sBattlegroundMgr->GetBattlegroundQueue(BattlegroundQueueTypeId(queueType));
+            uint32 const alliance = queue.GetPlayersCountInGroupsQueue(BattlegroundBracketId(bracket), BG_QUEUE_NORMAL_ALLIANCE);
+            uint32 const horde = queue.GetPlayersCountInGroupsQueue(BattlegroundBracketId(bracket), BG_QUEUE_NORMAL_HORDE);
+            info.bgAllianceMissing = needed > alliance ? needed - alliance : 0;
+            info.bgHordeMissing = needed > horde ? needed - horde : 0;
+            if (info.bgAllianceMissing || info.bgHordeMissing)
+                LOG_DEBUG("playerbots", "BG queue {} bracket {}: {} Alliance and {} Horde queued, {} each needed",
+                          queueType, bracket, alliance, horde, needed);
+        }
+    }
+
     // Process player bots
     for (auto& [guid, bot] : playerBots)
     {
@@ -1044,6 +1258,16 @@ void RandomPlayerbotMgr::CheckBgQueue()
 
             if (BattlegroundMgr::BGArenaType(queueTypeId))
             {
+                // Bots of the rated solo queues are counted apart, their matches with them.
+                if (RatedSolo solo = GetRatedSolo(bot, queueTypeId); solo != RatedSolo::None)
+                {
+                    BattlegroundInfo& info = BattlegroundData[queueTypeId][bracketId];
+                    // A bot in the party of a real player is counted with that party.
+                    if (solo == RatedSolo::Waiting)
+                        ++(GetCoaRole(bot) == CoaRole::Heal ? info.ratedSoloBotHealers : info.ratedSoloBotDamage);
+                    continue;
+                }
+
                 bool isRated = false;
                 BattlegroundQueue& bgQueue = sBattlegroundMgr->GetBattlegroundQueue(queueTypeId);
                 GroupQueueInfo ginfo;
@@ -1063,10 +1287,18 @@ void RandomPlayerbotMgr::CheckBgQueue()
             }
             else
             {
+                if (LeavesStuckBgQueue(bot, queueTypeId, BattlegroundData[queueTypeId][bracketId]))
+                    continue;
                 if (teamId == TEAM_ALLIANCE)
+                {
                     BattlegroundData[queueTypeId][bracketId].bgAllianceBotCount++;
+                    BattlegroundData[queueTypeId][bracketId].bgAllianceLevelSum += bot->GetLevel();
+                }
                 else
+                {
                     BattlegroundData[queueTypeId][bracketId].bgHordeBotCount++;
+                    BattlegroundData[queueTypeId][bracketId].bgHordeLevelSum += bot->GetLevel();
+                }
             }
 
             if (bot->InBattleground())
@@ -1115,8 +1347,14 @@ void RandomPlayerbotMgr::CheckBgQueue()
         }
     }
 
-    // If enabled, wait for all bots to have logged in before queueing for Arena's / BG's
-    if (sPlayerbotAIConfig.randomBotAutoJoinBG && playerBots.size() >= GetMaxAllowedBotCount())
+    if (sPlayerbotAIConfig.coaRatedSoloQueue)
+        CountRatedSoloNeeds();
+
+    // If enabled, wait for (nearly) all bots to have logged in before queueing for Arena's / BG's.
+    // 95 %, not all: a few bots are always logging out and in again (rotation, a new bot count), and on a
+    // CoA test realm with 1,000 bots no battleground started for 30 to 40 minutes of every hour while the
+    // count sat at 975-999.
+    if (sPlayerbotAIConfig.randomBotAutoJoinBG && playerBots.size() * 100 >= GetMaxAllowedBotCount() * 95)
     {
         uint32 randomBotAutoJoinArenaBracket = sPlayerbotAIConfig.randomBotAutoJoinArenaBracket;
         uint32 randomBotAutoJoinBGRatedArena2v2Count = sPlayerbotAIConfig.randomBotAutoJoinBGRatedArena2v2Count;
@@ -1173,6 +1411,129 @@ void RandomPlayerbotMgr::CheckBgQueue()
     }
 
     LogBattlegroundInfo();
+}
+
+// Bots for the rated solo queues a real player waits in, just enough to complete matches. A 1v1 pairs any two.
+// A 2v2 or 3v3 lineup (AscensionArenaQueue::ComposeLineup) holds either one healer and damage dealers per side,
+// or damage dealers only, and never leaves a waiting healer the only one of a match: each pair of real healers
+// gets damage dealers, the real damage dealers left over fill matches of their own.
+//
+// The role of a real player is read from their spec, the core keeping the one they queued with. One who waited
+// AiPlayerbot.CoaRatedSoloRoleFallback seconds with bots and no match is given one bot of the other role, once
+// per wait; the bots no lineup needs are counted as surplus, to leave after their usual wait. A party too: the
+// core takes the role its members last queued with, or damage, so a party read as holding a healer by its specs
+// may meet a healer bot it cannot play against (each side has a healer or neither does).
+void RandomPlayerbotMgr::CountRatedSoloNeeds()
+{
+    std::unordered_map<ObjectGuid, std::pair<uint32, bool>> fallbacks;
+    uint32 const now = GameTime::GetGameTimeMS().count();
+    uint32 const fallbackAfter = sPlayerbotAIConfig.coaRatedSoloRoleFallback * IN_MILLISECONDS;
+    for (RatedSoloWait const& wait : ratedSoloWaiting)
+    {
+        uint8 const arenaType = BattlegroundMgr::BGArenaType(BattlegroundQueueTypeId(wait.queueTypeId));
+        if (arenaType == ARENA_TYPE_1v1)
+            continue;
+
+        BattlegroundInfo& info = BattlegroundData[wait.queueTypeId][wait.bracketId];
+        auto const sent = ratedSoloFallbacks.find(wait.guid);
+        if (sent != ratedSoloFallbacks.end() && sent->second.first == wait.joinTime)
+            fallbacks[wait.guid] = sent->second;
+        else if (fallbackAfter && info.ratedSoloBotHealers + info.ratedSoloBotDamage &&
+                 getMSTimeDiff(wait.joinTime, now) > fallbackAfter)
+        {
+            fallbacks[wait.guid] = { wait.joinTime, !wait.healer };
+            Player* waiting = ObjectAccessor::FindPlayer(wait.guid);
+            LOG_INFO("playerbots", "Rated solo {}v{}: {}{} still waits, read as {}: one {} bot more", uint32(arenaType),
+                     uint32(arenaType), wait.party ? "the party of " : "player ",
+                     waiting ? waiting->GetName() : wait.guid.ToString(),
+                     wait.party ? (wait.healer ? "with a healer" : "without a healer") : (wait.healer ? "healer" : "damage"),
+                     wait.healer ? "damage" : "healer");
+        }
+        else
+            continue;
+
+        ++(fallbacks[wait.guid].second ? info.ratedSoloFallbackHealers : info.ratedSoloFallbackDamage);
+    }
+    ratedSoloFallbacks.swap(fallbacks);
+
+    // A party plays on one side (AscensionArenaQueue::ComposeLineup): damage dealers complete it, and the other
+    // side is a full team, with a healer when the party has one, as each side has a healer or neither does.
+    for (auto const& [teamId, premade] : ratedSoloPremades)
+    {
+        BattlegroundInfo& info = BattlegroundData[premade.queueTypeId][premade.bracketId];
+        uint8 const arenaType = BattlegroundMgr::BGArenaType(BattlegroundQueueTypeId(premade.queueTypeId));
+        uint32 const teamSize = sBattlegroundMgr->isArenaTesting() ? 1 : arenaType;
+        if (premade.players > teamSize)
+            continue;
+
+        uint32 const opposingHealers = premade.healers ? 1 : 0;
+        ++info.ratedSoloPremades;
+        info.ratedSoloPremadeHealerSlots += opposingHealers;
+        info.ratedSoloPremadeDamageSlots += teamSize - premade.players + teamSize - opposingHealers;
+    }
+
+    for (int bracket = BG_BRACKET_ID_FIRST; bracket < MAX_BATTLEGROUND_BRACKETS; ++bracket)
+    {
+        for (BattlegroundQueueTypeId queueTypeId : { BATTLEGROUND_QUEUE_1v1, BATTLEGROUND_QUEUE_2v2, BATTLEGROUND_QUEUE_3v3 })
+        {
+            BattlegroundInfo& info = BattlegroundData[queueTypeId][bracket];
+            uint32 const realHealers = info.ratedSoloPlayerHealers;
+            uint32 const realDamage = info.ratedSoloPlayerDamage;
+
+            uint8 const arenaType = BattlegroundMgr::BGArenaType(queueTypeId);
+            if (arenaType == ARENA_TYPE_1v1)
+            {
+                uint32 const real = realHealers + realDamage;
+                uint32 const bots = info.ratedSoloBotHealers + info.ratedSoloBotDamage;
+                info.ratedSoloDamageNeeded = real ? (real + bots) % 2 : 0;
+                info.ratedSoloDamageSurplus = bots - std::min(bots, real % 2);
+            }
+            else
+            {
+                // Real solos take the slots the parties leave first; the others play matches of solos.
+                uint32 const premadeHealers = info.ratedSoloPremadeHealerSlots;
+                uint32 const premadeDamage = info.ratedSoloPremadeDamageSlots;
+                uint32 const soloHealers = realHealers - std::min(realHealers, premadeHealers);
+                uint32 const soloDamage = realDamage - std::min(realDamage, premadeDamage);
+                uint32 const teamSize = sBattlegroundMgr->isArenaTesting() ? 1 : arenaType;
+                uint32 const healerMatches = (soloHealers + 1) / 2;
+                uint32 const healerMatchDamage = healerMatches * (2 * teamSize - 2);
+                uint32 const damageLeft = soloDamage > healerMatchDamage ? soloDamage - healerMatchDamage : 0;
+                uint32 const damageMatches = (damageLeft + 2 * teamSize - 1) / (2 * teamSize);
+                uint32 const healers = premadeHealers + 2 * healerMatches + info.ratedSoloFallbackHealers;
+                uint32 const damage =
+                    premadeDamage + healerMatchDamage + damageMatches * 2 * teamSize + info.ratedSoloFallbackDamage;
+                uint32 const haveHealers = realHealers + info.ratedSoloBotHealers;
+                uint32 const haveDamage = realDamage + info.ratedSoloBotDamage;
+                info.ratedSoloHealersNeeded = healers > haveHealers ? healers - haveHealers : 0;
+                info.ratedSoloDamageNeeded = damage > haveDamage ? damage - haveDamage : 0;
+                uint32 const botHealers = healers > realHealers ? healers - realHealers : 0;
+                uint32 const botDamage = damage > realDamage ? damage - realDamage : 0;
+                info.ratedSoloHealersSurplus =
+                    info.ratedSoloBotHealers > botHealers ? info.ratedSoloBotHealers - botHealers : 0;
+                info.ratedSoloDamageSurplus = info.ratedSoloBotDamage > botDamage ? info.ratedSoloBotDamage - botDamage : 0;
+            }
+
+            // Where a real player waits: what the bots are counted on, when it changes and every 2 minutes.
+            if (realHealers + realDamage + info.ratedSoloPremades)
+            {
+                std::string const line = Acore::StringFormat(
+                    "Rated solo {}v{} {}-{}: players {} healers {} damage, {} parties; bots queued {} healers {} damage; "
+                    "needed {} healers {} damage; surplus {} healers {} damage; extra for roles {} healers {} damage",
+                    uint32(arenaType), uint32(arenaType), info.minLevel, info.maxLevel, realHealers, realDamage,
+                    info.ratedSoloPremades, info.ratedSoloBotHealers, info.ratedSoloBotDamage,
+                    info.ratedSoloHealersNeeded, info.ratedSoloDamageNeeded, info.ratedSoloHealersSurplus,
+                    info.ratedSoloDamageSurplus, info.ratedSoloFallbackHealers, info.ratedSoloFallbackDamage);
+                auto& logged = ratedSoloNeedsLogged[uint32(queueTypeId) * MAX_BATTLEGROUND_BRACKETS + bracket];
+                time_t const at = time(nullptr);
+                if (logged.second != line || at - logged.first >= 120)
+                {
+                    LOG_INFO("playerbots", "{}", line);
+                    logged = { at, line };
+                }
+            }
+        }
+    }
 }
 
 void RandomPlayerbotMgr::LogBattlegroundInfo()
@@ -1262,7 +1623,11 @@ void RandomPlayerbotMgr::CheckLfgQueue()
     // Clear LFG list
     LfgDungeons[TEAM_ALLIANCE].clear();
     LfgDungeons[TEAM_HORDE].clear();
+    std::map<TeamId, std::map<uint32, std::pair<uint8, uint8>>> playerLevels;
     bool needTankOrHeal[2] = {false, false};
+    uint32 partiesWithoutTank[2] = {0, 0};
+    uint32 partiesWithoutHeal[2] = {0, 0};
+    std::unordered_set<ObjectGuid> countedParties;
 
     for (std::vector<Player*>::iterator i = players.begin(); i != players.end(); ++i)
     {
@@ -1284,18 +1649,95 @@ void RandomPlayerbotMgr::CheckLfgQueue()
                     continue;
 
                 LfgDungeons[player->GetTeamId()].push_back(dungeon->id);
+                uint8 const level = player->GetLevel();
+                auto [levels, added] = playerLevels[player->GetTeamId()].try_emplace(dungeon->id, level, level);
+                if (!added)
+                {
+                    levels->second.first = std::min(levels->second.first, level);
+                    levels->second.second = std::max(levels->second.second, level);
+                }
             }
 
-            uint8 roles = sLFGMgr->GetRoles(player->GetGUID());
-            if (!(roles & lfg::PLAYER_ROLE_TANK) || !(roles & lfg::PLAYER_ROLE_HEALER))
-                needTankOrHeal[player->GetTeamId()] = true;
+            if (!sPlayerbotAIConfig.coaLfgMissingRoles)
+            {
+                uint8 roles = sLFGMgr->GetRoles(player->GetGUID());
+                if (!(roles & lfg::PLAYER_ROLE_TANK) || !(roles & lfg::PLAYER_ROLE_HEALER))
+                    needTankOrHeal[player->GetTeamId()] = true;
+                continue;
+            }
+
+            if (!countedParties.insert(guid).second)
+                continue;
+
+            uint8 partyRoles = 0;
+            if (group)
+            {
+                for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+                    if (Player* member = ref->GetSource())
+                        partyRoles |= sLFGMgr->GetRoles(member->GetGUID());
+            }
+            else
+                partyRoles = sLFGMgr->GetRoles(player->GetGUID());
+
+            if (!(partyRoles & lfg::PLAYER_ROLE_TANK))
+                ++partiesWithoutTank[player->GetTeamId()];
+            if (!(partyRoles & lfg::PLAYER_ROLE_HEALER))
+                ++partiesWithoutHeal[player->GetTeamId()];
         }
+    }
+
+    if (sPlayerbotAIConfig.coaLfgMissingRoles &&
+        (partiesWithoutTank[TEAM_ALLIANCE] + partiesWithoutTank[TEAM_HORDE] + partiesWithoutHeal[TEAM_ALLIANCE] +
+         partiesWithoutHeal[TEAM_HORDE]) > 0)
+    {
+        uint32 queuedTanks[2] = {0, 0};
+        uint32 queuedHeals[2] = {0, 0};
+        for (auto itr = GetPlayerBotsBegin(); itr != GetPlayerBotsEnd(); ++itr)
+        {
+            Player* bot = itr->second;
+            if (!bot || !bot->IsInWorld() || bot->GetGroup() ||
+                sLFGMgr->GetState(bot->GetGUID()) != lfg::LFG_STATE_QUEUED)
+                continue;
+
+            uint8 roles = sLFGMgr->GetRoles(bot->GetGUID());
+            if (roles & lfg::PLAYER_ROLE_TANK)
+                ++queuedTanks[bot->GetTeamId()];
+            if (roles & lfg::PLAYER_ROLE_HEALER)
+                ++queuedHeals[bot->GetTeamId()];
+        }
+
+        for (uint8 team : {TEAM_ALLIANCE, TEAM_HORDE})
+            needTankOrHeal[team] =
+                partiesWithoutTank[team] > queuedTanks[team] || partiesWithoutHeal[team] > queuedHeals[team];
     }
 
     LfgNeedTankOrHeal[TEAM_ALLIANCE] = needTankOrHeal[TEAM_ALLIANCE];
     LfgNeedTankOrHeal[TEAM_HORDE] = needTankOrHeal[TEAM_HORDE];
 
+    {
+        std::lock_guard<std::mutex> lock(lfgPlayerLevelsLock);
+        lfgPlayerLevels.swap(playerLevels);
+    }
+
     LOG_DEBUG("playerbots", "LFG Queue check finished");
+}
+
+bool RandomPlayerbotMgr::IsNearLfgPlayerLevels(TeamId team, uint32 dungeonId, uint32 level)
+{
+    // Seen: bots of level 18-19 joined a player of 13 in Ragefire Chasm through the random dungeon.
+    constexpr uint32 LFG_PLAYER_LEVEL_SPREAD = 5;
+
+    std::lock_guard<std::mutex> lock(lfgPlayerLevelsLock);
+    auto const teamLevels = lfgPlayerLevels.find(team);
+    if (teamLevels == lfgPlayerLevels.end())
+        return true;
+
+    auto const levels = teamLevels->second.find(dungeonId);
+    if (levels == teamLevels->second.end())
+        return true;
+
+    return level + LFG_PLAYER_LEVEL_SPREAD >= levels->second.first &&
+           level <= levels->second.second + LFG_PLAYER_LEVEL_SPREAD;
 }
 
 void RandomPlayerbotMgr::CheckPlayers()
@@ -1465,6 +1907,8 @@ bool RandomPlayerbotMgr::ProcessBot(Player* bot)
     if (bot->InBattlegroundQueue())
         return false;
 
+    CoaApplyRuleset(bot);
+
      uint32 botId = bot->GetGUID().GetCounter();
 
     // if death revive
@@ -1496,6 +1940,28 @@ bool RandomPlayerbotMgr::ProcessBot(Player* bot)
     {
         botAI->LeaveOrDisbandGroup();
         LOG_INFO("playerbots", "Bot {} remove from group since leader is random bot.", bot->GetName().c_str());
+    }
+
+    // CoA: on a new install every new bot starts at level 1 in the same few starting areas, and those waiting on
+    // the respawn of a "kill 8" quest mob stood by the quest giver for good (Blood Elves at Deathknell, 07/10). A
+    // low level bot on its own that earns no experience for 10 minutes goes to another grinding spot of its level.
+    if (bot->GetLevel() <= 10 && !bot->GetGroup() && !bot->IsInCombat())
+    {
+        uint32 const progress = bot->GetLevel() * 1000000 + bot->GetUInt32Value(PLAYER_XP) + 1;
+        uint32 const now = uint32(time(nullptr));
+        if (GetEventValue(botId, "coaXp") != progress)
+        {
+            SetEventValue(botId, "coaXp", progress, 30 * DAY);
+            SetEventValue(botId, "coaXpAt", now, 30 * DAY);
+        }
+        else if (now - GetEventValue(botId, "coaXpAt") >= 10 * MINUTE)
+        {
+            LOG_INFO("playerbots", "coa: {} (level {}) earned no experience for 10 minutes, new grinding spot",
+                     bot->GetName(), bot->GetLevel());
+            SetEventValue(botId, "coaXpAt", now, 30 * DAY);
+            RandomTeleportGrindForLevel(bot);
+            return true;
+        }
     }
 
     // only randomize and teleport idle bots
@@ -1774,6 +2240,52 @@ void RandomPlayerbotMgr::Init()
     PlayerbotsDatabase.Execute("DELETE FROM playerbots_random_bots WHERE event = 'add'");
 }
 
+// CoA: a bot team queues only when its captain is online, and every restart or rotation logs in other bots, so
+// the teams stopped playing. Their captains are kept in the world here; they log in their team when they queue.
+// They are logged in at once, above the bot count, like the team members the captain calls: a captain only made
+// a random bot would wait for a free place, more than an hour on a full world.
+void RandomPlayerbotMgr::KeepArenaCaptainsOnline()
+{
+    ArenaCaptainCheckTimer = time(nullptr);
+    if (sPlayerbotAIConfig.deleteRandomBotArenaTeams)
+        return;
+
+    std::pair<ArenaType, uint32> const formats[] = {
+        {ARENA_TYPE_2v2, sPlayerbotAIConfig.randomBotAutoJoinBGRatedArena2v2Count},
+        {ARENA_TYPE_3v3, sPlayerbotAIConfig.randomBotAutoJoinBGRatedArena3v3Count},
+        {ARENA_TYPE_5v5, sPlayerbotAIConfig.randomBotAutoJoinBGRatedArena5v5Count}};
+
+    uint32 logins = 0;
+    for (auto const& [type, count] : formats)
+    {
+        if (!count)
+            continue;
+
+        std::vector<ObjectGuid> captains;
+        RandomPlayerbotFactory::GetBotArenaTeamCaptains(type, captains);
+        for (ObjectGuid const& captain : captains)
+        {
+            uint32 const bot = captain.GetCounter();
+            if (logins >= 10 || ObjectAccessor::FindConnectedPlayer(captain) ||
+                !sPlayerbotAIConfig.IsInRandomAccountList(sCharacterCache->GetCharacterAccountIdByGuid(captain)))
+                continue;
+
+            if (!currentBots.contains(bot))
+            {
+                SetEventValue(bot, "add", 1, sPlayerbotAIConfig.permanentlyInWorldTime);
+                SetEventValue(bot, "logout", 0, 0);
+                currentBots.insert(bot);
+            }
+
+            AddPlayerBot(captain, 0);
+            ++logins;
+        }
+    }
+
+    if (logins)
+        LOG_INFO("playerbots", "Arena captains brought back online: {}", logins);
+}
+
 void RandomPlayerbotMgr::InitArenaTeams()
 {
     if (sPlayerbotAIConfig.deleteRandomBotArenaTeams)
@@ -2010,6 +2522,9 @@ void RandomPlayerbotMgr::RandomizeFirst(Player* bot)
         minLevel = std::max(minLevel, sWorld->getIntConfig(CONFIG_START_HEROIC_PLAYER_LEVEL));
     }
 
+    // urand below asserts max >= min.
+    minLevel = std::min(minLevel, maxLevel);
+
     PerfMonitorOperation* pmo = sPerfMonitor.start(PERF_MON_RNDBOT, "RandomizeFirst");
 
     uint32 level;
@@ -2145,6 +2660,9 @@ uint32 RandomPlayerbotMgr::GetZoneLevel(uint16 mapId, float teleX, float teleY, 
         Field* fields = results->Fetch();
         uint8 minLevel = fields[0].Get<uint8>();
         uint8 maxLevel = fields[1].Get<uint8>();
+        // Creature templates whose minimum level tops their maximum pull the averages the wrong way round.
+        if (minLevel > maxLevel)
+            std::swap(minLevel, maxLevel);
         level = urand(minLevel, maxLevel);
         if (level > maxLevel)
             level = maxLevel;
@@ -2185,6 +2703,11 @@ void RandomPlayerbotMgr::Refresh(Player* bot)
     bot->DurabilityRepairAll(false, 1.0f, false);
     bot->SetFullHealth();
     bot->SetPvP(sWorld->IsPvPRealm());
+
+    // The full-bags clean-up belongs to the "maintenance" strategy, which no random bot is given: run it
+    // here, with the repair. It does nothing below 90% of the bag space.
+    botAI->DoSpecificAction("smart destroy item", Event(), true);
+
     PlayerbotFactory factory(bot, bot->GetLevel());
     factory.Refresh();
 
@@ -2282,7 +2805,7 @@ void RandomPlayerbotMgr::GetBots()
         PlayerbotsDatabase.GetPreparedStatement(PLAYERBOTS_SEL_RANDOM_BOTS_BY_OWNER_AND_EVENT);
     stmt->SetData(0, 0);
     stmt->SetData(1, "add");
-    uint32 maxAllowedBotCount = GetEventValue(0, "bot_count");
+    uint32 maxAllowedBotCount = GetTargetBotCount();
     if (PreparedQueryResult result = PlayerbotsDatabase.Query(stmt))
     {
         do
@@ -2373,6 +2896,8 @@ CachedEvent* RandomPlayerbotMgr::FindEvent(uint32 bot, std::string const& event)
 
 bool RandomPlayerbotMgr::IsSpecPvp(uint32 bot, uint8 cls)
 {
+    if (sPlayerbotAIConfig.coaGearByContent && GetValue(bot, "coaGearPvp"))
+        return true;
     uint32 stored = GetValue(bot, "specNo");
     if (!stored)
         return false;
@@ -2643,10 +3168,24 @@ bool RandomPlayerbotMgr::HandlePlayerbotConsoleCommand(ChatHandler* handler, cha
 
 void RandomPlayerbotMgr::HandleCommand(uint32 type, std::string const text, Player* fromPlayer, std::string channelName)
 {
+    // The sender needs guarding too: chatting right after a (GM/panel) teleport
+    // reached LevelFor(from) with transient map/group state and crashed
+    // (Andrew's repro, 2026-08-20). Symmetric to the per-bot guard below.
+    if (!fromPlayer || !fromPlayer->IsInWorld() || fromPlayer->IsBeingTeleported() || !fromPlayer->FindMap())
+        return;
+
     for (PlayerBotMap::const_iterator it = GetPlayerBotsBegin(); it != GetPlayerBotsEnd(); ++it)
     {
         Player* const bot = it->second;
-        if (!bot)
+        // Bots mid-login/logout sit in this map without a usable Player or AI.
+        // Chatting during a login flood walked into them: GET_PLAYERBOT_AI
+        // returned null and ->HandleCommand crashed the server (SIGSEGV 0x258,
+        // 2026-08-20). Skip anything not fully in the world with an attached AI.
+        if (!bot || !bot->IsInWorld() || bot->IsBeingTeleported())
+            continue;
+
+        PlayerbotAI* botAI = GET_PLAYERBOT_AI(bot);
+        if (!botAI)
             continue;
 
         if (!channelName.empty())
@@ -2659,7 +3198,7 @@ void RandomPlayerbotMgr::HandleCommand(uint32 type, std::string const text, Play
             }
         }
 
-        GET_PLAYERBOT_AI(bot)->HandleCommand(type, text, fromPlayer);
+        botAI->HandleCommand(type, text, fromPlayer);
     }
 }
 
@@ -2686,6 +3225,279 @@ void RandomPlayerbotMgr::OnPlayerLogout(Player* player)
         players.erase(i);
 }
 
+bool RandomPlayerbotMgr::CoaIsOrphanGroup(Group const* group)
+{
+    if (!group || group->isBGGroup() || group->isBFGroup() || group->isLFGGroup())
+        return false;
+
+    bool character = false;
+    for (Group::MemberSlot const& slot : group->GetMemberSlots())
+    {
+        // FindConnectedPlayer also finds a player in a battleground (another group) or on a loading screen.
+        if (Player* member = ObjectAccessor::FindConnectedPlayer(slot.guid))
+        {
+            // A player, a selfbot, or an alt or addclass bot, which is only online with its owner.
+            if (!GET_PLAYERBOT_AI(member) || !IsRandomBot(member))
+                return false;
+        }
+        else if (!sPlayerbotAIConfig.IsInRandomAccountList(sCharacterCache->GetCharacterAccountIdByGuid(slot.guid)))
+            character = true;
+    }
+    return character;
+}
+
+// The core keeps a player who logs out in his raid, and the bots he left there had no master and stood still
+// until he came back. One look per group, never per bot, so that the whole group goes at once.
+void RandomPlayerbotMgr::CoaReleaseOrphanGroups()
+{
+    uint32 const delay = sPlayerbotAIConfig.coaOrphanGroupReleaseDelay;
+    if (!delay)
+    {
+        coaOrphanGroups.clear();
+        return;
+    }
+
+    time_t const now = time(nullptr);
+    if (now < coaOrphanCheckAt)
+        return;
+    coaOrphanCheckAt = now + 10;
+
+    // Groups of bots only, groups with a player connected and groups gone since the last pass drop out of the map.
+    std::unordered_set<ObjectGuid::LowType> seen;
+    std::unordered_map<ObjectGuid::LowType, time_t> orphans;
+    std::vector<std::pair<Group*, time_t>> due;
+    for (auto const& [guid, bot] : playerBots)
+    {
+        Group* group = bot ? bot->GetGroup() : nullptr;
+        if (!group || !seen.insert(group->GetGUID().GetCounter()).second)
+            continue;
+
+        if (!CoaIsOrphanGroup(group) || sLFGMgr->GetState(group->GetGUID()) != lfg::LFG_STATE_NONE)
+            continue;
+
+        auto const known = coaOrphanGroups.find(group->GetGUID().GetCounter());
+        time_t const since = known != coaOrphanGroups.end() ? known->second : now;
+        orphans.emplace(group->GetGUID().GetCounter(), since);
+        if (now - since >= time_t(delay))
+            due.emplace_back(group, since);
+    }
+    coaOrphanGroups.swap(orphans);
+
+    uint32 released = 0;
+    for (auto const& [group, since] : due)
+    {
+        if (released >= 1)  // one group per pass: each removal costs database queries of mod-coa-challenges
+            break;
+
+        // A member in a battleground is linked here through its original group only; a bot on its way
+        // somewhere or held by a test bench goes on a later pass.
+        ObjectGuid const groupGuid = group->GetGUID();
+        std::vector<Player*> leaving;
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+        {
+            Player* member = ref->GetSource();
+            if (member && member->GetGroup() == group && IsRandomBot(member) && GetPlayerBot(member->GetGUID()) &&
+                member->IsInWorld() && !member->IsBeingTeleported() && !RandomBotLevelMgr::IsHeld(member->GetGUID()))
+                leaving.push_back(member);
+        }
+        if (leaving.empty())
+            continue;
+        ++released;
+
+        // A leave as on /leave; the last ones disband the group, so it is never touched after the first one.
+        for (Player* member : leaving)
+            if (Group* current = member->GetGroup(); current && current->GetGUID() == groupGuid)
+                member->RemoveFromGroup(GROUP_REMOVEMETHOD_LEAVE);
+
+        uint32 left = 0;
+        for (Player* member : leaving)
+        {
+            if (member->GetGroup())
+                continue;
+
+            ++left;
+            // Back to the life of a random bot, as UpdateAIGroupMaster does for a bot out of its group.
+            if (PlayerbotAI* botAI = GET_PLAYERBOT_AI(member))
+            {
+                botAI->SetMaster(nullptr);
+                botAI->Reset(true);
+                botAI->ResetStrategies();
+            }
+        }
+        LOG_INFO("playerbots", "coa: released {} bots of a group whose players are offline for {}s", left,
+                 uint32(now - since));
+    }
+}
+
+// Spells and auras of the CoA rulesets (core: src/server/coa/AscensionRulesets.cpp, ApplyRuleset).
+namespace
+{
+constexpr uint32 COA_RULESET_HIGH_RISK = 1004019;
+constexpr uint32 COA_RULESET_WAR_MODE = 1004119;
+constexpr uint32 COA_RULESET_PVE = 9931032;
+constexpr uint32 COA_RULESET_MERCENARY = 9930874;
+}
+
+// The core puts every character without a ruleset in PvE at login, bots included. With
+// AiPlayerbot.CoaRulesetForBots, a share of the random bots is put in High Risk or War Mode instead: the bucket
+// comes from the guid, so a bot keeps its ruleset from one login to the next, and changing the shares moves
+// only the bots whose bucket changed side. Not in a battleground, in combat or dead.
+void RandomPlayerbotMgr::CoaApplyRuleset(Player* bot)
+{
+    if (!sPlayerbotAIConfig.coaRulesetForBots || !bot || !bot->IsInWorld() || !IsRandomBot(bot))
+        return;
+    if (bot->InBattleground() || bot->InArena() || bot->IsInCombat() || !bot->IsAlive())
+        return;
+
+    uint32 const highRisk = std::min<uint32>(sPlayerbotAIConfig.coaRulesetHighRiskPct, 100);
+    uint32 const warMode = std::min<uint32>(sPlayerbotAIConfig.coaRulesetWarModePct, 100 - highRisk);
+    uint32 const bucket = (bot->GetGUID().GetCounter() * 2654435761u) % 100;
+    uint32 const wanted = bucket < highRisk ? COA_RULESET_HIGH_RISK
+                        : bucket < highRisk + warMode ? COA_RULESET_WAR_MODE
+                        : COA_RULESET_PVE;
+
+    bool const hasHighRisk = bot->HasAura(COA_RULESET_HIGH_RISK);
+    bool const hasPve = bot->HasAura(COA_RULESET_PVE);
+    bool const hasWarMode = bot->HasAura(COA_RULESET_WAR_MODE);
+    bool const ok = wanted == COA_RULESET_HIGH_RISK ? hasHighRisk && !hasPve && !hasWarMode
+                  : wanted == COA_RULESET_WAR_MODE ? hasWarMode && !hasPve && !hasHighRisk
+                  : hasPve && !hasHighRisk;
+    if (!ok)
+    {
+        for (uint32 spell : {COA_RULESET_HIGH_RISK, COA_RULESET_WAR_MODE, COA_RULESET_PVE, COA_RULESET_MERCENARY})
+            bot->RemoveAurasDueToSpell(spell);
+        bot->CastSpell(bot, wanted, true);
+        LOG_DEBUG("playerbots", "coa: {} ruleset {}", bot->GetName(),
+                  wanted == COA_RULESET_HIGH_RISK ? "High Risk" : wanted == COA_RULESET_WAR_MODE ? "War Mode" : "PvE");
+    }
+
+    // The core only puts the aura: on a PvE realm a High Risk or War Mode character was never flagged for PvP.
+    // These bots keep the PvP flag on, as the rulesets mean on Ascension; PvE bots let it run out.
+    bool const pvp = wanted != COA_RULESET_PVE;
+    if (pvp && !bot->HasPlayerFlag(PLAYER_FLAGS_IN_PVP))
+        bot->SetPlayerFlag(PLAYER_FLAGS_IN_PVP);
+    else if (!pvp && bot->HasPlayerFlag(PLAYER_FLAGS_IN_PVP))
+        bot->RemovePlayerFlag(PLAYER_FLAGS_IN_PVP);
+    if (pvp && !bot->IsPvP())
+        bot->UpdatePvP(true, true);
+}
+
+void RandomPlayerbotMgr::CoaUpdateGear(Player* bot)
+{
+    // Any bot of a random bot account, those the LFG recruits out of the active list included; never a player's own
+    // characters.
+    if (!bot || !bot->IsInWorld() || !bot->IsAlive() || bot->IsInCombat() || bot->IsInFlight() || bot->GetLevel() < 10 ||
+        !sPlayerbotAIConfig.IsInRandomAccountList(bot->GetSession()->GetAccountId()))
+        return;
+    PlayerbotAI* botAI = GET_PLAYERBOT_AI(bot);
+    if (!botAI)
+        return;
+
+    // The player who groups the bot sets its item level; a High Risk bot stays in PvP gear with them.
+    // AiPlayerbot.CoaGearMatchGroup = 0: a grouped bot keeps the gear it has, as on its own.
+    Player* master = botAI->GetMaster();
+    if (!sPlayerbotAIConfig.coaGearMatchGroup || !master || master == bot || GET_PLAYERBOT_AI(master) ||
+        !bot->GetGroup() || master->GetGroup() != bot->GetGroup())
+        master = nullptr;
+
+    // AiPlayerbot.CoaGearHighRiskPvp = 0: a High Risk bot wears PvP gear only in a battleground or an arena, as the
+    // others (the test servers' boss bench measures every bot in PvE gear).
+    bool const pvp = (sPlayerbotAIConfig.coaGearHighRiskPvp && bot->HasAura(COA_RULESET_HIGH_RISK)) ||
+                     bot->InBattleground() || bot->InArena() || bot->InBattlegroundQueue();
+
+    // The level 60 honor sets: Knight-Lieutenant's (rare 66), Knight-Captain's (rare 68), Lieutenant Commander's
+    // (rare 71), Marshal's (epic 71), Field Marshal's (epic 74) and their Horde counterparts.
+    static std::array<std::pair<uint32, uint32>, 5> const tiers = {{
+        { ITEM_QUALITY_RARE, 66 }, { ITEM_QUALITY_RARE, 68 }, { ITEM_QUALITY_RARE, 71 },
+        { ITEM_QUALITY_EPIC, 71 }, { ITEM_QUALITY_EPIC, 74 } }};
+    uint32 quality = 0;
+    uint32 itemLevel = 0;
+    if (master)
+    {
+        // The player's average item level, compared item by item: a gear score weighed by quality let green
+        // items far above it in (a bot at 88 for a player at 72). In PvP, never under the first honor tier.
+        uint32 sum = 0;
+        uint32 count = 0;
+        for (uint8 slot = EQUIPMENT_SLOT_START; slot < EQUIPMENT_SLOT_END; ++slot)
+            if (slot != EQUIPMENT_SLOT_BODY && slot != EQUIPMENT_SLOT_TABARD)
+                if (Item* item = master->GetItemByPos(INVENTORY_SLOT_BAG_0, slot))
+                {
+                    // A piece that scales with its wearer (heirlooms, CoA leveling legendaries) has a tiny base item
+                    // level: it counts as a piece of the player's level, or the bots of a player in them stood naked.
+                    ItemTemplate const* proto = item->GetTemplate();
+                    // Test items far above any level (ilvl 435, 65535) are held to twice the player's level.
+                    bool const scales = proto->ScalingStatDistribution || proto->Quality == ITEM_QUALITY_HEIRLOOM ||
+                                        (proto->Quality >= ITEM_QUALITY_LEGENDARY && proto->ItemLevel < master->GetLevel());
+                    uint32 const level = scales ? std::max<uint32>(proto->ItemLevel, master->GetLevel() + 5) : proto->ItemLevel;
+                    sum += std::min<uint32>(level, master->GetLevel() * 2 + 20);
+                    ++count;
+                }
+        if (!count)
+            return;
+        quality = ITEM_QUALITY_EPIC;
+        // Never under the item level of the bot's own level: items carry about five more than their required level,
+        // and a player at item level 22 left level 22 bots with nothing to wear (PTR, 07/10).
+        itemLevel = std::max<uint32>(sum / count, bot->GetLevel() + 5);
+        if (pvp && bot->GetLevel() >= 60)
+            itemLevel = std::max(itemLevel, tiers[0].second);
+    }
+    else if (pvp && bot->GetLevel() >= 60)
+    {
+        // The tier follows the bot's best arena rating; without a team it is drawn once from the guid.
+        uint32 rating = 0;
+        for (uint8 slot = 0; slot < MAX_ARENA_SLOT; ++slot)
+            if (ArenaTeam* team = sArenaTeamMgr->GetArenaTeamById(bot->GetArenaTeamId(slot)))
+                rating = std::max<uint32>(rating, team->GetRating());
+        uint32 const tier = rating ? (rating < 1300 ? 0 : rating < 1500 ? 1 : rating < 1700 ? 2 : rating < 1900 ? 3 : 4)
+                                   : (bot->GetGUID().GetCounter() * 2654435761u) % 4;
+        quality = tiers[tier].first;
+        itemLevel = tiers[tier].second;
+    }
+
+    uint32 const botId = bot->GetGUID().GetCounter();
+    if (GetValue(botId, "coaGearPvp") == uint32(pvp) && GetValue(botId, "coaGearScore") == itemLevel)
+        return;
+
+    // A bot on its own keeps its PvP gear for 10 minutes out of a battleground and its queue: most queue again at
+    // once, and each battleground cost two changes of some seventeen items (18,000 changes a night on the NUC).
+    if (pvp)
+        botAI->coaGearPvpSeenAt = getMSTime();
+    else if (!master && botAI->coaGearPvpSeenAt && GetMSTimeDiffToNow(botAI->coaGearPvpSeenAt) < 10 * MINUTE * IN_MILLISECONDS)
+        return;
+
+    // Each change destroys and creates some seventeen items: one bot at a time on the whole server.
+    static std::atomic<uint32> lastRegear{0};
+    uint32 last = lastRegear.load();
+    // A bot grouped with a player goes first: it waited behind the High Risk bots regeared after a restart.
+    if (!master && (getMSTimeDiff(last, getMSTime()) < 1000 || !lastRegear.compare_exchange_strong(last, getMSTime())))
+        return;
+
+    uint32 const startedAt = getMSTime();
+    SetEventValue(botId, "coaGearPvp", pvp, 30 * DAY);
+    SetEventValue(botId, "coaGearScore", itemLevel, 30 * DAY);
+    PlayerbotFactory::DestroyEquippedGear(bot);
+    PlayerbotFactory factory(bot, bot->GetLevel(), quality, 0);
+    factory.maxItemLevel = itemLevel;
+    factory.preferResilience = pvp;
+    factory.InitEquipment(false, false);
+    // A slot nothing filled under the limit is filled without it: a bot is never left without gear.
+    uint32 empty = 0;
+    for (uint8 slot = EQUIPMENT_SLOT_START; slot < EQUIPMENT_SLOT_END; ++slot)
+        if (slot != EQUIPMENT_SLOT_BODY && slot != EQUIPMENT_SLOT_TABARD && !bot->GetItemByPos(INVENTORY_SLOT_BAG_0, slot))
+            ++empty;
+    if (empty > 3)
+    {
+        factory.maxItemLevel = 0;
+        factory.InitEquipment(true, false);
+    }
+    factory.InitAmmo();
+    if (bot->GetLevel() >= sPlayerbotAIConfig.minEnchantingBotLevel)
+        factory.ApplyEnchantAndGemsNew();
+    bot->DurabilityRepairAll(false, 1.0f, false);
+    LOG_INFO("playerbots", "coa gear: {} {} gear, item level limit {}{}, {} ms", bot->GetName(), pvp ? "PvP" : "PvE",
+             itemLevel, master ? " (grouped)" : "", GetMSTimeDiffToNow(startedAt));
+}
+
 void RandomPlayerbotMgr::OnBotLoginInternal(Player* const bot)
 {
     if (_isBotLogging)
@@ -2707,6 +3519,104 @@ void RandomPlayerbotMgr::OnBotLoginInternal(Player* const bot)
     }
 
     RandomPlayerbotFactory::AssignBotToArenaTeam(bot);
+    CoaApplyRuleset(bot);
+
+    // CoA starts Blood Elves in Deathknell and Draenei in Shadowglen (jealous-sound/azerothcore-wotlk-coa#6397). Bots
+    // made before stayed at Sunstrider Isle or Ammen Vale, where no CoA quest awaits them, and stood there (Discord
+    // 07/10): a low level random bot in Outland's map goes to its race's start.
+    if (bot->GetMapId() == 530 && bot->GetLevel() <= 20 && IsRandomBot(bot) && !bot->IsInCombat() && !bot->GetGroup())
+        if (PlayerInfo const* info = sObjectMgr->GetPlayerInfo(bot->getRace(), bot->getClass()))
+            if (info->mapId != 530)
+            {
+                LOG_INFO("playerbots", "coa: {} (level {}) leaves map 530 for its race's start", bot->GetName(),
+                         bot->GetLevel());
+                bot->TeleportTo(info->mapId, info->positionX, info->positionY, info->positionZ, info->orientation);
+            }
+
+    // A bot made before MaxPlayerLevel or RandomBotMaxLevel was lowered kept its level, since Randomize only
+    // rebuilds a bot at the level it has: bring it down to the cap, gear, talents and spells redone.
+    if (IsRandomBot(bot) && !bot->InBattleground() && !bot->InArena() && GET_PLAYERBOT_AI(bot))
+    {
+        uint32 const levelCap = std::min<uint32>(sPlayerbotAIConfig.randomBotMaxLevel,
+                                                 sWorld->getIntConfig(CONFIG_MAX_PLAYER_LEVEL));
+        if (levelCap && bot->GetLevel() > levelCap)
+        {
+            uint32 const oldLevel = bot->GetLevel();
+            if (bot->IsMounted())
+                bot->Dismount();
+            SetValue(bot, "level", levelCap);
+            PlayerbotFactory factory(bot, levelCap);
+            factory.Randomize(false);
+            RandomTeleportForLevel(bot);
+            LOG_INFO("playerbots", "coa: {} was level {}, above the cap {}: rebuilt at level {}", bot->GetName(),
+                     oldLevel, levelCap, levelCap);
+        }
+    }
+
+    // Once per bot for 2.0, a repair in place of a purge, which would lose the arena teams, ratings, PvP statistics
+    // and achievements: a bot made by older versions loses the mounts and companions it piled up (1,224 on
+    // average before jealous-sound#5107, each reloaded at every login), and one wearing gear above its level is
+    // geared again.
+    if (IsRandomBot(bot) && GetValue(bot, "coaRepaired") < 20)
+    {
+        SetEventValue(bot->GetGUID().GetCounter(), "coaRepaired", 20, 365 * DAY);
+        std::vector<uint32> companions;
+        std::vector<uint32> mounts;
+        for (auto const& [spellId, playerSpell] : bot->GetSpellMap())
+            if (playerSpell->State != PLAYERSPELL_REMOVED)
+            {
+                SkillLineAbilityMapBounds const bounds = sSpellMgr->GetSkillLineAbilityMapBounds(spellId);
+                for (auto itr = bounds.first; itr != bounds.second; ++itr)
+                {
+                    if (itr->second->SkillLine == SKILL_COMPANIONS)
+                        companions.push_back(spellId);
+                    else if (itr->second->SkillLine == SKILL_MOUNTS)
+                        mounts.push_back(spellId);
+                }
+            }
+        // A bot rides one mount: it keeps a few, the companions all go.
+        size_t const keptMounts = 4;
+        if (companions.size() + mounts.size() > 20)
+        {
+            for (uint32 const spellId : companions)
+                bot->removeSpell(spellId, SPEC_MASK_ALL, false);
+            for (size_t i = keptMounts; i < mounts.size(); ++i)
+                bot->removeSpell(mounts[i], SPEC_MASK_ALL, false);
+            LOG_INFO("playerbots", "coa repair: {} drops {} companions and {} mounts", bot->GetName(), companions.size(),
+                     mounts.size() > keptMounts ? mounts.size() - keptMounts : 0);
+        }
+        bool overLevel = false;
+        for (uint8 slot = EQUIPMENT_SLOT_START; slot < EQUIPMENT_SLOT_END && !overLevel; ++slot)
+            if (Item* item = bot->GetItemByPos(INVENTORY_SLOT_BAG_0, slot))
+                overLevel = item->GetTemplate()->RequiredLevel > bot->GetLevel();
+        if (overLevel)
+        {
+            PlayerbotFactory::DestroyEquippedGear(bot);
+            PlayerbotFactory factory(bot, bot->GetLevel());
+            factory.InitEquipment(false, false);
+            factory.InitAmmo();
+            LOG_INFO("playerbots", "coa repair: {} wore gear above level {}: geared again", bot->GetName(), bot->GetLevel());
+        }
+    }
+
+    // The core resets at login the talents of a character that spent more than its level allows (bots made by older
+    // versions): the bot then stood without talents until its next randomize, up to 14 days later. It picks them now.
+    // A CoA class has no talent tree but Character Advancement entries, set from our level builds: they were set only
+    // on a level up or a change of specialization, so a bot made by an older version kept entries above its level or
+    // missing ones. ApplyCoaTalents brings them to the build of its level, down and up.
+    if (IsAscensionCustomClassId(bot->getClass()))
+    {
+        if (uint32 const changed = ApplyCoaTalents(bot))
+            LOG_INFO("playerbots", "coa repair: {} (level {}) had {} Character Advancement entries off its build",
+                     bot->GetName(), bot->GetLevel(), changed);
+    }
+    else if (IsRandomBot(bot) && bot->GetFreeTalentPoints() >= 5)
+    {
+        uint32 const freePoints = bot->GetFreeTalentPoints();
+        PlayerbotFactory factory(bot, bot->GetLevel());
+        factory.InitTalentsTree(true);
+        LOG_INFO("playerbots", "coa repair: {} had {} free talent points: talents picked again", bot->GetName(), freePoints);
+    }
 
     // Bots rebuilt under level 5 before 1.5 lost their CoA starter kit and still stand naked.
     PlayerbotFactory::DressNakedCoaStarter(bot);
@@ -2755,7 +3665,7 @@ void RandomPlayerbotMgr::OnPlayerLogin(Player* player)
                 {
                     botAI->SetMaster(player);
                     botAI->ResetStrategies();
-                    botAI->TellMaster(PlayerbotTextMgr::instance().GetBotTextOrDefault(
+                    botAI->TellMasterGreeting(PlayerbotTextMgr::instance().GetBotTextOrDefault(
                         "hello", "Hello", {}));
                 }
 
@@ -2781,6 +3691,10 @@ void RandomPlayerbotMgr::OnPlayerLogin(Player* player)
         {
             std::vector<TravelDestination*> dests = TravelMgr::instance().getRpgTravelDestinations(player, true, true, 200000.0f);
 
+            // No destination at all: drawing one from the empty list read out of it.
+            if (dests.empty())
+                botPos.GetReachableRandomPointOnGround(player, sPlayerbotAIConfig.reactDistance * 2, true);
+            else
             do
             {
                 RpgTravelDestination* dest = (RpgTravelDestination*)dests[urand(0, dests.size() - 1)];
@@ -3258,7 +4172,13 @@ ObjectGuid RandomPlayerbotMgr::GetBattleMasterGUID(Player* bot, BattlegroundType
 
     for (auto i = begin(Bms); i != end(Bms); ++i)
     {
-        CreatureData const* data = sRandomPlayerbotMgr.GetCreatureDataByEntry(*i);
+        CreatureData const* data = nullptr;
+        auto spawnIt = BattleMasterSpawnIds.find(*i);
+        if (spawnIt == BattleMasterSpawnIds.end())
+            data = sRandomPlayerbotMgr.GetCreatureDataByEntry(*i);
+        else if (spawnIt->second)
+            data = sObjectMgr->GetCreatureData(spawnIt->second);
+
         if (!data)
             continue;
 

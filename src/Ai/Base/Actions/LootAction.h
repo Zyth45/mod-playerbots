@@ -46,6 +46,10 @@ public:
 
     bool Execute(Event event) override;
     static bool IsLootAllowed(uint32 itemid, PlayerbotAI* botAI);
+
+private:
+    static bool WorthMakingRoom(ItemTemplate const* proto);
+    bool MakeRoomFor(ItemTemplate const* proto, uint32 count);
 };
 
 class ReleaseLootAction : public InventoryAction

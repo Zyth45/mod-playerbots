@@ -37,9 +37,12 @@ public:
 private:
     bool HandleBattlegroundSpiritHealer();
     bool ShouldAutoRelease() const;
+    bool CanStillBeRaised() const;
     bool ShouldDelayBattlegroundRelease() const;
 
     time_t m_bgGossipTime = 0;
+    mutable time_t m_deadSince = 0;
+    mutable time_t m_deadLookedAt = 0;
 };
 
 class RepopAction : public SpiritHealerAction

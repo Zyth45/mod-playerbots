@@ -57,9 +57,16 @@ struct CoaSpecStats
 };
 
 // Barbarian / Brutality (physisch_nah)
-static constexpr CoaStatWeight CoaStats_12_2[] = { { STATS_TYPE_MELEE_DPS, 7.5f }, { STATS_TYPE_HIT, 2.3f }, { STATS_TYPE_EXPERTISE, 2.04f }, { STATS_TYPE_AGILITY, 1.78f }, { STATS_TYPE_CRIT, 1.52f }, { STATS_TYPE_ARMOR_PENETRATION, 1.26f }, { STATS_TYPE_HASTE, 1.0f }, { STATS_TYPE_ATTACK_POWER, 1.0f } };
+// Corrected by hand on 03/10 (the generator is not in this repository): a Barbarian gets 1 attack power per
+// Strength (StatSystem.cpp) and Body Builder (706481, 21 of 22 bench bots) adds 75% of Strength on top: a point of
+// Strength is 1.75 attack power, Agility 1 plus crit. The bench bots wore 18 Strength against 310 Agility.
+// 13/10: a player's report and the comment above agree: Strength before Agility, and a slow two-hander
+// (weapon shape twoHand below, nearly every Brutality ability deals weapon damage).
+static constexpr CoaStatWeight CoaStats_12_2[] = { { STATS_TYPE_MELEE_DPS, 7.5f }, { STATS_TYPE_HIT, 2.3f }, { STATS_TYPE_EXPERTISE, 2.04f }, { STATS_TYPE_STRENGTH, 1.9f }, { STATS_TYPE_AGILITY, 1.4f }, { STATS_TYPE_CRIT, 1.52f }, { STATS_TYPE_ARMOR_PENETRATION, 1.26f }, { STATS_TYPE_HASTE, 1.0f }, { STATS_TYPE_ATTACK_POWER, 1.0f } };
 // Barbarian / Ancestry (physisch_nah)
-static constexpr CoaStatWeight CoaStats_12_3[] = { { STATS_TYPE_MELEE_DPS, 7.5f }, { STATS_TYPE_HIT, 2.3f }, { STATS_TYPE_AGILITY, 2.04f }, { STATS_TYPE_HASTE, 1.78f }, { STATS_TYPE_ARMOR_PENETRATION, 1.52f }, { STATS_TYPE_CRIT, 1.26f }, { STATS_TYPE_SPIRIT, 1.0f }, { STATS_TYPE_ATTACK_POWER, 1.0f } };
+// Corrected by hand on 03/10: Strength is 1 attack power for a Barbarian (StatSystem.cpp), worth at least an
+// attack power point; it had no weight at all.
+static constexpr CoaStatWeight CoaStats_12_3[] = { { STATS_TYPE_MELEE_DPS, 7.5f }, { STATS_TYPE_HIT, 2.3f }, { STATS_TYPE_AGILITY, 2.04f }, { STATS_TYPE_HASTE, 1.78f }, { STATS_TYPE_ARMOR_PENETRATION, 1.52f }, { STATS_TYPE_CRIT, 1.26f }, { STATS_TYPE_SPIRIT, 1.0f }, { STATS_TYPE_ATTACK_POWER, 1.0f }, { STATS_TYPE_STRENGTH, 1.0f } };
 // Barbarian / Headhunting (physisch_fern)
 static constexpr CoaStatWeight CoaStats_12_1[] = { { STATS_TYPE_RANGED_DPS, 10.0f }, { STATS_TYPE_HIT, 2.3f }, { STATS_TYPE_EXPERTISE, 2.04f }, { STATS_TYPE_AGILITY, 1.78f }, { STATS_TYPE_CRIT, 1.52f }, { STATS_TYPE_ARMOR_PENETRATION, 1.26f }, { STATS_TYPE_HASTE, 1.0f }, { STATS_TYPE_ATTACK_POWER, 1.0f } };
 // Witch Doctor / Shadowhunting (physisch_fern)
@@ -69,19 +76,35 @@ static constexpr CoaStatWeight CoaStats_13_6[] = { { STATS_TYPE_SPIRIT, 1.0f }, 
 // Witch Doctor / Voodoo (zauber)
 static constexpr CoaStatWeight CoaStats_13_5[] = { { STATS_TYPE_HIT, 1.8f }, { STATS_TYPE_SPIRIT, 1.58f }, { STATS_TYPE_SPELL_POWER, 1.36f }, { STATS_TYPE_HASTE, 1.14f }, { STATS_TYPE_CRIT, 0.92f }, { STATS_TYPE_INTELLECT, 0.7f }, { STATS_TYPE_ATTACK_POWER, -1.0f } };
 // Felsworn / Slayer (physisch_nah)
-static constexpr CoaStatWeight CoaStats_14_8[] = { { STATS_TYPE_MELEE_DPS, 7.5f }, { STATS_TYPE_HIT, 2.3f }, { STATS_TYPE_EXPERTISE, 2.04f }, { STATS_TYPE_AGILITY, 1.78f }, { STATS_TYPE_CRIT, 1.52f }, { STATS_TYPE_HASTE, 1.26f }, { STATS_TYPE_ARMOR_PENETRATION, 1.0f }, { STATS_TYPE_ATTACK_POWER, 1.0f } };
+// Corrected by hand on 03/10: Strength is 1 attack power for a Felsworn (StatSystem.cpp, Rogue base), so it
+// weighs at least as much as an attack power point; it had no weight at all.
+static constexpr CoaStatWeight CoaStats_14_8[] = { { STATS_TYPE_MELEE_DPS, 7.5f }, { STATS_TYPE_HIT, 2.3f }, { STATS_TYPE_EXPERTISE, 2.04f }, { STATS_TYPE_AGILITY, 1.78f }, { STATS_TYPE_CRIT, 1.52f }, { STATS_TYPE_HASTE, 1.26f }, { STATS_TYPE_ARMOR_PENETRATION, 1.0f }, { STATS_TYPE_ATTACK_POWER, 1.0f }, { STATS_TYPE_STRENGTH, 1.0f } };
 // Felsworn / Infernal (zauber)
-static constexpr CoaStatWeight CoaStats_14_7[] = { { STATS_TYPE_SPIRIT, 1.8f }, { STATS_TYPE_CRIT, 1.52f }, { STATS_TYPE_INTELLECT, 1.25f }, { STATS_TYPE_SPELL_POWER, 1.0f }, { STATS_TYPE_HASTE, 0.7f }, { STATS_TYPE_ATTACK_POWER, -1.0f } };
+// Corrected by hand on 03/10 (the generator is not in this repository): Infernal's damage scales on spell power
+// (Fel Fireball 0.62, Sargeron Smite 0.60 in AscensionFelswornData.h; 76% of its bench damage), while Spirit and
+// Intellect only give 15% of themselves as spell power (Hidden Power, 802108). Spell power moves above Spirit, and hit
+// comes in: without it the bench bots wore 17 hit rating, every other caster 50 to 100.
+static constexpr CoaStatWeight CoaStats_14_7[] = { { STATS_TYPE_HIT, 1.8f }, { STATS_TYPE_SPELL_POWER, 1.58f }, { STATS_TYPE_CRIT, 1.52f }, { STATS_TYPE_INTELLECT, 1.25f }, { STATS_TYPE_SPIRIT, 1.0f }, { STATS_TYPE_HASTE, 0.7f }, { STATS_TYPE_ATTACK_POWER, -1.0f } };
 // Felsworn / Tyrant (tank)
 static constexpr CoaStatWeight CoaStats_14_9[] = { { STATS_TYPE_STAMINA, 3.0f }, { STATS_TYPE_DEFENSE, 2.5f }, { STATS_TYPE_DODGE, 2.0f }, { STATS_TYPE_PARRY, 2.0f }, { STATS_TYPE_HIT, 1.6f }, { STATS_TYPE_EXPERTISE, 1.45f }, { STATS_TYPE_AGILITY, 1.3f }, { STATS_TYPE_ARMOR_PENETRATION, 1.15f }, { STATS_TYPE_CRIT, 1.0f }, { STATS_TYPE_BLOCK_RATING, 1.0f }, { STATS_TYPE_HASTE, 0.85f }, { STATS_TYPE_BLOCK_VALUE, 0.5f }, { STATS_TYPE_ARMOR, 0.15f } };
 // Witch Hunter / Boltslinger (physisch_fern)
-static constexpr CoaStatWeight CoaStats_15_10[] = { { STATS_TYPE_RANGED_DPS, 10.0f }, { STATS_TYPE_HIT, 2.3f }, { STATS_TYPE_EXPERTISE, 2.04f }, { STATS_TYPE_AGILITY, 1.78f }, { STATS_TYPE_ARMOR_PENETRATION, 1.52f }, { STATS_TYPE_CRIT, 1.26f }, { STATS_TYPE_HASTE, 1.0f }, { STATS_TYPE_ATTACK_POWER, 1.0f } };
+// Corrected by hand on 03/10: Arbalist (520851, 9 of 12 bench bots) gives 100% of Intellect as ranged attack
+// power, the same as Agility minus its crit; Intellect had no weight.
+static constexpr CoaStatWeight CoaStats_15_10[] = { { STATS_TYPE_RANGED_DPS, 10.0f }, { STATS_TYPE_HIT, 2.3f }, { STATS_TYPE_EXPERTISE, 2.04f }, { STATS_TYPE_AGILITY, 1.78f }, { STATS_TYPE_ARMOR_PENETRATION, 1.52f }, { STATS_TYPE_CRIT, 1.26f }, { STATS_TYPE_INTELLECT, 1.0f }, { STATS_TYPE_HASTE, 1.0f }, { STATS_TYPE_ATTACK_POWER, 1.0f } };
 // Witch Hunter / Black Knight (tank)
 static constexpr CoaStatWeight CoaStats_15_97[] = { { STATS_TYPE_STAMINA, 3.0f }, { STATS_TYPE_DEFENSE, 2.5f }, { STATS_TYPE_PARRY, 2.0f }, { STATS_TYPE_DODGE, 2.0f }, { STATS_TYPE_HIT, 1.6f }, { STATS_TYPE_EXPERTISE, 1.45f }, { STATS_TYPE_AGILITY, 1.3f }, { STATS_TYPE_ARMOR_PENETRATION, 1.0f }, { STATS_TYPE_BLOCK_RATING, 1.0f }, { STATS_TYPE_CRIT, 0.85f }, { STATS_TYPE_HASTE, 0.7f }, { STATS_TYPE_BLOCK_VALUE, 0.5f }, { STATS_TYPE_ARMOR, 0.15f } };
 // Witch Hunter / Houndmaster (physisch_fern)
-static constexpr CoaStatWeight CoaStats_15_11[] = { { STATS_TYPE_RANGED_DPS, 10.0f }, { STATS_TYPE_HIT, 2.3f }, { STATS_TYPE_EXPERTISE, 2.08f }, { STATS_TYPE_AGILITY, 1.87f }, { STATS_TYPE_INTELLECT, 1.65f }, { STATS_TYPE_SPELL_POWER, 1.43f }, { STATS_TYPE_CRIT, 1.22f }, { STATS_TYPE_HASTE, 1.0f }, { STATS_TYPE_ATTACK_POWER, 1.0f } };
+// Corrected by hand on 13/10 from a Houndmaster player's report (specs site): no spell power, the class does not
+// look for it; Agility first, then Haste and Crit, Spell Penetration (most of the damage is Shadow), attack power
+// and Strength (1 attack power each), Intellect last (25% of it becomes crit). Expertise does nothing at range.
+static constexpr CoaStatWeight CoaStats_15_11[] = { { STATS_TYPE_RANGED_DPS, 10.0f }, { STATS_TYPE_HIT, 2.3f }, { STATS_TYPE_AGILITY, 2.1f }, { STATS_TYPE_HASTE, 1.6f }, { STATS_TYPE_CRIT, 1.6f }, { STATS_TYPE_SPELL_PENETRATION, 1.2f }, { STATS_TYPE_ATTACK_POWER, 1.0f }, { STATS_TYPE_STRENGTH, 1.0f }, { STATS_TYPE_INTELLECT, 0.4f } };
 // Witch Hunter / Inquisition (physisch_nah)
-static constexpr CoaStatWeight CoaStats_15_12[] = { { STATS_TYPE_MELEE_DPS, 7.5f }, { STATS_TYPE_HIT, 2.3f }, { STATS_TYPE_EXPERTISE, 2.04f }, { STATS_TYPE_SPELL_POWER, 1.78f }, { STATS_TYPE_AGILITY, 1.52f }, { STATS_TYPE_CRIT, 1.26f }, { STATS_TYPE_HASTE, 1.0f }, { STATS_TYPE_ATTACK_POWER, 1.0f } };
+// Corrected by hand on 03/10 (the generator is not in this repository): Malice (707535, 10 of 10 bench bots) gives
+// 100% of Intellect as attack power and 50% of Agility as Fire spell power (the core rewrites the DBC aura,
+// AscensionWitchHunterCompletion.cpp), so Intellect is worth one attack power point and no more, and spell power on gear
+// comes last: on the bench 69% of Inquisition's damage is weapon or attack power, 9% has a spell power term. The bots
+// wore 339 spell power and 66 Intellect. Strength is 1 attack power.
+static constexpr CoaStatWeight CoaStats_15_12[] = { { STATS_TYPE_MELEE_DPS, 7.5f }, { STATS_TYPE_HIT, 2.3f }, { STATS_TYPE_EXPERTISE, 2.04f }, { STATS_TYPE_AGILITY, 1.78f }, { STATS_TYPE_CRIT, 1.26f }, { STATS_TYPE_HASTE, 1.0f }, { STATS_TYPE_ATTACK_POWER, 1.0f }, { STATS_TYPE_INTELLECT, 1.0f }, { STATS_TYPE_STRENGTH, 1.0f }, { STATS_TYPE_SPELL_POWER, 0.8f } };
 // Stormbringer / Lightning (zauber)
 static constexpr CoaStatWeight CoaStats_16_15[] = { { STATS_TYPE_HIT, 1.8f }, { STATS_TYPE_SPELL_POWER, 1.58f }, { STATS_TYPE_CRIT, 1.36f }, { STATS_TYPE_HASTE, 1.14f }, { STATS_TYPE_INTELLECT, 0.92f }, { STATS_TYPE_SPIRIT, 0.7f }, { STATS_TYPE_ATTACK_POWER, -1.0f } };
 // Stormbringer / Maelstrom (zauber)
@@ -93,7 +116,14 @@ static constexpr CoaStatWeight CoaStats_17_18[] = { { STATS_TYPE_MELEE_DPS, 7.5f
 // Knight of Xoroth / Defiance (tank)
 static constexpr CoaStatWeight CoaStats_17_17[] = { { STATS_TYPE_STAMINA, 3.0f }, { STATS_TYPE_DEFENSE, 2.5f }, { STATS_TYPE_DODGE, 2.0f }, { STATS_TYPE_PARRY, 2.0f }, { STATS_TYPE_BLOCK_RATING, 1.0f }, { STATS_TYPE_STRENGTH, 0.85f }, { STATS_TYPE_ARMOR, 0.7f }, { STATS_TYPE_BLOCK_VALUE, 0.5f } };
 // Knight of Xoroth / Hellfire (zauber)
-static constexpr CoaStatWeight CoaStats_17_16[] = { { STATS_TYPE_HIT, 1.8f }, { STATS_TYPE_SPELL_POWER, 1.58f }, { STATS_TYPE_STRENGTH, 1.36f }, { STATS_TYPE_CRIT, 1.14f }, { STATS_TYPE_HASTE, 0.92f }, { STATS_TYPE_INTELLECT, 0.7f }, { STATS_TYPE_ATTACK_POWER, -1.0f } };
+// Corrected by hand on 03/10 (the generator is not in this repository): Hellfire fights with its two-hander and
+// attack power. Burning Power (500004, 17 of 17 bench bots) gives 100% of Intellect as attack power and 50% of Strength
+// as spell power; Seeking Flame, Flames of Xoroth and Hellmaw carry an attack power term next to the spell power one, and
+// Infernal Strike and auto attacks (27% of its bench damage) are weapon damage. Attack power was penalised (-1) and the
+// weapon not counted: the bots wore 0 attack power and 557 spell power. Per point on the bench, Strength is worth about
+// twice an attack power or Intellect point and six times a spell power point. Spell power stays low so that healer
+// plate (Intellect and spell power) never outweighs Strength plate.
+static constexpr CoaStatWeight CoaStats_17_16[] = { { STATS_TYPE_MELEE_DPS, 3.0f }, { STATS_TYPE_HIT, 1.8f }, { STATS_TYPE_STRENGTH, 1.8f }, { STATS_TYPE_CRIT, 1.14f }, { STATS_TYPE_HASTE, 0.92f }, { STATS_TYPE_INTELLECT, 0.9f }, { STATS_TYPE_ATTACK_POWER, 0.6f }, { STATS_TYPE_SPELL_POWER, 0.5f } };
 // Guardian / Gladiator (physisch_nah)
 static constexpr CoaStatWeight CoaStats_18_19[] = { { STATS_TYPE_MELEE_DPS, 7.5f }, { STATS_TYPE_HIT, 2.3f }, { STATS_TYPE_EXPERTISE, 2.08f }, { STATS_TYPE_STRENGTH, 1.87f }, { STATS_TYPE_AGILITY, 1.65f }, { STATS_TYPE_ARMOR_PENETRATION, 1.43f }, { STATS_TYPE_CRIT, 1.22f }, { STATS_TYPE_HASTE, 1.0f }, { STATS_TYPE_ATTACK_POWER, 1.0f } };
 // Guardian / Inspiration (physisch_nah)
@@ -101,15 +131,26 @@ static constexpr CoaStatWeight CoaStats_18_20[] = { { STATS_TYPE_MELEE_DPS, 7.5f
 // Guardian / Vanguard (tank)
 static constexpr CoaStatWeight CoaStats_18_21[] = { { STATS_TYPE_STAMINA, 3.0f }, { STATS_TYPE_DEFENSE, 2.5f }, { STATS_TYPE_DODGE, 2.0f }, { STATS_TYPE_PARRY, 2.0f }, { STATS_TYPE_EXPERTISE, 1.45f }, { STATS_TYPE_BLOCK_RATING, 1.15f }, { STATS_TYPE_STRENGTH, 1.0f }, { STATS_TYPE_ARMOR, 0.7f }, { STATS_TYPE_BLOCK_VALUE, 0.5f } };
 // Templar / Crusader (physisch_nah)
-static constexpr CoaStatWeight CoaStats_19_24[] = { { STATS_TYPE_MELEE_DPS, 7.5f }, { STATS_TYPE_HIT, 2.3f }, { STATS_TYPE_EXPERTISE, 2.08f }, { STATS_TYPE_AGILITY, 1.87f }, { STATS_TYPE_CRIT, 1.65f }, { STATS_TYPE_HASTE, 1.43f }, { STATS_TYPE_ARMOR_PENETRATION, 1.22f }, { STATS_TYPE_SPELL_POWER, 1.0f }, { STATS_TYPE_ATTACK_POWER, 1.0f } };
+// Corrected by hand on 03/10: Strength is 1 attack power for a Templar (StatSystem.cpp, Rogue base), so it
+// weighs at least as much as an attack power point; it had no weight at all.
+static constexpr CoaStatWeight CoaStats_19_24[] = { { STATS_TYPE_MELEE_DPS, 7.5f }, { STATS_TYPE_HIT, 2.3f }, { STATS_TYPE_EXPERTISE, 2.08f }, { STATS_TYPE_AGILITY, 1.87f }, { STATS_TYPE_CRIT, 1.65f }, { STATS_TYPE_HASTE, 1.43f }, { STATS_TYPE_ARMOR_PENETRATION, 1.22f }, { STATS_TYPE_SPELL_POWER, 1.0f }, { STATS_TYPE_ATTACK_POWER, 1.0f }, { STATS_TYPE_STRENGTH, 1.0f } };
 // Templar / Oathkeeper (tank)
 static constexpr CoaStatWeight CoaStats_19_22[] = { { STATS_TYPE_STAMINA, 3.0f }, { STATS_TYPE_DEFENSE, 2.5f }, { STATS_TYPE_DODGE, 2.0f }, { STATS_TYPE_PARRY, 2.0f }, { STATS_TYPE_HIT, 1.6f }, { STATS_TYPE_EXPERTISE, 1.45f }, { STATS_TYPE_AGILITY, 1.3f }, { STATS_TYPE_CRIT, 1.0f }, { STATS_TYPE_BLOCK_RATING, 1.0f }, { STATS_TYPE_HASTE, 0.85f }, { STATS_TYPE_SPIRIT, 0.7f }, { STATS_TYPE_BLOCK_VALUE, 0.5f }, { STATS_TYPE_ARMOR, 0.15f } };
 // Templar / Zealot (physisch_nah)
-static constexpr CoaStatWeight CoaStats_19_23[] = { { STATS_TYPE_MELEE_DPS, 7.5f }, { STATS_TYPE_ATTACK_POWER, 2.3f }, { STATS_TYPE_CRIT, 1.87f }, { STATS_TYPE_SPELL_POWER, 1.43f }, { STATS_TYPE_EXPERTISE, 1.0f } };
+// Corrected by hand on 03/10 (the generator is not in this repository): the row had no Agility, Strength, hit or
+// haste. A Templar gets 1 attack power per Agility and per Strength (StatSystem.cpp, Rogue base); Libram of Fervor
+// (805423) adds 30% of Agility as spell power and Calm Combatant (705281) 50% of attack power, so Agility is worth at
+// least an attack power point and spell power on gear much less. The bench bots wore 764 attack power, 66 Agility and
+// 51 hit rating. Kami: attack power about equal to Agility, after hit and expertise.
+static constexpr CoaStatWeight CoaStats_19_23[] = { { STATS_TYPE_MELEE_DPS, 7.5f }, { STATS_TYPE_HIT, 2.3f }, { STATS_TYPE_AGILITY, 2.5f }, { STATS_TYPE_ATTACK_POWER, 2.3f }, { STATS_TYPE_EXPERTISE, 2.04f }, { STATS_TYPE_STRENGTH, 2.0f }, { STATS_TYPE_CRIT, 1.87f }, { STATS_TYPE_HASTE, 1.0f }, { STATS_TYPE_SPELL_POWER, 0.9f } };
 // Bloodmage / Sanguine (zauber)
 static constexpr CoaStatWeight CoaStats_20_26[] = { { STATS_TYPE_HIT, 1.8f }, { STATS_TYPE_SPELL_POWER, 1.58f }, { STATS_TYPE_HASTE, 1.36f }, { STATS_TYPE_CRIT, 1.14f }, { STATS_TYPE_STAMINA, 0.92f }, { STATS_TYPE_INTELLECT, 0.7f }, { STATS_TYPE_ATTACK_POWER, -1.0f } };
 // Bloodmage / Accursed (physisch_nah)
-static constexpr CoaStatWeight CoaStats_20_27[] = { { STATS_TYPE_MELEE_DPS, 7.5f }, { STATS_TYPE_HIT, 2.3f }, { STATS_TYPE_EXPERTISE, 2.04f }, { STATS_TYPE_AGILITY, 1.78f }, { STATS_TYPE_ARMOR_PENETRATION, 1.52f }, { STATS_TYPE_CRIT, 1.26f }, { STATS_TYPE_HASTE, 1.0f }, { STATS_TYPE_ATTACK_POWER, 1.0f } };
+// Corrected by hand on 03/10 (the generator is not in this repository): a Bloodmage gets 1 attack power per
+// Strength and per Agility (StatSystem.cpp, Rogue base), and 23% of Accursed's bench damage carries a spell power term
+// (Rage, 504895, also adds 40% of attack power as spell power). Strength and spell power had no weight; the bench bots
+// wore 1 spell power and 16 Strength.
+static constexpr CoaStatWeight CoaStats_20_27[] = { { STATS_TYPE_MELEE_DPS, 7.5f }, { STATS_TYPE_HIT, 2.3f }, { STATS_TYPE_EXPERTISE, 2.04f }, { STATS_TYPE_AGILITY, 1.78f }, { STATS_TYPE_ARMOR_PENETRATION, 1.52f }, { STATS_TYPE_CRIT, 1.26f }, { STATS_TYPE_HASTE, 1.0f }, { STATS_TYPE_ATTACK_POWER, 1.0f }, { STATS_TYPE_STRENGTH, 1.0f }, { STATS_TYPE_SPELL_POWER, 0.9f } };
 // Bloodmage / Eternal (tank)
 static constexpr CoaStatWeight CoaStats_20_99[] = { { STATS_TYPE_STAMINA, 3.0f }, { STATS_TYPE_DEFENSE, 2.5f }, { STATS_TYPE_DODGE, 2.0f }, { STATS_TYPE_PARRY, 2.0f }, { STATS_TYPE_EXPERTISE, 1.24f }, { STATS_TYPE_ARMOR, 1.06f }, { STATS_TYPE_BLOCK_RATING, 1.0f }, { STATS_TYPE_AGILITY, 0.88f }, { STATS_TYPE_CRIT, 0.7f }, { STATS_TYPE_BLOCK_VALUE, 0.5f } };
 // Bloodmage / Fleshweaver (heilung)
@@ -117,13 +158,20 @@ static constexpr CoaStatWeight CoaStats_20_25[] = { { STATS_TYPE_SPELL_POWER, 1.
 // Ranger / Archery (physisch_fern)
 static constexpr CoaStatWeight CoaStats_21_28[] = { { STATS_TYPE_RANGED_DPS, 10.0f }, { STATS_TYPE_HIT, 2.3f }, { STATS_TYPE_AGILITY, 1.97f }, { STATS_TYPE_CRIT, 1.65f }, { STATS_TYPE_ARMOR_PENETRATION, 1.32f }, { STATS_TYPE_HASTE, 1.0f }, { STATS_TYPE_ATTACK_POWER, 1.0f } };
 // Ranger / Brigand (physisch_nah)
-static constexpr CoaStatWeight CoaStats_21_30[] = { { STATS_TYPE_MELEE_DPS, 7.5f }, { STATS_TYPE_HIT, 2.3f }, { STATS_TYPE_EXPERTISE, 2.04f }, { STATS_TYPE_AGILITY, 1.78f }, { STATS_TYPE_ARMOR_PENETRATION, 1.52f }, { STATS_TYPE_CRIT, 1.26f }, { STATS_TYPE_HASTE, 1.0f }, { STATS_TYPE_ATTACK_POWER, 1.0f } };
+// Corrected by hand on 03/10 (the generator is not in this repository): Strength is 1 attack power for a Ranger
+// (StatSystem.cpp, Hunter base), so it weighs at least as much as an attack power point; it had no weight at all.
+static constexpr CoaStatWeight CoaStats_21_30[] = { { STATS_TYPE_MELEE_DPS, 7.5f }, { STATS_TYPE_HIT, 2.3f }, { STATS_TYPE_EXPERTISE, 2.04f }, { STATS_TYPE_AGILITY, 1.78f }, { STATS_TYPE_ARMOR_PENETRATION, 1.52f }, { STATS_TYPE_CRIT, 1.26f }, { STATS_TYPE_HASTE, 1.0f }, { STATS_TYPE_ATTACK_POWER, 1.0f }, { STATS_TYPE_STRENGTH, 1.0f } };
 // Ranger / Farstrider (physisch_fern)
 static constexpr CoaStatWeight CoaStats_21_29[] = { { STATS_TYPE_RANGED_DPS, 10.0f }, { STATS_TYPE_HIT, 2.3f }, { STATS_TYPE_AGILITY, 1.97f }, { STATS_TYPE_CRIT, 1.65f }, { STATS_TYPE_HASTE, 1.32f }, { STATS_TYPE_ARMOR_PENETRATION, 1.0f }, { STATS_TYPE_ATTACK_POWER, 1.0f } };
 // Chronomancer / Infinite (zauber)
 static constexpr CoaStatWeight CoaStats_22_32[] = { { STATS_TYPE_HIT, 1.8f }, { STATS_TYPE_SPELL_POWER, 1.58f }, { STATS_TYPE_INTELLECT, 1.36f }, { STATS_TYPE_CRIT, 1.14f }, { STATS_TYPE_SPIRIT, 0.92f }, { STATS_TYPE_HASTE, 0.7f }, { STATS_TYPE_ATTACK_POWER, -1.0f } };
 // Chronomancer / Artificer (zauber)
-static constexpr CoaStatWeight CoaStats_22_33[] = { { STATS_TYPE_HIT, 1.8f }, { STATS_TYPE_SPELL_PENETRATION, 1.62f }, { STATS_TYPE_SPIRIT, 1.43f }, { STATS_TYPE_CRIT, 1.25f }, { STATS_TYPE_HASTE, 1.07f }, { STATS_TYPE_SPELL_POWER, 1.0f }, { STATS_TYPE_INTELLECT, 0.7f }, { STATS_TYPE_ATTACK_POWER, -1.0f } };
+// Corrected by hand on 03/10 (the generator is not in this repository): Artificer fights with its wand. Shatter
+// Echo, Artificer's Wand, Crystal Cannon and Wand of Time are ranged weapon damage (57% of its bench damage), and Wand
+// Expert (574308) gives 100% of Spirit as ranged attack power, so the wand's damage now counts and Spirit leads. Spell
+// penetration was second: it only lowers a target's resistance, and every bench boss has 0; the bots wore 317 of it
+// (Infinite 22). Attack power is no longer penalised (it is ranged attack power too).
+static constexpr CoaStatWeight CoaStats_22_33[] = { { STATS_TYPE_RANGED_DPS, 5.0f }, { STATS_TYPE_HIT, 1.8f }, { STATS_TYPE_SPIRIT, 1.62f }, { STATS_TYPE_CRIT, 1.25f }, { STATS_TYPE_HASTE, 1.07f }, { STATS_TYPE_SPELL_POWER, 1.0f }, { STATS_TYPE_INTELLECT, 0.7f }, { STATS_TYPE_ATTACK_POWER, 0.5f }, { STATS_TYPE_SPELL_PENETRATION, 0.1f } };
 // Chronomancer / Time (heilung)
 static constexpr CoaStatWeight CoaStats_22_31[] = { { STATS_TYPE_SPIRIT, 1.0f }, { STATS_TYPE_HEAL_POWER, 1.0f }, { STATS_TYPE_SPELL_POWER, 0.9f }, { STATS_TYPE_MANA_REGENERATION, 0.9f }, { STATS_TYPE_HASTE, 0.8f }, { STATS_TYPE_INTELLECT, 0.7f }, { STATS_TYPE_CRIT, 0.6f }, { STATS_TYPE_ATTACK_POWER, -1.0f } };
 // Necromancer / Animation (zauber)
@@ -133,13 +181,25 @@ static constexpr CoaStatWeight CoaStats_23_34[] = { { STATS_TYPE_HIT, 1.8f }, { 
 // Necromancer / Rime (zauber)
 static constexpr CoaStatWeight CoaStats_23_36[] = { { STATS_TYPE_HIT, 1.8f }, { STATS_TYPE_SPELL_POWER, 1.58f }, { STATS_TYPE_CRIT, 1.36f }, { STATS_TYPE_HASTE, 1.14f }, { STATS_TYPE_INTELLECT, 0.92f }, { STATS_TYPE_SPIRIT, 0.7f }, { STATS_TYPE_ATTACK_POWER, -1.0f } };
 // Pyromancer / Draconic (zauber)
-static constexpr CoaStatWeight CoaStats_24_39[] = { { STATS_TYPE_HIT, 1.8f }, { STATS_TYPE_INTELLECT, 1.58f }, { STATS_TYPE_CRIT, 1.36f }, { STATS_TYPE_HASTE, 1.14f }, { STATS_TYPE_SPELL_POWER, 1.0f }, { STATS_TYPE_STAMINA, 0.7f }, { STATS_TYPE_ATTACK_POWER, -1.0f } };
+// Corrected by hand on 03/10 (the generator is not in this repository): 98% of Draconic's bench damage scales on
+// spell power and nothing gives the bots spell power from Intellect: Draconic Aspect (802117, 30% of Intellect) was never
+// up on the bench, and no passive converts it. Intellect ranked above spell power: the bots wore 470 spell power where most
+// other casters at the same item level wear 530 to 670. Spell power moves above Intellect.
+static constexpr CoaStatWeight CoaStats_24_39[] = { { STATS_TYPE_HIT, 1.8f }, { STATS_TYPE_SPELL_POWER, 1.58f }, { STATS_TYPE_CRIT, 1.36f }, { STATS_TYPE_INTELLECT, 1.2f }, { STATS_TYPE_HASTE, 1.14f }, { STATS_TYPE_STAMINA, 0.7f }, { STATS_TYPE_ATTACK_POWER, -1.0f } };
 // Pyromancer / Flameweaving (heilung)
-static constexpr CoaStatWeight CoaStats_24_37[] = { { STATS_TYPE_SPIRIT, 1.0f }, { STATS_TYPE_HEAL_POWER, 1.0f }, { STATS_TYPE_MANA_REGENERATION, 0.9f }, { STATS_TYPE_INTELLECT, 0.88f }, { STATS_TYPE_CRIT, 0.75f }, { STATS_TYPE_SPELL_POWER, 0.62f }, { STATS_TYPE_HASTE, 0.5f }, { STATS_TYPE_ATTACK_POWER, -1.0f } };
+// Corrected by hand on 03/10: Pyromancer heals scale on Spirit as much as on spell power (AscensionPyromancerData.h:
+// Cinderheart 0.65 spell power + 1.0 Spirit, Kindle 0.35 + 0.4, Ember Touch 0.18 + 1.0, Phoenix Shield 0.5 Spirit), and a
+// spell power point counts twice here (spell power and healing power, 1.62 together). Spirit rises to match it.
+static constexpr CoaStatWeight CoaStats_24_37[] = { { STATS_TYPE_SPIRIT, 1.6f }, { STATS_TYPE_HEAL_POWER, 1.0f }, { STATS_TYPE_MANA_REGENERATION, 0.9f }, { STATS_TYPE_INTELLECT, 0.88f }, { STATS_TYPE_CRIT, 0.75f }, { STATS_TYPE_SPELL_POWER, 0.62f }, { STATS_TYPE_HASTE, 0.5f }, { STATS_TYPE_ATTACK_POWER, -1.0f } };
 // Pyromancer / Incineration (zauber)
-static constexpr CoaStatWeight CoaStats_24_38[] = { { STATS_TYPE_HIT, 1.8f }, { STATS_TYPE_INTELLECT, 1.58f }, { STATS_TYPE_CRIT, 1.36f }, { STATS_TYPE_HASTE, 1.14f }, { STATS_TYPE_SPELL_POWER, 1.0f }, { STATS_TYPE_SPIRIT, 0.7f }, { STATS_TYPE_ATTACK_POWER, -1.0f } };
+// Corrected by hand on 03/10: 83% of Incineration's bench damage scales on spell power (Explode 1.13, Flare Bolt
+// 0.571, Blaze 0.294 a tick) and Intellect gives none; kami ranks spell power above crit and Intellect. Intellect ranked
+// first: the bots wore 454 spell power and 461 Intellect.
+static constexpr CoaStatWeight CoaStats_24_38[] = { { STATS_TYPE_HIT, 1.8f }, { STATS_TYPE_SPELL_POWER, 1.58f }, { STATS_TYPE_CRIT, 1.36f }, { STATS_TYPE_INTELLECT, 1.2f }, { STATS_TYPE_HASTE, 1.14f }, { STATS_TYPE_SPIRIT, 0.7f }, { STATS_TYPE_ATTACK_POWER, -1.0f } };
 // Cultist / Godblade (physisch_nah)
-static constexpr CoaStatWeight CoaStats_25_42[] = { { STATS_TYPE_MELEE_DPS, 7.5f }, { STATS_TYPE_HIT, 2.3f }, { STATS_TYPE_EXPERTISE, 2.04f }, { STATS_TYPE_STRENGTH, 1.78f }, { STATS_TYPE_ARMOR_PENETRATION, 1.52f }, { STATS_TYPE_CRIT, 1.26f }, { STATS_TYPE_HASTE, 1.0f }, { STATS_TYPE_ATTACK_POWER, 1.0f } };
+// Corrected by hand on 03/10 (the generator is not in this repository): Blessing of N'Zoth (681107, 11 of 18 bench
+// bots) gives 100% of Intellect as attack power, so Intellect is worth about 0.6 attack power on average; it had no weight.
+static constexpr CoaStatWeight CoaStats_25_42[] = { { STATS_TYPE_MELEE_DPS, 7.5f }, { STATS_TYPE_HIT, 2.3f }, { STATS_TYPE_EXPERTISE, 2.04f }, { STATS_TYPE_STRENGTH, 1.78f }, { STATS_TYPE_ARMOR_PENETRATION, 1.52f }, { STATS_TYPE_CRIT, 1.26f }, { STATS_TYPE_HASTE, 1.0f }, { STATS_TYPE_ATTACK_POWER, 1.0f }, { STATS_TYPE_INTELLECT, 0.6f } };
 // Cultist / Corruption (zauber)
 static constexpr CoaStatWeight CoaStats_25_41[] = { { STATS_TYPE_HIT, 1.8f }, { STATS_TYPE_SPELL_POWER, 1.58f }, { STATS_TYPE_INTELLECT, 1.36f }, { STATS_TYPE_CRIT, 1.14f }, { STATS_TYPE_HASTE, 0.92f }, { STATS_TYPE_SPIRIT, 0.7f }, { STATS_TYPE_ATTACK_POWER, -1.0f } };
 // Cultist / Dreadnought (tank)
@@ -147,7 +207,9 @@ static constexpr CoaStatWeight CoaStats_25_96[] = { { STATS_TYPE_STAMINA, 3.0f }
 // Cultist / Heretic (heilung)
 static constexpr CoaStatWeight CoaStats_25_40[] = { { STATS_TYPE_CRIT, 1.0f }, { STATS_TYPE_HEAL_POWER, 1.0f }, { STATS_TYPE_MANA_REGENERATION, 0.9f }, { STATS_TYPE_SPELL_POWER, 0.8f }, { STATS_TYPE_INTELLECT, 0.7f }, { STATS_TYPE_SPIRIT, 0.6f }, { STATS_TYPE_STAMINA, 0.5f }, { STATS_TYPE_ATTACK_POWER, -1.0f } };
 // Starcaller / Sentinel (zauber)
-static constexpr CoaStatWeight CoaStats_26_44[] = { { STATS_TYPE_INTELLECT, 1.8f }, { STATS_TYPE_SPELL_POWER, 1.58f }, { STATS_TYPE_CRIT, 1.36f }, { STATS_TYPE_HASTE, 1.14f }, { STATS_TYPE_HIT, 0.92f }, { STATS_TYPE_AGILITY, 0.7f }, { STATS_TYPE_ATTACK_POWER, -1.0f } };
+// Corrected by hand on 02/10 (the generator is not in this repository): Starfire Shot, Huntress Shot and
+// Trueshot are weapon damage, so the bow's damage counts; without it every bow scored the same.
+static constexpr CoaStatWeight CoaStats_26_44[] = { { STATS_TYPE_RANGED_DPS, 5.0f }, { STATS_TYPE_INTELLECT, 1.8f }, { STATS_TYPE_SPELL_POWER, 1.58f }, { STATS_TYPE_CRIT, 1.36f }, { STATS_TYPE_HASTE, 1.14f }, { STATS_TYPE_HIT, 0.92f }, { STATS_TYPE_AGILITY, 0.7f }, { STATS_TYPE_ATTACK_POWER, -1.0f } };
 // Starcaller / Moon Guard (tank)
 static constexpr CoaStatWeight CoaStats_26_100[] = { { STATS_TYPE_STAMINA, 3.0f }, { STATS_TYPE_DEFENSE, 2.5f }, { STATS_TYPE_PARRY, 2.0f }, { STATS_TYPE_DODGE, 2.0f }, { STATS_TYPE_EXPERTISE, 1.38f }, { STATS_TYPE_BLOCK_RATING, 1.04f }, { STATS_TYPE_AGILITY, 0.93f }, { STATS_TYPE_INTELLECT, 0.81f }, { STATS_TYPE_CRIT, 0.7f }, { STATS_TYPE_BLOCK_VALUE, 0.5f }, { STATS_TYPE_ARMOR, 0.15f } };
 // Starcaller / Moon Priest (heilung)
@@ -163,11 +225,15 @@ static constexpr CoaStatWeight CoaStats_27_48[] = { { STATS_TYPE_STAMINA, 3.0f }
 // Sun Cleric / Valkyrie (physisch_nah)
 static constexpr CoaStatWeight CoaStats_27_47[] = { { STATS_TYPE_MELEE_DPS, 7.5f }, { STATS_TYPE_HIT, 2.3f }, { STATS_TYPE_EXPERTISE, 2.04f }, { STATS_TYPE_STRENGTH, 1.78f }, { STATS_TYPE_CRIT, 1.52f }, { STATS_TYPE_HASTE, 1.26f }, { STATS_TYPE_ARMOR_PENETRATION, 1.0f }, { STATS_TYPE_ATTACK_POWER, 1.0f } };
 // Tinker / Demolition (physisch_fern)
-static constexpr CoaStatWeight CoaStats_28_49[] = { { STATS_TYPE_RANGED_DPS, 10.0f }, { STATS_TYPE_HIT, 2.3f }, { STATS_TYPE_CRIT, 2.08f }, { STATS_TYPE_HASTE, 1.87f }, { STATS_TYPE_AGILITY, 1.65f }, { STATS_TYPE_ATTACK_POWER, 1.43f }, { STATS_TYPE_SPELL_POWER, 1.22f }, { STATS_TYPE_ARMOR_PENETRATION, 1.0f } };
+// Corrected by hand on 02/10 (the generator is not in this repository): Bomb Toss, Sticky Bomb and Rocket
+// Launcher scale on spell power and every spell costs mana, so spell power moves up and intellect comes in.
+// On the boss bench the Demolition bots with 200 spell power or more did 2 to 2.8 times the damage of the others.
+static constexpr CoaStatWeight CoaStats_28_49[] = { { STATS_TYPE_RANGED_DPS, 10.0f }, { STATS_TYPE_HIT, 2.3f }, { STATS_TYPE_SPELL_POWER, 2.2f }, { STATS_TYPE_CRIT, 2.08f }, { STATS_TYPE_INTELLECT, 1.9f }, { STATS_TYPE_HASTE, 1.87f }, { STATS_TYPE_AGILITY, 1.65f }, { STATS_TYPE_ATTACK_POWER, 1.43f }, { STATS_TYPE_ARMOR_PENETRATION, 1.0f } };
 // Tinker / Invention (heilung)
 static constexpr CoaStatWeight CoaStats_28_51[] = { { STATS_TYPE_SPELL_POWER, 1.0f }, { STATS_TYPE_HEAL_POWER, 1.0f }, { STATS_TYPE_INTELLECT, 0.9f }, { STATS_TYPE_MANA_REGENERATION, 0.9f }, { STATS_TYPE_SPIRIT, 0.8f }, { STATS_TYPE_HASTE, 0.7f }, { STATS_TYPE_CRIT, 0.6f }, { STATS_TYPE_ATTACK_POWER, -1.0f } };
 // Tinker / Mechanics (physisch_fern)
-static constexpr CoaStatWeight CoaStats_28_50[] = { { STATS_TYPE_RANGED_DPS, 10.0f }, { STATS_TYPE_HIT, 2.3f }, { STATS_TYPE_EXPERTISE, 2.08f }, { STATS_TYPE_AGILITY, 1.87f }, { STATS_TYPE_ATTACK_POWER, 1.65f }, { STATS_TYPE_CRIT, 1.43f }, { STATS_TYPE_HASTE, 1.22f }, { STATS_TYPE_ARMOR_PENETRATION, 1.0f } };
+// Corrected by hand on 02/10: intellect comes in, the Mechsuit and its abilities run on mana.
+static constexpr CoaStatWeight CoaStats_28_50[] = { { STATS_TYPE_RANGED_DPS, 10.0f }, { STATS_TYPE_HIT, 2.3f }, { STATS_TYPE_EXPERTISE, 2.08f }, { STATS_TYPE_AGILITY, 1.87f }, { STATS_TYPE_ATTACK_POWER, 1.65f }, { STATS_TYPE_INTELLECT, 1.5f }, { STATS_TYPE_CRIT, 1.43f }, { STATS_TYPE_HASTE, 1.22f }, { STATS_TYPE_ARMOR_PENETRATION, 1.0f } };
 // Venomancer / Rot (zauber)
 static constexpr CoaStatWeight CoaStats_29_54[] = { { STATS_TYPE_HIT, 1.8f }, { STATS_TYPE_HASTE, 1.58f }, { STATS_TYPE_SPELL_POWER, 1.36f }, { STATS_TYPE_INTELLECT, 1.14f }, { STATS_TYPE_CRIT, 0.92f }, { STATS_TYPE_SPIRIT, 0.7f }, { STATS_TYPE_ATTACK_POWER, -1.0f } };
 // Venomancer / Fortitude (tank)
@@ -181,58 +247,76 @@ static constexpr CoaStatWeight CoaStats_30_56[] = { { STATS_TYPE_MELEE_DPS, 7.5f
 // Reaper / Domination (tank)
 static constexpr CoaStatWeight CoaStats_30_57[] = { { STATS_TYPE_STAMINA, 3.0f }, { STATS_TYPE_DEFENSE, 2.5f }, { STATS_TYPE_DODGE, 2.0f }, { STATS_TYPE_PARRY, 2.0f }, { STATS_TYPE_HIT, 1.6f }, { STATS_TYPE_EXPERTISE, 1.42f }, { STATS_TYPE_STRENGTH, 1.06f }, { STATS_TYPE_BLOCK_RATING, 1.0f }, { STATS_TYPE_CRIT, 0.88f }, { STATS_TYPE_HASTE, 0.7f }, { STATS_TYPE_BLOCK_VALUE, 0.5f }, { STATS_TYPE_ARMOR, 0.15f } };
 // Reaper / Soul (physisch_nah)
-static constexpr CoaStatWeight CoaStats_30_55[] = { { STATS_TYPE_MELEE_DPS, 7.5f }, { STATS_TYPE_HIT, 2.3f }, { STATS_TYPE_AGILITY, 2.04f }, { STATS_TYPE_ATTACK_POWER, 1.78f }, { STATS_TYPE_CRIT, 1.52f }, { STATS_TYPE_HASTE, 1.26f }, { STATS_TYPE_INTELLECT, 1.0f } };
+// Corrected by hand on 03/10 (the generator is not in this repository): a Reaper gets 2 attack power per Strength
+// and 1 per Agility (StatSystem.cpp; the CoA changelog confirms Strength), and kami ranks Strength first for Soul. The row
+// had Agility and no Strength: the bench bots wore 18 Strength against 237 Agility. Agility is one attack power plus
+// crit, so it sits above raw attack power, and Strength stays at twice an attack power point.
+static constexpr CoaStatWeight CoaStats_30_55[] = { { STATS_TYPE_MELEE_DPS, 7.5f }, { STATS_TYPE_HIT, 2.3f }, { STATS_TYPE_STRENGTH, 2.04f }, { STATS_TYPE_CRIT, 1.52f }, { STATS_TYPE_HASTE, 1.26f }, { STATS_TYPE_AGILITY, 1.2f }, { STATS_TYPE_ATTACK_POWER, 1.0f }, { STATS_TYPE_INTELLECT, 1.0f } };
 // Primalist / Wildwalker (physisch_nah)
 static constexpr CoaStatWeight CoaStats_31_59[] = { { STATS_TYPE_MELEE_DPS, 7.5f }, { STATS_TYPE_HIT, 2.3f }, { STATS_TYPE_EXPERTISE, 2.04f }, { STATS_TYPE_STRENGTH, 1.78f }, { STATS_TYPE_CRIT, 1.52f }, { STATS_TYPE_ARMOR_PENETRATION, 1.26f }, { STATS_TYPE_HASTE, 1.0f }, { STATS_TYPE_ATTACK_POWER, 1.0f } };
 // Primalist / Geomancy (zauber)
 static constexpr CoaStatWeight CoaStats_31_95[] = { { STATS_TYPE_HIT, 1.8f }, { STATS_TYPE_SPELL_POWER, 1.62f }, { STATS_TYPE_INTELLECT, 1.43f }, { STATS_TYPE_HASTE, 1.25f }, { STATS_TYPE_CRIT, 1.07f }, { STATS_TYPE_STRENGTH, 0.88f }, { STATS_TYPE_ARMOR_PENETRATION, 0.7f }, { STATS_TYPE_ATTACK_POWER, -1.0f } };
 // Primalist / Grovekeeper (physisch_fern)
-static constexpr CoaStatWeight CoaStats_31_58[] = { { STATS_TYPE_RANGED_DPS, 10.0f }, { STATS_TYPE_STRENGTH, 2.3f }, { STATS_TYPE_HASTE, 1.97f }, { STATS_TYPE_INTELLECT, 1.65f }, { STATS_TYPE_CRIT, 1.32f }, { STATS_TYPE_SPIRIT, 1.0f }, { STATS_TYPE_ATTACK_POWER, 1.0f } };
+// Corrected by hand on 03/10 (the generator is not in this repository): Grovekeeper's earth spells scale on
+// Nature spell power - Unit.cpp gives Geode Barrage (803138, 27% of its bench damage) Nature spell power explicitly, and
+// Stoneshard (spell power 1.0, attack power 0.1), Seismic Spike (1.27 / 0.13), Earthquake (0.3 / 0.15) and Seismic Crash
+// (0.2 / 0.06) carry a spell power term far above the attack power one. Spell power had no weight (bots: 108 spell power,
+// 257 Strength; lowest damage index of all bench specs, 0.51). Hit comes in. Ranged weapon damage goes: nothing in the
+// kit shoots a weapon (0% of its bench damage).
+// Corrected by hand on 10/10: Grovekeeper fights in melee (Wildclaw is 48% of real players' casts, a normalized
+// weapon strike), so the weapon's damage counts, at about half a pure melee spec's weight.
+static constexpr CoaStatWeight CoaStats_31_58[] = { { STATS_TYPE_MELEE_DPS, 4.0f }, { STATS_TYPE_STRENGTH, 2.3f }, { STATS_TYPE_SPELL_POWER, 2.0f }, { STATS_TYPE_HASTE, 1.97f }, { STATS_TYPE_INTELLECT, 1.65f }, { STATS_TYPE_HIT, 1.6f }, { STATS_TYPE_CRIT, 1.32f }, { STATS_TYPE_SPIRIT, 1.0f }, { STATS_TYPE_ATTACK_POWER, 1.0f } };
 // Primalist / Mountain King (tank)
 static constexpr CoaStatWeight CoaStats_31_60[] = { { STATS_TYPE_STAMINA, 3.0f }, { STATS_TYPE_DEFENSE, 2.5f }, { STATS_TYPE_DODGE, 2.0f }, { STATS_TYPE_PARRY, 2.0f }, { STATS_TYPE_HIT, 1.6f }, { STATS_TYPE_EXPERTISE, 1.42f }, { STATS_TYPE_STRENGTH, 1.24f }, { STATS_TYPE_ARMOR_PENETRATION, 1.06f }, { STATS_TYPE_BLOCK_RATING, 1.0f }, { STATS_TYPE_CRIT, 0.88f }, { STATS_TYPE_HASTE, 0.7f }, { STATS_TYPE_BLOCK_VALUE, 0.5f }, { STATS_TYPE_ARMOR, 0.15f } };
 // Runemaster / Glyphic (zauber)
 static constexpr CoaStatWeight CoaStats_32_62[] = { { STATS_TYPE_HIT, 1.8f }, { STATS_TYPE_SPELL_POWER, 1.58f }, { STATS_TYPE_INTELLECT, 1.36f }, { STATS_TYPE_SPIRIT, 1.14f }, { STATS_TYPE_CRIT, 0.92f }, { STATS_TYPE_HASTE, 0.7f }, { STATS_TYPE_ATTACK_POWER, -1.0f } };
 // Runemaster / Engravement (physisch_nah)
-static constexpr CoaStatWeight CoaStats_32_61[] = { { STATS_TYPE_MELEE_DPS, 7.5f }, { STATS_TYPE_HIT, 2.3f }, { STATS_TYPE_EXPERTISE, 1.97f }, { STATS_TYPE_AGILITY, 1.65f }, { STATS_TYPE_CRIT, 1.32f }, { STATS_TYPE_HASTE, 1.0f }, { STATS_TYPE_ATTACK_POWER, 1.0f } };
+// Corrected by hand on 03/10 (the generator is not in this repository): a Runemaster gets 1 attack power per
+// Strength and per Agility (StatSystem.cpp, Shaman base), and 24% of Engravement's bench damage carries a spell power term
+// (Primordial Strength, 301149, also adds 30% of attack power as spell power). Strength and spell power had no weight;
+// the bench bots wore 13 Strength and no spell power.
+static constexpr CoaStatWeight CoaStats_32_61[] = { { STATS_TYPE_MELEE_DPS, 7.5f }, { STATS_TYPE_HIT, 2.3f }, { STATS_TYPE_EXPERTISE, 1.97f }, { STATS_TYPE_AGILITY, 1.65f }, { STATS_TYPE_CRIT, 1.32f }, { STATS_TYPE_HASTE, 1.0f }, { STATS_TYPE_ATTACK_POWER, 1.0f }, { STATS_TYPE_STRENGTH, 1.0f }, { STATS_TYPE_SPELL_POWER, 0.6f } };
 // Runemaster / Riftblade (physisch_nah)
-static constexpr CoaStatWeight CoaStats_32_63[] = { { STATS_TYPE_MELEE_DPS, 7.5f }, { STATS_TYPE_HIT, 2.3f }, { STATS_TYPE_EXPERTISE, 2.04f }, { STATS_TYPE_AGILITY, 1.78f }, { STATS_TYPE_CRIT, 1.52f }, { STATS_TYPE_HASTE, 1.26f }, { STATS_TYPE_ARMOR_PENETRATION, 1.0f }, { STATS_TYPE_ATTACK_POWER, 1.0f } };
+// Corrected by hand on 03/10: Strength is 1 attack power for a Runemaster (StatSystem.cpp, Shaman base), and 16%
+// of Riftblade's bench damage carries a spell power term; neither had a weight.
+static constexpr CoaStatWeight CoaStats_32_63[] = { { STATS_TYPE_MELEE_DPS, 7.5f }, { STATS_TYPE_HIT, 2.3f }, { STATS_TYPE_EXPERTISE, 2.04f }, { STATS_TYPE_AGILITY, 1.78f }, { STATS_TYPE_CRIT, 1.52f }, { STATS_TYPE_HASTE, 1.26f }, { STATS_TYPE_ARMOR_PENETRATION, 1.0f }, { STATS_TYPE_ATTACK_POWER, 1.0f }, { STATS_TYPE_STRENGTH, 1.0f }, { STATS_TYPE_SPELL_POWER, 0.5f } };
 
 static constexpr CoaSpecStats CoaSpecStatsTable[] =
 {
-    { 12,   2, "Brutality", "physisch_nah", "any", true, CoaStats_12_2, 8 },
-    { 12,   3, "Ancestry", "physisch_nah", "shield", true, CoaStats_12_3, 8 },
+    { 12,   2, "Brutality", "physisch_nah", "twoHand", true, CoaStats_12_2, 9 },
+    { 12,   3, "Ancestry", "physisch_nah", "shield", true, CoaStats_12_3, 9 },
     { 12,   1, "Headhunting", "physisch_fern", "twoHand", true, CoaStats_12_1, 8 },
     { 13,   4, "Shadowhunting", "physisch_fern", "dualWield", true, CoaStats_13_4, 8 },
     { 13,   6, "Brewing", "heilung", "caster", true, CoaStats_13_6, 8 },
     { 13,   5, "Voodoo", "zauber", "caster", true, CoaStats_13_5, 7 },
-    { 14,   8, "Slayer", "physisch_nah", "dualWield", true, CoaStats_14_8, 8 },
-    { 14,   7, "Infernal", "zauber", "caster", true, CoaStats_14_7, 6 },
+    { 14,   8, "Slayer", "physisch_nah", "dualWield", true, CoaStats_14_8, 9 },
+    { 14,   7, "Infernal", "zauber", "caster", true, CoaStats_14_7, 7 },
     { 14,   9, "Tyrant", "tank", "twoHand", true, CoaStats_14_9, 13 },
-    { 15,  10, "Boltslinger", "physisch_fern", "any", false, CoaStats_15_10, 8 },
+    { 15,  10, "Boltslinger", "physisch_fern", "any", false, CoaStats_15_10, 9 },
     { 15,  97, "Black Knight", "tank", "twoHand", false, CoaStats_15_97, 13 },
     { 15,  11, "Houndmaster", "physisch_fern", "ranged", false, CoaStats_15_11, 9 },
-    { 15,  12, "Inquisition", "physisch_nah", "dualWield", false, CoaStats_15_12, 8 },
+    { 15,  12, "Inquisition", "physisch_nah", "dualWield", false, CoaStats_15_12, 10 },
     { 16,  15, "Lightning", "zauber", "caster", false, CoaStats_16_15, 7 },
     { 16,  14, "Maelstrom", "zauber", "caster", false, CoaStats_16_14, 7 },
     { 16,  13, "Wind", "zauber", "caster", false, CoaStats_16_13, 7 },
     { 17,  18, "War", "physisch_nah", "twoHand", true, CoaStats_17_18, 8 },
     { 17,  17, "Defiance", "tank", "shield", true, CoaStats_17_17, 8 },
-    { 17,  16, "Hellfire", "zauber", "twoHand", true, CoaStats_17_16, 7 },
+    { 17,  16, "Hellfire", "zauber", "twoHand", true, CoaStats_17_16, 8 },
     { 18,  19, "Gladiator", "physisch_nah", "shield", true, CoaStats_18_19, 9 },
     { 18,  20, "Inspiration", "physisch_nah", "shield", true, CoaStats_18_20, 9 },
     { 18,  21, "Vanguard", "tank", "shield", true, CoaStats_18_21, 9 },
-    { 19,  24, "Crusader", "physisch_nah", "twoHand", true, CoaStats_19_24, 9 },
+    { 19,  24, "Crusader", "physisch_nah", "twoHand", true, CoaStats_19_24, 10 },
     { 19,  22, "Oathkeeper", "tank", "twoHand", true, CoaStats_19_22, 13 },
-    { 19,  23, "Zealot", "physisch_nah", "dualWield", true, CoaStats_19_23, 5 },
+    { 19,  23, "Zealot", "physisch_nah", "dualWield", true, CoaStats_19_23, 9 },
     { 20,  26, "Sanguine", "zauber", "caster", true, CoaStats_20_26, 7 },
-    { 20,  27, "Accursed", "physisch_nah", "twoHand", true, CoaStats_20_27, 8 },
+    { 20,  27, "Accursed", "physisch_nah", "twoHand", true, CoaStats_20_27, 10 },
     { 20,  99, "Eternal", "tank", "any", true, CoaStats_20_99, 10 },
     { 20,  25, "Fleshweaver", "heilung", "any", true, CoaStats_20_25, 7 },
     { 21,  28, "Archery", "physisch_fern", "ranged", false, CoaStats_21_28, 7 },
-    { 21,  30, "Brigand", "physisch_nah", "any", true, CoaStats_21_30, 8 },
+    { 21,  30, "Brigand", "physisch_nah", "any", true, CoaStats_21_30, 9 },
     { 21,  29, "Farstrider", "physisch_fern", "ranged", false, CoaStats_21_29, 7 },
     { 22,  32, "Infinite", "zauber", "caster", false, CoaStats_22_32, 7 },
-    { 22,  33, "Artificer", "zauber", "caster", false, CoaStats_22_33, 8 },
+    { 22,  33, "Artificer", "zauber", "caster", false, CoaStats_22_33, 9 },
     { 22,  31, "Time", "heilung", "caster", false, CoaStats_22_31, 8 },
     { 23,  35, "Animation", "zauber", "any", false, CoaStats_23_35, 6 },
     { 23,  34, "Death", "zauber", "caster", false, CoaStats_23_34, 7 },
@@ -240,11 +324,11 @@ static constexpr CoaSpecStats CoaSpecStatsTable[] =
     { 24,  39, "Draconic", "zauber", "caster", false, CoaStats_24_39, 7 },
     { 24,  37, "Flameweaving", "heilung", "caster", false, CoaStats_24_37, 8 },
     { 24,  38, "Incineration", "zauber", "caster", false, CoaStats_24_38, 7 },
-    { 25,  42, "Godblade", "physisch_nah", "twoHand", true, CoaStats_25_42, 8 },
+    { 25,  42, "Godblade", "physisch_nah", "twoHand", true, CoaStats_25_42, 9 },
     { 25,  41, "Corruption", "zauber", "caster", true, CoaStats_25_41, 7 },
     { 25,  96, "Dreadnought", "tank", "shield", true, CoaStats_25_96, 8 },
     { 25,  40, "Heretic", "heilung", "twoHand", true, CoaStats_25_40, 8 },
-    { 26,  44, "Sentinel", "zauber", "ranged", false, CoaStats_26_44, 7 },
+    { 26,  44, "Sentinel", "zauber", "ranged", false, CoaStats_26_44, 8 },
     { 26, 100, "Moon Guard", "tank", "shield", false, CoaStats_26_100, 11 },
     { 26,  43, "Moon Priest", "heilung", "twoHand", false, CoaStats_26_43, 8 },
     { 26,  45, "Warden", "physisch_nah", "caster", false, CoaStats_26_45, 8 },
@@ -252,23 +336,23 @@ static constexpr CoaSpecStats CoaSpecStatsTable[] =
     { 27,  98, "Blessings", "heilung", "any", false, CoaStats_27_98, 8 },
     { 27,  48, "Seraphim", "tank", "shield", false, CoaStats_27_48, 13 },
     { 27,  47, "Valkyrie", "physisch_nah", "dualWield", false, CoaStats_27_47, 8 },
-    { 28,  49, "Demolition", "physisch_fern", "ranged", false, CoaStats_28_49, 8 },
+    { 28,  49, "Demolition", "physisch_fern", "ranged", false, CoaStats_28_49, 9 },
     { 28,  51, "Invention", "heilung", "ranged", false, CoaStats_28_51, 8 },
-    { 28,  50, "Mechanics", "physisch_fern", "caster", false, CoaStats_28_50, 8 },
+    { 28,  50, "Mechanics", "physisch_fern", "caster", false, CoaStats_28_50, 9 },
     { 29,  54, "Rot", "zauber", "caster", true, CoaStats_29_54, 7 },
     { 29,  52, "Fortitude", "tank", "caster", true, CoaStats_29_52, 12 },
     { 29,  53, "Stalking", "zauber", "caster", true, CoaStats_29_53, 8 },
     { 29, 101, "Vizier", "heilung", "caster", true, CoaStats_29_101, 9 },
     { 30,  56, "Harvest", "physisch_nah", "twoHand", true, CoaStats_30_56, 8 },
     { 30,  57, "Domination", "tank", "twoHand", true, CoaStats_30_57, 12 },
-    { 30,  55, "Soul", "physisch_nah", "dualWield", true, CoaStats_30_55, 7 },
+    { 30,  55, "Soul", "physisch_nah", "dualWield", true, CoaStats_30_55, 8 },
     { 31,  59, "Wildwalker", "physisch_nah", "twoHand", true, CoaStats_31_59, 8 },
     { 31,  95, "Geomancy", "zauber", "caster", true, CoaStats_31_95, 8 },
-    { 31,  58, "Grovekeeper", "physisch_fern", "any", true, CoaStats_31_58, 7 },
+    { 31,  58, "Grovekeeper", "physisch_fern", "any", true, CoaStats_31_58, 9 },
     { 31,  60, "Mountain King", "tank", "dualWield", true, CoaStats_31_60, 13 },
-    { 32,  62, "Glyphic", "zauber", "any", true, CoaStats_32_62, 7 },
-    { 32,  61, "Engravement", "physisch_nah", "dualWield", true, CoaStats_32_61, 7 },
-    { 32,  63, "Riftblade", "physisch_nah", "twoHand", true, CoaStats_32_63, 8 },
+    { 32,  62, "Glyphic", "zauber", "twoHand", true, CoaStats_32_62, 7 },
+    { 32,  61, "Engravement", "physisch_nah", "dualWield", true, CoaStats_32_61, 9 },
+    { 32,  63, "Riftblade", "physisch_nah", "twoHand", true, CoaStats_32_63, 10 },
 };
 
 // The weights for a spec, or nullptr when we have none.

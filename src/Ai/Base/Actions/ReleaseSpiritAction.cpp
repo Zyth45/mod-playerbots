@@ -59,6 +59,10 @@ bool ReleaseSpiritAction::Execute(Event event)
 
 void ReleaseSpiritAction::IncrementDeathCount() const
 {
+    // BG deaths don't count, matching PlayerbotAI::DoNextAction.
+    if (bot->InBattleground())
+        return;
+
     // Death Count to prevent skeleton piles
     Player* master = botAI->GetMaster();
     if (!master || GET_PLAYERBOT_AI(master))
@@ -166,8 +170,43 @@ bool AutoReleaseSpiritAction::HandleBattlegroundSpiritHealer()
     return true;
 }
 
+// In a dungeon a bot waits for a resurrection, but not for ever (#37): once the fight is over, it releases when no
+// living healer of its group is on the map, or after two minutes dead if nobody raised it.
+bool AutoReleaseSpiritAction::CanStillBeRaised() const
+{
+    time_t const now = time(nullptr);
+    // Looked at on every tick while dead: a long gap means the bot was raised in between and this is a new death.
+    if (!m_deadSince || now - m_deadLookedAt > 30)
+        m_deadSince = now;
+    m_deadLookedAt = now;
+
+    bool healer = false;
+    for (GroupReference* ref = bot->GetGroup()->GetFirstMember(); ref; ref = ref->next())
+    {
+        Player* member = ref->GetSource();
+        if (!member || member == bot || member->GetMapId() != bot->GetMapId())
+            continue;
+        if (member->IsInCombat())
+            return true;
+        if (member->IsAlive() && PlayerbotAI::IsHeal(member))
+            healer = true;
+    }
+
+    if (!healer || now - m_deadSince > 120)
+    {
+        m_deadSince = 0;
+        return false;
+    }
+    return true;
+}
+
 bool AutoReleaseSpiritAction::ShouldAutoRelease() const
 {
+    // A scripted private instance (a Manastorm floor) raises its dead itself when the floor is cleared, and has
+    // resurrection charges; a bot that released left the scene and lost its place in the run.
+    if (bot->GetScriptedPrivateMapId() != MAPID_INVALID)
+        return false;
+
     if (!bot->GetGroup())
         return true;
 
@@ -183,7 +222,7 @@ bool AutoReleaseSpiritAction::ShouldAutoRelease() const
         bot->GetMap() &&
         (bot->GetMap()->IsRaid() || bot->GetMap()->IsDungeon()))
     {
-        return false;
+        return !CanStillBeRaised();
     }
 
     return ServerFacade::instance().IsDistanceGreaterThan(

@@ -21,6 +21,7 @@ public:
     // bool AutoSelectTalents(std::ostringstream* out);
 
 private:
+    void ListCoaTalents();
     // std::vector<TalentPath*> getPremadePaths(std::string const findName);
     // std::vector<TalentPath*> getPremadePaths(TalentSpec* oldSpec);
     // TalentPath* getPremadePath(uint32 id);

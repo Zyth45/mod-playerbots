@@ -15,7 +15,7 @@ class WotlkDungeonToCStrategy : public Strategy
 {
 public:
     WotlkDungeonToCStrategy(PlayerbotAI* ai) : Strategy(ai) {}
-    virtual std::string const getName() override { return "trial of the champion"; }
+    virtual std::string const getName() override { return "wotlk-toc"; }
     virtual void InitTriggers(std::vector<TriggerNode*> &triggers) override;
     virtual void InitMultipliers(std::vector<Multiplier*> &multipliers) override;
 };

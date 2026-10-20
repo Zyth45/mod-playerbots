@@ -26,7 +26,7 @@ public:
 private:
     std::string param;
     bool triggered;
-    Player* owner;
+    ObjectGuid ownerGuid;
 };
 
 #endif

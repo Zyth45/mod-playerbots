@@ -24,6 +24,7 @@
 #include "RFCStrategy.h"
 #include "SethStrategy.h"
 #include "SFKStrategy.h"
+#include "SMStrategy.h"
 #include "Strategy.h"
 #include "TOCStrategy.h"
 #include "UBStrategy.h"
@@ -39,6 +40,7 @@ class DungeonStrategyContext : public NamedObjectContext<Strategy>
             // Vanilla
             creators["vanilla-rfc"] = &DungeonStrategyContext::vanilla_rfc;  // Ragefire Chasm
             creators["vanilla-sfk"] = &DungeonStrategyContext::vanilla_sfk;  // Shadowfang Keep
+            creators["vanilla-sm"] = &DungeonStrategyContext::vanilla_sm;    // Scarlet Monastery
 
             // Burning Crusade
             creators["tbc-ac"] = &DungeonStrategyContext::tbc_ac;           // Auchindoun: Auchenai Crypts
@@ -67,6 +69,7 @@ class DungeonStrategyContext : public NamedObjectContext<Strategy>
     private:
         static Strategy* vanilla_rfc(PlayerbotAI* botAI) { return new VanillaDungeonRFCStrategy(botAI); }
         static Strategy* vanilla_sfk(PlayerbotAI* botAI) { return new VanillaDungeonSFKStrategy(botAI); }
+        static Strategy* vanilla_sm(PlayerbotAI* botAI) { return new VanillaDungeonSMStrategy(botAI); }
         static Strategy* tbc_ac(PlayerbotAI* botAI) { return new TbcDungeonAuchenaiCryptsStrategy(botAI); }
         static Strategy* tbc_seth(PlayerbotAI* botAI) { return new TbcDungeonSethekkHallsStrategy(botAI); }
         static Strategy* tbc_mech(PlayerbotAI* botAI) { return new TbcDungeonMechanarStrategy(botAI); }
