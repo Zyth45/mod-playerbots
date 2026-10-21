@@ -302,8 +302,8 @@ bool GuildLeaveAction::Execute(Event event)
         return false;
     }
 
-    WorldPackets::Guild::GuildLeave data = WorldPacket(CMSG_GUILD_LEAVE);
-    bot->GetSession()->HandleGuildLeaveOpcode(data);
+    // Guild membership is shared by every map: the session handles the leave in the world thread.
+    bot->GetSession()->QueuePacket(new WorldPacket(CMSG_GUILD_LEAVE));
     return true;
 }
 

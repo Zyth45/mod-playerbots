@@ -15,6 +15,7 @@
 #include "World.h"
 #include "WorldPacket.h"
 #include "CoaSpecialization.h"
+#include "CoaWildcard.h"
 #include "AscensionSpecialization.h"
 
 using namespace lfg;
@@ -24,7 +25,7 @@ bool LfgJoinAction::Execute(Event /*event*/) { return JoinLFG(); }
 uint32 LfgJoinAction::GetRoles()
 {
     // Conquest of Azeroth classes have no talent tabs: their role comes from the specialization.
-    if (IsAscensionCustomClassId(bot->getClass()))
+    if (IsCoaBot(bot))
     {
         switch (GetCoaRole(bot))
         {
@@ -173,12 +174,6 @@ bool LfgJoinAction::JoinLFG()
         return false;
 
     uint32 roleMask = GetRoles();
-
-    // While a queued player still lacks a tank or a healer, damage dealers mostly stay out so the
-    // tanks and healers get the seats; a few still come to fill the damage slots.
-    if (roleMask == PLAYER_ROLE_DAMAGE && RandomPlayerbotMgr::instance().IsRandomBot(bot) &&
-        RandomPlayerbotMgr::instance().LfgNeedTankOrHeal[bot->GetTeamId()] && urand(0, 99) >= 20)
-        return false;
 
     bool many = list.size() > 1;
     LFGDungeonEntry const* dungeon = sLFGDungeonStore.LookupEntry(*list.begin());

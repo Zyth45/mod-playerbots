@@ -13,6 +13,7 @@
 #include "CoaSpecLookup.h"
 #include "CoaSpecStatWeights.h"
 #include "CoaSpecialization.h"
+#include "CoaWildcard.h"
 #include "Config.h"
 #include "DBCStores.h"
 #include "DBCStructure.h"
@@ -841,8 +842,9 @@ void PlayerbotFactory::Randomize(bool incremental)
     LOG_DEBUG("playerbots", "Resetting player...");
     PerfMonitorOperation* pmo = sPerfMonitor.start(PERF_MON_RNDBOT, "PlayerbotFactory_Reset");
 
-    if (!sPlayerbotAIConfig.equipAndSpecPersistence ||
-        level < uint32(sPlayerbotAIConfig.equipAndSpecPersistenceLevel))
+    // A Wildcard Hero's talents are rolled entries of its build (see ClearSpells), not tree talents.
+    if (!IsWildcardHeroBot(bot) && (!sPlayerbotAIConfig.equipAndSpecPersistence ||
+                                    level < uint32(sPlayerbotAIConfig.equipAndSpecPersistenceLevel)))
     {
         bot->resetTalents(true);
     }
@@ -926,6 +928,8 @@ void PlayerbotFactory::Randomize(bool incremental)
     pmo = sPerfMonitor.start(PERF_MON_RNDBOT, "PlayerbotFactory_Spells2");
     LOG_DEBUG("playerbots", "Initializing spells (step 2)...");
     InitAvailableSpells();
+    // A Wildcard Hero rolls its build up to the new level instead, before its gear is picked for it.
+    DraftWildcardBuild(bot);
     if (pmo)
         pmo->finish();
 
@@ -1940,6 +1944,11 @@ uint32 PlayerbotFactory::ReactivateHighestRanks(Player* bot)
 
 void PlayerbotFactory::ClearSpells()
 {
+    // A Wildcard Hero's spells are its rolls, which no trainer gives back: they stay. A bot rebuilt below the
+    // level of its rolls drafts its whole build again (DraftWildcardBuild).
+    if (IsWildcardHeroBot(bot))
+        return;
+
     // Conquest of Azeroth classes (12 and above) get their abilities from mod-ascension-compat,
     // which grants them at login and reconciles them on every level change. Wiping them here
     // leaves the bot with nothing to cast until its next login, since InitClassSpells only
@@ -1995,6 +2004,11 @@ void PlayerbotFactory::ResetQuests()
 
 uint32 PlayerbotFactory::InitTalentsTree(bool increment /*false*/, bool use_template /*true*/, bool reset /*false*/)
 {
+    // A Wildcard Hero's talents are rolled with its abilities, not picked from a talent tree: class 10
+    // has no tree and no spec probabilities, and resetting talents would take rolled ones away.
+    if (IsWildcardHeroBot(bot))
+        return 0;
+
     uint32 specTab;
     uint8 cls = bot->getClass();
     std::map<uint8, uint32> tabs = AiFactory::GetPlayerSpecTabs(bot);

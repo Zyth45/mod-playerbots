@@ -20,6 +20,7 @@
 #include "PlayerbotCommandServer.h"
 #include "PlayerbotGuildMgr.h"
 #include "PlayerbotSpellRepository.h"
+#include "PlayerbotOperations.h"
 #include "PlayerbotWorldThreadProcessor.h"
 #include "RandomPlayerbotMgr.h"
 #include "ScriptMgr.h"
@@ -116,7 +117,13 @@ public:
     void OnPlayerUpdateZone(Player* player, uint32 /*newZone*/, uint32 /*newArea*/) override
     {
         if (player && GET_PLAYERBOT_AI(player))
-            PlayerbotHolder::JoinBotChannels(player);
+            PlayerbotWorldThreadProcessor::instance().QueueOperation(std::make_unique<BotChannelOperation>(
+                player->GetGUID(), "join zone channels",
+                [](Player* bot)
+                {
+                    PlayerbotHolder::JoinBotChannels(bot);
+                    return true;
+                }));
     }
 
     // Player::SaveToDB has just set the next autosave to PlayerSaveInterval. For a randombot without a real

@@ -9,6 +9,7 @@
 
 #include <string_view>
 #include "CoaSpecialization.h"
+#include "CoaWildcard.h"
 #include "BattlegroundMgr.h"
 #include "DKAiObjectContext.h"
 #include "DruidAiObjectContext.h"
@@ -70,7 +71,7 @@ AiObjectContext* AiFactory::createAiObjectContext(Player* player, PlayerbotAI* b
     // Conquest of Azeroth custom classes (12 and above) have no hand written context.
     // Without this they fall through to the plain context, which has no combat rotation:
     // the bot follows and quests but never fights.
-    if (IsAscensionCustomClassId(player->getClass()))
+    if (IsCoaBot(player))
         return new CoaAiObjectContext(botAI);
 
     return new AiObjectContext(botAI);
@@ -413,8 +414,10 @@ void AiFactory::AddDefaultCombatStrategies(Player* player, PlayerbotAI* const fa
     // Conquest of Azeroth custom classes never appear in the switch above, so they
     // would enter combat with no rotation strategy at all. "coa" chooses spells at
     // runtime from what the bot actually knows; see CoaAiObjectContext.
-    if (IsAscensionCustomClassId(player->getClass()))
+    if (IsCoaBot(player))
     {
+        // A Wildcard Hero rolls what it has earned and takes the stat path its build suits.
+        DraftWildcardBuild(player);
         // Random bots take a specialization from level 10; its role picks the rotation.
         EnsureCoaSpecialization(player);
         // Catch up on points earned before bots spent talents (or while this build was not live).
@@ -645,7 +648,7 @@ void AiFactory::AddDefaultNonCombatStrategies(Player* player, PlayerbotAI* const
             break;
         default:
             // Conquest of Azeroth classes: party buffs, and tanks take the lead like the vanilla tanks.
-            if (IsAscensionCustomClassId(player->getClass()))
+            if (IsCoaBot(player))
             {
                 nonCombatEngine->addStrategiesNoInit(GetCoaRole(player) == CoaRole::Tank ? "tank assist" : "dps assist",
                                                      "coa buff", "coa pvp", nullptr);

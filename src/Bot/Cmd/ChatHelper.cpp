@@ -7,6 +7,7 @@
 #include "ChatHelper.h"
 
 #include "CoaSpecLookup.h"
+#include "CoaWildcard.h"
 #include "DBCStores.h"
 #include "AiFactory.h"
 #include "Common.h"
@@ -647,7 +648,7 @@ std::string const ChatHelper::FormatClass(Player* player, int8 spec)
     // " (0/0/0) " - empty spec, empty class - straight into the zone channel ("Anyone is looking
     // for (0/0/0)?"). Its specialization is held by mod-ascension-compat, its name by the client's
     // ChrClasses.
-    if (IsCoaClass(player))
+    if (IsCoaClass(player) || IsWildcardHeroBot(player))
     {
         std::ostringstream out;
         if (CoaSpecStrategy const* coaSpec = GetCoaSpecStrategyFor(player))

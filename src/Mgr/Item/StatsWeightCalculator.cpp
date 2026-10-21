@@ -9,6 +9,7 @@
 #include "CoaSpecLookup.h"
 #include "CoaSpecStatWeights.h"
 #include "CoaSpecialization.h"
+#include "CoaWildcard.h"
 #include "DBCStores.h"
 #include "ItemEnchantmentMgr.h"
 #include "ItemTemplate.h"
@@ -278,7 +279,7 @@ void StatsWeightCalculator::GenerateBasicWeights(Player* player)
 
     // Conquest of Azeroth classes have no talent tabs: without this they all fell through to
     // the bear tank weights below, casters included.
-    if (IsAscensionCustomClassId(cls))
+    if (IsAscensionCustomClassId(cls) || IsWildcardHeroBot(player))
     {
         // Per-specialization weights first, from ascensionsidekick's stat
         // priority. They carry what the four primary stats cannot: Barbarian

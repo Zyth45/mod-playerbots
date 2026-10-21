@@ -493,6 +493,9 @@ public:
     bool SayToGuild(std::string const& msg);
     bool SayToWorld(std::string const& msg);
     bool SayToChannel(std::string const& msg, ChatChannelId const& chanId);
+    // What SayToWorld and SayToChannel queue for the world thread.
+    bool SayToWorldNow(std::string const& msg);
+    bool SayToChannelNow(std::string const& msg, ChatChannelId chanId);
     bool SayToParty(std::string const& msg);
     bool SayToRaid(std::string const& msg);
     bool Yell(std::string const& msg);

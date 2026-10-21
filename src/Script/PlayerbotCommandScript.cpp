@@ -7,6 +7,7 @@
 #include "BattleGroundTactics.h"
 #include "Chat.h"
 #include "CoaSpecialization.h"
+#include "CoaWildcard.h"
 #include "Config.h"
 #include "GroupMgr.h"
 #include "GuildTaskMgr.h"
@@ -34,6 +35,10 @@ public:
             {"bg", HandleDebugBGCommand, SEC_GAMEMASTER, Console::Yes},
         };
 
+        static ChatCommandTable playerbotsWildcardCommandTable = {
+            {"redraft", HandleWildcardRedraftCommand, SEC_GAMEMASTER, Console::No},
+        };
+
         static ChatCommandTable playerbotsAccountCommandTable = {
             {"setKey", HandleSetSecurityKeyCommand, SEC_PLAYER, Console::No},
             {"link", HandleLinkAccountCommand, SEC_PLAYER, Console::No},
@@ -50,6 +55,7 @@ public:
             {"version", HandleVersionCommand, SEC_PLAYER, Console::Yes},
             {"debug", playerbotsDebugCommandTable},
             {"account", playerbotsAccountCommandTable},
+            {"wildcard", playerbotsWildcardCommandTable},
         };
 
         static ChatCommandTable commandTable = {
@@ -222,6 +228,36 @@ public:
         std::string message;
         RecruitCoaBot(master, role, message, classId);
         handler->SendSysMessage(message);
+        return true;
+    }
+
+    // .playerbots wildcard redraft [name] : the named random Wildcard Hero bot, or the selected one, forgets
+    // its build and drafts it again for its role.
+    static bool HandleWildcardRedraftCommand(ChatHandler* handler, Optional<PlayerIdentifier> target)
+    {
+        if (!target)
+            target = PlayerIdentifier::FromTarget(handler);
+        Player* bot = target ? target->GetConnectedPlayer() : nullptr;
+        if (!bot)
+        {
+            handler->SendSysMessage("Name an online Wildcard Hero bot or select one: .playerbots wildcard redraft [name]");
+            return true;
+        }
+        if (!RedraftWildcardBot(bot))
+        {
+            handler->PSendSysMessage("{} is not a random Wildcard Hero bot.", bot->GetName());
+            return true;
+        }
+
+        if (bot->IsInCombat())
+        {
+            handler->PSendSysMessage("{} drafted its build again and takes its stat path after the fight.", bot->GetName());
+            return true;
+        }
+
+        CoaRole const role = GetWildcardRole(bot);
+        handler->PSendSysMessage("{} drafted its build again as a {}.", bot->GetName(),
+                                 role == CoaRole::Tank ? "tank" : role == CoaRole::Heal ? "healer" : "damage dealer");
         return true;
     }
 

@@ -7,6 +7,7 @@
 #include "CoaSpecialization.h"
 #include "CoaLevelBuildData.h"
 #include "CoaSpecLookup.h"
+#include "CoaWildcard.h"
 #include "Channel.h"
 #include "Chat.h"
 #include "Config.h"
@@ -254,12 +255,15 @@ CoaArmorProficiency const* GetCoaArmorProficiency(uint8 playerClass)
         case CLASS_CHRONOMANCER:  return &Cloth;
         case CLASS_NECROMANCER:   return &Cloth;
         case CLASS_PYROMANCER:    return &Cloth;
+        case CLASS_HERO:          return &PlateShield;  // every armor type (playercreateinfo_spell_custom)
         default:                  return nullptr;
     }
 }
 
 CoaRole GetCoaRole(Player const* player)
 {
+    if (IsWildcardHeroBot(player))
+        return GetWildcardRole(player);
     if (!player || !IsAscensionCustomClassId(player->getClass()))
         return CoaRole::Dps;
 
@@ -268,6 +272,8 @@ CoaRole GetCoaRole(Player const* player)
 
 CoaStyle GetCoaStyle(Player const* player)
 {
+    if (IsWildcardHeroBot(player))
+        return GetWildcardStyle(player);
     if (!player || !IsAscensionCustomClassId(player->getClass()))
         return CoaStyle::Melee;
 
@@ -280,6 +286,8 @@ CoaStyle GetCoaStyle(Player const* player)
 
 uint8 GetCoaPrimaryStats(Player const* player)
 {
+    if (IsWildcardHeroBot(player))
+        return GetWildcardPrimaryStats(player);
     if (!player || !IsAscensionCustomClassId(player->getClass()))
         return 0;
 
@@ -710,7 +718,7 @@ Player* FindCoaRecruit(Player* master, CoaRole role, uint8 classId, std::set<Obj
     for (auto const& [guid, bot] : sRandomPlayerbotMgr.GetAllBots())
     {
         if (!bot || bot == master || !bot->IsInWorld() || bot->IsBeingTeleported() ||
-            !IsAscensionCustomClassId(bot->getClass()) || !bot->IsAlive() || bot->IsInCombat() || bot->GetGroup() ||
+            !IsCoaBot(bot) || !bot->IsAlive() || bot->IsInCombat() || bot->GetGroup() ||
             bot->GetGroupInvite() || bot->InBattleground() || bot->InBattlegroundQueue() || bot->IsInFlight() ||
             sLFGMgr->GetState(bot->GetGUID()) != lfg::LFG_STATE_NONE)
             continue;
@@ -740,8 +748,11 @@ Player* FindCoaRecruit(Player* master, CoaRole role, uint8 classId, std::set<Obj
         if (!botAI || botAI->GetMaster())
             continue;
 
+        // A Wildcard Hero plays the role of its stat path and has no specialization to switch to.
         uint32 const specialization = GetAscensionActiveSpecialization(bot);
-        bool const fits = specialization && !IsExcludedSpecialization(specialization) && GetCoaRole(bot) == role;
+        bool const fits = IsWildcardHeroBot(bot) ? GetCoaRole(bot) == role
+                                                 : specialization && !IsExcludedSpecialization(specialization) &&
+                                                       GetCoaRole(bot) == role;
         if (!fits && SpecializationsByRole(bot->getClass())[uint8(role)].empty())
             continue;
 
@@ -826,10 +837,18 @@ bool PrepareCoaRecruit(Player* master, Player* chosen, CoaRole role, bool chosen
         // The rebuild picks a specialization of its own: whether it still plays the role is
         // decided below, on what it holds now.
         uint32 const rebuilt = GetAscensionActiveSpecialization(chosen);
-        chosenFits = rebuilt && !IsExcludedSpecialization(rebuilt) && GetCoaRole(chosen) == role;
+        chosenFits = IsWildcardHeroBot(chosen) ? GetCoaRole(chosen) == role
+                                               : rebuilt && !IsExcludedSpecialization(rebuilt) && GetCoaRole(chosen) == role;
     }
     // Rebuilt or not, no spell rank above the level it plays at.
     PlayerbotFactory::DropCoaRanksAbove(chosen, chosen->GetLevel());
+
+    if (!chosenFits && IsWildcardHeroBot(chosen))
+    {
+        // Rebuilt at the master's level, the Hero rolled a build of another role.
+        message = chosen->GetName() + " rolled a build for another role.";
+        return false;
+    }
 
     if (!chosenFits)
     {
