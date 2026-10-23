@@ -20,6 +20,7 @@
 #include "MgTStrategy.h"
 #include "NexStrategy.h"
 #include "OCStrategy.h"
+#include "OtherSideStrategy.h"
 #include "PoSStrategy.h"
 #include "RFCStrategy.h"
 #include "SethStrategy.h"
@@ -41,6 +42,7 @@ class DungeonStrategyContext : public NamedObjectContext<Strategy>
             creators["vanilla-rfc"] = &DungeonStrategyContext::vanilla_rfc;  // Ragefire Chasm
             creators["vanilla-sfk"] = &DungeonStrategyContext::vanilla_sfk;  // Shadowfang Keep
             creators["vanilla-sm"] = &DungeonStrategyContext::vanilla_sm;    // Scarlet Monastery
+            creators["coa-other-side"] = &DungeonStrategyContext::coa_other_side;  // Road to De Other Side
 
             // Burning Crusade
             creators["tbc-ac"] = &DungeonStrategyContext::tbc_ac;           // Auchindoun: Auchenai Crypts
@@ -70,6 +72,7 @@ class DungeonStrategyContext : public NamedObjectContext<Strategy>
         static Strategy* vanilla_rfc(PlayerbotAI* botAI) { return new VanillaDungeonRFCStrategy(botAI); }
         static Strategy* vanilla_sfk(PlayerbotAI* botAI) { return new VanillaDungeonSFKStrategy(botAI); }
         static Strategy* vanilla_sm(PlayerbotAI* botAI) { return new VanillaDungeonSMStrategy(botAI); }
+        static Strategy* coa_other_side(PlayerbotAI* botAI) { return new CoaDungeonOtherSideStrategy(botAI); }
         static Strategy* tbc_ac(PlayerbotAI* botAI) { return new TbcDungeonAuchenaiCryptsStrategy(botAI); }
         static Strategy* tbc_seth(PlayerbotAI* botAI) { return new TbcDungeonSethekkHallsStrategy(botAI); }
         static Strategy* tbc_mech(PlayerbotAI* botAI) { return new TbcDungeonMechanarStrategy(botAI); }
