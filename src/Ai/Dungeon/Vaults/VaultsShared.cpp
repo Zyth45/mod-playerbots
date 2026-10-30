@@ -42,8 +42,10 @@ constexpr float OUTER_RING_OUTER = 18.5f + MARGIN;    // OuterRingRadius
 constexpr float WAX_RADIUS = 5.0f + MARGIN;           // Dark Wax Explosion
 constexpr float SCREAM_RADIUS = 8.0f + MARGIN;        // Psychic Scream
 constexpr float SHADOWFURY_RADIUS = 8.0f + MARGIN;
-// Both cones are TARGET_UNIT_CONE_ENEMY_24 without a spell_cone row: 24 degrees, 12 to each side.
-constexpr float CONE_HALF_ANGLE = 12.0f * DEG + 6.0f * DEG;
+// Spectral Strike is TARGET_UNIT_CONE_ENEMY_24 without a spell_cone row: 24 degrees, 12 to each side.
+// Voidflare has a 60 degree spell_cone row, as wide as it shows.
+constexpr float STRIKE_HALF_ANGLE = 12.0f * DEG + 6.0f * DEG;
+constexpr float VOIDFLARE_HALF_ANGLE = 30.0f * DEG + 6.0f * DEG;
 constexpr float CONE_MIN_HALF_WIDTH = 2.0f;
 constexpr float STRIKE_LENGTH = SEARCH_RANGE;
 constexpr float VOIDFLARE_LENGTH = 40.0f + 2.0f;
@@ -58,6 +60,7 @@ constexpr uint32 CACHE_MS = 100;
 constexpr uint32 IDLE_CACHE_MS = 1000;
 constexpr uint32 RUN_KEEP_MS = 1500;
 constexpr float AWAY_STEP = 8.0f;
+constexpr float WAY_STEP = 1.0f;
 
 float Signed(float angle)
 {
@@ -90,10 +93,10 @@ void AddCircle(Hazards& hazards, WorldObject const* at, float radius)
     hazards.circles.push_back({at->GetPositionX(), at->GetPositionY(), radius});
 }
 
-void AddCone(Hazards& hazards, WorldObject const* from, float angle, float length)
+void AddCone(Hazards& hazards, WorldObject const* from, float angle, float length, float halfAngle)
 {
     hazards.cones.push_back(
-        {from->GetPositionX(), from->GetPositionY(), angle, length, CONE_HALF_ANGLE, CONE_MIN_HALF_WIDTH});
+        {from->GetPositionX(), from->GetPositionY(), angle, length, halfAngle, CONE_MIN_HALF_WIDTH});
 }
 
 void AddEarthquake(Hazards& hazards, Creature* darkandle)
@@ -146,12 +149,12 @@ Hazards HazardsFrom(Player* bot, std::list<Creature*> const& creatures)
                 if (CurrentSpell(creature, SPELL_SPECTRAL_STRIKE))
                     if (Unit* victim = creature->GetVictim())
                         if (victim != bot)
-                            AddCone(hazards, creature, creature->GetAngle(victim), STRIKE_LENGTH);
+                            AddCone(hazards, creature, creature->GetAngle(victim), STRIKE_LENGTH, STRIKE_HALF_ANGLE);
                 break;
             case NPC_ECHO_IMAGE:
                 // An image faces its player when it starts and does not turn after, so that one can step aside too.
                 if (CurrentSpell(creature, SPELL_SPECTRAL_STRIKE))
-                    AddCone(hazards, creature, creature->GetOrientation(), STRIKE_LENGTH);
+                    AddCone(hazards, creature, creature->GetOrientation(), STRIKE_LENGTH, STRIKE_HALF_ANGLE);
                 break;
             case NPC_CHAIN_ZONE:
                 AddCircle(hazards, creature, CHAIN_RADIUS);
@@ -167,7 +170,7 @@ Hazards HazardsFrom(Player* bot, std::list<Creature*> const& creatures)
             case NPC_DECEIVER:
                 // Voidflare keeps the facing it started with.
                 if (CurrentSpell(creature, SPELL_VOIDFLARE))
-                    AddCone(hazards, creature, creature->GetOrientation(), VOIDFLARE_LENGTH);
+                    AddCone(hazards, creature, creature->GetOrientation(), VOIDFLARE_LENGTH, VOIDFLARE_HALF_ANGLE);
                 break;
             case NPC_HELPER:
                 if (creature->HasAura(SPELL_QUAKE_ZONE))
@@ -291,11 +294,43 @@ Creature* SealFor(Player* bot)
     return nullptr;
 }
 
+// Out of a hazard, the way to the bot's target would take it back in: the target stands in one (an inner
+// ring or Earthquake around the boss) or the line to it runs through one (a cone, the outer ring).
+bool WayCrosses(Player* bot, Hazards const& hazards)
+{
+    if (hazards.Empty())
+        return false;
+    Unit* target = nullptr;
+    if (PlayerbotAI* botAI = GET_PLAYERBOT_AI(bot))
+        target = botAI->GetAiObjectContext()->GetValue<Unit*>("current target")->Get();
+    if (!target)
+        target = bot->GetVictim();
+    if (!target || !target->IsInMap(bot))
+        return false;
+
+    float const x = bot->GetPositionX();
+    float const y = bot->GetPositionY();
+    float const dist = std::hypot(target->GetPositionX() - x, target->GetPositionY() - y);
+    float const reach = bot->GetMeleeRange(target);
+    if (dist <= reach)
+        return false;
+    float const dx = (target->GetPositionX() - x) / dist;
+    float const dy = (target->GetPositionY() - y) / dist;
+    for (float step = WAY_STEP; step <= dist - reach + WAY_STEP; step += WAY_STEP)
+    {
+        float const along = std::min(step, dist - reach);
+        if (hazards.Contains(x + dx * along, y + dy * along))
+            return true;
+    }
+    return false;
+}
+
 struct Cached
 {
     uint32 readAt = 0;
     bool combat = false;
     bool inHazard = false;
+    bool wayBlocked = false;
     bool holding = false;
     bool hasHold = false;
     Circle hold{};
@@ -326,6 +361,7 @@ Cached& Refresh(Player* bot)
     entry.readAt = now;
     entry.combat = combat;
     entry.inHazard = false;
+    entry.wayBlocked = false;
     entry.holding = false;
     entry.hasHold = false;
     entry.soak.Clear();
@@ -345,7 +381,9 @@ Cached& Refresh(Player* bot)
     }
 
     std::list<Creature*> const creatures = Nearby(bot);
-    entry.inHazard = HazardsFrom(bot, creatures).Contains(bot->GetPositionX(), bot->GetPositionY());
+    Hazards const hazards = HazardsFrom(bot, creatures);
+    entry.inHazard = hazards.Contains(bot->GetPositionX(), bot->GetPositionY());
+    entry.wayBlocked = !entry.inHazard && WayCrosses(bot, hazards);
 
     std::vector<Player*> const members = Members(bot);
     Creature* shelter = nullptr;
@@ -552,6 +590,11 @@ bool HoldCircle(Player* bot, Circle& circle)
 bool InHazard(Player* bot)
 {
     return Refresh(bot).inHazard;
+}
+
+bool WayBlocked(Player* bot)
+{
+    return Refresh(bot).wayBlocked;
 }
 
 Creature* SoakToTake(Player* bot)

@@ -108,6 +108,8 @@ bool HoldCircle(Player* bot, Circle& circle);
 
 // Read once per bot every 100 ms: triggers and the multiplier ask for them on every evaluation.
 bool InHazard(Player* bot);
+// Out of every hazard, but the way to its target runs into one: the bot waits where it is.
+bool WayBlocked(Player* bot);
 // The soak circle this bot should step into: nobody stands in it yet and this bot is the one to go.
 Creature* SoakToTake(Player* bot);
 // The shelter, while this bot is not inside it yet.
