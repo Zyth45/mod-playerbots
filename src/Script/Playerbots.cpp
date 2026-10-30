@@ -12,6 +12,7 @@
 #include "CoaMissionMgr.h"
 #include "Channel.h"
 #include "CityDuels.h"
+#include "CoaAltAddon.h"
 #include "Config.h"
 #include "DatabaseEnv.h"
 #include "DatabaseLoader.h"
@@ -255,8 +256,14 @@ public:
 
     bool OnPlayerCanUseChat(Player* player, uint32 type, uint32 lang, std::string& msg, Player* receiver) override
     {
-        if (type != CHAT_MSG_WHISPER || lang == LANG_ADDON)
+        if (type != CHAT_MSG_WHISPER)
         {
+            return true;
+        }
+
+        if (lang == LANG_ADDON)
+        {
+            CoaAltAddon::OnAddonWhisper(player, receiver, msg);
             return true;
         }
 

@@ -41,6 +41,10 @@ class AcceptAutoQuestAction : public AcceptAllQuestsAction
 public:
     AcceptAutoQuestAction(PlayerbotAI* botAI) : AcceptAllQuestsAction(botAI, "accept auto quest") {}
     bool Execute(Event event) override;
+
+private:
+    uint32 lastQueried = 0;
+    time_t lastQueriedAt = 0;
 };
 
 class AcceptQuestShareAction : public Action

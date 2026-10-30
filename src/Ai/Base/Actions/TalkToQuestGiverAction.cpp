@@ -7,6 +7,7 @@
 #include "TalkToQuestGiverAction.h"
 #include "BroadcastHelper.h"
 #include "ChatHelper.h"
+#include "CoaAltAddon.h"
 #include "Event.h"
 #include "ItemUsageValue.h"
 #include "Object.h"
@@ -46,6 +47,12 @@ bool TalkToQuestGiverAction::ProcessQuest(Quest const* quest, Object* questGiver
             isCompleted |= CompleteQuest(bot, quest->GetQuestId());
             status = bot->GetQuestStatus(quest->GetQuestId());
         }
+    }
+
+    if (status != QUEST_STATUS_COMPLETE && CoaAltAddon::ToAddon(botAI))
+    {
+        CoaAltAddon::SendQuestState(botAI, quest);
+        return isCompleted;
     }
 
     switch (status)
@@ -280,6 +287,12 @@ bool TurnInQueryQuestAction::Execute(Event event)
             status = bot->GetQuestStatus(quest->GetQuestId());
         }
     }
+    if (status != QUEST_STATUS_COMPLETE && CoaAltAddon::ToAddon(botAI))
+    {
+        CoaAltAddon::SendQuestState(botAI, quest);
+        return true;
+    }
+
     std::ostringstream out;
     out << "Quest ";
     switch (status)

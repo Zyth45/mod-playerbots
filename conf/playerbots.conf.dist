@@ -477,6 +477,12 @@ AiPlayerbot.SyncQuestWithPlayer = 1
 # Default: 0 (disabled)
 AiPlayerbot.SyncQuestForPlayer = 0
 
+# Your alts catch up a quest chain: when you take or share a quest an alt can't take only because it misses the
+# earlier quests of the chain, it marks them done (no reward, no experience, no item) and takes the quest.
+# Never past a level, race, class, reputation or profession requirement. Never for random bots.
+# Default: 1 (enabled)
+AiPlayerbot.CatchUpQuestChains = 1
+
 # Bots will drop obsolete quests
 # Default: 1 (enabled)
 AiPlayerbot.DropObsoleteQuests = 1
@@ -1822,6 +1828,21 @@ AiPlayerbot.Missions.TeleportFallback = 1
 # mission time is spent gathering. 0: it walks there (the walk counts in the mission time).
 # Default: 1 (enabled)
 AiPlayerbot.Missions.TeleportToSpot = 1
+
+# Missions of an alt in High Risk: accepted only with the word "risk" ("mission gather 120 herbalism risk"). It
+# then mails what it gathered every RiskMailEvery items or RiskMailMinutes minutes (and at once when an enemy
+# player comes near), and the mission ends at its first death. 0: always refused in High Risk.
+# Default: 1 (enabled), 20 items, 15 minutes
+AiPlayerbot.Missions.HighRisk = 1
+AiPlayerbot.Missions.RiskMailEvery = 20
+AiPlayerbot.Missions.RiskMailMinutes = 15
+
+# Your alts and the SquidBots Lite addon: while the addon talks to them (prefix SQBA), the repetitive quest and
+# trainer lines of the alts ("Can't take", "Quest Available", the recipes one by one) go to the addon instead of
+# your whispers, and a quest you take at a giver waits for "Take for the team" in the addon. Without the addon
+# nothing changes.
+# Default: 1 (enabled)
+AiPlayerbot.AltChatToAddon = 1
 
 # Automatic guild bank deposits: a bot in the guild of a real player (your alts, the bots you invited)
 # standing near a guild vault puts there the items of the classes below and the gold above KeepGold.

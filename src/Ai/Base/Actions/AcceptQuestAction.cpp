@@ -5,9 +5,12 @@
  */
 
 #include "AcceptQuestAction.h"
+#include "CoaAltAddon.h"
 #include "Event.h"
 #include "PlayerbotTextMgr.h"
 #include "Playerbots.h"
+
+#include <ctime>
 
 bool AcceptAllQuestsAction::ProcessQuest(Quest const* quest, Object* questGiver)
 {
@@ -96,6 +99,13 @@ bool AcceptQuestAction::Execute(Event event)
         return false;
     }
 
+    // With the addon, the owner taking a quest only shows what each alt can do: it takes it on "alt take".
+    if (!event.getPacket().empty() && CoaAltAddon::ToAddon(botAI))
+    {
+        CoaAltAddon::SendQuestState(botAI, qInfo);
+        return false;
+    }
+
     hasAccept |= AcceptQuest(qInfo, ObjectGuid(guid));
 
     if (hasAccept)
@@ -126,8 +136,20 @@ bool AcceptAutoQuestAction::Execute(Event event)
         return false;
 
     Quest const* quest = sObjectMgr->GetQuestTemplate(questId);
-    if (!quest || !quest->IsAutoAccept())
+    if (!quest)
+        return false;
+
+    // The owner reads a quest at its giver: the addon shows what each alt can do before it is accepted.
+    if (!quest->IsAutoAccept())
+    {
+        if (CoaAltAddon::ToAddon(botAI) && (questId != lastQueried || time(nullptr) - lastQueriedAt > 3))
+        {
+            lastQueried = questId;
+            lastQueriedAt = time(nullptr);
+            CoaAltAddon::SendQuestState(botAI, quest);
+        }
         return false;   // an ordinary quest: wait for the master's accept
+    }
 
     return AcceptQuest(quest, ObjectGuid(guid));
 }
@@ -148,6 +170,13 @@ bool AcceptQuestShareAction::Execute(Event event)
 
     quest = qInfo->GetQuestId();
 
+    if (bot->HasQuest(quest) && CoaAltAddon::ToAddon(botAI))
+    {
+        bot->SetDivider(ObjectGuid::Empty);
+        CoaAltAddon::SendQuestState(botAI, qInfo);
+        return false;
+    }
+
     if (bot->HasQuest(quest))
     {
         bot->SetDivider(ObjectGuid::Empty);
@@ -157,9 +186,17 @@ bool AcceptQuestShareAction::Execute(Event event)
     }
 
     if (!bot->CanTakeQuest(qInfo, false))
+        CoaAltAddon::CatchUp(botAI, qInfo);
+
+    if (!bot->CanTakeQuest(qInfo, false))
     {
         // can't take quest
         bot->SetDivider(ObjectGuid::Empty);
+        if (CoaAltAddon::ToAddon(botAI))
+        {
+            CoaAltAddon::SendQuestState(botAI, qInfo);
+            return false;
+        }
         botAI->TellError(PlayerbotTextMgr::instance().GetBotTextOrDefault(
             "quest_cant_take_error", "I can't take this quest", {}));
 
@@ -192,8 +229,11 @@ bool AcceptQuestShareAction::Execute(Event event)
             bot->CastSpell(bot, qInfo->GetSrcSpell(), true);
         }
 
-        botAI->TellMaster(PlayerbotTextMgr::instance().GetBotTextOrDefault(
-            "quest_accept", "Quest accepted", {}));
+        if (CoaAltAddon::AddonSeen(botAI))
+            CoaAltAddon::SendToMaster(botAI, "QR\t" + std::to_string(quest) + "\ttaken\t");
+        if (!CoaAltAddon::ToAddon(botAI))
+            botAI->TellMaster(PlayerbotTextMgr::instance().GetBotTextOrDefault(
+                "quest_accept", "Quest accepted", {}));
         return true;
     }
 

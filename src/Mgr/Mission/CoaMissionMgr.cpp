@@ -237,11 +237,12 @@ std::string CoaMissionMgr::StatusLine(Player* bot) const
     uint32 items = 0;
     for (auto const& [entry, count] : mission.items)
         items += count;
+    items += mission.mailed;
     int32 const minutes = mission.remainingMs > 0 ? (mission.remainingMs + MINUTE * IN_MILLISECONDS - 1) / (MINUTE * IN_MILLISECONDS) : 0;
 
     std::ostringstream out;
     out << "MISSION;" << StateName(mission.state) << ';' << ZoneName(mission.zoneId) << ';' << minutes << ';' << items
-        << ';' << SkillName(mission.skillId) << ';' << mission.deaths;
+        << ';' << SkillName(mission.skillId) << ';' << mission.deaths << ';' << (mission.risk ? 1 : 0);
     return out.str();
 }
 
@@ -256,7 +257,8 @@ void CoaMissionMgr::Save(Player* bot)
         << std::max<int32>(0, mission.remainingMs / IN_MILLISECONDS) << ';' << mission.totalMinutes << ';' << mission.mapId
         << ';' << std::fixed << std::setprecision(2) << mission.x << ';' << mission.y << ';' << mission.z << ';'
         << mission.zoneId << ';' << mission.point << ';' << mission.deaths << ';' << mission.fails << ';'
-        << mission.prevFlags << ';' << mission.orderItem << ';' << mission.orderCount;
+        << mission.prevFlags << ';' << mission.orderItem << ';' << mission.orderCount << ';' << (mission.risk ? 1 : 0)
+        << ';' << mission.mailed;
     sRandomPlayerbotMgr.SetValue(bot, MISSION_KEY, 1, out.str());
 
     std::string items;
@@ -481,6 +483,33 @@ void CoaMissionMgr::OnLoot(Player* bot, Item* item, uint32 count, ObjectGuid loo
     it->second.lastLootMs = getMSTime();
 }
 
+uint32 CoaMissionMgr::MailNow(Player* bot)
+{
+    ObjectGuid::LowType owner = 0;
+    std::map<uint32, uint32> items;
+    {
+        std::lock_guard<std::mutex> guard(lock);
+        auto const it = missions.find(bot->GetGUID().GetCounter());
+        if (it == missions.end() || it->second.bench)
+            return 0;
+        owner = it->second.owner;
+        items.swap(it->second.items);
+    }
+
+    uint32 const sent = Deliver(bot, owner, items);
+    {
+        std::lock_guard<std::mutex> guard(lock);
+        auto const it = missions.find(bot->GetGUID().GetCounter());
+        if (it != missions.end())
+        {
+            it->second.mailed += sent;
+            it->second.lastMailMs = getMSTime();
+        }
+    }
+    Save(bot);
+    return sent;
+}
+
 void CoaMissionMgr::OnDied(Player* bot)
 {
     if (!active.load() || !bot)
@@ -494,7 +523,9 @@ void CoaMissionMgr::OnDied(Player* bot)
             return;
         CoaMission& mission = it->second;
         ++mission.deaths;
-        if (mission.deaths >= sPlayerbotAIConfig.missionsMaxDeaths && mission.state != CoaMissionState::Deliver)
+        if (mission.risk && mission.state != CoaMissionState::Deliver)
+            endReason = "I died in High Risk";
+        else if (mission.deaths >= sPlayerbotAIConfig.missionsMaxDeaths && mission.state != CoaMissionState::Deliver)
             endReason = "I died " + std::to_string(mission.deaths) + " times";
     }
     // Ended here: a dead bot runs no mission step to end it.
@@ -547,7 +578,9 @@ void CoaMissionMgr::OnBotLogin(Player* bot)
     try
     {
         // Version 1 (2.8.2 betas): no order.
-        if (!(fields.size() == 15 && fields[0] == "1") && !(fields.size() == 17 && fields[0] == MISSION_SAVE_VERSION))
+        // 2.8.3: High Risk (risk, mailed) at the end.
+        if (!(fields.size() == 15 && fields[0] == "1") &&
+            !((fields.size() == 17 || fields.size() == 19) && fields[0] == MISSION_SAVE_VERSION))
             throw std::invalid_argument("format");
         mission.owner = std::stoul(fields[1]);
         mission.skillId = std::stoul(fields[2]);
@@ -564,7 +597,12 @@ void CoaMissionMgr::OnBotLogin(Player* bot)
         mission.deaths = std::stoul(fields[12]);
         mission.fails = std::stoul(fields[13]);
         mission.prevFlags = std::stoul(fields[14]);
-        if (fields.size() == 17)
+        if (fields.size() == 19)
+        {
+            mission.risk = fields[17] == "1";
+            mission.mailed = std::stoul(fields[18]);
+        }
+        if (fields.size() >= 17)
         {
             mission.orderItem = std::stoul(fields[15]);
             mission.orderCount = std::stoul(fields[16]);

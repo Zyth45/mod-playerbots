@@ -25,10 +25,15 @@ public:
     bool isPossible() override;
     Unit* GetTarget() override;
 
+    // "alt train" / "alt learn": the list or the learning goes to the addon when the owner has it.
+    bool RunForAddon(bool learnSpells, uint32 spellId);
+
 private:
     Creature* GetCreatureTarget();
-    void Iterate(Creature* creature, bool learnSpells, uint32 spellId);
-    void Learn(SpellInfo const* spellInfo, uint32 cost, std::ostringstream& out);
+    // The owner's target, else the trainer of its open gossip, else the only trainer within reach of it.
+    Creature* InteractionTrainer();
+    void Iterate(Creature* creature, bool learnSpells, uint32 spellId, bool addon);
+    bool Learn(SpellInfo const* spellInfo, uint32 cost, std::ostringstream& out);
     void TellHeader(Creature* creature);
     void TellFooter(uint32 totalCost);
 };
