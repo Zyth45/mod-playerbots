@@ -15,6 +15,7 @@
 #include "ReputationMgr.h"
 #include "Trainer.h"
 #include "CoaReborn.h"
+#include "CoaAltAddon.h"
 
 namespace
 {
@@ -47,8 +48,24 @@ bool TrainerAction::Execute(Event event)
                         // TODO: Rewrite to only exclude start primary profession skills and make config dependent.
                         (trainer->GetTrainerType() != Trainer::Type::Tradeskill || !IsRealPlayer(botAI->GetMaster())));
 
-    Iterate(target, learnSpells, spellId);
+    Iterate(target, learnSpells, spellId, CoaAltAddon::ToAddon(botAI));
 
+    return true;
+}
+
+bool TrainerAction::RunForAddon(bool learnSpells, uint32 spellId)
+{
+    Creature* target = GetCreatureTarget();
+    if (!target || !target->IsTrainer() || !TrainerOf(target, bot))
+    {
+        if (CoaAltAddon::AddonSeen(botAI))
+            CoaAltAddon::SendToMaster(botAI, "T_END\t0\t0\t" + std::to_string(bot->GetMoney()));
+        else
+            botAI->TellMaster("Target a trainer first.");
+        return false;
+    }
+
+    Iterate(target, learnSpells, spellId, CoaAltAddon::AddonSeen(botAI));
     return true;
 }
 
@@ -110,9 +127,13 @@ Creature* TrainerAction::GetCreatureTarget()
     return target ? target->ToCreature() : nullptr;
 }
 
-void TrainerAction::Iterate(Creature* creature, bool learnSpells, uint32 spellId)
+void TrainerAction::Iterate(Creature* creature, bool learnSpells, uint32 spellId, bool addon)
 {
-    TellHeader(creature);
+    if (addon && !learnSpells)
+        CoaAltAddon::SendToMaster(botAI, "T_BEGIN\t" + std::to_string(creature->GetEntry()) + "\t" +
+                                             CoaAltAddon::Field(creature->GetName()));
+    else if (!addon)
+        TellHeader(creature);
 
     Trainer::Trainer* trainer = TrainerOf(creature, bot);
     if (!trainer)
@@ -120,6 +141,9 @@ void TrainerAction::Iterate(Creature* creature, bool learnSpells, uint32 spellId
 
     float reputationDiscount = bot->GetReputationPriceDiscount(creature);
     uint32 totalCost = 0;
+    uint32 count = 0;
+    uint32 spent = 0;
+    uint32 learnedCount = 0;
 
     for (auto& spell : trainer->GetSpells())
     {
@@ -144,9 +168,30 @@ void TrainerAction::Iterate(Creature* creature, bool learnSpells, uint32 spellId
 
         uint32 cost = static_cast<uint32>(floor(trainerSpell->MoneyCost * reputationDiscount));
         totalCost += cost;
+        ++count;
 
         std::ostringstream out;
         out << chat->FormatSpell(spellInfo) << chat->formatMoney(cost);
+
+        if (addon)
+        {
+            std::string const name = spellInfo->SpellName[LOCALE_enUS] ? spellInfo->SpellName[LOCALE_enUS] : "";
+            if (learnSpells)
+            {
+                bool const learned = Learn(spellInfo, cost, out);
+                if (learned)
+                {
+                    spent += cost;
+                    ++learnedCount;
+                }
+                CoaAltAddon::SendToMaster(botAI, "L\t" + std::to_string(spellInfo->Id) + "\t" +
+                                                     (learned ? "ok" : "too_expensive"));
+            }
+            else
+                CoaAltAddon::SendToMaster(botAI, "T\t" + std::to_string(spellInfo->Id) + "\t" + std::to_string(cost) +
+                                                     "\t" + CoaAltAddon::Field(name));
+            continue;
+        }
 
         if (learnSpells)
             Learn(spellInfo, cost, out);
@@ -154,17 +199,31 @@ void TrainerAction::Iterate(Creature* creature, bool learnSpells, uint32 spellId
         botAI->TellMaster(out);
     }
 
-    TellFooter(totalCost);
+    if (!addon)
+    {
+        TellFooter(totalCost);
+        return;
+    }
+
+    if (learnSpells)
+    {
+        CoaAltAddon::SendToMaster(botAI, "L_END\t" + std::to_string(learnedCount) + "\t" + std::to_string(spent));
+        Iterate(creature, false, 0, true);
+        return;
+    }
+
+    CoaAltAddon::SendToMaster(botAI, "T_END\t" + std::to_string(count) + "\t" + std::to_string(totalCost) + "\t" +
+                                         std::to_string(bot->GetMoney()));
 }
 
-void TrainerAction::Learn(SpellInfo const* spellInfo, uint32 cost, std::ostringstream& out)
+bool TrainerAction::Learn(SpellInfo const* spellInfo, uint32 cost, std::ostringstream& out)
 {
     if (!botAI->HasCheat(BotCheatMask::gold))
     {
         if (AI_VALUE2(uint32, "free money for", (uint32)NeedMoneyFor::spells) < cost)
         {
             out << " - too expensive";
-            return;
+            return false;
         }
 
         bot->ModifyMoney(-static_cast<int32>(cost));
@@ -176,6 +235,7 @@ void TrainerAction::Learn(SpellInfo const* spellInfo, uint32 cost, std::ostrings
         bot->learnSpell(spellInfo->Id, false);
 
     out << " - learned";
+    return true;
 }
 
 void TrainerAction::TellHeader(Creature* creature)

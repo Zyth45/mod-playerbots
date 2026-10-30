@@ -446,6 +446,12 @@ public:
     uint32 missionsMaxDeaths;
     bool missionsTeleportFallback;
     bool missionsTeleportToSpot;
+    bool missionsHighRisk;
+    uint32 missionsRiskMailEvery;
+    uint32 missionsRiskMailMinutes;
+    // Alts and the SquidBots Lite addon (CoaAltAddon).
+    bool altChatToAddon;
+    bool catchUpQuestChains;
     // AiPlayerbot.GuildBankDeposit.*: bots of a real player's guild fill the guild bank near a guild vault.
     bool guildBankDepositEnable;
     std::vector<std::pair<int32, int32>> guildBankDepositItems;  // item class, subclass (-1 = all)
