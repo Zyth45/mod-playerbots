@@ -140,7 +140,10 @@ Unit* UnitCalculatedValue::Get()
             value = Calculate();
             if (pmo)
                 pmo->finish();
+            guid = value ? value->GetGUID() : ObjectGuid::Empty;
         }
+        else
+            value = guid ? botAI->GetUnit(guid) : nullptr;
     }
     // Prevent crashing by InWorld check
     if (value && value->IsInWorld())
@@ -148,10 +151,24 @@ Unit* UnitCalculatedValue::Get()
     return nullptr;
 }
 
+// The unit is found again by its GUID at every read: a stored pointer outlives a despawned creature or a player
+// who logged out, and reading it (even IsInWorld) crashed the world server.
 Unit* UnitManualSetValue::Get()
 {
-    // Prevent crashing by InWorld check
+    value = guid ? botAI->GetUnit(guid) : nullptr;
     if (value && value->IsInWorld())
         return value;
     return nullptr;
+}
+
+void UnitManualSetValue::Set(Unit* val)
+{
+    value = val;
+    guid = val ? val->GetGUID() : ObjectGuid::Empty;
+}
+
+void UnitManualSetValue::Reset()
+{
+    ManualSetValue<Unit*>::Reset();
+    guid = defaultValue ? defaultValue->GetGUID() : ObjectGuid::Empty;
 }
