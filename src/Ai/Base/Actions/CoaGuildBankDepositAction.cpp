@@ -196,12 +196,12 @@ bool CoaGuildBankDepositAction::IsDepositable(Player* bot, Item const* item)
 
     for (auto const& [itemClass, itemSubClass] : sPlayerbotAIConfig.guildBankDepositItems)
     {
-        // "boe": bind-on-equip gear (green or better) this alt cannot wear, for a guildmate who can.
+        // "boe": bind-on-equip gear (green or better) this alt can never wear (a level too low is kept), for a guildmate.
         if (itemClass == GUILD_DEPOSIT_BOE)
         {
             if (proto->Bonding == BIND_WHEN_EQUIPPED && proto->Quality >= ITEM_QUALITY_UNCOMMON &&
                 (proto->Class == ITEM_CLASS_ARMOR || proto->Class == ITEM_CLASS_WEAPON) &&
-                bot && bot->CanUseItem(proto) != EQUIP_ERR_OK)
+                bot && bot->CanUseItem(proto) != EQUIP_ERR_OK && bot->CanUseItem(proto) != EQUIP_ERR_CANT_EQUIP_LEVEL_I)
                 return true;
             continue;
         }
