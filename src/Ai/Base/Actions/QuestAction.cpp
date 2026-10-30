@@ -9,6 +9,7 @@
 #include "BroadcastHelper.h"
 #include "Chat.h"
 #include "ChatHelper.h"
+#include "CoaAltAddon.h"
 #include "Event.h"
 #include "ItemTemplate.h"
 #include "ObjectGuid.h"
@@ -224,6 +225,9 @@ bool QuestAction::AcceptQuest(Quest const* quest, ObjectGuid questGiver)
     std::ostringstream out;
 
     uint32 questId = quest->GetQuestId();
+
+    if (bot->GetQuestStatus(questId) == QUEST_STATUS_NONE && !bot->CanTakeQuest(quest, false))
+        CoaAltAddon::CatchUp(botAI, quest);
 
     if (bot->GetQuestStatus(questId) == QUEST_STATUS_COMPLETE)
         out << "Already completed";

@@ -5,6 +5,7 @@
  */
 
 #include "AcceptQuestAction.h"
+#include "CoaAltAddon.h"
 #include "Event.h"
 #include "PlayerbotTextMgr.h"
 #include "Playerbots.h"
@@ -155,6 +156,9 @@ bool AcceptQuestShareAction::Execute(Event event)
             "quest_already_have_error", "I have this quest", {}));
         return false;
     }
+
+    if (!bot->CanTakeQuest(qInfo, false))
+        CoaAltAddon::CatchUp(botAI, qInfo);
 
     if (!bot->CanTakeQuest(qInfo, false))
     {

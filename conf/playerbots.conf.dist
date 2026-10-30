@@ -477,6 +477,12 @@ AiPlayerbot.SyncQuestWithPlayer = 1
 # Default: 0 (disabled)
 AiPlayerbot.SyncQuestForPlayer = 0
 
+# Your alts catch up a quest chain: when you take or share a quest an alt can't take only because it misses the
+# earlier quests of the chain, it marks them done (no reward, no experience, no item) and takes the quest.
+# Never past a level, race, class, reputation or profession requirement. Never for random bots.
+# Default: 1 (enabled)
+AiPlayerbot.CatchUpQuestChains = 1
+
 # Bots will drop obsolete quests
 # Default: 1 (enabled)
 AiPlayerbot.DropObsoleteQuests = 1
