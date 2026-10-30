@@ -1848,8 +1848,8 @@ AiPlayerbot.AltChatToAddon = 1
 # standing near a guild vault puts there the items of the classes below and the gold above KeepGold.
 # Never in a guild of random bots, never during a mission, never bound, quest or equipped items.
 # The rank of the bot needs the deposit right on the tab.
-# Default: 0 (disabled)
-AiPlayerbot.GuildBankDeposit.Enable = 0
+# Default: 1 (enabled)
+AiPlayerbot.GuildBankDeposit.Enable = 1
 
 # Items to deposit, separated by commas: an item class or class:subclass (7 = trade goods, 7:9 = herbs),
 # or tradegoods, cloth, leather, ore, herb, meat, elemental, enchanting, parts, gems, reagents, recipes,

@@ -831,7 +831,7 @@ bool PlayerbotAIConfig::Initialize()
     missionsRiskMailMinutes = sConfigMgr->GetOption<uint32>("AiPlayerbot.Missions.RiskMailMinutes", 15, false);
     altChatToAddon = sConfigMgr->GetOption<bool>("AiPlayerbot.AltChatToAddon", true, false);
     catchUpQuestChains = sConfigMgr->GetOption<bool>("AiPlayerbot.CatchUpQuestChains", true, false);
-    guildBankDepositEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.GuildBankDeposit.Enable", false, false);
+    guildBankDepositEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.GuildBankDeposit.Enable", true, false);
     LoadGuildBankDepositItems(sConfigMgr->GetOption<std::string>("AiPlayerbot.GuildBankDeposit.Items", "tradegoods", false));
     guildBankDepositKeepGold = sConfigMgr->GetOption<uint32>("AiPlayerbot.GuildBankDeposit.KeepGold", 100, false);
     guildBankDepositMinStack = std::max<uint32>(1, sConfigMgr->GetOption<uint32>("AiPlayerbot.GuildBankDeposit.MinStack", 1, false));
