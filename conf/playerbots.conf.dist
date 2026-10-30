@@ -1829,6 +1829,13 @@ AiPlayerbot.Missions.TeleportFallback = 1
 # Default: 1 (enabled)
 AiPlayerbot.Missions.TeleportToSpot = 1
 
+# Your alts and the SquidBots Lite addon: while the addon talks to them (prefix SQBA), the repetitive quest and
+# trainer lines of the alts ("Can't take", "Quest Available", the recipes one by one) go to the addon instead of
+# your whispers, and a quest you take at a giver waits for "Take for the team" in the addon. Without the addon
+# nothing changes.
+# Default: 1 (enabled)
+AiPlayerbot.AltChatToAddon = 1
+
 # Automatic guild bank deposits: a bot in the guild of a real player (your alts, the bots you invited)
 # standing near a guild vault puts there the items of the classes below and the gold above KeepGold.
 # Never in a guild of random bots, never during a mission, never bound, quest or equipped items.
