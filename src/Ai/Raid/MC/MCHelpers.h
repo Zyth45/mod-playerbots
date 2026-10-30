@@ -64,6 +64,7 @@ enum MoltenCoreSpells
     SPELL_RAIN_OF_FIRE_COA_D1 = 2105408,
     SPELL_RAIN_OF_FIRE_COA_D2 = 2105409,
     SPELL_RAIN_OF_FIRE_COA_D3 = 2105410,
+    SPELL_CONJURE_FLAME_ORB_COA = 2105417,  // CoA: 5 s cast; the orb spawns on Gehennas when it completes
 
     // Baron Geddon
     SPELL_INFERNO = 19695,                 // SpellDifficulty row 369: 19695/350084/350084/350084
@@ -113,6 +114,10 @@ constexpr float ARCANE_EXPLOSION_DISTANCE = 26.0f;
 // Distance kept from Gehennas' Flame Orb: its pulse (2105419-22) hits everything within 20 yd
 // every 275 ms for 11 s, about 4,000 damage a second on Normal.
 constexpr float FLAME_ORB_AVOID_DISTANCE = 24.0f;
+
+// During Conjure Flame Orb Gehennas stands still: everyone, his tank included, gets out of the
+// orb's reach of its spawn point before it appears.
+constexpr float FLAME_ORB_CAST_CLEAR_DISTANCE = 26.0f;
 
 template <std::size_t N>
 inline bool HasAnyAura(Unit const* unit, uint32 const (&spellIds)[N])
