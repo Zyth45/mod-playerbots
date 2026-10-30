@@ -92,6 +92,13 @@ bool McGolemaggIsHealerTrigger::IsActive()
     return PlayerbotAI::IsHeal(bot) && AI_VALUE2(Unit*, "find target", "golemagg the incinerator");
 }
 
+bool McGehennasFlameOrbCastTrigger::IsActive()
+{
+    Unit* boss = AI_VALUE2(Unit*, "find target", "gehennas");
+    return boss && boss->IsAlive() && boss->FindCurrentSpellBySpellId(SPELL_CONJURE_FLAME_ORB_COA) &&
+           bot->GetDistance2d(boss) < FLAME_ORB_CAST_CLEAR_DISTANCE;
+}
+
 bool McGehennasRainOfFireTrigger::IsActive()
 {
     return HasAnyAura(bot, GEHENNAS_RAIN_OF_FIRE_AURAS);

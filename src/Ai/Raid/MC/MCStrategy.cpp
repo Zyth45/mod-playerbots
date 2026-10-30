@@ -49,6 +49,9 @@ void RaidMcStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
         new TriggerNode("mc gehennas rain of fire",
                         { NextAction("mc move from ground effect", ACTION_RAID) }));
     triggers.push_back(
+        new TriggerNode("mc gehennas flame orb cast",
+                        { NextAction("mc gehennas clear flame orb spawn", ACTION_RAID + 2) }));
+    triggers.push_back(
         new TriggerNode("mc gehennas flame orb",
                         { NextAction("mc gehennas move from flame orb", ACTION_RAID) }));
 

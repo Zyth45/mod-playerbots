@@ -43,6 +43,7 @@ public:
         creators["mc move from ground effect"] = &RaidMcActionContext::move_from_ground_effect;
         creators["mc gehennas mark"] = &RaidMcActionContext::gehennas_mark;
         creators["mc magmadar mark"] = &RaidMcActionContext::magmadar_mark;
+        creators["mc gehennas clear flame orb spawn"] = &RaidMcActionContext::gehennas_clear_flame_orb_spawn;
         creators["mc gehennas move from flame orb"] = &RaidMcActionContext::gehennas_move_from_flame_orb;
         creators["mc shazzrah backup taunt"] = &RaidMcActionContext::shazzrah_backup_taunt;
     }
@@ -77,6 +78,11 @@ private:
     static Action* gehennas_mark(PlayerbotAI* botAI)
     {
         return new RaidKillOrderMarkAction(botAI, "mc gehennas mark", "gehennas", { MoltenCoreHelpers::NPC_FLAMEWAKER });
+    }
+    static Action* gehennas_clear_flame_orb_spawn(PlayerbotAI* botAI)
+    {
+        return new RaidStandoffAction(botAI, "mc gehennas clear flame orb spawn", "gehennas",
+                                      MoltenCoreHelpers::FLAME_ORB_CAST_CLEAR_DISTANCE);
     }
     static Action* gehennas_move_from_flame_orb(PlayerbotAI* botAI)
     {

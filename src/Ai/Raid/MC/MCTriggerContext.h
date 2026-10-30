@@ -43,6 +43,7 @@ public:
         creators["mc magmadar mark"] = &RaidMcTriggerContext::magmadar_mark;
         creators["mc gehennas mark"] = &RaidMcTriggerContext::gehennas_mark;
         creators["mc gehennas rain of fire"] = &RaidMcTriggerContext::gehennas_rain_of_fire;
+        creators["mc gehennas flame orb cast"] = &RaidMcTriggerContext::gehennas_flame_orb_cast;
         creators["mc gehennas flame orb"] = &RaidMcTriggerContext::gehennas_flame_orb;
         creators["mc shazzrah backup taunt"] = &RaidMcTriggerContext::shazzrah_backup_taunt;
     }
@@ -75,6 +76,7 @@ private:
     }
     static Trigger* magmadar_mark(PlayerbotAI* botAI) { return new RaidKillOrderMarkTrigger(botAI, "mc magmadar mark", "magmadar"); }
     static Trigger* gehennas_mark(PlayerbotAI* botAI) { return new RaidKillOrderMarkTrigger(botAI, "mc gehennas mark", "gehennas"); }
+    static Trigger* gehennas_flame_orb_cast(PlayerbotAI* botAI) { return new McGehennasFlameOrbCastTrigger(botAI); }
     static Trigger* gehennas_rain_of_fire(PlayerbotAI* botAI) { return new McGehennasRainOfFireTrigger(botAI); }
     static Trigger* gehennas_flame_orb(PlayerbotAI* botAI)
     {
