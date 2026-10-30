@@ -24,10 +24,11 @@ float VaultsHazardMultiplier::GetValue(Action* action)
     if (!isMovement || bot->GetMapId() != VAULTS_MAP_ID)
         return 1.0f;
 
-    // Standing in a hazard, the only way to go is out of it. In the soak or the shelter, or while breaking a
-    // seal, a bot stays put, and on its way there nothing else moves it. A healer in the shelter has the group
-    // in range anyway: they all stand in it.
-    if (InHazard(bot) || Holding(bot) || SoakToTake(bot) || ShelterToReach(bot))
+    // Standing in a hazard, the only way to go is out of it. Out of it, a bot does not walk back in to reach its
+    // target; it waits until the hazard is gone. In the soak or the shelter, or while breaking a seal, a bot
+    // stays put, and on its way there nothing else moves it. A healer in the shelter has the group in range
+    // anyway: they all stand in it.
+    if (InHazard(bot) || WayBlocked(bot) || Holding(bot) || SoakToTake(bot) || ShelterToReach(bot))
         return 0.0f;
 
     return 1.0f;
