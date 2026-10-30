@@ -128,9 +128,11 @@ bool FindCorpseAction::Execute(Event /*event*/)
             // LOG_INFO("playerbots", "Bot {} {}:{} <{}>: died too many times, was revived and teleported",
             //     bot->GetGUID().ToString().c_str(), bot->GetTeamId() == TEAM_ALLIANCE ? "A" : "H", bot->GetLevel(),
             //     bot->GetName().c_str());
+            // Revived on its corpse, the bot stood next to the mobs that just killed it five times.
+            if (!botAI->DoSpecificAction("spirit healer"))
+                return false;
+
             context->GetValue<uint32>("death count")->Set(0);
-            // sRandomPlayerbotMgr.RandomTeleportForLevel(bot);
-            sRandomPlayerbotMgr.Revive(bot);
             return true;
         }
     }
