@@ -65,7 +65,7 @@ Creature* TrainerAction::InteractionTrainer()
         return target;
 
     Player* master = GetMaster();
-    if (!master)
+    if (!master || master->GetMap() != bot->GetMap())
         return nullptr;
 
     // The window the owner has open: its gossip page (Book of Artisans), else the one trainer at arm's length.
