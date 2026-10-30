@@ -15,6 +15,8 @@
   instead of one whisper per item for every batch sale.
 - **Stale targets**: unit values keep the GUID and find the unit again on the bot's map at every read (a despawned
   creature or a player who logged out crashed AttackAction through a freed pointer).
+- **Guild bank deposits on by default** (`AiPlayerbot.GuildBankDeposit.Enable = 1`), items `ore,herb,leather,cloth,boe`;
+  new category `boe`: bind-on-equip gear, green or better, the bot can never wear.
 - **Five deaths**: a bot that died five times rises at the spirit healer instead of on its corpse next to the same mobs.
 - **Raids**: Molten Core Gehennas (bots leave his Flame Orb cast), Zul'Gurub Hakkar positioning and Blood Siphon.
 
