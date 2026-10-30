@@ -1,6 +1,22 @@
 # CoA Bots — changelog
 
-## v2.8.2 (in progress)
+## v2.8.3
+
+- **Alts as a team** (with SquidBots Lite 2.8.3): new addon channel `SQBA` (contract in the release notes). Opening a quest
+  at a quest giver sends each alt's state (can take, missing earlier quest of the chain, level, class/race, reputation,
+  skill, done); alts wait for "take" instead of taking the quest on their own while the addon is there.
+- **Quest chain catch-up** (`AiPlayerbot.CatchUpQuestChains = 1`): an alt blocked only by the earlier quests of a chain marks
+  them rewarded (no reward, no item) and can take the quest. Never for level, race, class, reputation or skill.
+- **Quiet alts** (`AiPlayerbot.AltChatToAddon = 1`): with the addon, the repeated quest and trainer whispers go to the addon.
+- **Trainers**: `alt train` / `alt learn` list and learn what an alt can learn at the trainer or Book of Artisans in use.
+- **Team bar and quest objectives** for the addon (TEAM, OBJ messages, on change only).
+- **High Risk missions**: `mission gather ... risk` (`AiPlayerbot.Missions.HighRisk`, `RiskMailEvery`, `RiskMailMinutes`).
+- **Sell junk** (`s junk`): grey items plus white and green gear the bot cannot use or does not need; one summary line
+  instead of one whisper per item for every batch sale.
+- **Five deaths**: a bot that died five times rises at the spirit healer instead of on its corpse next to the same mobs.
+- **Raids**: Molten Core Gehennas (bots leave his Flame Orb cast), Zul'Gurub Hakkar positioning and Blood Siphon.
+
+## v2.8.2
 
 - **Random bot transmog**: half of the random bots (`AiPlayerbot.RandomBotTransmogPercent = 50`) now show other
   models of their armor and weapon types, a whole item set when one fits their level, from level 10
