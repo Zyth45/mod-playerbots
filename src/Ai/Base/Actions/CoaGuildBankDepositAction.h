@@ -30,7 +30,7 @@ public:
     // A guild whose leader is not a character of the random bot accounts.
     static bool IsRealPlayerGuild(Guild const* guild);
     // A bag item the bot may put in the guild bank: of a configured class, tradable, never bound, quest or timed.
-    static bool IsDepositable(Item const* item);
+    static bool IsDepositable(Player* bot, Item const* item);
     static bool HasSomethingToDeposit(Player* bot);
     // A spawned guild vault (not a summoned personal vault) close enough to the bot.
     static GameObject* FindGuildBank(Player* bot);

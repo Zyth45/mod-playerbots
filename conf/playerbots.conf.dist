@@ -1852,10 +1852,11 @@ AiPlayerbot.AltChatToAddon = 1
 AiPlayerbot.GuildBankDeposit.Enable = 1
 
 # Items to deposit, separated by commas: an item class or class:subclass (7 = trade goods, 7:9 = herbs),
-# or tradegoods, cloth, leather, ore, herb, meat, elemental, enchanting, parts, gems, reagents, recipes,
+# or tradegoods, cloth, leather, ore, herb, meat, elemental, enchanting, parts, gems, reagents, recipes, boe,
 # consumables. Empty = gold only.
-# Default: tradegoods
-AiPlayerbot.GuildBankDeposit.Items = "tradegoods"
+# (boe = bind-on-equip gear, green or better, the bot cannot wear).
+# Default: ore,herb,leather,cloth,boe
+AiPlayerbot.GuildBankDeposit.Items = "ore,herb,leather,cloth,boe"
 
 # Gold pieces the bot keeps; the rest goes to the guild bank.
 # Default: 100

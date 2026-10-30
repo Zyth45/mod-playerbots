@@ -87,6 +87,9 @@ struct LevelBracketConfig
     uint8 pct = 0;
 };
 
+// AiPlayerbot.GuildBankDeposit.Items "boe": bind-on-equip gear the bot cannot wear (no item class is negative).
+static constexpr int32 GUILD_DEPOSIT_BOE = -2;
+
 class PlayerbotAIConfig
 {
 public:

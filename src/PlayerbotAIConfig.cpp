@@ -832,7 +832,7 @@ bool PlayerbotAIConfig::Initialize()
     altChatToAddon = sConfigMgr->GetOption<bool>("AiPlayerbot.AltChatToAddon", true, false);
     catchUpQuestChains = sConfigMgr->GetOption<bool>("AiPlayerbot.CatchUpQuestChains", true, false);
     guildBankDepositEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.GuildBankDeposit.Enable", true, false);
-    LoadGuildBankDepositItems(sConfigMgr->GetOption<std::string>("AiPlayerbot.GuildBankDeposit.Items", "tradegoods", false));
+    LoadGuildBankDepositItems(sConfigMgr->GetOption<std::string>("AiPlayerbot.GuildBankDeposit.Items", "ore,herb,leather,cloth,boe", false));
     guildBankDepositKeepGold = sConfigMgr->GetOption<uint32>("AiPlayerbot.GuildBankDeposit.KeepGold", 100, false);
     guildBankDepositMinStack = std::max<uint32>(1, sConfigMgr->GetOption<uint32>("AiPlayerbot.GuildBankDeposit.MinStack", 1, false));
     guildBankDepositTab = std::min<uint32>(sConfigMgr->GetOption<uint32>("AiPlayerbot.GuildBankDeposit.Tab", 0, false), 6);
@@ -1166,7 +1166,8 @@ void PlayerbotAIConfig::LoadGuildBankDepositItems(std::string const& value)
         {"herb", {ITEM_CLASS_TRADE_GOODS, ITEM_SUBCLASS_HERB}},
         {"herbs", {ITEM_CLASS_TRADE_GOODS, ITEM_SUBCLASS_HERB}},
         {"elemental", {ITEM_CLASS_TRADE_GOODS, ITEM_SUBCLASS_ELEMENTAL}},
-        {"enchanting", {ITEM_CLASS_TRADE_GOODS, ITEM_SUBCLASS_ENCHANTING}}};
+        {"enchanting", {ITEM_CLASS_TRADE_GOODS, ITEM_SUBCLASS_ENCHANTING}},
+        {"boe", {GUILD_DEPOSIT_BOE, -1}}};
 
     guildBankDepositItems.clear();
     for (std::string token : split(value, ','))

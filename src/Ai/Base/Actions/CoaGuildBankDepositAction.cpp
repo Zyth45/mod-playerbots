@@ -125,13 +125,13 @@ namespace
             std::vector<std::pair<uint8, uint8>> positions;
             for (uint8 slot = INVENTORY_SLOT_ITEM_START; slot < INVENTORY_SLOT_ITEM_END; ++slot)
                 if (Item* item = bot->GetItemByPos(INVENTORY_SLOT_BAG_0, slot))
-                    if (CoaGuildBankDepositAction::IsDepositable(item))
+                    if (CoaGuildBankDepositAction::IsDepositable(bot, item))
                         positions.emplace_back(INVENTORY_SLOT_BAG_0, slot);
             for (uint8 bagSlot = INVENTORY_SLOT_BAG_START; bagSlot < INVENTORY_SLOT_BAG_END; ++bagSlot)
                 if (Bag* bag = bot->GetBagByPos(bagSlot))
                     for (uint32 slot = 0; slot < bag->GetBagSize(); ++slot)
                         if (Item* item = bag->GetItemByPos(uint8(slot)))
-                            if (CoaGuildBankDepositAction::IsDepositable(item))
+                            if (CoaGuildBankDepositAction::IsDepositable(bot, item))
                                 positions.emplace_back(bagSlot, uint8(slot));
 
             uint32 moved = 0;
@@ -178,7 +178,7 @@ bool CoaGuildBankDepositAction::IsRealPlayerGuild(Guild const* guild)
     return account && !sPlayerbotAIConfig.IsInRandomAccountList(account);
 }
 
-bool CoaGuildBankDepositAction::IsDepositable(Item const* item)
+bool CoaGuildBankDepositAction::IsDepositable(Player* bot, Item const* item)
 {
     if (!item)
         return false;
@@ -195,8 +195,19 @@ bool CoaGuildBankDepositAction::IsDepositable(Item const* item)
         return false;
 
     for (auto const& [itemClass, itemSubClass] : sPlayerbotAIConfig.guildBankDepositItems)
+    {
+        // "boe": bind-on-equip gear (green or better) this alt can never wear (a level too low is kept), for a guildmate.
+        if (itemClass == GUILD_DEPOSIT_BOE)
+        {
+            if (proto->Bonding == BIND_WHEN_EQUIPPED && proto->Quality >= ITEM_QUALITY_UNCOMMON &&
+                (proto->Class == ITEM_CLASS_ARMOR || proto->Class == ITEM_CLASS_WEAPON) &&
+                bot && bot->CanUseItem(proto) != EQUIP_ERR_OK && bot->CanUseItem(proto) != EQUIP_ERR_CANT_EQUIP_LEVEL_I)
+                return true;
+            continue;
+        }
         if (int32(proto->Class) == itemClass && (itemSubClass < 0 || int32(proto->SubClass) == itemSubClass))
             return true;
+    }
     return false;
 }
 
@@ -206,12 +217,12 @@ bool CoaGuildBankDepositAction::HasSomethingToDeposit(Player* bot)
         return true;
 
     for (uint8 slot = INVENTORY_SLOT_ITEM_START; slot < INVENTORY_SLOT_ITEM_END; ++slot)
-        if (IsDepositable(bot->GetItemByPos(INVENTORY_SLOT_BAG_0, slot)))
+        if (IsDepositable(bot, bot->GetItemByPos(INVENTORY_SLOT_BAG_0, slot)))
             return true;
     for (uint8 bagSlot = INVENTORY_SLOT_BAG_START; bagSlot < INVENTORY_SLOT_BAG_END; ++bagSlot)
         if (Bag* bag = bot->GetBagByPos(bagSlot))
             for (uint32 slot = 0; slot < bag->GetBagSize(); ++slot)
-                if (IsDepositable(bag->GetItemByPos(uint8(slot))))
+                if (IsDepositable(bot, bag->GetItemByPos(uint8(slot))))
                     return true;
     return false;
 }
