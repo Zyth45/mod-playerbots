@@ -132,7 +132,9 @@ bool FindCorpseAction::Execute(Event /*event*/)
             if (!botAI->DoSpecificAction("spirit healer"))
                 return false;
 
-            context->GetValue<uint32>("death count")->Set(0);
+            // Kept until it is alive again: reset on the first step, the ghost went back to its corpse.
+            if (bot->IsAlive())
+                context->GetValue<uint32>("death count")->Set(0);
             return true;
         }
     }
@@ -342,6 +344,8 @@ bool SpiritHealerAction::Execute(Event /*event*/)
 
     GraveyardStruct const* ClosestGrave =
         GetGrave(dCount > 10 || deadTime > 15 * MINUTE || AI_VALUE(uint8, "durability") < 10);
+    if (!ClosestGrave)
+        return false;
 
     if (bot->GetDistance2d(ClosestGrave->x, ClosestGrave->y) < sPlayerbotAIConfig.sightDistance)
     {

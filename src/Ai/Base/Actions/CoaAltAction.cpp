@@ -147,10 +147,14 @@ bool CoaAltAction::Take(Quest const* quest, bool catchUp)
     }
 
     Player* master = GetMaster();
+    if (!master)
+        return false;
+
     ObjectGuid giver;
-    if (Unit* target = master->GetSelectedUnit())
-        if (target->hasQuest(questId))
-            giver = target->GetGUID();
+    if (master->GetMap() == bot->GetMap())
+        if (Unit* target = botAI->GetUnit(master->GetTarget()))
+            if (target->hasQuest(questId))
+                giver = target->GetGUID();
 
     if (!giver)
         for (ObjectGuid const& guid : AI_VALUE(GuidVector, "nearest npcs"))
