@@ -89,6 +89,38 @@ public:
     }
 };
 
+class SellJunkItemsVisitor : public SellItemsVisitor
+{
+public:
+    SellJunkItemsVisitor(SellAction* action, AiObjectContext* con) : SellItemsVisitor(action), context(con) {}
+
+    bool Visit(Item* item) override
+    {
+        ItemTemplate const* proto = item->GetTemplate();
+        if (proto->Quality > ITEM_QUALITY_UNCOMMON || proto->StartQuest || proto->Bonding == BIND_QUEST_ITEM)
+            return true;
+
+        if (proto->Class == ITEM_CLASS_WEAPON && (proto->SubClass == ITEM_SUBCLASS_WEAPON_MISC ||
+            proto->SubClass == ITEM_SUBCLASS_WEAPON_FISHING_POLE || proto->TotemCategory != 0))
+            return true;
+
+        if (proto->Quality == ITEM_QUALITY_POOR)
+            return SellItemsVisitor::Visit(item);
+
+        if (proto->Class != ITEM_CLASS_ARMOR && proto->Class != ITEM_CLASS_WEAPON)
+            return true;
+
+        ItemUsage usage = context->GetValue<ItemUsage>("item usage", item->GetEntry())->Get();
+        if (usage != ITEM_USAGE_NONE && usage != ITEM_USAGE_VENDOR && usage != ITEM_USAGE_AH && usage != ITEM_USAGE_BAD_EQUIP)
+            return true;
+
+        return SellItemsVisitor::Visit(item);
+    }
+
+private:
+    AiObjectContext* context;
+};
+
 bool SellAction::Execute(Event event)
 {
     // A bot on a gathering mission keeps what it gathers for its owner: no selling.
@@ -99,10 +131,14 @@ bool SellAction::Execute(Event event)
     }
 
     std::string const text = event.getParam();
+    batch = text.find("Hitem:") == std::string::npos;
+    soldCount = 0;
+    soldMoney = 0;
     if (text == "gray" || text == "*")
     {
         SellQualityItemsVisitor visitor(this, ITEM_QUALITY_POOR, false);
         IterateItems(&visitor);
+        TellSummary();
         return true;
     }
 
@@ -110,6 +146,15 @@ bool SellAction::Execute(Event event)
     {
         SellVendorItemsVisitor visitor(this, context);
         IterateItems(&visitor);
+        TellSummary();
+        return true;
+    }
+
+    if (text == "junk")
+    {
+        SellJunkItemsVisitor visitor(this, context);
+        IterateItems(&visitor);
+        TellSummary();
         return true;
     }
 
@@ -128,6 +173,7 @@ bool SellAction::Execute(Event event)
     {
         SellQualityItemsVisitor visitor(this, maxQuality, allClasses);
         IterateItems(&visitor);
+        TellSummary();
         return true;
     }
 
@@ -141,7 +187,7 @@ bool SellAction::Execute(Event event)
         return true;
     }
 
-    botAI->TellError("Usage: s gray/*/vendor/<quality> [all]/[item link]");
+    botAI->TellError("Usage: s gray/*/junk/vendor/<quality> [all]/[item link]");
     return false;
 }
 
@@ -179,15 +225,33 @@ void SellAction::Sell(Item* item)
         nicePacket.Read();
         bot->GetSession()->HandleSellItemOpcode(nicePacket);
 
-        if (botAI->HasCheat(BotCheatMask::gold))
+        ++soldCount;
+        if (bot->GetMoney() > botMoney)
+            soldMoney += bot->GetMoney() - botMoney;
+
+        if (!batch)
         {
-            bot->SetMoney(botMoney);
+            out << "Selling " << chat->FormatItem(item->GetTemplate());
+            botAI->TellMaster(out);
         }
 
-        out << "Selling " << chat->FormatItem(item->GetTemplate());
-        botAI->TellMaster(out);
+        if (botAI->HasCheat(BotCheatMask::gold))
+            bot->SetMoney(botMoney);
 
         bot->PlayDistanceSound(120);
         break;
     }
+}
+
+void SellAction::TellSummary()
+{
+    if (!soldCount)
+    {
+        botAI->TellMaster("Nothing to sell here (or no vendor next to me).");
+        return;
+    }
+
+    std::ostringstream out;
+    out << "Sold " << soldCount << (soldCount > 1 ? " items for " : " item for ") << ChatHelper::formatMoney(soldMoney);
+    botAI->TellMaster(out);
 }
