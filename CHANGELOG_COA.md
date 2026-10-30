@@ -1,6 +1,6 @@
 # CoA Bots — changelog
 
-## v2.8.3
+## v2.8.3 (30 October 2026)
 
 - **Alts as a team** (with SquidBots Lite 2.8.3): new addon channel `SQBA` (contract in the release notes). Opening a quest
   at a quest giver sends each alt's state (can take, missing earlier quest of the chain, level, class/race, reputation,
@@ -13,6 +13,8 @@
 - **High Risk missions**: `mission gather ... risk` (`AiPlayerbot.Missions.HighRisk`, `RiskMailEvery`, `RiskMailMinutes`).
 - **Sell junk** (`s junk`): grey items plus white and green gear the bot cannot use or does not need; one summary line
   instead of one whisper per item for every batch sale.
+- **Stale targets**: unit values keep the GUID and find the unit again on the bot's map at every read (a despawned
+  creature or a player who logged out crashed AttackAction through a freed pointer).
 - **Five deaths**: a bot that died five times rises at the spirit healer instead of on its corpse next to the same mobs.
 - **Raids**: Molten Core Gehennas (bots leave his Flame Orb cast), Zul'Gurub Hakkar positioning and Blood Siphon.
 
