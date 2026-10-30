@@ -367,6 +367,14 @@ void PlayerbotAI::UpdateAI(uint32 elapsed, bool minimal)
         bot->GetSession()->isLogingOut() || bot->IsDuringRemoveFromWorld())
         return;
 
+    if (coaTeamTimer > elapsed)
+        coaTeamTimer -= elapsed;
+    else
+    {
+        coaTeamTimer = CoaAltAddon::TEAM_TICK_MS;
+        CoaAltAddon::TickTeam(this, coaTeamCache);
+    }
+
     // A bot left with the taxi flag but no flight (flight path cut short, map change mid-flight) stays
     // mounted and frozen: clean up what the end of the flight should have.
     if (bot->HasUnitFlag(UNIT_FLAG_TAXI_FLIGHT) && !bot->IsInFlight() &&

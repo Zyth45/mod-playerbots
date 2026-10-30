@@ -7,6 +7,7 @@
 #ifndef PLAYERBOTS_PLAYERBOTAI_H
 #define PLAYERBOTS_PLAYERBOTAI_H
 
+#include "CoaAltAddon.h"
 #include "Chat.h"
 #include "ChatFilter.h"
 #include "ChatHelper.h"
@@ -640,6 +641,9 @@ public:
     // Schedules a callback to run once after <delayMs> milliseconds.
     void AddTimedEvent(std::function<void()> callback, uint32 delayMs);
 
+    // What the team bar of SquidBots Lite last got from this alt (CoaAltAddon::TickTeam).
+    CoaAltAddon::TeamCache coaTeamCache;
+
 private:
     time_t lfgRejoinAt = 0;
     bool waitingForMasterRevive = false;
@@ -696,6 +700,7 @@ protected:
     bool spellInterruptRequested = false;
     uint32 coaAncestralCombatCheckedAt = 0;
     uint32 coaGearCheckedAt = 0;
+    uint32 coaTeamTimer = 0;
 };
 
 #endif

@@ -9,6 +9,8 @@
 
 #include "Common.h"
 
+#include <ctime>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -21,6 +23,15 @@ class Quest;
 namespace CoaAltAddon
 {
 constexpr uint32 PROTOCOL = 1;
+constexpr uint32 TEAM_TICK_MS = 5000;
+
+struct TeamCache
+{
+    std::string team;
+    time_t teamAt = 0;
+    uint32 hello = 0;
+    std::map<uint32, std::string> objectives;
+};
 
 struct QuestState
 {
@@ -46,6 +57,9 @@ std::string Field(std::string const& text, size_t max = 60);
 
 QuestState StateOf(Player* bot, Quest const* quest);
 void SendQuestState(PlayerbotAI* botAI, Quest const* quest);
+
+// Every TEAM_TICK_MS, alts of an owner with the addon: TEAM on a change or each minute, OBJ on a change.
+void TickTeam(PlayerbotAI* botAI, TeamCache& cache);
 
 // The prerequisites to mark rewarded so that the quest can be taken, the oldest first. False when the quest is
 // blocked by something else than its chain, or when the chain cannot be caught up (another race, a daily...).

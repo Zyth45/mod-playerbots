@@ -33,7 +33,20 @@ constexpr uint32 MAX_DEPTH = 40;
 constexpr size_t MAX_IDS = 12;
 
 std::mutex seenLock;
-std::unordered_map<uint64, time_t> seenAt;
+struct Seen
+{
+    time_t at = 0;
+    uint32 hello = 0;
+};
+std::unordered_map<uint64, Seen> seenAt;
+
+// The HELLO count of the owner: a new HELLO (login, /reload) sends the team bar and the objectives again.
+uint32 HelloCount(Player* master)
+{
+    std::lock_guard<std::mutex> guard(seenLock);
+    auto itr = seenAt.find(master->GetGUID().GetRawValue());
+    return itr == seenAt.end() ? 0 : itr->second.hello;
+}
 
 bool InLog(QuestStatus status)
 {
@@ -170,7 +183,7 @@ void MarkSeen(Player* master)
     if (!master)
         return;
     std::lock_guard<std::mutex> guard(seenLock);
-    seenAt[master->GetGUID().GetRawValue()] = time(nullptr);
+    seenAt[master->GetGUID().GetRawValue()].at = time(nullptr);
 }
 
 bool MasterHasAddon(Player* master)
@@ -179,7 +192,7 @@ bool MasterHasAddon(Player* master)
         return false;
     std::lock_guard<std::mutex> guard(seenLock);
     auto itr = seenAt.find(master->GetGUID().GetRawValue());
-    return itr != seenAt.end() && time(nullptr) - itr->second < SEEN_FOR;
+    return itr != seenAt.end() && time(nullptr) - itr->second.at < SEEN_FOR;
 }
 
 bool AddonSeen(PlayerbotAI* botAI)
@@ -233,6 +246,10 @@ bool OnAddonWhisper(Player* from, Player* receiver, std::string const& msg)
     std::replace(command.begin(), command.end(), '\t', ' ');
     if (command.rfind("HELLO", 0) == 0)
     {
+        {
+            std::lock_guard<std::mutex> guard(seenLock);
+            ++seenAt[from->GetGUID().GetRawValue()].hello;
+        }
         std::ostringstream out;
         out << "HELLO\t" << PROTOCOL << "\t" << (sPlayerbotAIConfig.catchUpQuestChains ? 1 : 0) << "\t"
             << (sPlayerbotAIConfig.altChatToAddon ? 1 : 0);
@@ -389,5 +406,92 @@ uint32 CatchUp(PlayerbotAI* botAI, Quest const* quest)
     if (AddonSeen(botAI))
         SendToMaster(botAI, "QR\t" + std::to_string(quest->GetQuestId()) + "\tcaught_up\t" + std::to_string(plan.size()));
     return plan.size();
+}
+
+void TickTeam(PlayerbotAI* botAI, TeamCache& cache)
+{
+    if (!botAI || !botAI->IsAltBot())
+        return;
+    Player* bot = botAI->GetBot();
+    Player* master = botAI->GetMaster();
+    if (!bot || !master || !master->IsInWorld() || !MasterHasAddon(master))
+        return;
+
+    uint32 const hello = HelloCount(master);
+    if (hello != cache.hello)
+    {
+        cache = TeamCache();
+        cache.hello = hello;
+    }
+
+    char const* state = "follow";
+    if (!bot->IsAlive())
+        state = "dead";
+    else if (botAI->HasStrategy("mission", BOT_STATE_NON_COMBAT))
+        state = "mission";
+    else if (bot->GetMapId() != master->GetMapId() || bot->GetDistance(master) > 100.0f)
+        state = "far";
+    else if (botAI->HasStrategy("stay", BOT_STATE_NON_COMBAT))
+        state = "stay";
+
+    uint32 const hp = static_cast<uint32>(bot->GetHealthPct() + 2.5f) / 5 * 5;
+    std::ostringstream team;
+    team << "TEAM\t" << bot->GetLevel() << "\t" << hp << "\t" << state << "\t" << bot->GetFreeInventorySpace() << "\t"
+         << bot->GetZoneId();
+    time_t const now = time(nullptr);
+    if (team.str() != cache.team || now - cache.teamAt >= MINUTE)
+    {
+        cache.team = team.str();
+        cache.teamAt = now;
+        Send(bot, master, cache.team);
+    }
+
+    std::map<uint32, std::string> seen;
+    for (uint16 slot = 0; slot < MAX_QUEST_LOG_SIZE; ++slot)
+    {
+        uint32 const questId = master->GetQuestSlotQuestId(slot);
+        Quest const* quest = questId ? sObjectMgr->GetQuestTemplate(questId) : nullptr;
+        if (!quest)
+            continue;
+
+        std::ostringstream out;
+        QuestStatus const status = bot->GetQuestStatus(questId);
+        out << "OBJ\t" << questId << "\t";
+        if (status == QUEST_STATUS_REWARDED || bot->IsQuestRewarded(questId))
+            out << "done\t";
+        else if (!InLog(status))
+            out << "none\t";
+        else
+        {
+            out << (status == QUEST_STATUS_COMPLETE ? "complete" : status == QUEST_STATUS_FAILED ? "failed" : "incomplete")
+                << "\t";
+            auto itr = bot->getQuestStatusMap().find(questId);
+            bool first = true;
+            if (itr != bot->getQuestStatusMap().end())
+            {
+                for (uint8 i = 0; i < QUEST_OBJECTIVES_COUNT; ++i)
+                    if (quest->RequiredNpcOrGoCount[i])
+                    {
+                        out << (first ? "" : ",") << std::min<uint32>(itr->second.CreatureOrGOCount[i], quest->RequiredNpcOrGoCount[i])
+                            << "/" << quest->RequiredNpcOrGoCount[i];
+                        first = false;
+                    }
+                for (uint8 i = 0; i < QUEST_ITEM_OBJECTIVES_COUNT; ++i)
+                    if (quest->RequiredItemCount[i])
+                    {
+                        out << (first ? "" : ",") << std::min<uint32>(itr->second.ItemCount[i], quest->RequiredItemCount[i])
+                            << "/" << quest->RequiredItemCount[i];
+                        first = false;
+                    }
+            }
+        }
+
+        std::string const line = out.str();
+        seen[questId] = line;
+        auto sent = cache.objectives.find(questId);
+        if (sent == cache.objectives.end() || sent->second != line)
+            Send(bot, master, line);
+    }
+    cache.objectives.swap(seen);
 }
 }  // namespace CoaAltAddon
