@@ -53,6 +53,8 @@ struct CoaMission
     uint32 prevFlags = 0;           // the non-combat strategies to give back at the end
     uint32 orderItem = 0;           // "mission order": the item ordered, and how many; 0 for a plain mission
     uint32 orderCount = 0;
+    bool risk = false;              // "mission gather ... risk": in High Risk, mails on the way, over at the first death
+    uint32 mailed = 0;              // items already mailed on the way (High Risk)
     std::string endReason;
 
     // Not saved
@@ -70,6 +72,7 @@ struct CoaMission
     uint32 nodeSinceMs = 0;
     uint32 emptyPoints = 0;
     uint32 travelFails = 0;         // trips to a spot that made no progress
+    uint32 lastMailMs = 0;
     uint32 lootClockMs = 0;         // start (or resume) of the mission: "nothing gathered for long" counts from it         // spawn points reached in a row with no node up
     std::set<ObjectGuid> skippedNodes;
 
@@ -120,6 +123,8 @@ public:
     static uint32 ReadStrategyFlags(PlayerbotAI* botAI);
 
     void Save(Player* bot);
+    // High Risk: mails now what was gathered so far; the mission goes on.
+    uint32 MailNow(Player* bot);
 
     // Hooks
     void OnLoot(Player* bot, Item* item, uint32 count, ObjectGuid lootGuid);

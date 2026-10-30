@@ -160,7 +160,7 @@ bool CoaMissionAction::Execute(Event event)
         std::string error;
         if (!item)
             botAI->TellMasterNoFacing("Usage: mission order <item link or id> [count] [minutes]");
-        else if (!Start(requester, minutes, 0, error, item, count))
+        else if (!Start(requester, minutes, 0, error, item, count, rest.find(" risk") != std::string::npos))
             botAI->TellMasterNoFacing("Order refused: " + error + ".");
         return true;
     }
@@ -183,9 +183,12 @@ bool CoaMissionAction::Execute(Event event)
 
     uint32 minutes = 0;
     uint32 skillId = 0;
+    bool risk = false;
     std::string token;
     while (in >> token)
     {
+        if (token == "risk")
+            risk = true;
         if (!token.empty() && std::all_of(token.begin(), token.end(), [](unsigned char c) { return std::isdigit(c); }))
             minutes = token.size() > 5 ? 99999 : uint32(std::stoul(token));
         else if (token == "mining" || token == "mine" || token == "ore")
@@ -195,13 +198,13 @@ bool CoaMissionAction::Execute(Event event)
     }
 
     std::string error;
-    if (!Start(requester, minutes, skillId, error))
+    if (!Start(requester, minutes, skillId, error, 0, 0, risk))
         botAI->TellMasterNoFacing("Mission refused: " + error + ".");
     return true;
 }
 
 bool CoaMissionAction::Start(Player* requester, uint32 minutes, uint32 skillId, std::string& error, uint32 orderItem,
-                             uint32 orderCount)
+                             uint32 orderCount, bool risk)
 {
     if (sCoaMissionMgr.IsOnMission(bot))
     {
@@ -220,8 +223,10 @@ bool CoaMissionAction::Start(Player* requester, uint32 minutes, uint32 skillId, 
         error = "I am in a battleground or its queue";
     else if (sLFGMgr->GetState(bot->GetGUID()) != lfg::LFG_STATE_NONE)
         error = "I am in the dungeon finder";
-    else if (bot->HasAura(MISSION_HIGH_RISK_AURA))
+    else if (bot->HasAura(MISSION_HIGH_RISK_AURA) && !sPlayerbotAIConfig.missionsHighRisk)
         error = "I am in High Risk";
+    else if (bot->HasAura(MISSION_HIGH_RISK_AURA) && !risk)
+        error = "I am in High Risk (add \"risk\" to accept: mission gather 60 risk)";
     if (!error.empty())
         return false;
 
@@ -303,6 +308,7 @@ bool CoaMissionAction::Start(Player* requester, uint32 minutes, uint32 skillId, 
     mission.orderItem = orderItem;
     mission.orderCount = orderItem ? orderCount : 0;
     mission.orderNodes = orderNodes;
+    mission.risk = bot->HasAura(MISSION_HIGH_RISK_AURA);
 
     if (!sCoaMissionMgr.Begin(bot, mission, error))
         return false;
@@ -321,19 +327,23 @@ bool CoaMissionAction::Start(Player* requester, uint32 minutes, uint32 skillId, 
     }
     sCoaMissionMgr.Save(bot);
 
+    std::string const riskLine =
+        mission.risk ? " High Risk: I mail what I gather on the way and stop at my first death." : "";
     if (orderItem)
     {
         ItemTemplate const* proto = sObjectMgr->GetItemTemplate(orderItem);
         botAI->TellMasterNoFacing("Mission started: order of " + std::to_string(orderCount) + " " +
                                   (proto ? proto->Name1 : "?") + " (" + CoaMissionMgr::SkillName(skillId) + ") in " +
                                   ZoneNameOf(cell->zoneId) + ", at most " + std::to_string(minutes) +
-                                  " min. I will mail them to you. Whisper \"mission status\" or \"mission stop\".");
+                                  " min. I will mail them to you. Whisper \"mission status\" or \"mission stop\"." +
+                                  riskLine);
         return true;
     }
 
     botAI->TellMasterNoFacing("Mission started: " + CoaMissionMgr::SkillName(skillId) + " in " +
                               ZoneNameOf(cell->zoneId) + " for " + std::to_string(minutes) +
-                              " min. I will mail you what I gather. Whisper \"mission status\" or \"mission stop\".");
+                              " min. I will mail you what I gather. Whisper \"mission status\" or \"mission stop\"." +
+                              riskLine);
     return true;
 }
 
@@ -405,6 +415,33 @@ bool CoaMissionUpdateAction::Execute(Event /*event*/)
         {
             mission.state = CoaMissionState::Deliver;
             mission.endReason = "my gathering spot is gone";
+        }
+    }
+
+    // High Risk: what was gathered goes by mail every RiskMailEvery items or RiskMailMinutes, and at once when an
+    // enemy player comes near.
+    if (mission.risk && !mission.orderItem && mission.state != CoaMissionState::Deliver && !mission.bench)
+    {
+        if (!mission.lastMailMs)
+            mission.lastMailMs = now;
+        uint32 pending = 0;
+        for (auto const& [entry, count] : mission.items)
+            pending += count;
+        bool const enemyNear = !AI_VALUE(GuidVector, "nearest enemy players").empty();
+        uint32 const since = getMSTimeDiff(mission.lastMailMs, now);
+        if (pending &&
+            ((sPlayerbotAIConfig.missionsRiskMailEvery && pending >= sPlayerbotAIConfig.missionsRiskMailEvery) ||
+             (sPlayerbotAIConfig.missionsRiskMailMinutes &&
+              since >= sPlayerbotAIConfig.missionsRiskMailMinutes * MINUTE * IN_MILLISECONDS) ||
+             (enemyNear && since >= MINUTE * IN_MILLISECONDS)))
+        {
+            uint32 const sent = sCoaMissionMgr.MailNow(bot);
+            mission.items.clear();
+            mission.mailed += sent;
+            mission.lastMailMs = now;
+            if (sent)
+                botAI->TellMasterNoFacing("Mission mail: " + std::to_string(sent) + " items sent to you (High Risk" +
+                                          (enemyNear ? ", an enemy player is near" : "") + ").");
         }
     }
 
