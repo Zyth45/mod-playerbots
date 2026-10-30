@@ -60,6 +60,10 @@ enum MoltenCoreSpells
 
     // Gehennas
     SPELL_RAIN_OF_FIRE = 19717,
+    SPELL_RAIN_OF_FIRE_COA_D0 = 2105407,  // CoA: 10 yd ground fire at the tank, 20 s (SpellDifficulty row 2104)
+    SPELL_RAIN_OF_FIRE_COA_D1 = 2105408,
+    SPELL_RAIN_OF_FIRE_COA_D2 = 2105409,
+    SPELL_RAIN_OF_FIRE_COA_D3 = 2105410,
 
     // Baron Geddon
     SPELL_INFERNO = 19695,                 // SpellDifficulty row 369: 19695/350084/350084/350084
@@ -86,6 +90,10 @@ enum MoltenCoreSpells
 constexpr uint32 MAGMADAR_LAVA_BOMB_AURAS[] = {SPELL_LAVA_BOMB_DOT, SPELL_LAVA_BOMB_COA_D0, SPELL_LAVA_BOMB_COA_D1,
                                                SPELL_LAVA_BOMB_COA_D2, SPELL_LAVA_BOMB_COA_D3};
 
+// Standing in Gehennas' Rain of Fire (stock or CoA)
+constexpr uint32 GEHENNAS_RAIN_OF_FIRE_AURAS[] = {SPELL_RAIN_OF_FIRE, SPELL_RAIN_OF_FIRE_COA_D0, SPELL_RAIN_OF_FIRE_COA_D1,
+                                                  SPELL_RAIN_OF_FIRE_COA_D2, SPELL_RAIN_OF_FIRE_COA_D3};
+
 // Aura on Baron Geddon while Inferno is active
 constexpr uint32 INFERNO_AURAS[] = {SPELL_INFERNO, SPELL_INFERNO_DIFF_1_3, SPELL_INFERNO_COA};
 
@@ -102,8 +110,9 @@ constexpr float MAGMA_SPLASH_BACK_OFF_DISTANCE = 12.0f;
 // Shazzrah's Arcane Explosion radius (stock 19712: 18 yd, CoA 2105601: 20 yd)
 constexpr float ARCANE_EXPLOSION_DISTANCE = 26.0f;
 
-// Distance kept from Gehennas' Flame Orb
-constexpr float FLAME_ORB_AVOID_DISTANCE = 8.0f;
+// Distance kept from Gehennas' Flame Orb: its pulse (2105419-22) hits everything within 20 yd
+// every 275 ms for 11 s, about 4,000 damage a second on Normal.
+constexpr float FLAME_ORB_AVOID_DISTANCE = 24.0f;
 
 template <std::size_t N>
 inline bool HasAnyAura(Unit const* unit, uint32 const (&spellIds)[N])

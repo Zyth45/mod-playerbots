@@ -75,10 +75,7 @@ private:
     }
     static Trigger* magmadar_mark(PlayerbotAI* botAI) { return new RaidKillOrderMarkTrigger(botAI, "mc magmadar mark", "magmadar"); }
     static Trigger* gehennas_mark(PlayerbotAI* botAI) { return new RaidKillOrderMarkTrigger(botAI, "mc gehennas mark", "gehennas"); }
-    static Trigger* gehennas_rain_of_fire(PlayerbotAI* botAI)
-    {
-        return new RaidGroundEffectAuraTrigger(botAI, "mc gehennas rain of fire", MoltenCoreHelpers::SPELL_RAIN_OF_FIRE);
-    }
+    static Trigger* gehennas_rain_of_fire(PlayerbotAI* botAI) { return new McGehennasRainOfFireTrigger(botAI); }
     static Trigger* gehennas_flame_orb(PlayerbotAI* botAI)
     {
         return new RaidNearCreatureTrigger(botAI, "mc gehennas flame orb", MoltenCoreHelpers::NPC_COA_GEHENNAS_FLAME_ORB,
