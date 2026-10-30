@@ -21,6 +21,13 @@ public:
     bool Execute(Event event) override;
     void Sell(FindItemVisitor* visitor);
     void Sell(Item* item);
+
+private:
+    void TellSummary();
+
+    bool batch = false;
+    uint32 soldCount = 0;
+    uint32 soldMoney = 0;
 };
 
 #endif
