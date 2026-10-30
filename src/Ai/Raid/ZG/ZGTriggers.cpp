@@ -14,3 +14,18 @@ bool BloodlordMandokirThreateningGazeTrigger::IsActiveInEncounter()
 {
     return (bot->GetVictim() || bot->IsNonMeleeSpellCast(false)) && IsGazedByMandokir(bot);
 }
+
+bool HakkarBloodScytheTrigger::IsActiveInEncounter()
+{
+    Unit* boss = AI_VALUE2(Unit*, "find target", "hakkar");
+    if (!boss || !boss->IsAlive() || boss->GetVictim() == bot)
+        return false;
+
+    return bot->GetDistance2d(boss) < HAKKAR_SCYTHE_DANGER_RANGE && boss->HasInArc(HAKKAR_SCYTHE_DANGER_ARC, bot);
+}
+
+bool HakkarBloodPoolTrigger::IsActiveInEncounter()
+{
+    return bot->HasAura(static_cast<uint32>(ZulGurubSpells::SPELL_POOL_OF_CORRUPTED_BLOOD)) ||
+           bot->HasAura(static_cast<uint32>(ZulGurubSpells::SPELL_POOL_OF_POISONED_BLOOD));
+}

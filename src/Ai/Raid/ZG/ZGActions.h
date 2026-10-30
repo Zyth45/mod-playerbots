@@ -8,6 +8,7 @@
 #define PLAYERBOTS_ZGACTIONS_H
 
 #include "Action.h"
+#include "MovementActions.h"
 
 class BloodlordMandokirStopCausingThreatAction : public Action
 {
@@ -17,6 +18,14 @@ public:
     {
     }
 
+    bool Execute(Event event) override;
+};
+
+// Hakkar: out of Blood Scythe's cone to his nearer flank, at the same distance (melee stay in melee).
+class HakkarAvoidBloodScytheAction : public MovementAction
+{
+public:
+    HakkarAvoidBloodScytheAction(PlayerbotAI* botAI) : MovementAction(botAI, "hakkar avoid blood scythe") {}
     bool Execute(Event event) override;
 };
 

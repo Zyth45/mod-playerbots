@@ -92,6 +92,11 @@ bool McGolemaggIsHealerTrigger::IsActive()
     return PlayerbotAI::IsHeal(bot) && AI_VALUE2(Unit*, "find target", "golemagg the incinerator");
 }
 
+bool McGehennasRainOfFireTrigger::IsActive()
+{
+    return HasAnyAura(bot, GEHENNAS_RAIN_OF_FIRE_AURAS);
+}
+
 bool McMagmadarLavaBombTrigger::IsActive()
 {
     return HasAnyAura(bot, MAGMADAR_LAVA_BOMB_AURAS);

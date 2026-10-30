@@ -24,6 +24,11 @@ bool IsThekalTrioMember(uint32 entry)
 
 void RaidZulGurubStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
 {
+    // Hakkar
+    triggers.push_back(new TriggerNode("hakkar mark", { NextAction("hakkar mark", ACTION_RAID) }));
+    triggers.push_back(new TriggerNode("hakkar blood scythe", { NextAction("hakkar avoid blood scythe", ACTION_RAID + 1) }));
+    triggers.push_back(new TriggerNode("hakkar blood pool", { NextAction("hakkar move from blood pool", ACTION_RAID + 1) }));
+
     // Bloodlord Mandokir
     triggers.push_back(new TriggerNode("bloodlord mandokir threatening gaze",
         { NextAction("bloodlord mandokir stop causing threat", ACTION_EMERGENCY + 6) }));
@@ -44,8 +49,17 @@ void RaidZulGurubStrategy::AppendTargetExclusions(GuidSet& exclusions, TargetVal
     if (!EncounterHelpers::IsEncounterInProgress(bot, ZG_MAP_ID))
         return;
 
-    // Thekal's first phase: a low member of the trio is left alone while another is still high.
+    // CoA Will of Hakkar: the controlled player absorbs everything for 15 s; damage on it is wasted.
     AiObjectContext* context = botAI->GetAiObjectContext();
+    for (ObjectGuid const guid : AI_VALUE(GuidVector, "attackers"))
+    {
+        Unit* unit = botAI->GetUnit(guid);
+        if (unit && (unit->HasAura(static_cast<uint32>(ZulGurubSpells::SPELL_WILL_OF_HAKKAR_CONTROL)) ||
+                     unit->HasAura(static_cast<uint32>(ZulGurubSpells::SPELL_WILL_OF_HAKKAR_SHIELD))))
+            exclusions.insert(guid);
+    }
+
+    // Thekal's first phase: a low member of the trio is left alone while another is still high.
     std::vector<Unit*> trio;
     for (ObjectGuid const guid : AI_VALUE(GuidVector, "attackers"))
     {

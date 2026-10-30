@@ -29,6 +29,26 @@ protected:
     virtual bool IsActiveInEncounter() = 0;
 };
 
+// Hakkar: a bot that is not his victim stands in front of him, in reach of Blood Scythe.
+class HakkarBloodScytheTrigger : public ZulGurubEncounterTrigger
+{
+public:
+    HakkarBloodScytheTrigger(PlayerbotAI* botAI) : ZulGurubEncounterTrigger(botAI, "hakkar blood scythe") {}
+
+protected:
+    bool IsActiveInEncounter() override;
+};
+
+// Hakkar: standing in a Pool of Corrupted Blood or of Poisoned Blood.
+class HakkarBloodPoolTrigger : public ZulGurubEncounterTrigger
+{
+public:
+    HakkarBloodPoolTrigger(PlayerbotAI* botAI) : ZulGurubEncounterTrigger(botAI, "hakkar blood pool") {}
+
+protected:
+    bool IsActiveInEncounter() override;
+};
+
 class BloodlordMandokirThreateningGazeTrigger : public ZulGurubEncounterTrigger
 {
 public:
