@@ -30,6 +30,8 @@ public:
 
 private:
     Creature* GetCreatureTarget();
+    // The owner's target, else the trainer of its open gossip, else the only trainer within reach of it.
+    Creature* InteractionTrainer();
     void Iterate(Creature* creature, bool learnSpells, uint32 spellId, bool addon);
     bool Learn(SpellInfo const* spellInfo, uint32 cost, std::ostringstream& out);
     void TellHeader(Creature* creature);

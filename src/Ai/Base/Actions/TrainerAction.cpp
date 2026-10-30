@@ -14,6 +14,8 @@
 #include "Playerbots.h"
 #include "ReputationMgr.h"
 #include "Trainer.h"
+#include "GossipDef.h"
+#include "ObjectAccessor.h"
 #include "CoaReborn.h"
 #include "CoaAltAddon.h"
 
@@ -53,15 +55,47 @@ bool TrainerAction::Execute(Event event)
     return true;
 }
 
+Creature* TrainerAction::InteractionTrainer()
+{
+    auto usable = [this](Creature* npc)
+    { return npc && npc->IsInWorld() && npc->IsAlive() && npc->IsTrainer() && TrainerOf(npc, bot); };
+
+    Creature* target = GetCreatureTarget();
+    if (usable(target))
+        return target;
+
+    Player* master = GetMaster();
+    if (!master)
+        return nullptr;
+
+    // The window the owner has open: its gossip page (Book of Artisans), else the one trainer at arm's length.
+    ObjectGuid const sender = master->PlayerTalkClass->GetGossipMenu().GetSenderGUID();
+    if (sender.IsCreature())
+        if (Creature* npc = ObjectAccessor::GetCreature(*master, sender); usable(npc))
+            return npc;
+
+    Creature* nearby = nullptr;
+    for (ObjectGuid const& guid : AI_VALUE(GuidVector, "nearest npcs"))
+    {
+        Creature* npc = botAI->GetCreature(guid);
+        if (!usable(npc) || master->GetDistance(npc) > INTERACTION_DISTANCE)
+            continue;
+        if (nearby)
+            return nullptr;
+        nearby = npc;
+    }
+    return nearby;
+}
+
 bool TrainerAction::RunForAddon(bool learnSpells, uint32 spellId)
 {
-    Creature* target = GetCreatureTarget();
-    if (!target || !target->IsTrainer() || !TrainerOf(target, bot))
+    Creature* target = InteractionTrainer();
+    if (!target)
     {
         if (CoaAltAddon::AddonSeen(botAI))
-            CoaAltAddon::SendToMaster(botAI, "T_END\t0\t0\t" + std::to_string(bot->GetMoney()));
+            CoaAltAddon::SendToMaster(botAI, "T_ERR\tno_trainer");
         else
-            botAI->TellMaster("Target a trainer first.");
+            botAI->TellMaster("No trainer: target one or talk to it first.");
         return false;
     }
 
