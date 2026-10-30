@@ -284,6 +284,9 @@ public:
 
     std::string const Format() override;
     Unit* Get() override;
+
+private:
+    ObjectGuid guid;
 };
 
 class CDPairCalculatedValue : public CalculatedValue<CreatureData const*>
@@ -351,6 +354,11 @@ public:
 
     std::string const Format() override;
     Unit* Get() override;
+    void Set(Unit* val) override;
+    void Reset() override;
+
+private:
+    ObjectGuid guid;
 };
 
 class DisperseDistanceValue : public ManualSetValue<float>
