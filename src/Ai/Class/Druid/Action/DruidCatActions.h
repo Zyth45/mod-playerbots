@@ -34,6 +34,7 @@ class CastCowerAction : public CastBuffSpellAction
 {
 public:
     CastCowerAction(PlayerbotAI* botAI) : CastBuffSpellAction(botAI, "cower") {}
+    bool isUseful() override;
 };
 
 class CastBerserkAction : public CastBuffSpellAction

@@ -22,7 +22,12 @@ bool InvalidTargetValue::Calculate()
                target->HasUnitFlag(UNIT_FLAG_NON_ATTACKABLE) || target->HasUnitFlag(UNIT_FLAG_NON_ATTACKABLE_2) ||
                // A feared creature is hit like any other: the bots dropped it as their target and let
                // it run, and CoA puts fear on many rotations (reported in game, 27/09).
-               !target->IsVisible() || !target->IsAlive() || target->IsPolymorphed() || target->IsCharmed() ||
+               !target->IsVisible() || !target->IsAlive() || target->IsPolymorphed() ||
+               // Only a mind-controlled teammate (same raid or same original team) is off limits; enemy charmed
+               // units can be fought.
+               (target->IsCharmed() && target->IsPlayer() &&
+                (bot->IsInSameRaidWith(target->ToPlayer()) ||
+                 target->ToPlayer()->GetTeamId(true) == bot->GetTeamId(true))) ||
                target->HasUnitState(UNIT_STATE_ISOLATED) || target->IsFriendlyTo(bot) ||
                !(sPlayerbotAIConfig.coaKeepTargetOutOfSight ? AttackersValue::IsPossibleTarget(target, bot)
                                                              : AttackersValue::IsValidTarget(target, bot));
