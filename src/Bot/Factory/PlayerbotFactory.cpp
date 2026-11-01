@@ -2990,7 +2990,7 @@ void PlayerbotFactory::InitEquipment(bool incremental, bool second_chance, int32
 
                         int32 bestRandomProp = 0;
                         if (proto->RandomProperty || proto->RandomSuffix)
-                            bestRandomProp = sPlayerbotAIConfig->gearRollRandomSuffix
+                            bestRandomProp = sPlayerbotAIConfig.gearRollRandomSuffix
                                                  ? Item::GenerateItemRandomPropertyId(itemId)
                                                  : calculator.PickBestRandomPropertyId(itemId);
                         items[slot].push_back({itemId, bestRandomProp});
