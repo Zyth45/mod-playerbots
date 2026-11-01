@@ -5096,7 +5096,10 @@ bool PlayerbotAI::HasAuraToDispel(Unit* target, uint32 dispelType)
     if (!IsValidPlayer(bot))
         return false;
 
-    bool isFriend = bot->IsFriendlyTo(target);
+    // A group member under an enemy's mind control (Dominate Mind 20604 at Lucifron, 14515 in Razorgore's room)
+    // is still dispelled as a friend, as the core does (Unit::GetDispellableAuraList, original faction).
+    bool isFriend =
+        bot->IsFriendlyTo(target) || (target->IsCharmed() && target->GetReactionTo(bot, true) >= REP_FRIENDLY);
 
     Unit::VisibleAuraMap const* visibleAuras = target->GetVisibleAuras();
     if (!visibleAuras)
