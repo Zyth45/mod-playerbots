@@ -54,6 +54,7 @@ bool AcceptInvitationAction::Execute(Event /*event*/)
     {
         CoaLeaveBattlegroundQueues(bot);
         CoaDropForeignInstanceBinds(bot, inviter);
+        CoaAnnounceJoin(bot, inviter);
     }
 
     if (sRandomPlayerbotMgr.IsRandomBot(bot))

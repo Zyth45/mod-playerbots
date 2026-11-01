@@ -168,6 +168,9 @@ uint8 FindCoaClass(std::string const& name);
 
 // Recruits a free random bot for the role, of that class when classId is not 0.
 bool RecruitCoaBot(Player* master, CoaRole role, std::string& message, uint8 classId = 0);
+// A CoA bot that joined the player's group by an invitation tells the player its role, as a recruit does
+// (SquidBots Lite reads "<name> joins as <role>" to know a bot and its specialization).
+void CoaAnnounceJoin(Player* bot, Player* master);
 
 // Turns the master's group into a raid of `size` (25 when 0, 6 to 40) filled with recruited bots:
 // `tanks` tanks and `heals` healers (from the size when 0: 3 and 6 for 25), the rest damage dealers,

@@ -777,6 +777,12 @@ std::string SpecName(Player* bot)
     return std::to_string(GetAscensionActiveSpecialization(bot));
 }
 
+std::string JoinsAsText(Player* bot, CoaRole role)
+{
+    return bot->GetName() + " joins as " + RoleName(role) + " (specialization " + SpecName(bot) + ", level " +
+           std::to_string(bot->GetLevel()) + ").";
+}
+
 // Moves the bot to a tree of the role and takes that tree's build at its level.
 bool SwitchStockSpec(Player* bot, CoaRole role)
 {
@@ -1177,9 +1183,15 @@ bool RecruitCoaBot(Player* master, CoaRole role, std::string& message, uint8 cla
              master->GetName(), chosen->GetName(), chosen->getClass(), chosen->GetLevel(),
              GetAscensionActiveSpecialization(chosen), RoleName(role));
 
-    message = chosen->GetName() + " joins as " + RoleName(role) + " (specialization " + SpecName(chosen) +
-              ", level " + std::to_string(chosen->GetLevel()) + ").";
+    message = JoinsAsText(chosen, role);
     return true;
+}
+
+void CoaAnnounceJoin(Player* bot, Player* master)
+{
+    if (!bot || !master || !master->GetSession() || !IsAscensionCustomClassId(bot->getClass()))
+        return;
+    ChatHandler(master->GetSession()).SendSysMessage(JoinsAsText(bot, GetCoaRole(bot)));
 }
 
 bool RecruitCoaRaid(Player* master, uint32 size, uint32 tanks, uint32 heals, std::string& message)
