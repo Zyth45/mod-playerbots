@@ -710,6 +710,14 @@ bool PlayerbotAIConfig::Initialize()
     randomBotXPRate = sConfigMgr->GetOption<float>("AiPlayerbot.RandomBotXPRate", 1.0);
     randomBotAllianceRatio = sConfigMgr->GetOption<int32>("AiPlayerbot.RandomBotAllianceRatio", 50);
     randomBotHordeRatio = sConfigMgr->GetOption<int32>("AiPlayerbot.RandomBotHordeRatio", 50);
+    // Both at 0 divides by zero when the random bots are added (RandomPlayerbotMgr) and stops the server.
+    if (!randomBotAllianceRatio && !randomBotHordeRatio)
+    {
+        LOG_ERROR("server.loading",
+                  "AiPlayerbot.RandomBotAllianceRatio and AiPlayerbot.RandomBotHordeRatio are both 0. Using 50/50.");
+        randomBotAllianceRatio = 50;
+        randomBotHordeRatio = 50;
+    }
     disableDeathKnightLogin = sConfigMgr->GetOption<bool>("AiPlayerbot.DisableDeathKnightLogin", 0);
     limitTalentsExpansion = sConfigMgr->GetOption<bool>("AiPlayerbot.LimitTalentsExpansion", 0);
     botActiveAlone = sConfigMgr->GetOption<int32>("AiPlayerbot.BotActiveAlone", 10);
