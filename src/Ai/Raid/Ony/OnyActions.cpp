@@ -118,7 +118,7 @@ bool RaidOnyxiaKillWhelpsAction::Execute(Event /*event*/)
 {
     Unit* currentTarget = AI_VALUE(Unit*, "current target");
     // If already attacking a whelp, don't swap targets
-    if (currentTarget && currentTarget->GetEntry() == 11262)
+    if (OnyxiaHelpers::IsOnyxianWhelp(currentTarget))
     {
         return false;
     }
@@ -129,13 +129,19 @@ bool RaidOnyxiaKillWhelpsAction::Execute(Event /*event*/)
         if (!unit || !unit->IsAlive() || !unit->IsInWorld())
             continue;
 
-        if (unit->GetEntry() == 11262)  // Onyxia Whelp
+        if (OnyxiaHelpers::IsOnyxianWhelp(unit))
         {
             // bot->Yell("Attacking Whelps!", LANG_UNIVERSAL);
             return Attack(unit);
         }
     }
     return false;
+}
+
+bool OnyxiaStopAttackAction::Execute(Event /*event*/)
+{
+    bot->InterruptSpell(CURRENT_AUTOREPEAT_SPELL);
+    return bot->AttackStop();
 }
 
 bool OnyxiaAvoidEggsAction::Execute(Event /*event*/)

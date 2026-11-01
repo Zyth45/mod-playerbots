@@ -5,10 +5,11 @@
  */
 
 #include "OnyStrategy.h"
+#include "OnyMultipliers.h"
 
 void RaidOnyxiaStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
 {
-    // ----------- Phase 1 (100% - 65%) -----------
+    // ----------- Phase 1 (100% - 85% on CoA) -----------
 
     triggers.push_back(new TriggerNode(
         "ony near tail", { NextAction("ony move to side", ACTION_RAID + 2) }));
@@ -16,7 +17,7 @@ void RaidOnyxiaStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
     triggers.push_back(new TriggerNode(
         "ony avoid eggs", { NextAction("ony avoid eggs move", ACTION_EMERGENCY + 5) }));
 
-    // ----------- Phase 2 (65% - 40%) -----------
+    // ----------- Phase 2 (85% - 35% on CoA) -----------
 
     triggers.push_back(
         new TriggerNode("ony deep breath warning",
@@ -28,9 +29,14 @@ void RaidOnyxiaStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
 
     triggers.push_back(new TriggerNode(
         "ony whelps spawn", { NextAction("ony kill whelps", ACTION_RAID + 1) }));
+
+    // ----------- Phase 3 (35% - 0% on CoA) -----------
+
+    triggers.push_back(new TriggerNode(
+        "ony phase three threat hold", { NextAction("ony stop attack", ACTION_RAID + 2) }));
 }
 
-void RaidOnyxiaStrategy::InitMultipliers(std::vector<Multiplier*>& /*multipliers*/)
+void RaidOnyxiaStrategy::InitMultipliers(std::vector<Multiplier*>& multipliers)
 {
-    // Empty for now
+    multipliers.push_back(new OnyxiaPhaseThreeThreatMultiplier(botAI));
 }

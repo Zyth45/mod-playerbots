@@ -20,6 +20,7 @@ public:
         creators["ony fireball splash incoming"] = &RaidOnyxiaTriggerContext::fireball_splash;
         creators["ony whelps spawn"] = &RaidOnyxiaTriggerContext::whelps_spawn;
         creators["ony avoid eggs"] = &RaidOnyxiaTriggerContext::avoid_eggs;
+        creators["ony phase three threat hold"] = &RaidOnyxiaTriggerContext::phase_three_threat_hold;
     }
 
 private:
@@ -28,6 +29,7 @@ private:
     static Trigger* fireball_splash(PlayerbotAI* ai) { return new RaidOnyxiaFireballSplashTrigger(ai); }
     static Trigger* whelps_spawn(PlayerbotAI* ai) { return new RaidOnyxiaWhelpsSpawnTrigger(ai); }
     static Trigger* avoid_eggs(PlayerbotAI* ai) { return new OnyxiaAvoidEggsTrigger(ai); }
+    static Trigger* phase_three_threat_hold(PlayerbotAI* ai) { return new OnyxiaPhaseThreeThreatHoldTrigger(ai); }
 };
 
 #endif
