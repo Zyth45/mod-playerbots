@@ -138,4 +138,20 @@ namespace BlackwingLairHelpers
             entry == static_cast<uint32>(BlackwingLairNPCs::NPC_CORRUPTED_BLUE_WHELP) ||
             entry == static_cast<uint32>(BlackwingLairNPCs::NPC_CORRUPTED_BRONZE_WHELP);
     }
+
+    bool IsNefarianDoNotAttackTarget(Unit const* unit)
+    {
+        if (!unit)
+            return false;
+
+        if (unit->GetEntry() == static_cast<uint32>(BlackwingLairNPCs::NPC_SHADOW_CLONE_COA) &&
+            unit->GetTypeId() == TYPEID_UNIT)
+            return true;
+
+        if (unit->GetTypeId() != TYPEID_PLAYER || !unit->IsCharmed())
+            return false;
+
+        Unit const* charmer = unit->GetCharmer();
+        return charmer && charmer->GetEntry() == static_cast<uint32>(BlackwingLairNPCs::NPC_LORD_VICTOR_NEFARIUS);
+    }
 }
