@@ -667,6 +667,13 @@ AiPlayerbot.RandomBotTransmogPercent = 50
 # Default: 10
 AiPlayerbot.RandomBotTransmogMinLevel = 10
 
+# Random property and random suffix of the gear given to bots ("of the Bear", "of the Eagle"...).
+# By default each item takes the property or suffix that scores best for the bot's spec, so bots of the same
+# spec show the same suffix on every item. Enable to roll it like a looted item instead: more variety (useful with
+# custom suffix pools), slightly weaker bots. Applies to every gear the factory gives (random bots, autogear).
+# Default: 0 (best for the spec)
+AiPlayerbot.GearRollRandomSuffix = 0
+
 # If 1 (enabled) chat command: autogear bis, gives bots BiS gear from the playerbots_bis_gear table
 # whose item-level floor matches AutoGearScoreLimit (e.g. 290 = ICC, 245 = ToC,
 # 125 = Kara, 78 = MC). See the AutoGearScoreLimit comment below for the full list.
