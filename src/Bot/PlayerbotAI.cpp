@@ -386,6 +386,12 @@ void PlayerbotAI::UpdateAI(uint32 elapsed, bool minimal)
         bot->CleanupAfterTaxiFlight();
     }
 
+    // Bots send no movement opcodes, so m_lastFallZ stays frozen and Player::IsFalling() (a Z test
+    // against it) blocks LFG teleports and other "falling" checks. Unit::IsFalling() is the flag test, so
+    // real falls keep theirs.
+    if (!bot->Unit::IsFalling())
+        bot->SetFallInformation(0, bot->GetPositionZ());
+
     // Handle cheat options (set bot health and power if cheats are enabled)
     if (bot->IsAlive() &&
         (static_cast<uint32>(GetCheat()) > 0 || static_cast<uint32>(sPlayerbotAIConfig.botCheatMask) > 0))
