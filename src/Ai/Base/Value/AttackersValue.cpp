@@ -45,7 +45,7 @@ GuidVector AttackersValue::Calculate()
     {
         ObjectGuid skullGuid = group->GetTargetIcon(7);
         Unit* skullTarget = botAI->GetUnit(skullGuid);
-        if (skullTarget && IsValidTarget(skullTarget, bot))
+        if (skullTarget && IsValidTarget(skullTarget, bot) && IsMarkedTargetAllowed(skullTarget, bot))
             targets.insert(skullTarget);
     }
 
@@ -289,6 +289,31 @@ bool AttackersValue::IsPossibleTarget(Unit* attacker, Player* bot, float /*range
 bool AttackersValue::IsValidTarget(Unit* attacker, Player* bot)
 {
     return IsPossibleTarget(attacker, bot) && bot->IsWithinLOSInMap(attacker);
+}
+
+// CoA: Manastorm puts the skull on each floor's boss (Manastorm.Objective.RaidSkull), about 50 yd from the entrance,
+// in sight, behind its guards and the dungeon's own packs. That skull is no pull order until someone of the group
+// fights the boss: the bots ran alone onto it through the packs and died, floor after floor (issue #59, Discord 01/11).
+bool AttackersValue::IsMarkedTargetAllowed(Unit* target, Player* bot)
+{
+    if (!target || !bot->GetMap()->IsScriptedPrivateInstance())
+        return true;
+
+    if (Unit* victim = target->GetVictim())
+        if (Player* owner = victim->GetCharmerOrOwnerPlayerOrPlayerItself())
+            if (owner == bot || bot->IsInSameRaidWith(owner))
+                return true;
+
+    if (target->IsEngagedBy(bot))
+        return true;
+
+    if (Group* group = bot->GetGroup())
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+            if (Player* member = ref->GetSource())
+                if (member->IsInWorld() && member->GetMapId() == bot->GetMapId() && target->IsEngagedBy(member))
+                    return true;
+
+    return false;
 }
 
 bool PossibleAddsValue::Calculate()

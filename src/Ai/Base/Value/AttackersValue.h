@@ -23,6 +23,7 @@ public:
     GuidVector Calculate();
     static bool IsPossibleTarget(Unit* attacker, Player* bot, float range = sPlayerbotAIConfig.sightDistance);
     static bool IsValidTarget(Unit* attacker, Player* bot);
+    static bool IsMarkedTargetAllowed(Unit* target, Player* bot);
 
 private:
     void AddAttackersOf(Group* group, std::unordered_set<Unit*>& targets);

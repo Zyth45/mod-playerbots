@@ -64,6 +64,9 @@ Unit* RtiTargetValue::Calculate()
                                              sPlayerbotAIConfig.sightDistance))
         return nullptr;
 
+    if (!AttackersValue::IsMarkedTargetAllowed(unit, bot))
+        return nullptr;
+
     // Also prevent chasing raid icon targets that are too far away from the master,
     // even if they are technically visible to the bot.
     if (Player* master = botAI->GetMaster())
