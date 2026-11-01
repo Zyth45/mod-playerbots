@@ -58,4 +58,32 @@ public:
     bool IsActive() override;
 };
 
+class Aq40SkeramTargetTrigger : public Trigger
+{
+public:
+    Aq40SkeramTargetTrigger(PlayerbotAI* botAI) : Trigger(botAI, "aq40 skeram target") {}
+    bool IsActive() override;
+};
+
+class Aq40SkeramHoldTrigger : public Trigger
+{
+public:
+    Aq40SkeramHoldTrigger(PlayerbotAI* botAI) : Trigger(botAI, "aq40 skeram hold") {}
+    bool IsActive() override;
+};
+
+class Aq40SkeramPsychicShockTrigger : public Trigger
+{
+public:
+    Aq40SkeramPsychicShockTrigger(PlayerbotAI* botAI) : Trigger(botAI, "aq40 skeram psychic shock") {}
+    bool IsActive() override;
+};
+
+class Aq40SkeramGazeSpreadTrigger : public Trigger
+{
+public:
+    Aq40SkeramGazeSpreadTrigger(PlayerbotAI* botAI) : Trigger(botAI, "aq40 skeram gaze spread") {}
+    bool IsActive() override;
+};
+
 #endif

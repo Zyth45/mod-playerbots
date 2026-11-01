@@ -35,16 +35,45 @@ void RaidAq40Strategy::InitTriggers(std::vector<TriggerNode*>& triggers)
 
     triggers.push_back(new TriggerNode(
         "aq40 cthun position", { NextAction("aq40 cthun move to spot", ACTION_MOVE + 5) }));
+
+    // ----------- The Prophet Skeram (CoA) -----------
+
+    triggers.push_back(new TriggerNode(
+        "aq40 skeram psychic shock", { NextAction("aq40 skeram avoid psychic shock", ACTION_EMERGENCY + 3) }));
+
+    triggers.push_back(new TriggerNode(
+        "aq40 skeram hold", { NextAction("aq40 skeram stop attack", ACTION_RAID + 2) }));
+
+    triggers.push_back(new TriggerNode(
+        "aq40 skeram target", { NextAction("aq40 skeram attack", ACTION_RAID + 1) }));
+
+    // Below critical heals.
+    triggers.push_back(new TriggerNode(
+        "aq40 skeram gaze spread", { NextAction("aq40 skeram gaze spread", ACTION_HIGH + 5) }));
 }
 
 void RaidAq40Strategy::InitMultipliers(std::vector<Multiplier*>& multipliers)
 {
     multipliers.push_back(new Aq40CthunMultiplier(botAI));
+    multipliers.push_back(new Aq40SkeramMultiplier(botAI));
 }
 
 void RaidAq40Strategy::AppendTargetExclusions(GuidSet& exclusions, TargetValueExclusionType type)
 {
     Player* bot = botAI->GetBot();
+
+    // Skeram and his images behind the Nightmare Veil, or while a worshipper
+    // is too low to take a quarter of the damage.
+    if (IsSkeramEncounter(bot))
+    {
+        bool const hold =
+            type == TargetValueExclusionType::DpsTarget && !PlayerbotAI::IsTank(bot) && ShouldHoldOnSkeram(bot);
+        if (hold || IsSkeramVeiled(bot))
+            for (Creature* copy : GetSkeramUnits(bot, NPC_SKERAM))
+                exclusions.insert(copy->GetGUID());
+        return;
+    }
+
     if (!IsCthunEncounter(bot))
         return;
 

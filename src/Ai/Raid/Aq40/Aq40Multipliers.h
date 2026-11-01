@@ -16,4 +16,11 @@ public:
     float GetValue(Action* action) override;
 };
 
+class Aq40SkeramMultiplier : public Multiplier
+{
+public:
+    Aq40SkeramMultiplier(PlayerbotAI* botAI) : Multiplier(botAI, "aq40 skeram") {}
+    float GetValue(Action* action) override;
+};
+
 #endif

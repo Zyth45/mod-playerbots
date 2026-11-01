@@ -16,8 +16,9 @@ class Player;
 class Unit;
 
 // Temple of Ahn'Qiraj as Conquest of Azeroth runs it (mod-coa-raid-difficulty,
-// boss_cthun_coa.cpp). Only C'Thun is handled: the CoA Twin Emperors are a
-// different fight from stock and are left to the generic strategies.
+// boss_cthun_coa.cpp, boss_skeram_coa.cpp). Only C'Thun and Skeram are handled:
+// the CoA Twin Emperors are a different fight from stock and are left to the
+// generic strategies.
 namespace Aq40Helpers
 {
 inline constexpr uint32 AQ40_MAP_ID = 531;
@@ -47,6 +48,10 @@ enum Aq40Spells : uint32
     SPELL_FORCE_SHIELD = 2117102,                // phase 2, -99% damage taken
     SPELL_WEAKENING = 2117107,                   // both Flesh Tentacles dead, 30s
     SPELL_DEVOURS = 2117117,                     // the mouth hunts this player
+
+    SPELL_PHOBIA_FIRST = 2116000,                // Skeram: + phobia 0..4, one per trapped player
+    SPELL_NIGHTMARE_VEIL = 2116045,              // Skeram and his images, immune while a nightmare stands
+    SPELL_WORSHIP = 2116048,                     // True Fulfillment: 25% of his damage taken goes here
 };
 
 // Area triggers a client fires and a server bot has to send itself
@@ -79,6 +84,23 @@ inline constexpr float CTHUN_FAR_CLAW = 20.0f;       // a Giant Claw farther fro
 inline constexpr float GLARE_HALF_WIDTH = 8.0f;      // the glare hits within 5 yd of its line, plus a margin
 inline constexpr int GLARE_LOOKAHEAD_TICKS = 3;
 
+// ---- The Prophet Skeram ------------------------------------------------------
+// Living Nightmare traps every player at once: each gets a phobia aura and is
+// moved to its phase, where only the creatures of that phobia (one entry per
+// phobia) stand; Skeram and his images, veiled, stand in all of them. A phobia
+// whose creatures are all dead wakes its players; 60s later the rest wake insane.
+inline constexpr uint32 NPC_SKERAM = 15263;              // his images share the entry, as summons
+inline constexpr uint32 NPC_NIGHTMARE_FIRST = 9780024;   // + phobia: Murloc, Spider, Bee, Cat, Monstrosity
+inline constexpr uint32 NPC_SKERAM_SHOCK_SPOT = 12999;   // World Trigger he summons under a Psychic Shock
+inline constexpr int32 SKERAM_PHOBIAS = 5;
+
+inline constexpr float SKERAM_SEARCH_RANGE = 120.0f;
+inline constexpr float SHOCK_CLEAR_DISTANCE = 5.0f;      // Psychic Shock hits within 2 yd of its spot
+inline constexpr float GAZE_SPREAD_DISTANCE = 6.0f;      // Maddening Gaze also hits within 5 yd of its target
+// True Fulfillment is recast every 25s and lasts 30s, so someone nearly always
+// worships him: damage stops only while a worshipper is this low.
+inline constexpr float WORSHIP_HOLD_PCT = 50.0f;
+
 bool IsInAq40(Player* bot);
 Creature* GetEye(Player* bot);
 Creature* GetCthun(Player* bot);
@@ -110,6 +132,20 @@ Unit* GetEldritchCaster(Player* bot);
 bool ShouldLeaveStomach(Player* bot);
 Unit* ChooseCthunTarget(Player* bot);
 Player* GetDevourPreyNear(Player* bot);
+
+// The real Skeram (not an image), found once per instance and kept.
+Creature* GetSkeram(Player* bot);
+bool IsSkeramEncounter(Player* bot);
+bool IsSkeram(Unit const* unit);
+bool IsSkeramVeiled(Player* bot);
+// Living units of `entry` around Skeram, refreshed at most twice a second per instance.
+std::vector<Creature*> GetSkeramUnits(Player* bot, uint32 entry);
+// The bot's phobia (0..4), or -1 when it is not trapped.
+int32 GetPhobia(Unit const* unit);
+bool ShouldHoldOnSkeram(Player* bot);
+Unit* ChooseSkeramTarget(Player* bot);
+Creature* GetPsychicShockSpotNear(Player* bot);
+bool ShouldSpreadFromGaze(Player* bot);
 }  // namespace Aq40Helpers
 
 #endif

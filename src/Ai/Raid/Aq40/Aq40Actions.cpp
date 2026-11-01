@@ -129,3 +129,30 @@ bool Aq40CthunAttackAction::Execute(Event /*event*/)
         return false;
     return Attack(target);
 }
+
+bool Aq40SkeramAttackAction::Execute(Event /*event*/)
+{
+    Unit* target = ChooseSkeramTarget(bot);
+    if (!target || target == AI_VALUE(Unit*, "current target"))
+        return false;
+    return Attack(target);
+}
+
+bool Aq40SkeramStopAttackAction::Execute(Event /*event*/)
+{
+    // The exclusions and the multiplier keep the bot from re-engaging.
+    return bot->AttackStop();
+}
+
+bool Aq40SkeramAvoidPsychicShockAction::Execute(Event /*event*/)
+{
+    Creature* spot = GetPsychicShockSpotNear(bot);
+    if (!spot)
+        return false;
+    return FleePosition(spot->GetPosition(), SHOCK_CLEAR_DISTANCE, 500, MovementPriority::MOVEMENT_FORCED);
+}
+
+bool Aq40SkeramGazeSpreadAction::Execute(Event /*event*/)
+{
+    return MoveFromGroup(GAZE_SPREAD_DISTANCE + 1.0f);
+}

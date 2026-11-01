@@ -10,6 +10,7 @@
 #include "ObjectAccessor.h"
 #include "Playerbots.h"
 #include "Spell.h"
+#include "TemporarySummon.h"
 #include "Timer.h"
 #include <algorithm>
 #include <array>
@@ -591,6 +592,216 @@ Player* GetDevourPreyNear(Player* bot)
             return member;
     }
     return nullptr;
+}
+
+// ---- The Prophet Skeram -----------------------------------------------------
+
+Creature* GetSkeram(Player* bot)
+{
+    struct SkeramCache
+    {
+        ObjectGuid guid;
+        uint32 searchedAt = 0;
+    };
+    thread_local std::unordered_map<uint32, SkeramCache> caches;
+
+    if (!IsInAq40(bot))
+        return nullptr;
+    SkeramCache& cache = caches[bot->GetInstanceId()];
+    if (!cache.guid.IsEmpty())
+        if (Creature* skeram = ObjectAccessor::GetCreature(*bot, cache.guid))
+            return skeram;
+
+    // Searched only by bots in combat, and at most twice a second per instance.
+    if (!bot->IsInCombat())
+        return nullptr;
+    uint32 const now = getMSTime();
+    if (cache.searchedAt && getMSTimeDiff(cache.searchedAt, now) < UNIT_CACHE_MS)
+        return nullptr;
+    cache.searchedAt = now;
+
+    std::list<Creature*> found;
+    bot->GetCreatureListWithEntryInGrid(found, NPC_SKERAM, SKERAM_SEARCH_RANGE);
+    for (Creature* creature : found)
+        if (!creature->IsSummon())
+        {
+            cache.guid = creature->GetGUID();
+            return creature;
+        }
+    return nullptr;
+}
+
+bool IsSkeram(Unit const* unit) { return unit && unit->GetEntry() == NPC_SKERAM; }
+
+bool IsSkeramEncounter(Player* bot)
+{
+    Creature* skeram = GetSkeram(bot);
+    return skeram && skeram->IsAlive() && skeram->IsInCombat() && bot->GetExactDist2d(skeram) <= SKERAM_SEARCH_RANGE;
+}
+
+bool IsSkeramVeiled(Player* bot)
+{
+    Creature* skeram = GetSkeram(bot);
+    return skeram && skeram->HasAura(SPELL_NIGHTMARE_VEIL);
+}
+
+std::vector<Creature*> GetSkeramUnits(Player* bot, uint32 entry)
+{
+    struct UnitCache
+    {
+        uint32 refreshedAt = 0;
+        std::vector<ObjectGuid> guids;
+    };
+    thread_local std::unordered_map<uint64, UnitCache> caches;
+
+    std::vector<Creature*> units;
+    Creature* skeram = GetSkeram(bot);
+    if (!skeram)
+        return units;
+
+    // Searched around Skeram, so every bot of the instance reads the same list.
+    uint64 const key = (uint64(bot->GetInstanceId()) << 32) | entry;
+    uint32 const now = getMSTime();
+    auto it = caches.find(key);
+    if (it == caches.end() || getMSTimeDiff(it->second.refreshedAt, now) >= UNIT_CACHE_MS)
+    {
+        for (auto stale = caches.begin(); stale != caches.end();)
+        {
+            if (getMSTimeDiff(stale->second.refreshedAt, now) >= 60000u)
+                stale = caches.erase(stale);
+            else
+                ++stale;
+        }
+
+        std::list<Creature*> found;
+        skeram->GetCreatureListWithEntryInGrid(found, entry, SKERAM_SEARCH_RANGE);
+        UnitCache& cache = caches[key];
+        cache.refreshedAt = now;
+        cache.guids.clear();
+        for (Creature* creature : found)
+            if (creature->IsAlive())
+                cache.guids.push_back(creature->GetGUID());
+        it = caches.find(key);
+    }
+
+    for (ObjectGuid const& guid : it->second.guids)
+        if (Creature* creature = ObjectAccessor::GetCreature(*bot, guid))
+            if (creature->IsAlive())
+                units.push_back(creature);
+    return units;
+}
+
+int32 GetPhobia(Unit const* unit)
+{
+    if (!unit)
+        return -1;
+    for (int32 phobia = 0; phobia < SKERAM_PHOBIAS; ++phobia)
+        if (unit->HasAura(SPELL_PHOBIA_FIRST + uint32(phobia)))
+            return phobia;
+    return -1;
+}
+
+bool ShouldHoldOnSkeram(Player* bot)
+{
+    // boss_skeram_coa.cpp DamageTaken: a quarter of the damage he (or an image)
+    // takes is dealt to his worshipper, who is pacified and rooted meanwhile.
+    Group* group = bot->GetGroup();
+    if (!group)
+        return false;
+    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+    {
+        Player* member = ref->GetSource();
+        if (member && member->IsAlive() && member->GetMapId() == bot->GetMapId() && member->HasAura(SPELL_WORSHIP) &&
+            member->GetHealthPct() < WORSHIP_HOLD_PCT)
+            return true;
+    }
+    return false;
+}
+
+namespace
+{
+// Whether a damage dealer shares this phobia: healers of such a group heal it.
+bool PhobiaHasDamageDealer(Player* bot, int32 phobia)
+{
+    Group* group = bot->GetGroup();
+    if (!group)
+        return false;
+    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+    {
+        Player* member = ref->GetSource();
+        if (member && member != bot && member->IsAlive() && member->GetMapId() == bot->GetMapId() &&
+            !PlayerbotAI::IsHeal(member) && GetPhobia(member) == phobia)
+            return true;
+    }
+    return false;
+}
+}  // namespace
+
+Unit* ChooseSkeramTarget(Player* bot)
+{
+    auto attackable = [bot](Unit* unit)
+    {
+        return unit && unit->IsAlive() && bot->InSamePhase(unit) && unit->isTargetableForAttack() &&
+               bot->IsValidAttackTarget(unit);
+    };
+
+    // In a nightmare only the creatures of the bot's own phobia can be seen and
+    // killed, and killing them is the only way out; everyone fights them,
+    // healers too when their group has no damage dealer.
+    int32 const phobia = GetPhobia(bot);
+    if (phobia >= 0)
+    {
+        if (PlayerbotAI::IsHeal(bot) && PhobiaHasDamageDealer(bot, phobia))
+            return nullptr;
+        Creature* best = nullptr;
+        for (Creature* dread : GetSkeramUnits(bot, NPC_NIGHTMARE_FIRST + uint32(phobia)))
+            if (attackable(dread) && (!best || dread->GetHealth() < best->GetHealth()))
+                best = dread;
+        return best;
+    }
+
+    if (PlayerbotAI::IsHeal(bot) || PlayerbotAI::IsTank(bot) || IsSkeramVeiled(bot) || ShouldHoldOnSkeram(bot))
+        return nullptr;
+
+    // His images take 250-750% more damage and cast his whole kit: they go
+    // first, the weakest one at a time. Skeram himself is left to the generic
+    // targeting.
+    Creature* best = nullptr;
+    for (Creature* image : GetSkeramUnits(bot, NPC_SKERAM))
+        if (image->IsSummon() && attackable(image) && (!best || image->GetHealth() < best->GetHealth()))
+            best = image;
+    return best;
+}
+
+Creature* GetPsychicShockSpotNear(Player* bot)
+{
+    for (Creature* spot : GetSkeramUnits(bot, NPC_SKERAM_SHOCK_SPOT))
+    {
+        if (!spot->IsSummon() || !bot->InSamePhase(spot) || bot->GetExactDist2d(spot) >= SHOCK_CLEAR_DISTANCE)
+            continue;
+        Unit* summoner = spot->ToTempSummon()->GetSummonerUnit();
+        if (summoner && summoner->GetEntry() == NPC_SKERAM)
+            return spot;
+    }
+    return nullptr;
+}
+
+bool ShouldSpreadFromGaze(Player* bot)
+{
+    // Only ranged and healers spread: melee share his hitbox anyway.
+    if (PlayerbotAI::IsMelee(bot) || PlayerbotAI::IsTank(bot) || GetPhobia(bot) >= 0 || IsSkeramVeiled(bot))
+        return false;
+    Group* group = bot->GetGroup();
+    if (!group)
+        return false;
+    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+    {
+        Player* member = ref->GetSource();
+        if (member && member != bot && member->IsAlive() && member->GetMapId() == bot->GetMapId() &&
+            bot->InSamePhase(member) && bot->GetExactDist2d(member) < GAZE_SPREAD_DISTANCE)
+            return true;
+    }
+    return false;
 }
 
 }  // namespace Aq40Helpers
