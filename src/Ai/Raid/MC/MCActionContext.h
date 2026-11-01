@@ -27,6 +27,9 @@ public:
         creators["mc move from group"] = &RaidMcActionContext::check_should_move_from_group;
         creators["mc move from baron geddon"] = &RaidMcActionContext::move_from_baron_geddon;
         creators["mc shazzrah move away"] = &RaidMcActionContext::shazzrah_move_away;
+        creators["mc move from shazzrah reflection"] = &RaidMcActionContext::move_from_shazzrah_reflection;
+        creators["mc shazzrah tank move from reflection"] = &RaidMcActionContext::shazzrah_tank_move_from_reflection;
+        creators["mc attack sacrificial chains"] = &RaidMcActionContext::attack_sacrificial_chains;
         creators["mc sulfuron harbinger fire resistance"] = &RaidMcActionContext::sulfuron_harbinger_fire_resistance;
         creators["mc golemagg fire resistance"] = &RaidMcActionContext::golemagg_fire_resistance;
         creators["mc golemagg mark boss"] = &RaidMcActionContext::golemagg_mark_boss;
@@ -57,6 +60,9 @@ private:
     static Action* check_should_move_from_group(PlayerbotAI* botAI) { return new McMoveFromGroupAction(botAI); }
     static Action* move_from_baron_geddon(PlayerbotAI* botAI) { return new McMoveFromBaronGeddonAction(botAI); }
     static Action* shazzrah_move_away(PlayerbotAI* botAI) { return new McShazzrahMoveAwayAction(botAI); }
+    static Action* move_from_shazzrah_reflection(PlayerbotAI* botAI) { return new McMoveFromShazzrahReflectionAction(botAI); }
+    static Action* shazzrah_tank_move_from_reflection(PlayerbotAI* botAI) { return new McShazzrahTankMoveFromReflectionAction(botAI); }
+    static Action* attack_sacrificial_chains(PlayerbotAI* botAI) { return new McAttackSacrificialChainsAction(botAI); }
     static Action* sulfuron_harbinger_fire_resistance(PlayerbotAI* botAI) { return new BossFireResistanceAction(botAI, "sulfuron harbinger"); }
     static Action* golemagg_fire_resistance(PlayerbotAI* botAI) { return new BossFireResistanceAction(botAI, "golemagg the incinerator"); }
     static Action* golemagg_mark_boss(PlayerbotAI* botAI) { return new McGolemaggMarkBossAction(botAI); }

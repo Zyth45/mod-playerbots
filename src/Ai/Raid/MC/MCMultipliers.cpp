@@ -199,3 +199,18 @@ float MajordomoReflectionMultiplier::GetValue(Action* action)
 
     return 1.0f;
 }
+
+float ShazzrahReflectionMultiplier::GetValue(Action* action)
+{
+    if (PlayerbotAI::IsTank(bot) || PlayerbotAI::IsRanged(bot))
+        return 1.0f;
+
+    Unit* boss = AI_VALUE2(Unit*, "find target", "shazzrah");
+    if (!boss || !FindReflectionNear(GetShazzrahReflections(boss), boss, REFLECTION_DISTANCE))
+        return 1.0f;
+
+    bool const engagesBoss = !dynamic_cast<McMoveFromShazzrahReflectionAction*>(action) &&
+                             (dynamic_cast<AttackAction*>(action) || dynamic_cast<MeleeAction*>(action) ||
+                              dynamic_cast<CastReachTargetSpellAction*>(action));
+    return engagesBoss ? 0.0f : 1.0f;
+}

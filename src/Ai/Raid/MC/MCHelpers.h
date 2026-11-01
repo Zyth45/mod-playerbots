@@ -7,13 +7,20 @@
 #ifndef PLAYERBOTS_MCHELPERS_H
 #define PLAYERBOTS_MCHELPERS_H
 
+#include "Creature.h"
 #include "Define.h"
+#include "ObjectAccessor.h"
+#include "ObjectGuid.h"
 #include "Spell.h"
 #include "SpellAuras.h"
+#include "Timer.h"
 #include "Unit.h"
 
 #include <algorithm>
 #include <cstddef>
+#include <list>
+#include <unordered_map>
+#include <vector>
 
 // Stock and Conquest of Azeroth (mod-coa-raid-difficulty) ids side by side.
 // CoA runs Molten Core on four difficulties. Every cast is resolved through
@@ -42,6 +49,14 @@ enum MoltenCoreNPCs
 
     // Core Hound (trash)
     NPC_CORE_HOUND = 11671,
+
+    // CoA: left by Shazzrah's Blink where he stood; rooted and immune, it repeats Mirrored Arcane
+    // Explosion (2105650) until the encounter ends (boss_shazzrah_coa.cpp)
+    NPC_REFLECTION_OF_SHAZZRAH = 11504,
+
+    // CoA: Majordomo's periodic add; it roots, silences and pacifies the players it chains until it dies
+    // (npc_sacrificial_chains_coa.cpp)
+    NPC_SACRIFICIAL_CHAINS = 92030,
 };
 
 // CoA difficulty copies of a Molten Core creature: base + offset (01_mc_difficulty_templates.sql)
@@ -96,7 +111,7 @@ constexpr uint32 GEHENNAS_RAIN_OF_FIRE_AURAS[] = {SPELL_RAIN_OF_FIRE, SPELL_RAIN
                                                   SPELL_RAIN_OF_FIRE_COA_D2, SPELL_RAIN_OF_FIRE_COA_D3};
 
 // Aura on Baron Geddon while Inferno is active
-constexpr uint32 INFERNO_AURAS[] = {SPELL_INFERNO, SPELL_INFERNO_DIFF_1_3, SPELL_INFERNO_COA};
+constexpr uint32 INFERNO_AURAS[] = {SPELL_INFERNO, SPELL_INFERNO_DIFF_1_3};
 
 // Debuff on the Living Bomb carrier
 constexpr uint32 LIVING_BOMB_AURAS[] = {SPELL_LIVING_BOMB, SPELL_LIVING_BOMB_COA_D0, SPELL_LIVING_BOMB_COA_D1,
@@ -108,7 +123,7 @@ constexpr uint32 MAGMA_SPLASH_AURAS[] = {SPELL_MAGMA_SPLASH, SPELL_MAGMA_SPLASH_
 constexpr uint32 MAGMA_SPLASH_BACK_OFF_STACKS = 20;
 constexpr float MAGMA_SPLASH_BACK_OFF_DISTANCE = 12.0f;
 
-// Shazzrah's Arcane Explosion radius (stock 19712: 18 yd, CoA 2105601: 20 yd)
+// Shazzrah's Arcane Explosion radius (stock 19712: 18 yd, CoA 2105601: 20 yd, Spell.dbc)
 constexpr float ARCANE_EXPLOSION_DISTANCE = 26.0f;
 
 // Distance kept from Gehennas' Flame Orb: its pulse (2105419-22) hits everything within 20 yd
@@ -118,6 +133,20 @@ constexpr float FLAME_ORB_AVOID_DISTANCE = 24.0f;
 // During Conjure Flame Orb Gehennas stands still: everyone, his tank included, gets out of the
 // orb's reach of its spawn point before it appears.
 constexpr float FLAME_ORB_CAST_CLEAR_DISTANCE = 26.0f;
+// A Reflection's Mirrored Arcane Explosion (2105650) is 20 yd like Shazzrah's own: same distance kept
+constexpr float REFLECTION_DISTANCE = ARCANE_EXPLOSION_DISTANCE;
+// A bot leaving a Reflection stops this much further out than the trigger distance, so it does not
+// stand on the edge and step in and out of it every tick.
+constexpr float REFLECTION_CLEAR_MARGIN = 4.0f;
+// Shazzrah blinks around his room; every Reflection of the pull lies within this of him.
+constexpr float REFLECTION_SCAN_DISTANCE = 100.0f;
+// Ranged bots leaving a Reflection stay within casting reach of Shazzrah.
+constexpr float REFLECTION_RANGED_MAX_BOSS_DISTANCE = 35.0f;
+
+constexpr float SACRIFICIAL_CHAINS_SEARCH_DISTANCE = 60.0f;
+
+// How long a boss's add list is reused before the grid is searched again.
+constexpr uint32 MC_ADD_CACHE_MS = 1000;
 
 template <std::size_t N>
 inline bool HasAnyAura(Unit const* unit, uint32 const (&spellIds)[N])
@@ -143,7 +172,7 @@ inline uint32 GetAuraStacks(Unit const* unit, uint32 const (&spellIds)[N])
 // Inferno is up on Geddon, or (CoA) its cast is in progress.
 inline bool IsInfernoActive(Unit const* geddon)
 {
-    return HasAnyAura(geddon, INFERNO_AURAS) || geddon->FindCurrentSpellBySpellId(SPELL_INFERNO_COA);
+    return HasAnyAura(geddon, INFERNO_AURAS);
 }
 
 // CoA: Geddon is casting the Living Bomb dummy at this unit; the debuff lands
@@ -152,6 +181,98 @@ inline bool IsLivingBombCastAt(Unit const* geddon, Unit const* target)
 {
     Spell* spell = geddon->FindCurrentSpellBySpellId(SPELL_LIVING_BOMB_COA_CAST);
     return spell && spell->m_targets.GetUnitTargetGUID() == target->GetGUID();
+}
+
+// The living adds of `entry` around `boss`. Every bot of the raid asks every tick, so the grid search
+// runs at most once per MC_ADD_CACHE_MS for a given boss and the guids are reused in between. The cache
+// is per thread: a map and the bots in it are updated by one thread, so no lock is needed.
+inline std::vector<Creature*> GetMcBossAdds(Unit const* boss, uint32 entry, float scanRange)
+{
+    struct AddCache
+    {
+        uint32 entry = 0;
+        uint32 refreshedAt = 0;
+        std::vector<ObjectGuid> guids;
+    };
+    thread_local std::unordered_map<ObjectGuid, AddCache> caches;
+
+    uint32 const now = getMSTime();
+    auto it = caches.find(boss->GetGUID());
+    if (it == caches.end() || it->second.entry != entry || getMSTimeDiff(it->second.refreshedAt, now) >= MC_ADD_CACHE_MS)
+    {
+        // Drop the lists of bosses nobody asked about for a minute (pull over, instance gone).
+        for (auto stale = caches.begin(); stale != caches.end();)
+        {
+            if (getMSTimeDiff(stale->second.refreshedAt, now) >= 60000u)
+                stale = caches.erase(stale);
+            else
+                ++stale;
+        }
+
+        std::list<Creature*> found;
+        boss->GetCreatureListWithEntryInGrid(found, entry, scanRange);
+        AddCache& cache = caches[boss->GetGUID()];
+        cache.entry = entry;
+        cache.refreshedAt = now;
+        cache.guids.clear();
+        for (Creature* creature : found)
+            if (creature->IsAlive())
+                cache.guids.push_back(creature->GetGUID());
+        it = caches.find(boss->GetGUID());
+    }
+
+    std::vector<Creature*> adds;
+    for (ObjectGuid const& guid : it->second.guids)
+        if (Creature* creature = ObjectAccessor::GetCreature(*boss, guid))
+            if (creature->IsAlive())
+                adds.push_back(creature);
+    return adds;
+}
+
+inline std::vector<Creature*> GetShazzrahReflections(Unit const* shazzrah)
+{
+    return GetMcBossAdds(shazzrah, NPC_REFLECTION_OF_SHAZZRAH, REFLECTION_SCAN_DISTANCE);
+}
+
+// The nearest of `reflections` within `range` of `where`.
+inline Creature* FindReflectionNear(std::vector<Creature*> const& reflections, WorldObject const* where, float range)
+{
+    Creature* nearest = nullptr;
+    float nearestDist = range;
+    for (Creature* reflection : reflections)
+    {
+        float const dist = where->GetDistance2d(reflection);
+        if (dist < nearestDist)
+        {
+            nearestDist = dist;
+            nearest = reflection;
+        }
+    }
+    return nearest;
+}
+
+inline bool IsClearOfReflections(std::vector<Creature*> const& reflections, float x, float y, float clearance)
+{
+    for (Creature* reflection : reflections)
+        if (reflection->GetDistance2d(x, y) < clearance)
+            return false;
+    return true;
+}
+
+// The living Sacrificial Chains near `bot` with the least health, so every bot finishes the same one first.
+inline Creature* FindSacrificialChains(Unit const* majordomo, WorldObject const* bot)
+{
+    Creature* weakest = nullptr;
+    for (Creature* chain : GetMcBossAdds(majordomo, NPC_SACRIFICIAL_CHAINS, SACRIFICIAL_CHAINS_SEARCH_DISTANCE))
+        if (bot->GetDistance(chain) <= SACRIFICIAL_CHAINS_SEARCH_DISTANCE &&
+            (!weakest || chain->GetHealth() < weakest->GetHealth()))
+            weakest = chain;
+    return weakest;
+}
+
+inline bool IsSacrificialChains(Unit const* unit)
+{
+    return unit && unit->GetTypeId() == TYPEID_UNIT && unit->GetEntry() == NPC_SACRIFICIAL_CHAINS && unit->IsAlive();
 }
 
 // Matches the base entry or one of its CoA difficulty copies. A spawn that
