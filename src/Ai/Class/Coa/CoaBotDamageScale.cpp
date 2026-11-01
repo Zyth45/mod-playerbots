@@ -17,13 +17,44 @@
 #include "Playerbots.h"
 #include "ScriptMgr.h"
 #include "Unit.h"
+#include <atomic>
+#include <memory>
+#include <unordered_map>
+
+void LoadCoaBotDamageConfig(PlayerbotAIConfig& config);
 
 namespace
 {
+// What the map threads read: a copy of the settings, swapped whole by ".reload config" while they run.
+struct DamageTables
+{
+    std::unordered_map<uint32, uint32> byClass;
+    std::unordered_map<uint32, uint32> bySpec;
+    bool vsPlayers = false;
+};
+
+std::shared_ptr<DamageTables const> Tables;
+std::atomic<bool> Loaded{false};
+std::atomic<bool> Active{false};
+
+void PublishTables()
+{
+    auto tables = std::make_shared<DamageTables>();
+    tables->byClass = sPlayerbotAIConfig.coaBotDamagePctByClass;
+    tables->bySpec = sPlayerbotAIConfig.coaBotDamagePctBySpec;
+    tables->vsPlayers = sPlayerbotAIConfig.coaBotDamageVsPlayers;
+    bool const active = !tables->byClass.empty() || !tables->bySpec.empty();
+    std::atomic_store(&Tables, std::shared_ptr<DamageTables const>(std::move(tables)));
+    Active.store(active, std::memory_order_release);
+    Loaded.store(true, std::memory_order_release);
+}
+
 uint32 DamagePctOf(Unit* attacker, Unit* target)
 {
-    if (!attacker || !target ||
-        (sPlayerbotAIConfig.coaBotDamagePctByClass.empty() && sPlayerbotAIConfig.coaBotDamagePctBySpec.empty()))
+    // First hit after startup: PlayerbotAIConfig::Initialize has run by then.
+    if (!Loaded.load(std::memory_order_acquire))
+        PublishTables();
+    if (!Active.load(std::memory_order_acquire) || !attacker || !target)
         return 100;
     Player* bot = attacker->GetCharmerOrOwnerPlayerOrPlayerItself();
     if (!bot || !GET_PLAYERBOT_AI(bot) || IsRealPlayer(bot))
@@ -31,14 +62,15 @@ uint32 DamagePctOf(Unit* attacker, Unit* target)
     // Heals also pass through the periodic hook: only what hits an enemy is scaled.
     if (!attacker->IsHostileTo(target))
         return 100;
-    if (!sPlayerbotAIConfig.coaBotDamageVsPlayers && target->GetCharmerOrOwnerPlayerOrPlayerItself())
+    std::shared_ptr<DamageTables const> const tables = std::atomic_load(&Tables);
+    if (!tables || (!tables->vsPlayers && target->GetCharmerOrOwnerPlayerOrPlayerItself()))
         return 100;
 
-    auto const spec = sPlayerbotAIConfig.coaBotDamagePctBySpec.find(GetAscensionActiveSpecialization(bot));
-    if (spec != sPlayerbotAIConfig.coaBotDamagePctBySpec.end())
+    auto const spec = tables->bySpec.find(GetAscensionActiveSpecialization(bot));
+    if (spec != tables->bySpec.end())
         return spec->second;
-    auto const cls = sPlayerbotAIConfig.coaBotDamagePctByClass.find(bot->getClass());
-    return cls != sPlayerbotAIConfig.coaBotDamagePctByClass.end() ? cls->second : 100;
+    auto const cls = tables->byClass.find(bot->getClass());
+    return cls != tables->byClass.end() ? cls->second : 100;
 }
 
 template <typename T>
@@ -74,7 +106,23 @@ public:
     }
 };
 
+// The settings come back with ".reload config": PlayerbotAIConfig::Initialize only runs at startup.
+class CoaBotDamageScaleWorldScript : public WorldScript
+{
+public:
+    CoaBotDamageScaleWorldScript() : WorldScript("CoaBotDamageScaleWorldScript", { WORLDHOOK_ON_AFTER_CONFIG_LOAD }) {}
+
+    void OnAfterConfigLoad(bool reload) override
+    {
+        if (!reload)
+            return;
+        LoadCoaBotDamageConfig(sPlayerbotAIConfig);
+        PublishTables();
+    }
+};
+
 void AddSC_coa_bot_damage_scale()
 {
     new CoaBotDamageScaleUnitScript();
+    new CoaBotDamageScaleWorldScript();
 }

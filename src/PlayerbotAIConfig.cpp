@@ -97,6 +97,16 @@ static void LoadDamagePct(std::string const& value, std::unordered_map<uint32, u
     }
 }
 
+// AiPlayerbot.CoaBotDamageByClass / BySpec / VsPlayers; also called on ".reload config" by CoaBotDamageScale.cpp.
+void LoadCoaBotDamageConfig(PlayerbotAIConfig& config)
+{
+    config.coaBotDamagePctByClass.clear();
+    LoadDamagePct(sConfigMgr->GetOption<std::string>("AiPlayerbot.CoaBotDamageByClass", ""), config.coaBotDamagePctByClass, true);
+    config.coaBotDamagePctBySpec.clear();
+    LoadDamagePct(sConfigMgr->GetOption<std::string>("AiPlayerbot.CoaBotDamageBySpec", ""), config.coaBotDamagePctBySpec, false);
+    config.coaBotDamageVsPlayers = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaBotDamageVsPlayers", false);
+}
+
 static void ParseLevelMgrExcludeNames(std::string const& csv, std::vector<std::string>& out)
 {
     out.clear();
@@ -923,11 +933,7 @@ bool PlayerbotAIConfig::Initialize()
     coaMeleeHealerSpecs.clear();
     LoadSet<std::set<uint32>>(sConfigMgr->GetOption<std::string>("AiPlayerbot.CoaMeleeHealerSpecs", "40"),
                               coaMeleeHealerSpecs);
-    coaBotDamagePctByClass.clear();
-    LoadDamagePct(sConfigMgr->GetOption<std::string>("AiPlayerbot.CoaBotDamageByClass", ""), coaBotDamagePctByClass, true);
-    coaBotDamagePctBySpec.clear();
-    LoadDamagePct(sConfigMgr->GetOption<std::string>("AiPlayerbot.CoaBotDamageBySpec", ""), coaBotDamagePctBySpec, false);
-    coaBotDamageVsPlayers = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaBotDamageVsPlayers", false);
+    LoadCoaBotDamageConfig(*this);
     // Des soins que la mesure a trouvés vides. Un bot compose sa trousse de soin à partir de tout
     // ce qu'il connaît, pas à partir de sa rotation : retirer la ligne de rotation ne suffit pas à
     // lui faire oublier le sort, il faut le lui refuser ici. La liste est lue une seule fois, au
