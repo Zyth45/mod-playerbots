@@ -384,6 +384,18 @@ bool LootObject::IsLootPossible(Player* bot)
     if (go && go->HasFlag(GAMEOBJECT_FLAGS, GO_FLAG_INTERACT_COND) && !go->ActivateToQuest(bot))
         return false;
 
+    // A bot without a player master whose bags are over 80 % full gathered a herb, ore or skin, could not
+    // pick it up and gathered it again for ever. Alts that follow a player are not affected.
+    bool const gatheringObject = skillId == SKILL_HERBALISM || skillId == SKILL_MINING ||
+                                 skillId == SKILL_SKINNING || skillId == SKILL_ENGINEERING;
+    if (gatheringObject)
+    {
+        Player* master = botAI->GetMaster();
+        bool const hasActivePlayerMaster = master && !GET_PLAYERBOT_AI(master);
+        if (!hasActivePlayerMaster && botAI->GetAiObjectContext()->GetValue<uint8>("bag space")->Get() > 80)
+            return false;
+    }
+
     // A chest that stays and rolls new loot for every opener (worldforged pickups) is opened once: under
     // group loot rules each opening started a new roll, so the party drew its item again and again.
     if (go && HasOpened(bot, go) && !NeedsQuestItemFrom(bot, go))
