@@ -5132,6 +5132,19 @@ void TravelMgr::PrepareGatherNodeCache()
              "the missions.", nodes, beasts, humanoids, gatherCells.size());
 }
 
+namespace
+{
+// How much a node of this skill helps the mission: an orange or yellow one (under 50 points below the skill) raises it
+// at almost every gather, a green one now and then, a grey one never. Fishing and cloth: any spot of the skill does.
+float GatherPointWeight(uint32 skillId, uint32 reqSkill, uint32 skillValue)
+{
+    if (skillId == SKILL_FISHING || skillId == TravelMgr::GATHER_CLOTH)
+        return 1.0f;
+    uint32 const above = skillValue > reqSkill ? skillValue - reqSkill : 0;
+    return above < 50 ? 1.0f : above < 100 ? 0.4f : 0.1f;
+}
+}  // namespace
+
 TravelMgr::GatherCell const* TravelMgr::SelectGatherCell(Player* bot, uint32 skillId, uint32 skillValue,
                                                          GatherCell const* exclude,
                                                          std::set<uint32> const* nodes) const
@@ -5162,9 +5175,10 @@ TravelMgr::GatherCell const* TravelMgr::SelectGatherCell(Player* bot, uint32 ski
         if (zone->team == 2 && bot->GetTeamId() == TEAM_HORDE)
             continue;
 
-        // A node raises the skill until the skill is 100 points over it; grey ones still count a little, as the
-        // bot gathers them too. A zone whose creatures may outlevel the bot only if nothing safer is found.
+        // A node raises the skill until the skill is 100 points over it; yellow ones rank first (GatherPointWeight).
+        // A zone whose creatures may outlevel the bot only if nothing safer is found.
         float score = 0.0f;
+        uint32 usable = 0;
         // Creatures of the spot itself: far above the bot, never; a little above, only if nothing safer.
         if (cell.dangerLevel > level + 3)
             continue;
@@ -5187,9 +5201,12 @@ TravelMgr::GatherCell const* TravelMgr::SelectGatherCell(Player* bot, uint32 ski
                              ? 1.0f
                              : 0.0f;
             else
-                score += (fishing || p.reqSkill + 100 > skillValue) ? 1.0f : 0.25f;
+            {
+                score += GatherPointWeight(skillId, p.reqSkill, skillValue);
+                ++usable;
+            }
         }
-        if (score < (fishing ? 1.0f : 3.0f))
+        if ((nodes ? score : float(usable)) < (fishing ? 1.0f : 3.0f))
             continue;
 
         float const dist = bot->GetExactDist2d(cell.x, cell.y);
