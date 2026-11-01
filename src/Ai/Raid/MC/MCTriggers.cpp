@@ -131,7 +131,17 @@ bool McShazzrahReflectionTrigger::IsActive()
         return false;
 
     Unit* boss = AI_VALUE2(Unit*, "find target", "shazzrah");
-    return boss && FindReflectionNear(GetShazzrahReflections(boss), bot, REFLECTION_DISTANCE) != nullptr;
+    if (!boss)
+        return false;
+
+    std::vector<Creature*> const reflections = GetShazzrahReflections(boss);
+    if (!FindReflectionNear(reflections, bot, REFLECTION_DISTANCE))
+        return false;
+
+    // Melee cannot reach a boss that stands in a Reflection from outside it; with no tank to walk him out
+    // they stay on him rather than leave the fight.
+    return PlayerbotAI::IsRanged(bot) || IsShazzrahHeldByTank(boss) ||
+           !FindReflectionNear(reflections, boss, REFLECTION_DISTANCE);
 }
 
 bool McShazzrahTankReflectionTrigger::IsActive()

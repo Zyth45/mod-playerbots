@@ -206,7 +206,8 @@ float ShazzrahReflectionMultiplier::GetValue(Action* action)
         return 1.0f;
 
     Unit* boss = AI_VALUE2(Unit*, "find target", "shazzrah");
-    if (!boss || !FindReflectionNear(GetShazzrahReflections(boss), boss, REFLECTION_DISTANCE))
+    if (!boss || !IsShazzrahHeldByTank(boss) ||
+        !FindReflectionNear(GetShazzrahReflections(boss), boss, REFLECTION_DISTANCE))
         return 1.0f;
 
     bool const engagesBoss = !dynamic_cast<McMoveFromShazzrahReflectionAction*>(action) &&

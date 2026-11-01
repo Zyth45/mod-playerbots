@@ -11,6 +11,8 @@
 #include "Define.h"
 #include "ObjectAccessor.h"
 #include "ObjectGuid.h"
+#include "Player.h"
+#include "PlayerbotAI.h"
 #include "Spell.h"
 #include "SpellAuras.h"
 #include "Timer.h"
@@ -232,6 +234,15 @@ inline std::vector<Creature*> GetMcBossAdds(Unit const* boss, uint32 entry, floa
 inline std::vector<Creature*> GetShazzrahReflections(Unit const* shazzrah)
 {
     return GetMcBossAdds(shazzrah, NPC_REFLECTION_OF_SHAZZRAH, REFLECTION_SCAN_DISTANCE);
+}
+
+// Blink wipes Shazzrah's threat, so after each one he is on whoever hits first until a tank taunts him
+// back, and nobody walks him out of a Reflection while a tank is down or off him.
+inline bool IsShazzrahHeldByTank(Unit const* shazzrah)
+{
+    Unit* victim = shazzrah->GetVictim();
+    Player* player = victim ? victim->ToPlayer() : nullptr;
+    return player && player->IsAlive() && PlayerbotAI::IsTank(player);
 }
 
 // The nearest of `reflections` within `range` of `where`.
