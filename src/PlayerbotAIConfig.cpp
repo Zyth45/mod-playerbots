@@ -7,6 +7,7 @@
 #include "PlayerbotAIConfig.h"
 #include "BisListMgr.h"
 #include "CoaBotNames.h"
+#include "CoaSpecialization.h"
 #include "Config.h"
 #include "ItemTemplate.h"
 #include "NewRpgInfo.h"
@@ -66,6 +67,36 @@ void LoadListString(std::string const value, T& list)
 
 // Parses a comma-separated, whitespace-tolerant bot name list (as used by both
 // AiPlayerbot.LevelBrackets.ExcludeNames and AiPlayerbot.ResetBotLevel.ExcludeNames) into out.
+// "Tinker:250, Ranger:160" or "28:250": a class (name or id) or a specialization id, and the percent of its damage.
+static void LoadDamagePct(std::string const& value, std::unordered_map<uint32, uint32>& out, bool classes)
+{
+    std::stringstream entries(value);
+    std::string entry;
+    while (std::getline(entries, entry, ','))
+    {
+        size_t const colon = entry.find(':');
+        if (colon == std::string::npos)
+            continue;
+        std::string key = entry.substr(0, colon);
+        key.erase(0, key.find_first_not_of(" \t"));
+        key.erase(key.find_last_not_of(" \t") + 1);
+        uint32 const pct = uint32(std::strtoul(entry.c_str() + colon + 1, nullptr, 10));
+        uint32 id = 0;
+        if (!key.empty() && std::all_of(key.begin(), key.end(), [](unsigned char c) { return std::isdigit(c); }))
+            id = uint32(std::strtoul(key.c_str(), nullptr, 10));
+        else if (classes)
+            id = FindCoaClass(key);
+        if (!id || !pct || pct > 1000)
+        {
+            LOG_ERROR("playerbots", "AiPlayerbot.CoaBotDamageBy{}: \"{}\" ignored (a {} and a percent from 1 to 1000)",
+                      classes ? "Class" : "Spec", entry, classes ? "class name or id" : "specialization id");
+            continue;
+        }
+        if (pct != 100)
+            out[id] = pct;
+    }
+}
+
 static void ParseLevelMgrExcludeNames(std::string const& csv, std::vector<std::string>& out)
 {
     out.clear();
@@ -891,6 +922,11 @@ bool PlayerbotAIConfig::Initialize()
     coaMeleeHealerSpecs.clear();
     LoadSet<std::set<uint32>>(sConfigMgr->GetOption<std::string>("AiPlayerbot.CoaMeleeHealerSpecs", "40"),
                               coaMeleeHealerSpecs);
+    coaBotDamagePctByClass.clear();
+    LoadDamagePct(sConfigMgr->GetOption<std::string>("AiPlayerbot.CoaBotDamageByClass", ""), coaBotDamagePctByClass, true);
+    coaBotDamagePctBySpec.clear();
+    LoadDamagePct(sConfigMgr->GetOption<std::string>("AiPlayerbot.CoaBotDamageBySpec", ""), coaBotDamagePctBySpec, false);
+    coaBotDamageVsPlayers = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaBotDamageVsPlayers", false);
     // Des soins que la mesure a trouvés vides. Un bot compose sa trousse de soin à partir de tout
     // ce qu'il connaît, pas à partir de sa rotation : retirer la ligne de rotation ne suffit pas à
     // lui faire oublier le sort, il faut le lui refuser ici. La liste est lue une seule fois, au

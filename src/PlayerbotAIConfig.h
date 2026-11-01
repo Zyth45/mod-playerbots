@@ -502,6 +502,10 @@ public:
     std::set<uint32> coaExcludedSpecializations;
     std::set<uint32> coaOffensiveHealerSpecs;
     std::set<uint32> coaMeleeHealerSpecs;
+    // Percent of their damage bots of a class or specialization deal (AiPlayerbot.CoaBotDamageByClass / BySpec).
+    std::unordered_map<uint32, uint32> coaBotDamagePctByClass;
+    std::unordered_map<uint32, uint32> coaBotDamagePctBySpec;
+    bool coaBotDamageVsPlayers = false;
     uint32 zoneCrowdLimit;
     std::set<std::string> coaHealsExcluded;
     uint32 lootLogMinQuality;

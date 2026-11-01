@@ -2274,6 +2274,29 @@ AiPlayerbot.CoaOffensiveHealerSpecs = 40,43
 #        Default:     40 (Cultist Heretic)
 
 AiPlayerbot.CoaMeleeHealerSpecs = 40
+
+#    AiPlayerbot.CoaBotDamageByClass
+#        Description: Percent of their damage the bots of a class deal, to even out classes whose rotation is behind:
+#                     "Tinker:200, Ranger:150" (class name or id, then a percent from 1 to 1000; 100 = unchanged).
+#                     Bots only, with their pets and summons: a human player's damage is never changed.
+#                     Read again by .reload config.
+#        Default:     "" (every class at 100%)
+
+AiPlayerbot.CoaBotDamageByClass = ""
+
+#    AiPlayerbot.CoaBotDamageBySpec
+#        Description: The same by specialization id (as in AiPlayerbot.CoaMeleeHealerSpecs), "40:120, 43:130".
+#                     A specialization listed here wins over its class.
+#        Default:     ""
+
+AiPlayerbot.CoaBotDamageBySpec = ""
+
+#    AiPlayerbot.CoaBotDamageVsPlayers
+#        Description: 0 = the two settings above only change the damage bots deal to creatures; 1 = to players too
+#                     (battlegrounds, duels, world PvP).
+#        Default:     0
+
+AiPlayerbot.CoaBotDamageVsPlayers = 0
 #    AiPlayerbot.ZoneCrowdLimit
 #        Description: When a random bot is sent to a leveling spot, zones that already hold this many random bots
 #                     of about its level (5 levels either way) are left out, so that bots spread over the zones of
