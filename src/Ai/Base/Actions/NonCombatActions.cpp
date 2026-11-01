@@ -26,8 +26,12 @@ bool InHarmfulGround(PlayerbotAI* botAI, Player* bot)
            (liquid.Flags & (MAP_LIQUID_TYPE_MAGMA | MAP_LIQUID_TYPE_SLIME));
 }
 
-bool IsDisallowedShapeshiftForm(Player* bot)
+// Stunned, feared, frozen in an ice block, charmed: no eating or drinking.
+bool IsDisallowedFoodState(Player* bot)
 {
+    if (bot->HasUnitState(UNIT_STATE_LOST_CONTROL))
+        return true;
+
     if (bot->getClass() == CLASS_DRUID)
     {
         ShapeshiftForm form = bot->GetShapeshiftForm();
@@ -47,6 +51,9 @@ bool IsDisallowedShapeshiftForm(Player* bot)
 
 bool DrinkAction::Execute(Event event)
 {
+    if (IsDisallowedFoodState(bot))
+        return false;
+
     if (botAI->HasCheat(BotCheatMask::food))
     {
         // if (bot->IsNonMeleeSpellCast(true))
@@ -92,7 +99,7 @@ bool DrinkAction::isUseful()
 
 bool DrinkAction::isPossible()
 {
-    if (bot->IsInCombat() || bot->IsMounted() || bot->IsInWater() || IsDisallowedShapeshiftForm(bot))
+    if (bot->IsInCombat() || bot->IsMounted() || bot->IsInWater() || IsDisallowedFoodState(bot))
         return false;
 
     if (InHarmfulGround(botAI, bot))
@@ -109,6 +116,9 @@ bool DrinkAction::isPossible()
 
 bool EatAction::Execute(Event event)
 {
+    if (IsDisallowedFoodState(bot))
+        return false;
+
     if (botAI->HasCheat(BotCheatMask::food))
     {
         // if (bot->IsNonMeleeSpellCast(true))
@@ -150,7 +160,7 @@ bool EatAction::isUseful() { return UseItemAction::isUseful() && AI_VALUE2(uint8
 
 bool EatAction::isPossible()
 {
-    if (bot->IsInCombat() || bot->IsMounted() || bot->IsInWater() || IsDisallowedShapeshiftForm(bot))
+    if (bot->IsInCombat() || bot->IsMounted() || bot->IsInWater() || IsDisallowedFoodState(bot))
         return false;
 
     if (InHarmfulGround(botAI, bot))
