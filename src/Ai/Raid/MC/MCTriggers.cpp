@@ -124,3 +124,38 @@ bool McMajordomoDamageShieldTrigger::IsActive()
     Unit* victim = bot->GetVictim();
     return IsMajordomoAdd(victim) && victim->HasAura(SPELL_DAMAGE_SHIELD);
 }
+
+bool McShazzrahReflectionTrigger::IsActive()
+{
+    if (PlayerbotAI::IsTank(bot))
+        return false;
+
+    Unit* boss = AI_VALUE2(Unit*, "find target", "shazzrah");
+    return boss && FindReflectionNear(GetShazzrahReflections(boss), bot, REFLECTION_DISTANCE) != nullptr;
+}
+
+bool McShazzrahTankReflectionTrigger::IsActive()
+{
+    if (!PlayerbotAI::IsTank(bot))
+        return false;
+
+    Unit* boss = AI_VALUE2(Unit*, "find target", "shazzrah");
+    if (!boss || boss->GetVictim() != bot)
+        return false;
+
+    std::vector<Creature*> const reflections = GetShazzrahReflections(boss);
+    return FindReflectionNear(reflections, boss, REFLECTION_DISTANCE) ||
+           FindReflectionNear(reflections, bot, REFLECTION_DISTANCE);
+}
+
+bool McSacrificialChainsTrigger::IsActive()
+{
+    // Healers keep the raid alive and tanks keep Majordomo's adds; chained bots cannot act; a bot already
+    // on a chain keeps its rotation going.
+    if (PlayerbotAI::IsHeal(bot) || PlayerbotAI::IsTank(bot) || bot->HasUnitFlag(UNIT_FLAG_PACIFIED) ||
+        IsSacrificialChains(bot->GetVictim()))
+        return false;
+
+    Unit* majordomo = AI_VALUE2(Unit*, "find target", "majordomo executus");
+    return majordomo && FindSacrificialChains(majordomo, bot) != nullptr;
+}

@@ -74,10 +74,18 @@ void RaidBwlStrategy::InitMultipliers(std::vector<Multiplier*>& multipliers)
 
 void RaidBwlStrategy::AppendTargetExclusions(GuidSet& exclusions, TargetValueExclusionType type)
 {
+    AiObjectContext* context = botAI->GetAiObjectContext();
+
+    // CoA Nefarian: nobody attacks Dominion's Shadow Clones or a raid member Nefarius holds.
+    for (ObjectGuid const guid : AI_VALUE(GuidVector, "attackers"))
+    {
+        if (BlackwingLairHelpers::IsNefarianDoNotAttackTarget(botAI->GetUnit(guid)))
+            exclusions.insert(guid);
+    }
+
     if (type != TargetValueExclusionType::TankTarget)
         return;
 
-    AiObjectContext* context = botAI->GetAiObjectContext();
     if (Unit* broodlord = AI_VALUE2(Unit*, "find target", "broodlord lashlayer"))
     {
         Unit* bossVictim = broodlord->GetVictim();
@@ -106,6 +114,27 @@ void RaidBwlStrategy::AppendTargetExclusions(GuidSet& exclusions, TargetValueExc
             {
                 Unit* unit = botAI->GetUnit(guid);
                 if (BlackwingLairHelpers::IsCorruptedWhelp(unit))
+                    exclusions.insert(guid);
+            }
+        }
+    }
+
+    if (Unit* nefarian = AI_VALUE2(Unit*, "find target", "nefarian"))
+    {
+        // The tank holding Nefarian ignores everything else, e.g. the Bone Constructs he raises at 20%.
+        // While no tank holds him (tank died), the main tank, or the first living assist tank, takes him.
+        Player* bot = botAI->GetBot();
+        Unit* bossVictim = nefarian->GetVictim();
+        Player* bossVictimPlayer = bossVictim ? bossVictim->ToPlayer() : nullptr;
+        bool const tankHoldsBoss = bossVictimPlayer && PlayerbotAI::IsTank(bossVictimPlayer);
+        Unit* mainTank = botAI->GetUnit(PlayerbotAI::GetMainTankGuid(bot->GetGroup()));
+        bool const isFallbackTank = mainTank && mainTank->IsAlive() ? PlayerbotAI::IsMainTank(bot)
+                                                                    : PlayerbotAI::IsAssistTankOfIndex(bot, 0, true);
+        if (bossVictim == bot || (!tankHoldsBoss && isFallbackTank))
+        {
+            for (ObjectGuid const guid : AI_VALUE(GuidVector, "attackers"))
+            {
+                if (guid != nefarian->GetGUID())
                     exclusions.insert(guid);
             }
         }

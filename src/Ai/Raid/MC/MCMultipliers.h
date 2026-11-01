@@ -37,4 +37,12 @@ public:
     float GetValue(Action* action) override;
 };
 
+// CoA: melee wait outside a Reflection of Shazzrah's Arcane Explosion until the tank drags Shazzrah clear of it
+class ShazzrahReflectionMultiplier : public Multiplier
+{
+public:
+    ShazzrahReflectionMultiplier(PlayerbotAI* botAI) : Multiplier(botAI, "shazzrah reflection multiplier") {}
+    float GetValue(Action* action) override;
+};
+
 #endif

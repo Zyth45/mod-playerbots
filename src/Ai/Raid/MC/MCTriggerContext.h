@@ -26,6 +26,9 @@ public:
         creators["mc living bomb debuff"] = &RaidMcTriggerContext::living_bomb_debuff;
         creators["mc baron geddon inferno"] = &RaidMcTriggerContext::baron_geddon_inferno;
         creators["mc shazzrah ranged"] = &RaidMcTriggerContext::shazzrah_ranged;
+        creators["mc shazzrah reflection"] = &RaidMcTriggerContext::shazzrah_reflection;
+        creators["mc shazzrah tank reflection"] = &RaidMcTriggerContext::shazzrah_tank_reflection;
+        creators["mc sacrificial chains"] = &RaidMcTriggerContext::sacrificial_chains;
         creators["mc sulfuron harbinger fire resistance"] = &RaidMcTriggerContext::sulfuron_harbinger_fire_resistance;
         creators["mc golemagg fire resistance"] = &RaidMcTriggerContext::golemagg_fire_resistance;
         creators["mc golemagg mark boss"] = &RaidMcTriggerContext::golemagg_mark_boss;
@@ -57,6 +60,9 @@ private:
     static Trigger* living_bomb_debuff(PlayerbotAI* botAI) { return new McLivingBombDebuffTrigger(botAI); }
     static Trigger* baron_geddon_inferno(PlayerbotAI* botAI) { return new McBaronGeddonInfernoTrigger(botAI); }
     static Trigger* shazzrah_ranged(PlayerbotAI* botAI) { return new McShazzrahRangedTrigger(botAI); }
+    static Trigger* shazzrah_reflection(PlayerbotAI* botAI) { return new McShazzrahReflectionTrigger(botAI); }
+    static Trigger* shazzrah_tank_reflection(PlayerbotAI* botAI) { return new McShazzrahTankReflectionTrigger(botAI); }
+    static Trigger* sacrificial_chains(PlayerbotAI* botAI) { return new McSacrificialChainsTrigger(botAI); }
     static Trigger* sulfuron_harbinger_fire_resistance(PlayerbotAI* botAI) { return new BossFireResistanceTrigger(botAI, "sulfuron harbinger"); }
     static Trigger* golemagg_fire_resistance(PlayerbotAI* botAI) { return new BossFireResistanceTrigger(botAI, "golemagg the incinerator"); }
     static Trigger* golemagg_mark_boss(PlayerbotAI* botAI) { return new McGolemaggMarkBossTrigger(botAI); }

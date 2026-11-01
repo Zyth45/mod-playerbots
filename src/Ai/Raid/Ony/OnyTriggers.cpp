@@ -98,7 +98,23 @@ bool RaidOnyxiaWhelpsSpawnTrigger::IsActive()
     if (!boss)
         return false;
 
-    return !botAI->IsHeal(bot) && boss->IsFlying();  // DPS + Tanks only
+    if (botAI->IsHeal(bot))
+        return false;
+
+    // DPS and tanks while she is in the air
+    if (boss->IsFlying())
+        return true;
+
+    // CoA keeps sending a wave of 20 whelps every ~55s once she has landed
+    // (boss_onyxia_coa.cpp). The tanks stay on her; the DPS take the whelps.
+    return !botAI->IsTank(bot) && boss->GetHealthPct() <= OnyxiaHelpers::ONYXIA_PHASE_THREE_HEALTH_PCT;
+}
+
+bool OnyxiaPhaseThreeThreatHoldTrigger::IsActive()
+{
+    Unit* victim = bot->GetVictim();
+    return OnyxiaHelpers::IsOnyxia(victim) &&
+           OnyxiaHelpers::MustHoldPhaseThreeThreat(bot, victim, OnyxiaHelpers::THREAT_LEAD_KEEP);
 }
 
 OnyxiaAvoidEggsTrigger::OnyxiaAvoidEggsTrigger(PlayerbotAI* botAI) : Trigger(botAI, "ony avoid eggs") {}

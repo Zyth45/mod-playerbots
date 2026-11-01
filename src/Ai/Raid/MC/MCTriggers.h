@@ -32,6 +32,30 @@ public:
     bool IsActive() override;
 };
 
+// CoA: a non-tank stands in a Reflection of Shazzrah's Arcane Explosion
+class McShazzrahReflectionTrigger : public Trigger
+{
+public:
+    McShazzrahReflectionTrigger(PlayerbotAI* botAI) : Trigger(botAI, "mc shazzrah reflection") {}
+    bool IsActive() override;
+};
+
+// CoA: Shazzrah, held by this tank, stands in a Reflection's Arcane Explosion
+class McShazzrahTankReflectionTrigger : public Trigger
+{
+public:
+    McShazzrahTankReflectionTrigger(PlayerbotAI* botAI) : Trigger(botAI, "mc shazzrah tank reflection") {}
+    bool IsActive() override;
+};
+
+// CoA: Sacrificial Chains holds raid members while it lives
+class McSacrificialChainsTrigger : public Trigger
+{
+public:
+    McSacrificialChainsTrigger(PlayerbotAI* botAI) : Trigger(botAI, "mc sacrificial chains") {}
+    bool IsActive() override;
+};
+
 class McGolemaggMarkBossTrigger : public Trigger
 {
 public:

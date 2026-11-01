@@ -68,7 +68,14 @@ namespace BlackwingLairHelpers
         NPC_CORRUPTED_BRONZE_WHELP = 14025,
 
         // Trash
-        NPC_DEATH_TALON_WYRMGUARD = 12460
+        NPC_DEATH_TALON_WYRMGUARD = 12460,
+
+        // Lord Victor Nefarius / Nefarian
+        NPC_LORD_VICTOR_NEFARIUS = 10162,
+        NPC_NEFARIAN = 11583,
+        // CoA: Dominion's clone of a raid member (boss_nefarian_coa.cpp); every hit it takes lands on
+        // its owner (Spiritual Pain 2111282) and it keeps its health.
+        NPC_SHADOW_CLONE_COA = 9780021
     };
 
     constexpr float BROODLORD_SAFE_DISTANCE = 18.0f;
@@ -78,6 +85,10 @@ namespace BlackwingLairHelpers
     bool IsRazorgoreOffTank(Player* bot);
     bool IsNonBABotNearPosition(Player const* bot, Position const& position, float distance);
     bool IsCorruptedWhelp(Unit const* unit);
+    // CoA Nefarian: a Shadow Clone from Dominion, or a raid member Lord Victor Nefarius holds with
+    // "Stupid, Incompetent and Disappointing Minion" (2111217, cannot die meanwhile). Hitting either
+    // only hurts the raid or wastes the damage.
+    bool IsNefarianDoNotAttackTarget(Unit const* unit);
 
     // Stock or CoA: the unit carries Burning Adrenaline.
     bool HasBurningAdrenaline(Unit const* unit);
