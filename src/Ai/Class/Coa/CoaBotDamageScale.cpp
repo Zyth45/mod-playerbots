@@ -59,8 +59,9 @@ uint32 DamagePctOf(Unit* attacker, Unit* target)
     Player* bot = attacker->GetCharmerOrOwnerPlayerOrPlayerItself();
     if (!bot || !GET_PLAYERBOT_AI(bot) || IsRealPlayer(bot))
         return 100;
-    // Heals also pass through the periodic hook: only what hits an enemy is scaled.
-    if (!attacker->IsHostileTo(target))
+    // Heals also pass through the periodic hook: what hits a friend is left alone. Neutral targets (training dummies,
+    // yellow mobs) are scaled like enemies.
+    if (attacker->IsFriendlyTo(target))
         return 100;
     std::shared_ptr<DamageTables const> const tables = std::atomic_load(&Tables);
     if (!tables || (!tables->vsPlayers && target->GetCharmerOrOwnerPlayerOrPlayerItself()))
