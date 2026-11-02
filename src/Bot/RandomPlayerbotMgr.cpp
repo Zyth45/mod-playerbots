@@ -3432,6 +3432,7 @@ constexpr uint32 COA_RULESET_HIGH_RISK = 1004019;
 constexpr uint32 COA_RULESET_WAR_MODE = 1004119;
 constexpr uint32 COA_RULESET_PVE = 9931032;
 constexpr uint32 COA_RULESET_MERCENARY = 9930874;
+constexpr uint8 COA_RULESET_HIGH_RISK_MIN_LEVEL = 15;
 }
 
 // The core puts every character without a ruleset in PvE at login, bots included. With
@@ -3448,7 +3449,9 @@ void RandomPlayerbotMgr::CoaApplyRuleset(Player* bot)
     uint32 const highRisk = std::min<uint32>(sPlayerbotAIConfig.coaRulesetHighRiskPct, 100);
     uint32 const warMode = std::min<uint32>(sPlayerbotAIConfig.coaRulesetWarModePct, 100 - highRisk);
     uint32 const bucket = (bot->GetGUID().GetCounter() * 2654435761u) % 100;
-    uint32 const wanted = bucket < highRisk ? COA_RULESET_HIGH_RISK
+    // High Risk opens at level 15 (core: AscensionHighRiskPolicy.h); a younger bot of that bucket stays in PvE.
+    uint32 const wanted = bucket < highRisk ? (bot->GetLevel() >= COA_RULESET_HIGH_RISK_MIN_LEVEL ? COA_RULESET_HIGH_RISK
+                                                                                                    : COA_RULESET_PVE)
                         : bucket < highRisk + warMode ? COA_RULESET_WAR_MODE
                         : COA_RULESET_PVE;
 
