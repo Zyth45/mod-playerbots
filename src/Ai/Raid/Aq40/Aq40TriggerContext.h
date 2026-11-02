@@ -22,6 +22,10 @@ public:
         creators["aq40 cthun center"] = &RaidAq40TriggerContext::center;
         creators["aq40 cthun position"] = &RaidAq40TriggerContext::position;
         creators["aq40 cthun target"] = &RaidAq40TriggerContext::target;
+        creators["aq40 skeram target"] = &RaidAq40TriggerContext::skeram_target;
+        creators["aq40 skeram hold"] = &RaidAq40TriggerContext::skeram_hold;
+        creators["aq40 skeram psychic shock"] = &RaidAq40TriggerContext::skeram_psychic_shock;
+        creators["aq40 skeram gaze spread"] = &RaidAq40TriggerContext::skeram_gaze_spread;
     }
 
 private:
@@ -32,6 +36,10 @@ private:
     static Trigger* center(PlayerbotAI* ai) { return new Aq40CthunCenterTrigger(ai); }
     static Trigger* position(PlayerbotAI* ai) { return new Aq40CthunPositionTrigger(ai); }
     static Trigger* target(PlayerbotAI* ai) { return new Aq40CthunTargetTrigger(ai); }
+    static Trigger* skeram_target(PlayerbotAI* ai) { return new Aq40SkeramTargetTrigger(ai); }
+    static Trigger* skeram_hold(PlayerbotAI* ai) { return new Aq40SkeramHoldTrigger(ai); }
+    static Trigger* skeram_psychic_shock(PlayerbotAI* ai) { return new Aq40SkeramPsychicShockTrigger(ai); }
+    static Trigger* skeram_gaze_spread(PlayerbotAI* ai) { return new Aq40SkeramGazeSpreadTrigger(ai); }
 };
 
 #endif

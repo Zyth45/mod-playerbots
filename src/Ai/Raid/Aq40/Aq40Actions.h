@@ -65,4 +65,34 @@ public:
     bool Execute(Event event) override;
 };
 
+class Aq40SkeramAttackAction : public AttackAction
+{
+public:
+    Aq40SkeramAttackAction(PlayerbotAI* botAI) : AttackAction(botAI, "aq40 skeram attack") {}
+    bool Execute(Event event) override;
+};
+
+class Aq40SkeramStopAttackAction : public Action
+{
+public:
+    Aq40SkeramStopAttackAction(PlayerbotAI* botAI) : Action(botAI, "aq40 skeram stop attack") {}
+    bool Execute(Event event) override;
+};
+
+class Aq40SkeramAvoidPsychicShockAction : public MovementAction
+{
+public:
+    Aq40SkeramAvoidPsychicShockAction(PlayerbotAI* botAI) : MovementAction(botAI, "aq40 skeram avoid psychic shock")
+    {
+    }
+    bool Execute(Event event) override;
+};
+
+class Aq40SkeramGazeSpreadAction : public MovementAction
+{
+public:
+    Aq40SkeramGazeSpreadAction(PlayerbotAI* botAI) : MovementAction(botAI, "aq40 skeram gaze spread") {}
+    bool Execute(Event event) override;
+};
+
 #endif

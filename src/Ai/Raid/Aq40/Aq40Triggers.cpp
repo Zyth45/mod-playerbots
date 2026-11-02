@@ -78,3 +78,33 @@ bool Aq40CthunTargetTrigger::IsActive()
     Unit* target = ChooseCthunTarget(bot);
     return target && target != AI_VALUE(Unit*, "current target");
 }
+
+bool Aq40SkeramTargetTrigger::IsActive()
+{
+    if (!IsSkeramEncounter(bot))
+        return false;
+    Unit* target = ChooseSkeramTarget(bot);
+    return target && target != AI_VALUE(Unit*, "current target");
+}
+
+bool Aq40SkeramHoldTrigger::IsActive()
+{
+    // Auto-attack keeps swinging at a veiled Skeram, and at one whose
+    // worshipper is too low to take a quarter of the hits.
+    if (!IsSkeramEncounter(bot))
+        return false;
+    Unit* victim = bot->GetVictim();
+    if (!IsSkeram(victim))
+        return false;
+    return victim->HasAura(SPELL_NIGHTMARE_VEIL) || (!PlayerbotAI::IsTank(bot) && ShouldHoldOnSkeram(bot));
+}
+
+bool Aq40SkeramPsychicShockTrigger::IsActive()
+{
+    return IsSkeramEncounter(bot) && botAI->CanMove() && GetPsychicShockSpotNear(bot);
+}
+
+bool Aq40SkeramGazeSpreadTrigger::IsActive()
+{
+    return IsSkeramEncounter(bot) && botAI->CanMove() && ShouldSpreadFromGaze(bot);
+}

@@ -23,6 +23,10 @@ public:
         creators["aq40 cthun spit out"] = &RaidAq40ActionContext::spit_out;
         creators["aq40 cthun move to spot"] = &RaidAq40ActionContext::move_to_spot;
         creators["aq40 cthun attack"] = &RaidAq40ActionContext::attack;
+        creators["aq40 skeram attack"] = &RaidAq40ActionContext::skeram_attack;
+        creators["aq40 skeram stop attack"] = &RaidAq40ActionContext::skeram_stop_attack;
+        creators["aq40 skeram avoid psychic shock"] = &RaidAq40ActionContext::skeram_avoid_psychic_shock;
+        creators["aq40 skeram gaze spread"] = &RaidAq40ActionContext::skeram_gaze_spread;
     }
 
 private:
@@ -33,6 +37,10 @@ private:
     static Action* spit_out(PlayerbotAI* ai) { return new Aq40CthunSpitOutAction(ai); }
     static Action* move_to_spot(PlayerbotAI* ai) { return new Aq40CthunMoveToSpotAction(ai); }
     static Action* attack(PlayerbotAI* ai) { return new Aq40CthunAttackAction(ai); }
+    static Action* skeram_attack(PlayerbotAI* ai) { return new Aq40SkeramAttackAction(ai); }
+    static Action* skeram_stop_attack(PlayerbotAI* ai) { return new Aq40SkeramStopAttackAction(ai); }
+    static Action* skeram_avoid_psychic_shock(PlayerbotAI* ai) { return new Aq40SkeramAvoidPsychicShockAction(ai); }
+    static Action* skeram_gaze_spread(PlayerbotAI* ai) { return new Aq40SkeramGazeSpreadAction(ai); }
 };
 
 #endif

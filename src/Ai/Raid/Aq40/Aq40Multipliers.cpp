@@ -34,3 +34,27 @@ float Aq40CthunMultiplier::GetValue(Action* action)
 
     return 1.0f;
 }
+
+float Aq40SkeramMultiplier::GetValue(Action* action)
+{
+    if (!dynamic_cast<AttackAction*>(action) && !dynamic_cast<CastSpellAction*>(action))
+        return 1.0f;
+    if (dynamic_cast<CastHealingSpellAction*>(action))
+        return 1.0f;
+    if (!IsSkeramEncounter(bot))
+        return 1.0f;
+
+    Unit* target = action->GetTarget();
+    if (!IsSkeram(target))
+        return 1.0f;
+
+    // Nightmare Veil: immune while any nightmare stands.
+    if (target->HasAura(SPELL_NIGHTMARE_VEIL))
+        return 0.0f;
+
+    // True Fulfillment: a quarter of the damage goes to the worshipper.
+    if (!PlayerbotAI::IsTank(bot) && ShouldHoldOnSkeram(bot))
+        return 0.0f;
+
+    return 1.0f;
+}
