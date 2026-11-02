@@ -669,6 +669,20 @@ public:
         sPlayerbotAIConfig.RpgStatusProbWeight[RPG_GO_CITY] = sConfigMgr->GetOption<int32>("AiPlayerbot.RpgStatusProbWeight.GoCity", 10);
         sPlayerbotAIConfig.coaCityStayMinMinutes = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaCityStayMinMinutes", 10);
         sPlayerbotAIConfig.coaCityStayMaxMinutes = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaCityStayMaxMinutes", 30);
+        // Eco mode (launcher): how many bots stay active away from players, tuned live as well.
+        sPlayerbotAIConfig.botActiveAlone = sConfigMgr->GetOption<int32>("AiPlayerbot.BotActiveAlone", 10);
+        sPlayerbotAIConfig.BotActiveAloneDurationSeconds =
+            std::max<uint32>(1, sConfigMgr->GetOption<uint32>("AiPlayerbot.BotActiveAloneDurationSeconds", 30));
+        sPlayerbotAIConfig.BotActiveAloneForceWhenInRadius = sConfigMgr->GetOption<uint32>("AiPlayerbot.BotActiveAloneForceWhenInRadius", 150);
+        sPlayerbotAIConfig.BotActiveAloneForceWhenInZone = sConfigMgr->GetOption<bool>("AiPlayerbot.BotActiveAloneForceWhenInZone", 1);
+        sPlayerbotAIConfig.BotActiveAloneForceWhenInMap = sConfigMgr->GetOption<bool>("AiPlayerbot.BotActiveAloneForceWhenInMap", 0);
+        sPlayerbotAIConfig.BotActiveAloneForceWhenIsFriend = sConfigMgr->GetOption<bool>("AiPlayerbot.BotActiveAloneForceWhenIsFriend", 0);
+        sPlayerbotAIConfig.BotActiveAloneForceWhenInGuild = sConfigMgr->GetOption<bool>("AiPlayerbot.BotActiveAloneForceWhenInGuild", 1);
+        sPlayerbotAIConfig.botActiveAloneSmartScale = sConfigMgr->GetOption<bool>("AiPlayerbot.botActiveAloneSmartScale", 1);
+        sPlayerbotAIConfig.botActiveAloneSmartScaleDiffLimitfloor = sConfigMgr->GetOption<uint32>("AiPlayerbot.botActiveAloneSmartScaleDiffLimitfloor", 50);
+        sPlayerbotAIConfig.botActiveAloneSmartScaleDiffLimitCeiling = sConfigMgr->GetOption<uint32>("AiPlayerbot.botActiveAloneSmartScaleDiffLimitCeiling", 200);
+        sPlayerbotAIConfig.botActiveAloneSmartScaleWhenMinLevel = sConfigMgr->GetOption<uint32>("AiPlayerbot.botActiveAloneSmartScaleWhenMinLevel", 1);
+        sPlayerbotAIConfig.botActiveAloneSmartScaleWhenMaxLevel = sConfigMgr->GetOption<uint32>("AiPlayerbot.botActiveAloneSmartScaleWhenMaxLevel", 80);
         sPlayerbotAIConfig.coaInterruptCoordination = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaInterruptCoordination", true);
         sPlayerbotAIConfig.coaDungeonPriorities = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaDungeonPriorities", true);
         sPlayerbotAIConfig.coaAncestralCombatFix = sConfigMgr->GetOption<bool>("AiPlayerbot.Coa.AncestralCombatFix", true);
