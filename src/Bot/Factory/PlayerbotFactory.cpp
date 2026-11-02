@@ -88,6 +88,16 @@ std::vector<uint32> PlayerbotFactory::ccBreakTrinketCache;
 
 namespace
 {
+// A random bot out in the world: not grouped under a player, who keeps the best suffix for the spec.
+bool IsWorldBot(Player* bot)
+{
+    if (!sRandomPlayerbotMgr.IsRandomBot(bot))
+        return false;
+    PlayerbotAI* botAI = GET_PLAYERBOT_AI(bot);
+    Player* master = botAI ? botAI->GetMaster() : nullptr;
+    return !master || master == bot || GET_PLAYERBOT_AI(master);
+}
+
 constexpr uint32 SPELL_DRUID_THICK_HIDE = 16931;
 constexpr uint32 SPELL_OWLKIN_FRENZY = 48393;
 constexpr uint32 SPELL_PRIMAL_TENACITY = 33957;
@@ -2990,7 +3000,7 @@ void PlayerbotFactory::InitEquipment(bool incremental, bool second_chance, int32
 
                         int32 bestRandomProp = 0;
                         if (proto->RandomProperty || proto->RandomSuffix)
-                            bestRandomProp = sPlayerbotAIConfig.gearRollRandomSuffix
+                            bestRandomProp = sPlayerbotAIConfig.gearRollRandomSuffix && IsWorldBot(bot)
                                                  ? Item::GenerateItemRandomPropertyId(itemId)
                                                  : calculator.PickBestRandomPropertyId(itemId);
                         items[slot].push_back({itemId, bestRandomProp});
