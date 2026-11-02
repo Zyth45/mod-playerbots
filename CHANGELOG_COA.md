@@ -1,5 +1,22 @@
 # CoA Bots — changelog
 
+## v2.9.1 (2 November 2026)
+
+- **Core**: latest public CoA core of 2 November (more than 100 fixes): Cultist Entropic Slam costs 60 Insanity again
+  (bots follow the real cost), High Risk from level 15, soulbound items refused by the Realm Bank, account-wide
+  reputation, Reaper, Ranger Flank (from behind), Tinker Blast Mine and Stim, Runemaster engravings.
+- **High Risk at level 15**: random bots of the High Risk share (`AiPlayerbot.CoaRulesetForBots`) stay in PvE until
+  level 15 and change ruleset through the core, as a player does (checks, PvP flag, mercenaries, level scaling; a High
+  Risk the core suspended in a battle is left to the core).
+- **Damage of the bots per class** (`CoaBotDamageByClass` / `BySpec`): neutral targets (training dummies, yellow
+  monsters) are scaled too; heals never.
+- **Emotes**: with `AiPlayerbot.RandomBotEmote = 1`, bots react to players only (no endless loop between bots).
+- **Random suffixes** (`AiPlayerbot.GearRollRandomSuffix = 1`): random bots out in the world only; a bot grouped under a
+  player keeps the best suffix for its spec.
+- **`.reload config`** reads again `BotActiveAlone`, its duration, the `BotActiveAloneForceWhen*` rules and the smart
+  scale values.
+- **Raids** (experimental): a first strategy for The Prophet Skeram (Temple of Ahn'Qiraj).
+
 ## v2.8.3 (30 October 2026)
 
 - **Alts as a team** (with SquidBots Lite 2.8.3): new addon channel `SQBA` (contract in the release notes). Opening a quest
@@ -1212,7 +1229,7 @@ for their tips.
   player of a map for every creature, and bots kept it running all the time (42% of the server CPU with 5000
   bots). Jealous merged the fix (jealous-sound/azerothcore-wotlk-coa#5770): median server tick 279 ms -> 52 ms
 - **Bots log in much faster**: one bot login that never completed stopped all the others; now it is set aside
-  after 60 seconds (from HatredPsycho's fork). 5000 bots were online in 4 minutes instead of about 12
+  after 60 seconds. 5000 bots were online in 4 minutes instead of about 12
 - Even with every bot fully active (`BotActiveAlone = 100`, no smart scale), 5000 bots now run at 60-240 ms
   per server tick instead of 0.5-6 seconds
 - Bots find their glyphs without walking the whole item list (562,000 items) at every refresh
@@ -1231,7 +1248,7 @@ for their tips.
 - **No more bot stuck at a dungeon door**: the finder offers dungeons by the DBC level range, the entrance checks
   another one. Bots now skip dungeons their level cannot enter, and one sent there anyway leaves the group
   instead of being revived and sent back every 5 seconds (#5725, #5159, #4818)
-- **Razorfen Kraul and Shadowfang Keep strategies** (from HatredPsycho's fork)
+- **Razorfen Kraul and Shadowfang Keep strategies**
 
 ### Dungeons and raids
 - **Bots follow you into your raid, not into an old one**: a random bot that had killed a Molten Core boss
@@ -1250,7 +1267,7 @@ for their tips.
 - No resurrection spam at a corpse behind a door or a wall (#5722)
 - No eating or drinking while swimming (#5533)
 - No endless loop on a worldforged pickup already taken (#5519)
-- Random bots no longer get Death Knight faces (from StevenLeclerc's fork)
+- Random bots no longer get Death Knight faces
 - **Quest shares work every time**: after a group quest the core left a bot marked "busy", and every later
   share was refused with "busy" until it logged out again (#5606)
 - **Bots under level 40 mount again** behind a player on a fast mount: they own only their slow mount, which was
@@ -1283,7 +1300,7 @@ for their tips.
   (hundreds of bots did it; none now)
 - **Self heals are used**: a heal that only targets its caster was never cast by any bot; it is now used when
   the bot is in trouble, like the other self-saving spells. Nearby-ally and ally-cone spells count as ally
-  spells (from StevenLeclerc's fork)
+  spells
 
 ### Healers
 - **Healers heal before it is too late**: the spec rotations put their attacks up to priority 30, and the
@@ -1424,7 +1441,7 @@ checked in game.
 - Mana potions restore mana: Rage Potions are no longer drunk by casters (#5077); an off-hand item is no
   upgrade under a two-handed weapon (#5081)
 
-### From HatredPsycho's fork — thanks!
+### More fixes
 - **Low-level CoA bots are no longer naked**: under level 5 they get their class starter kit. Bots left
   naked by an older version are dressed at their next login (Zyth45/mod-playerbots#8)
 - A random bot population capped at level 1 keeps the levels it earns
