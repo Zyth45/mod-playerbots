@@ -667,6 +667,9 @@ bool EmoteAction::Execute(Event event)
             p >> nam;
 
         pSource = ObjectAccessor::FindPlayer(source);
+        // Bots react to the emotes of players only: two bots answering each other loop forever (TALKQ).
+        if (pSource && GET_PLAYERBOT_AI(pSource))
+            pSource = nullptr;
         if (pSource && (pSource->GetGUID() != bot->GetGUID()) &&
             ((urand(0, 1) && bot->HasInArc(static_cast<float>(M_PI), pSource, 10.0f)) ||
              (namlen > 1 && strstri(bot->GetName().c_str(), nam.c_str()))))
@@ -688,6 +691,8 @@ bool EmoteAction::Execute(Event event)
         p >> emoteId >> source;
 
         pSource = ObjectAccessor::FindPlayer(source);
+        if (pSource && GET_PLAYERBOT_AI(pSource))
+            pSource = nullptr;
         if (pSource && pSource != bot && ServerFacade::instance().GetDistance2d(bot, pSource) < sPlayerbotAIConfig.farDistance &&
             emoteId != EMOTE_ONESHOT_NONE)
         {
