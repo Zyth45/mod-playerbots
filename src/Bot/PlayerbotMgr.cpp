@@ -30,6 +30,7 @@
 #include "PlayerbotWorldThreadProcessor.h"
 #include "Playerbots.h"
 #include "RandomPlayerbotMgr.h"
+#include "ScriptMgr.h"
 #include "SharedDefines.h"
 #include "Timer.h"
 #include "WorldSession.h"
@@ -314,6 +315,24 @@ void PlayerbotHolder::UpdateSessions()
     }
 }
 
+// Loot and game object packets go through the core's CanPacketReceive hooks like a player's,
+// so scripted chests and portals (High Risk, Fel Commutation) cannot be bypassed by bots.
+static bool IsLootOrGameObjectOpcode(OpcodeClient opcode)
+{
+    switch (opcode)
+    {
+        case CMSG_LOOT:
+        case CMSG_LOOT_MONEY:
+        case CMSG_AUTOSTORE_LOOT_ITEM:
+        case CMSG_LOOT_RELEASE:
+        case CMSG_GAMEOBJ_USE:
+        case CMSG_GAMEOBJ_REPORT_USE:
+            return true;
+        default:
+            return false;
+    }
+}
+
 void PlayerbotHolder::HandleBotPackets(WorldSession* session)
 {
     WorldPacket* packet;
@@ -324,6 +343,11 @@ void PlayerbotHolder::HandleBotPackets(WorldSession* session)
         if (!opHandle)
         {
             LOG_ERROR("playerbots", "Unhandled opcode {} queued for bot session {}. Packet dropped.", static_cast<uint32>(opcode), session->GetAccountId());
+            delete packet;
+            continue;
+        }
+        if (IsLootOrGameObjectOpcode(opcode) && !sScriptMgr->CanPacketReceive(session, *packet))
+        {
             delete packet;
             continue;
         }

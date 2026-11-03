@@ -6,6 +6,8 @@
   under a player in a dungeon or a raid follows the player's item level again, above the cap.
 - **Talents of low-level bots**: a random bot of a Conquest of Azeroth class brought back below level 10 no longer
   keeps its talent tree; its talents go back down to what its level allows, and it starts spending again from level 10.
+- **Scripted chests and portals**: bots now go through the same server rules as players when they loot or use a game
+  object, so the High Risk chest and the Fel Commutation portal can no longer be bypassed by bots.
 
 ## v2.9.1 (2 November 2026)
 
