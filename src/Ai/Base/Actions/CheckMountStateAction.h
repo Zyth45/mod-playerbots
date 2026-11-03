@@ -57,6 +57,7 @@ private:
     static bool preferredMountTableChecked;
     static std::mutex mountCacheLock;
     static void LoadPreferredMounts();
+    bool FollowsMountedMasterBelowMinLevel();
     float CalculateDismountDistance() const;
     float CalculateMountDistance() const;
     void Dismount();

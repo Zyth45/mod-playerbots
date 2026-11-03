@@ -202,7 +202,7 @@ bool CheckMountStateAction::isUseful()
         return false;
 
     // Not useful when level lower than minimum required
-    if (bot->GetLevel() < sPlayerbotAIConfig.useGroundMountAtMinLevel)
+    if (bot->GetLevel() < sPlayerbotAIConfig.useGroundMountAtMinLevel && !FollowsMountedMasterBelowMinLevel())
         return false;
 
     // Allow mounting while transformed only if the form allows it
@@ -223,6 +223,17 @@ bool CheckMountStateAction::isUseful()
     }
 
     return true;
+}
+
+// CoA lets a player ride before level 20, and the alts stayed on foot behind their mounted player (Discord, Maky).
+// Only an alt that knows a mount of the master's type: Mount() first strips the bot's form, and a bot without one
+// would lose its form again at each tick for nothing.
+bool CheckMountStateAction::FollowsMountedMasterBelowMinLevel()
+{
+    if (!botAI->IsAltBot() || !master || master == bot || !master->IsMounted())
+        return false;
+
+    return CollectMountData(bot).allSpells.contains(GetMountType(master));
 }
 
 bool CheckMountStateAction::Mount()

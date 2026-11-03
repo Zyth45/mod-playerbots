@@ -8,6 +8,8 @@
   keeps its talent tree; its talents go back down to what its level allows, and it starts spending again from level 10.
 - **Scripted chests and portals**: bots now go through the same server rules as players when they loot or use a game
   object, so the High Risk chest and the Fel Commutation portal can no longer be bypassed by bots.
+- **Mounts of alts below level 20**: an alt that knows a mount now mounts with its mounted player below level 20, as
+  Conquest of Azeroth allows; random bots, and alts whose player is on foot, keep `AiPlayerbot.UseGroundMountAtMinLevel`.
 
 ## v2.9.1 (2 November 2026)
 
