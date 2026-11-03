@@ -405,6 +405,11 @@ public:
 
     std::string const HandleRemoteCommand(std::string const command);
     void HandleCommand(uint32 type, std::string const text, Player* fromPlayer);
+    // A whispered command run again later, once the bot has walked where it can carry it out.
+    void QueueCommandAt(std::string const& command, Player* owner, time_t at)
+    {
+        chatCommands.push_back(ChatCommandHolder(command, owner, CHAT_MSG_WHISPER, at));
+    }
     void QueueChatResponse(const ChatQueuedReply reply);
     void HandleBotOutgoingPacket(WorldPacket const& packet);
     void HearChat(WorldPacket const& packet);

@@ -137,6 +137,8 @@ bool SellAction::Execute(Event event)
 
     std::string const text = event.getParam();
     batch = text.find("Hitem:") == std::string::npos;
+    if (!text.empty() && !VendorInReach() && WalkToMasterVendor(text))
+        return true;
     soldCount = 0;
     soldMoney = 0;
     if (text == "gray" || text == "*")
@@ -246,6 +248,52 @@ void SellAction::Sell(Item* item)
         bot->PlayDistanceSound(120);
         break;
     }
+}
+
+bool SellAction::VendorInReach()
+{
+    GuidVector npcs = botAI->GetAiObjectContext()->GetValue<GuidVector>("nearest npcs")->Get();
+    for (ObjectGuid const guid : npcs)
+        if (bot->GetNPCIfCanInteractWith(guid, UNIT_NPC_FLAG_VENDOR))
+            return true;
+    return false;
+}
+
+// No vendor in reach, the master targets one within 40 yards: the bot walks to it and the order runs again on
+// arrival (an alt left by the inn sold nothing while its player stood at the vendor, 03/11).
+bool SellAction::WalkToMasterVendor(std::string const& text)
+{
+    Player* master = botAI->GetMaster();
+    if (!master || master == bot)
+        return false;
+
+    Creature* vendor = ObjectAccessor::GetCreature(*bot, master->GetTarget());
+    if (!vendor || !vendor->IsAlive() || !vendor->HasNpcFlag(UNIT_NPC_FLAG_VENDOR) ||
+        vendor->GetMapId() != bot->GetMapId())
+        return false;
+
+    time_t const now = time(nullptr);
+    if (walkedTo == vendor->GetGUID() && now <= walkedUntil)
+    {
+        walkedTo.Clear();
+        botAI->TellMaster("Cannot reach " + vendor->GetName() + ".");
+        return true;
+    }
+
+    float const distance = bot->GetDistance(vendor);
+    if (distance > 40.0f)
+        return false;
+
+    float x, y, z;
+    vendor->GetContactPoint(bot, x, y, z, 1.5f);
+    bot->GetMotionMaster()->MovePoint(0, x, y, z);
+
+    uint32 const seconds = uint32(distance / std::max(bot->GetSpeed(MOVE_RUN), 1.0f)) + 2;
+    walkedTo = vendor->GetGUID();
+    walkedUntil = now + seconds + 5;
+    botAI->QueueCommandAt("s " + text, master, now + seconds);
+    botAI->TellMaster("Going to " + vendor->GetName() + " to sell.");
+    return true;
 }
 
 void SellAction::TellSummary()

@@ -24,8 +24,12 @@ public:
 
 private:
     void TellSummary();
+    bool VendorInReach();
+    bool WalkToMasterVendor(std::string const& text);
 
     bool batch = false;
+    ObjectGuid walkedTo;
+    time_t walkedUntil = 0;
     uint32 soldCount = 0;
     uint32 soldMoney = 0;
 };
