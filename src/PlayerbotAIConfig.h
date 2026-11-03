@@ -411,6 +411,7 @@ public:
     bool autoLearnTradeskillSpells;
     bool coaClassesOnly;
     bool gatherOnlySkillUp;
+    float altLootMasterDistance;
     std::vector<uint32> excludedBotRaces;
     bool customRacesForBots;
     bool coaSpecRotations;

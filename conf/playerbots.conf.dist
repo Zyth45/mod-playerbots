@@ -1492,6 +1492,12 @@ AiPlayerbot.CoaWcrMysticEnchants = 1
 # Default: 1 (enabled)
 AiPlayerbot.GatherOnlySkillUp = 1
 
+# Alts that follow a player only loot or gather (corpses, herbs, ores, chests) within this distance of their player, in
+# yards; one already on its way drops a target its player has left behind. They loot and gather nothing while their
+# player is on a ship, a zeppelin or a flight path. Random bots and alts on a mission are not affected.
+# Default: 30
+AiPlayerbot.AltLootMasterDistance = 30
+
 # Races of the custom races module (CoA Server Manager) that random bots never use, as race ids separated by
 # commas, e.g. "55,63,97". The races that module makes playable (Goblin 9, 12 to 32, 47 to 97) only go to random bots
 # when its own setting CoACustomRaces.BotsEnable = 1; CharacterCreating.Disabled.RaceMask (worldserver.conf) only

@@ -829,6 +829,7 @@ bool PlayerbotAIConfig::Initialize()
         sConfigMgr->GetOption<bool>("AiPlayerbot.AutoLearnTradeskillSpells", true);
     coaClassesOnly = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaClassesOnly", true);
     gatherOnlySkillUp = sConfigMgr->GetOption<bool>("AiPlayerbot.GatherOnlySkillUp", true, false);
+    altLootMasterDistance = sConfigMgr->GetOption<float>("AiPlayerbot.AltLootMasterDistance", 30.0f, false);
     // Written by the CoA Server Manager's custom races module ("bots use custom races"): a list of race ids,
     // not a mask, since its races go up to 97. CrashingBotRaces adds to it the races that module's author lists
     // as crashing the client, so that an incomplete list written by the Manager never lets them back. Its own

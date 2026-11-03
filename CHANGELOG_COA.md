@@ -10,6 +10,10 @@
   object, so the High Risk chest and the Fel Commutation portal can no longer be bypassed by bots.
 - **Mounts of alts below level 20**: an alt that knows a mount now mounts with its mounted player below level 20, as
   Conquest of Azeroth allows; random bots, and alts whose player is on foot, keep `AiPlayerbot.UseGroundMountAtMinLevel`.
+- **Alts stay near their player to loot**: an alt only loots or gathers within `AiPlayerbot.AltLootMasterDistance`
+  (new, 30 yards) of its player, drops a target its player has left behind instead of going back to it after a
+  regroup, and loots nothing while its player is on a ship, a zeppelin or a flight path. Random bots and alts on a
+  mission are not affected.
 
 ## v2.9.1 (2 November 2026)
 

@@ -5,6 +5,7 @@
  */
 
 #include "LootObjectStack.h"
+#include "CoaMissionMgr.h"
 #include "GameObjectAI.h"
 #include "LootMgr.h"
 #include "Object.h"
@@ -346,6 +347,16 @@ bool LootObject::IsLootPossible(Player* bot)
     if (reqItem && !bot->HasItemCount(reqItem, 1))
         return false;
 
+    // Alts ran alone to corpses and nodes up to 100 yards off, jumped off ships for them, and went back at once after
+    // a regroup (Discord, Maky): an alt that follows a player loots only near that player, never while the player
+    // rides a transport or a flight path. A target the player left behind stops being possible, so the alt drops it.
+    Player* master = botAI->GetMaster();
+    if (master && master != bot && !GET_PLAYERBOT_AI(master) && !sRandomPlayerbotMgr.IsRandomBot(bot) &&
+        (master->GetTransport() || master->IsInFlight() || !master->IsInMap(worldObj) ||
+         master->GetDistance(worldObj) > sPlayerbotAIConfig.altLootMasterDistance) &&
+        !sCoaMissionMgr.IsOnMission(bot))
+        return false;
+
     if (abs(worldObj->GetPositionZ() - bot->GetPositionZ()) > INTERACTION_DISTANCE - 2.0f)
         return false;
 
@@ -390,7 +401,6 @@ bool LootObject::IsLootPossible(Player* bot)
                                  skillId == SKILL_SKINNING || skillId == SKILL_ENGINEERING;
     if (gatheringObject)
     {
-        Player* master = botAI->GetMaster();
         bool const hasActivePlayerMaster = master && !GET_PLAYERBOT_AI(master);
         if (!hasActivePlayerMaster && botAI->GetAiObjectContext()->GetValue<uint8>("bag space")->Get() > 80)
             return false;
