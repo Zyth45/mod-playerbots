@@ -3582,8 +3582,9 @@ void RandomPlayerbotMgr::CoaUpdateGear(Player* bot)
     SetEventValue(botId, "coaGearPvp", pvp, 30 * DAY);
     SetEventValue(botId, "coaGearScore", itemLevel, 30 * DAY);
     PlayerbotFactory::DestroyEquippedGear(bot);
-    // The configured RandomGearScoreLimit applies here too, as in every other way of gearing a random bot.
-    uint32 const gearScoreLimit = sPlayerbotAIConfig.randomGearScoreLimit
+    // The configured RandomGearScoreLimit applies to a bot out in the world, as in every other way of gearing a random
+    // bot; a bot grouped under a player follows the player's item level (dungeons and raids), never this cap.
+    uint32 const gearScoreLimit = !master && sPlayerbotAIConfig.randomGearScoreLimit
                                       ? PlayerbotFactory::CalcMixedGearScore(sPlayerbotAIConfig.randomGearScoreLimit,
                                                                             sPlayerbotAIConfig.randomGearQualityLimit)
                                       : 0;
