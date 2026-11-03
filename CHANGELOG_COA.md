@@ -1,5 +1,10 @@
 # CoA Bots — changelog
 
+## v2.9.2 (in progress)
+
+- **Gear of grouped bots**: `AiPlayerbot.RandomGearScoreLimit` caps random bots out in the world only; a bot grouped
+  under a player in a dungeon or a raid follows the player's item level again, above the cap.
+
 ## v2.9.1 (2 November 2026)
 
 - **Core**: latest public CoA core of 2 November (more than 100 fixes): Cultist Entropic Slam costs 60 Insanity again
