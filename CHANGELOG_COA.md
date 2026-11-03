@@ -4,6 +4,8 @@
 
 - **Gear of grouped bots**: `AiPlayerbot.RandomGearScoreLimit` caps random bots out in the world only; a bot grouped
   under a player in a dungeon or a raid follows the player's item level again, above the cap.
+- **Talents of low-level bots**: a random bot of a Conquest of Azeroth class brought back below level 10 no longer
+  keeps its talent tree; its talents go back down to what its level allows, and it starts spending again from level 10.
 
 ## v2.9.1 (2 November 2026)
 

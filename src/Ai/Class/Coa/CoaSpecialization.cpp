@@ -519,15 +519,19 @@ std::vector<std::pair<uint32, uint8>> BuildRanksAtLevel(Player* bot, uint32 spec
 
 uint32 ApplyCoaTalents(Player* bot)
 {
-    if (!bot || !IsAscensionCustomClassId(bot->getClass()) || bot->GetLevel() < SpecializationLevel ||
-        !sRandomPlayerbotMgr.IsRandomBot(bot))
+    if (!bot || !IsAscensionCustomClassId(bot->getClass()) || !sRandomPlayerbotMgr.IsRandomBot(bot))
         return 0;
 
+    // A random bot brought back below the specialization level kept its whole tree (a level 1 Venomancer with
+    // the tree nearly full): under that level it is only taken down, to what the build holds there, or to
+    // nothing without a specialization; nothing is raised before the specialization level.
+    bool const belowSpecialization = bot->GetLevel() < SpecializationLevel;
     uint32 const specializationId = GetAscensionActiveSpecialization(bot);
-    if (!specializationId)
+    if (!specializationId && !belowSpecialization)
         return 0;
 
-    std::vector<std::pair<uint32, uint8>> const wanted = BuildRanksAtLevel(bot, specializationId);
+    std::vector<std::pair<uint32, uint8>> const wanted =
+        specializationId ? BuildRanksAtLevel(bot, specializationId) : std::vector<std::pair<uint32, uint8>>();
 
     // The core teaches the class baseline again right after any change (SynchronizeProgression), so
     // lowering an entry whose spell is part of that baseline never sticks and was redone every refresh.
@@ -589,7 +593,7 @@ uint32 ApplyCoaTalents(Player* bot)
 
     uint32 raised = 0;
     for (auto const& [entryId, rank] : wanted)
-        if (GetAscensionTalentRank(bot, entryId) < rank && SetAscensionTalentRank(bot, entryId, rank) &&
+        if (!belowSpecialization && GetAscensionTalentRank(bot, entryId) < rank && SetAscensionTalentRank(bot, entryId, rank) &&
             GetAscensionTalentRank(bot, entryId) >= rank)
         {
             ++raised;
