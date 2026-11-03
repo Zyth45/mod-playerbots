@@ -20,6 +20,11 @@ bool RandomBotUpdateAction::Execute(Event /*event*/)
             return true;
     }
 
+    // A grouped bot inside a dungeon or raid is never teleported away or randomized: led by a random bot (a dungeon
+    // clear run), its group was disbanded after the third boss of Shadowfang Keep and the leader sent to a zone.
+    if (bot->GetGroup() && bot->GetMap()->IsDungeon())
+        return true;
+
     // A bot waiting for its player to log back in is not refreshed out of his group meanwhile: the release
     // of the whole group after AiPlayerbot.CoaOrphanGroupReleaseDelay comes from RandomPlayerbotMgr.
     if (sPlayerbotAIConfig.coaOrphanGroupReleaseDelay && sRandomPlayerbotMgr.CoaIsOrphanGroup(bot->GetGroup()))
