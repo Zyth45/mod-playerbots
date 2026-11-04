@@ -11,6 +11,9 @@
   eight pieces), never mixed pieces: an armor set of its type, or one of the cosmetic sets (such as the ones sold by
   Tiraxis) once it has the set's level, for `AiPlayerbot.RandomBotTransmogCosmeticSets` percent of them (new, 50). Only
   the look changes: the real gear and its stats stay.
+- **Gear above the bot's level**: a random bot brought down in level no longer keeps equipped items it could not wear
+  at its new level (a level 38 hat on a level 13 bot): they are taken off at login and when the bot is randomized.
+  Alts are never touched.
 
 ## v2.9.2 (in progress)
 

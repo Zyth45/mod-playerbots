@@ -555,6 +555,7 @@ void PlayerbotHolder::OnBotLogin(Player* const bot)
     playerBots[bot->GetGUID()] = bot;
 
     OnBotLoginInternal(bot);
+    PlayerbotFactory::UnequipAboveLevel(bot);
 
     PlayerbotAI* botAI = GET_PLAYERBOT_AI(bot);
     if (!botAI)

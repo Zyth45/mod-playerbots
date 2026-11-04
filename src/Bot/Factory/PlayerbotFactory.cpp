@@ -893,6 +893,7 @@ void PlayerbotFactory::Randomize(bool incremental)
 
     bot->GiveLevel(level);
     bot->InitStatsForLevel(true);
+    UnequipAboveLevel(bot);
     CancelAuras();
     // bot->SaveToDB(false, false);
     if (pmo)
@@ -2729,6 +2730,29 @@ void PlayerbotFactory::SetRandomProperty(Player* bot, Item* item, int32 randomPr
     item->SetItemRandomProperties(randomPropertyId);
     if (equipped)
         bot->_ApplyItemMods(item, slot, true);
+}
+
+uint32 PlayerbotFactory::UnequipAboveLevel(Player* bot)
+{
+    if (!sRandomPlayerbotMgr.IsRandomBot(bot))
+        return 0;
+
+    uint32 removed = 0;
+    for (uint8 slot = EQUIPMENT_SLOT_START; slot < EQUIPMENT_SLOT_END; ++slot)
+    {
+        Item* item = bot->GetItemByPos(INVENTORY_SLOT_BAG_0, slot);
+        ItemTemplate const* proto = item ? item->GetTemplate() : nullptr;
+        if (!proto || proto->RequiredLevel <= bot->GetLevel())
+            continue;
+
+        bot->DestroyItem(INVENTORY_SLOT_BAG_0, slot, true);
+        ++removed;
+    }
+
+    if (removed)
+        LOG_DEBUG("playerbots", "Bot {} (level {}): {} equipped items above its level taken off", bot->GetName(),
+                  bot->GetLevel(), removed);
+    return removed;
 }
 
 void PlayerbotFactory::RollRandomProperty(Player* bot, Item* item)
