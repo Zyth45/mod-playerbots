@@ -2,6 +2,8 @@
 
 ## v2.9.3 (in progress)
 
+- **Random bots mount with you**: on a mount that can also fly (most Conquest of Azeroth mounts), the random bots of your
+  group stayed on foot where nobody can fly, while your alts rode along; they now take their ground mount there.
 - **Suffixes of the bots' gear**: the suffix chosen for a bot weighs stamina for every role (and defense, dodge and parry
   for a tank) instead of the most damage or healing, so bots no longer wear "glass cannon" gear; among suffixes as good
   for the role, each bot picks its own. `AiPlayerbot.GearRollRandomSuffix = 2` rolls the suffix like a looted item for

@@ -20,6 +20,8 @@
 #include "SpellAuraEffects.h"
 
 static constexpr uint32 SPELL_COLD_WEATHER_FLYING = 54197;
+
+static bool BotCanUseFlyingMount(Player const* bot);
 static constexpr float PARACHUTE_LAND_THRESHOLD = 15.0f;
 
 // Define the static map / init bool for caching bot preferred mount data globally
@@ -233,7 +235,19 @@ bool CheckMountStateAction::FollowsMountedMasterBelowMinLevel()
     if (!botAI->IsAltBot() || !master || master == bot || !master->IsMounted())
         return false;
 
-    return CollectMountData(bot).allSpells.contains(GetMountType(master));
+    return CollectMountData(bot).allSpells.contains(MountTypeFor(master, CollectMountData(bot)));
+}
+
+// A master on a mount that can fly (most CoA mounts carry a flight speed, as Aima, Steed of the Second Eidolon) asks
+// for a flying mount even where nobody can fly: random bots, which own only their race's ground mounts below level 60
+// and an Outland flyer at 60, stayed on foot in Elwynn while the alts, whose collection mounts fly too, rode along
+// (test of 04/11). Where the bot cannot fly, its ground mount does; a bot with only flying mounts keeps them.
+uint32 CheckMountStateAction::MountTypeFor(Player* master, MountData const& data) const
+{
+    uint32 const type = GetMountType(master);
+    if (type == 1 && !BotCanUseFlyingMount(bot) && data.allSpells.contains(0))
+        return 0;
+    return type;
 }
 
 bool CheckMountStateAction::Mount()
@@ -257,7 +271,7 @@ bool CheckMountStateAction::Mount()
 
     // Get bot mount data
     MountData mountData = CollectMountData(bot);
-    int32 masterMountType = GetMountType(master);
+    int32 masterMountType = MountTypeFor(master, mountData);
     int32 masterSpeed = CalculateMasterMountSpeed(master);
 
     // Try shapeshift
