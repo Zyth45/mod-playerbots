@@ -1,6 +1,6 @@
 # CoA Bots — changelog
 
-## v2.9.3 (in progress)
+## v2.9.3 (5 November 2026)
 
 - **Random bots mount with you**: on a mount that can also fly (most Conquest of Azeroth mounts), the random bots of your
   group stayed on foot where nobody can fly, while your alts rode along; they now take their ground mount there.
@@ -35,7 +35,7 @@
 - **`alt take <quest>`** also accepts a plain quest id (the SquidBots Lite popup "your alts take this quest too?"), works
   at Call Boards, and answers `too_far` when the quest giver is out of the alt's reach and you do not have the quest.
 
-## v2.9.2 (in progress)
+## v2.9.2 (4 November 2026)
 
 - **Gear of grouped bots**: `AiPlayerbot.RandomGearScoreLimit` caps random bots out in the world only; a bot grouped
   under a player in a dungeon or a raid follows the player's item level again, above the cap.
