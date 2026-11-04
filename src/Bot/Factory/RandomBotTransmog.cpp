@@ -8,6 +8,9 @@
 // other clients changes: the real items, their stats and enchantments stay as they are, and nothing is saved. The
 // model is drawn from the bot's guid and level bracket, so a bot looks the same at every login and its outfit moves
 // on as it levels. The catalog holds the source items of Appearances.dbc found in item_template, read once at start.
+// The armor slots show one whole item set (all eight pieces) or none: an armor set of the bot's armor type within its
+// level window, or a cosmetic set (artifact quality, sold for their look, as Tiraxis' sets) of any armor type once
+// the bot has the set's level. Without a whole set, each slot shows a model of its own as before.
 
 #include "ClientDBC.h"
 #include "Config.h"
@@ -36,7 +39,7 @@ namespace
 {
     constexpr uint32 LevelBracket = 5;
     constexpr uint32 LevelWindow = 15;
-    constexpr uint32 MinSetPieces = 4;
+    constexpr uint32 SetSlotCount = 8;
 
     struct CatalogItem
     {
@@ -59,8 +62,10 @@ namespace
     {
         // Key: item class, subclass and inventory type. Items sorted by level.
         std::unordered_map<uint32, std::vector<CatalogItem>> buckets;
-        // Armor sets by armor subclass (cloth 1 to plate 4), sorted by set id.
+        // Whole armor sets by armor subclass (cloth 1 to plate 4), sorted by set id.
         std::vector<CatalogSet> sets[ITEM_SUBCLASS_ARMOR_PLATE + 1];
+        // Whole cosmetic sets (artifact quality), for any armor type, sorted by set id.
+        std::vector<CatalogSet> cosmeticSets;
         // Characters with active appearances of their own: the core shows those.
         std::unordered_set<uint32> ownAppearances;
         bool collectionsForBots = false;
@@ -209,7 +214,7 @@ namespace
             return;
         }
 
-        std::map<std::pair<uint32, uint32>, CatalogSet> setsById; // (armor subclass, set id)
+        std::map<std::pair<uint32, uint32>, CatalogSet> setsById; // (armor subclass, set id); 0: cosmetic
         uint32 itemCount = 0;
         for (auto const& [itemId, proto] : *sObjectMgr->GetItemTemplateStore())
         {
@@ -217,7 +222,8 @@ namespace
                 continue;
             if (proto.Class != ITEM_CLASS_ARMOR && proto.Class != ITEM_CLASS_WEAPON)
                 continue;
-            if (proto.Quality < ITEM_QUALITY_UNCOMMON || proto.Quality > ITEM_QUALITY_EPIC)
+            bool const cosmetic = proto.Quality == ITEM_QUALITY_ARTIFACT;
+            if ((proto.Quality < ITEM_QUALITY_UNCOMMON || proto.Quality > ITEM_QUALITY_EPIC) && !cosmetic)
                 continue;
             if (proto.HasFlag(ITEM_FLAG_DEPRECATED) || IsPlaceholderName(proto.Name1))
                 continue;
@@ -227,15 +233,23 @@ namespace
             if (!proto.AllowableClass || !proto.AllowableRace)
                 continue;
 
-            uint32 const level = proto.RequiredLevel ? proto.RequiredLevel : proto.ItemLevel;
-            catalog.buckets[BucketKey(proto.Class, proto.SubClass, proto.InventoryType)].push_back(
-                CatalogItem{itemId, level, proto.AllowableClass, proto.AllowableRace});
-            ++itemCount;
+            bool const setPiece = proto.ItemSet && proto.Class == ITEM_CLASS_ARMOR &&
+                                  proto.SubClass >= ITEM_SUBCLASS_ARMOR_CLOTH &&
+                                  proto.SubClass <= ITEM_SUBCLASS_ARMOR_PLATE && IsSetSlot(proto.InventoryType);
+            if (cosmetic && !setPiece)
+                continue;
 
-            if (proto.ItemSet && proto.Class == ITEM_CLASS_ARMOR && proto.SubClass >= ITEM_SUBCLASS_ARMOR_CLOTH &&
-                proto.SubClass <= ITEM_SUBCLASS_ARMOR_PLATE && IsSetSlot(proto.InventoryType))
+            uint32 const level = proto.RequiredLevel ? proto.RequiredLevel : proto.ItemLevel;
+            if (!cosmetic)
             {
-                auto [itr, inserted] = setsById.try_emplace(std::make_pair(proto.SubClass, proto.ItemSet));
+                catalog.buckets[BucketKey(proto.Class, proto.SubClass, proto.InventoryType)].push_back(
+                    CatalogItem{itemId, level, proto.AllowableClass, proto.AllowableRace});
+                ++itemCount;
+            }
+
+            if (setPiece)
+            {
+                auto [itr, inserted] = setsById.try_emplace(std::make_pair(cosmetic ? 0u : proto.SubClass, proto.ItemSet));
                 CatalogSet& set = itr->second;
                 if (inserted)
                 {
@@ -262,12 +276,21 @@ namespace
                       { return a.level != b.level ? a.level < b.level : a.itemId < b.itemId; });
 
         uint32 setCount = 0;
+        uint32 cosmeticCount = 0;
         for (auto& [key, set] : setsById)
         {
-            if (set.pieces.size() < MinSetPieces || !set.classMask || !set.raceMask)
+            if (set.pieces.size() < SetSlotCount || !set.classMask || !set.raceMask)
                 continue;
-            catalog.sets[key.first].push_back(std::move(set));
-            ++setCount;
+            if (key.first)
+            {
+                catalog.sets[key.first].push_back(std::move(set));
+                ++setCount;
+            }
+            else
+            {
+                catalog.cosmeticSets.push_back(std::move(set));
+                ++cosmeticCount;
+            }
         }
 
         if (QueryResult result = CharacterDatabase.Query("SELECT DISTINCT `guid` FROM `character_appearance`"))
@@ -280,8 +303,11 @@ namespace
 
         catalog.loaded = itemCount > 0;
         TransmogCatalog = std::move(catalog);
-        LOG_INFO("server.loading", ">> Random bot transmog: {} appearances and {} item sets for {}% of the random bots in {} ms",
-                 itemCount, setCount, sPlayerbotAIConfig.randomBotTransmogPercent, GetMSTimeDiffToNow(oldMSTime));
+        LOG_INFO("server.loading",
+                 ">> Random bot transmog: {} appearances, {} whole item sets and {} cosmetic sets for {}% of the random "
+                 "bots in {} ms",
+                 itemCount, setCount, cosmeticCount, sPlayerbotAIConfig.randomBotTransmogPercent,
+                 GetMSTimeDiffToNow(oldMSTime));
     }
 
     bool Fits(uint32 itemClassMask, uint32 itemRaceMask, Player const* bot)
@@ -289,34 +315,63 @@ namespace
         return (itemClassMask & bot->getClassMask()) && (itemRaceMask & bot->getRaceMask());
     }
 
-    uint32 PickSetPiece(Player const* bot, uint32 subClass, uint32 inventoryType, uint32 low, uint32 high, uint32 bracket)
+    uint32 ArmorSubClass(Player const* bot)
     {
-        if (subClass < ITEM_SUBCLASS_ARMOR_CLOTH || subClass > ITEM_SUBCLASS_ARMOR_PLATE || !IsSetSlot(inventoryType))
-            return 0;
+        if (bot->HasSkill(SKILL_PLATE_MAIL))
+            return ITEM_SUBCLASS_ARMOR_PLATE;
+        if (bot->HasSkill(SKILL_MAIL))
+            return ITEM_SUBCLASS_ARMOR_MAIL;
+        if (bot->HasSkill(SKILL_LEATHER))
+            return ITEM_SUBCLASS_ARMOR_LEATHER;
+        return ITEM_SUBCLASS_ARMOR_CLOTH;
+    }
 
-        // Same choice for every slot of that armor type: the outfit is one set.
-        std::vector<CatalogSet> const& sets = TransmogCatalog.sets[subClass];
+    template <typename Allowed>
+    CatalogSet const* PickFrom(std::vector<CatalogSet> const& sets, Player const* bot, uint32 bracket, uint32 salt,
+                               Allowed allowed)
+    {
         uint32 count = 0;
         for (CatalogSet const& set : sets)
-            if (set.maxLevel >= low && set.maxLevel <= high && Fits(set.classMask, set.raceMask, bot))
+            if (allowed(set) && Fits(set.classMask, set.raceMask, bot))
                 ++count;
         if (!count)
-            return 0;
+            return nullptr;
 
-        uint32 pick = uint32(Roll(bot->GetGUID().GetCounter(), bracket, 0x5E70 + subClass) % count);
+        uint32 pick = uint32(Roll(bot->GetGUID().GetCounter(), bracket, salt) % count);
         for (CatalogSet const& set : sets)
-        {
-            if (set.maxLevel < low || set.maxLevel > high || !Fits(set.classMask, set.raceMask, bot))
-                continue;
-            if (pick--)
-                continue;
+            if (allowed(set) && Fits(set.classMask, set.raceMask, bot) && !pick--)
+                return &set;
+        return nullptr;
+    }
 
-            uint32 const wanted = NormalizedInventoryType(inventoryType);
-            for (auto const& [pieceType, itemId] : set.pieces)
-                if (pieceType == wanted)
-                    return itemId;
+    // One set for every armor slot of the bot in this level bracket, or none.
+    CatalogSet const* PickOutfit(Player const* bot, uint32 level, uint32 low, uint32 high, uint32 bracket)
+    {
+        uint32 const guid = bot->GetGUID().GetCounter();
+        if (Roll(guid, bracket, 0xC05E) % 100 < sPlayerbotAIConfig.randomBotTransmogCosmeticSets)
+            if (CatalogSet const* set = PickFrom(TransmogCatalog.cosmeticSets, bot, bracket, 0xC05E7,
+                                                 [level](CatalogSet const& set) { return set.maxLevel <= level; }))
+                return set;
+
+        uint32 const subClass = ArmorSubClass(bot);
+        return PickFrom(TransmogCatalog.sets[subClass], bot, bracket, 0x5E70 + subClass,
+                        [low, high](CatalogSet const& set) { return set.maxLevel >= low && set.maxLevel <= high; });
+    }
+
+    uint32 PickSetPiece(Player const* bot, ItemTemplate const* real, uint32 level, uint32 low, uint32 high,
+                        uint32 bracket)
+    {
+        if (real->Class != ITEM_CLASS_ARMOR || !IsSetSlot(real->InventoryType))
             return 0;
-        }
+
+        CatalogSet const* set = PickOutfit(bot, level, low, high, bracket);
+        if (!set)
+            return 0;
+
+        uint32 const wanted = NormalizedInventoryType(real->InventoryType);
+        for (auto const& [pieceType, itemId] : set->pieces)
+            if (pieceType == wanted)
+                return itemId;
         return 0;
     }
 
@@ -393,14 +448,7 @@ public:
         uint32 const high = std::max(bracket * LevelBracket, 1u);
         uint32 const low = high > LevelWindow ? high - LevelWindow : 0;
 
-        uint32 shown = PickSetPiece(player, real->SubClass, real->InventoryType, low, high, bracket);
-        if (shown)
-        {
-            // The set piece must be of the same item type as the real one (a robe for a robe slot is fine).
-            ItemTemplate const* piece = sObjectMgr->GetItemTemplate(shown);
-            if (!piece || piece->Class != real->Class || piece->SubClass != real->SubClass)
-                shown = 0;
-        }
+        uint32 shown = PickSetPiece(player, real, level, low, high, bracket);
         if (!shown)
             shown = PickItem(player, slot, real, low, high, bracket);
 

@@ -7,6 +7,10 @@
   for the role, each bot picks its own. `AiPlayerbot.GearRollRandomSuffix = 2` rolls the suffix like a looted item for
   every bot, alts included (0 and 1 unchanged). Items a bot gets directly (starter kit, quest items) roll a suffix as
   a player's would, and the BiS command gives the best suffix for the spec.
+- **Whole sets for the bots' look**: a random bot with a transmog shows one whole item set on its armor slots (all
+  eight pieces), never mixed pieces: an armor set of its type, or one of the cosmetic sets (such as the ones sold by
+  Tiraxis) once it has the set's level, for `AiPlayerbot.RandomBotTransmogCosmeticSets` percent of them (new, 50). Only
+  the look changes: the real gear and its stats stay.
 
 ## v2.9.2 (in progress)
 

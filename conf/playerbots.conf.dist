@@ -652,9 +652,10 @@ AiPlayerbot.CoaSelfFoundMaxLevel = 59
 # Default: -1 (automatic)
 AiPlayerbot.CoaSelfFoundBotsPercent = -1
 
-# Random bot transmog: random bots show other models of their armor and weapon types, picked from a whole item
-# set when one fits, with a required level up to 15 below their own. Purely visual: their real gear and stats never
-# change and nothing is saved; a bot keeps the same look at every login until its level changes bracket.
+# Random bot transmog: random bots show other models of their armor and weapon types, with a required level up to
+# 15 below their own. The armor slots show one whole item set (all eight pieces) when one fits, else a model of their
+# own each. Purely visual: their real gear and stats never change and nothing is saved; a bot keeps the same look at
+# every login until its level changes bracket.
 # Not applied to alt bots, to self-found levels (CoaSelfFound), or when CoA.CollectionsForBots >= 2.
 # Default: 1 (enabled)
 AiPlayerbot.RandomBotTransmog = 1
@@ -666,6 +667,12 @@ AiPlayerbot.RandomBotTransmogPercent = 50
 # Random bots below this level keep their real gear look.
 # Default: 10
 AiPlayerbot.RandomBotTransmogMinLevel = 10
+
+# Share of the transmog bots, in percent, that wear a cosmetic set (the artifact-quality appearance sets, such as
+# the ones sold by Tiraxis) once they have its level, whatever their armor type; the others wear an armor set of
+# their type. Only the look changes, as for any transmog.
+# Default: 50
+AiPlayerbot.RandomBotTransmogCosmeticSets = 50
 
 # Random property and random suffix of the gear given to bots ("of the Bear", "of the Eagle"...).
 # 0: each item takes a property or suffix that scores well for the bot's role (stamina, and defense for a tank,
