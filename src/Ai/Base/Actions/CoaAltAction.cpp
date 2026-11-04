@@ -11,6 +11,7 @@
 #include "CoaEnchanter.h"
 #include "Event.h"
 #include "GameObject.h"
+#include "ObjectAccessor.h"
 #include "Playerbots.h"
 #include "TrainerAction.h"
 
@@ -39,7 +40,36 @@ std::string Readable(CoaAltAddon::QuestState const& state)
         return "profession skill too low";
     return "not available to me";
 }
+
+// A quest link, or a plain quest id.
+Quest const* QuestOf(Player* master, std::string const& arg)
+{
+    PlayerbotChatHandler handler(master);
+    uint32 questId = handler.extractQuestId(arg);
+    if (!questId && !arg.empty() && arg.find_first_not_of("0123456789") == std::string::npos && arg.size() < 10)
+        questId = uint32(std::stoul(arg));
+    return questId ? sObjectMgr->GetQuestTemplate(questId) : nullptr;
+}
 }  // namespace
+
+bool CoaQuestTakeAction::Execute(Event event)
+{
+    Player* master = GetMaster();
+    Player* requester = event.getOwner() ? event.getOwner() : master;
+    if (!master || requester != master || !botAI->IsAltBot())
+        return false;
+
+    std::string arg = event.getParam();
+    arg.erase(0, arg.find_first_not_of(' '));
+    arg.erase(arg.find_last_not_of(' ') + 1);
+    Quest const* quest = QuestOf(master, arg);
+    if (!quest)
+    {
+        botAI->TellMaster("Usage: quest take <quest id or link>");
+        return false;
+    }
+    return Take(quest, false);
+}
 
 bool CoaAltAction::Execute(Event event)
 {
@@ -110,9 +140,7 @@ bool CoaAltAction::Execute(Event event)
         return false;
     }
 
-    PlayerbotChatHandler handler(master);
-    uint32 const questId = handler.extractQuestId(arg);
-    Quest const* quest = questId ? sObjectMgr->GetQuestTemplate(questId) : nullptr;
+    Quest const* quest = QuestOf(master, arg);
     if (!quest)
     {
         botAI->TellMaster("Unknown quest.");
@@ -192,11 +220,29 @@ bool CoaAltAction::Take(Quest const* quest, bool catchUp)
                     break;
                 }
 
-    if (giver)
-        return AcceptQuest(quest, giver);
-
     QuestStatus const masterStatus = master->GetQuestStatus(questId);
-    if (masterStatus != QUEST_STATUS_INCOMPLETE && masterStatus != QUEST_STATUS_COMPLETE)
+    bool const masterHasIt = masterStatus == QUEST_STATUS_INCOMPLETE || masterStatus == QUEST_STATUS_COMPLETE;
+
+    // The core takes a quest only at the quest giver: one out of reach is used when the player does not have the
+    // quest (else the alt takes it from the player's log, below), and only within AltLootMasterDistance of the player.
+    if (giver)
+    {
+        WorldObject* object = ObjectAccessor::GetWorldObject(*bot, giver);
+        if (object && bot->IsWithinDistInMap(object, INTERACTION_DISTANCE))
+            return AcceptQuest(quest, giver);
+        if (!masterHasIt)
+        {
+            bool const nearMaster = object && master->IsWithinDistInMap(object, sPlayerbotAIConfig.altLootMasterDistance);
+            if (CoaAltAddon::AddonSeen(botAI))
+                CoaAltAddon::SendToMaster(botAI, "QR	" + std::to_string(questId) + (nearMaster ? "	too_far	" : "	no_giver	"));
+            else
+                botAI->TellMaster(std::string(nearMaster ? "Bring me to the quest giver of " : "No quest giver near me for ") +
+                                  chat->FormatQuest(quest));
+            return false;
+        }
+    }
+
+    if (!masterHasIt)
     {
         if (CoaAltAddon::AddonSeen(botAI))
             CoaAltAddon::SendToMaster(botAI, "QR\t" + std::to_string(questId) + "\tno_giver\t");

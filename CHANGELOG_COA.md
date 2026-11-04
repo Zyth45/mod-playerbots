@@ -23,6 +23,13 @@
   or arenas, and not for bots on a mission.
 - **Server start**: a slow or busy PC no longer gets a false "world stopped during startup": the start waits for the
   worldserver as long as its supervisor runs (up to 5 minutes), and says which of the two happened when it gives up.
+- **Call Boards and mission boards for alts**: at a board of more than 32 quests, an alt now takes the quests of that
+  board its player has in the quest log or handed in today (dailies) or this week (weeklies), and hands in the ones it
+  completed (25 at most per visit), without the quest menu that crashed the server; a daily the alt already did is
+  refused as usual. Random bots still leave these boards alone; other quest givers are unchanged.
+- **`quest take <quest id or link>`** (new whisper to an alt, for SquidBots Lite): the alt takes that quest from a quest
+  giver next to it, or from your quest log when you have it, else says why not (already done, level, log full, no
+  quest giver near, too far). Same answers as `alt take`, which also accepts a plain quest id now.
 
 ## v2.9.2 (in progress)
 

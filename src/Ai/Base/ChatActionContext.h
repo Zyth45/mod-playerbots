@@ -141,6 +141,7 @@ public:
         creators["wcr"] = &ChatActionContext::wcr;
         creators["mission"] = &ChatActionContext::mission;
         creators["alt"] = &ChatActionContext::alt;
+        creators["quest take"] = &ChatActionContext::quest_take;
         creators["wildcard"] = &ChatActionContext::wildcard;
         creators["spells"] = &ChatActionContext::spells;
         creators["co"] = &ChatActionContext::co;
@@ -283,6 +284,7 @@ private:
     static Action* wcr(PlayerbotAI* botAI) { return new CoaWcrAction(botAI); }
     static Action* mission(PlayerbotAI* botAI) { return new CoaMissionAction(botAI); }
     static Action* alt(PlayerbotAI* botAI) { return new CoaAltAction(botAI); }
+    static Action* quest_take(PlayerbotAI* botAI) { return new CoaQuestTakeAction(botAI); }
     static Action* wildcard(PlayerbotAI* botAI) { return new CoaWildcardAction(botAI); }
 
     static Action* equip(PlayerbotAI* botAI) { return new EquipAction(botAI); }

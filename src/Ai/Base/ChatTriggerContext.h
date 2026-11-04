@@ -62,6 +62,7 @@ public:
         creators["wcr"] = &ChatTriggerContext::wcr;
         creators["mission"] = &ChatTriggerContext::mission;
         creators["alt"] = &ChatTriggerContext::alt;
+        creators["quest take"] = &ChatTriggerContext::quest_take;
         creators["wildcard"] = &ChatTriggerContext::wildcard;
         creators["spells"] = &ChatTriggerContext::spells;
         creators["co"] = &ChatTriggerContext::co;
@@ -238,6 +239,7 @@ private:
     static Trigger* wcr(PlayerbotAI* botAI) { return new ChatCommandTrigger(botAI, "wcr"); }
     static Trigger* mission(PlayerbotAI* botAI) { return new ChatCommandTrigger(botAI, "mission"); }
     static Trigger* alt(PlayerbotAI* botAI) { return new ChatCommandTrigger(botAI, "alt"); }
+    static Trigger* quest_take(PlayerbotAI* botAI) { return new ChatCommandTrigger(botAI, "quest take"); }
     static Trigger* wildcard(PlayerbotAI* botAI) { return new ChatCommandTrigger(botAI, "wildcard"); }
     static Trigger* equip(PlayerbotAI* botAI) { return new ChatCommandTrigger(botAI, "e"); }
     static Trigger* uneqip(PlayerbotAI* botAI) { return new ChatCommandTrigger(botAI, "ue"); }
