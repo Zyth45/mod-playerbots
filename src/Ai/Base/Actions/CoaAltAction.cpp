@@ -52,25 +52,6 @@ Quest const* QuestOf(Player* master, std::string const& arg)
 }
 }  // namespace
 
-bool CoaQuestTakeAction::Execute(Event event)
-{
-    Player* master = GetMaster();
-    Player* requester = event.getOwner() ? event.getOwner() : master;
-    if (!master || requester != master || !botAI->IsAltBot())
-        return false;
-
-    std::string arg = event.getParam();
-    arg.erase(0, arg.find_first_not_of(' '));
-    arg.erase(arg.find_last_not_of(' ') + 1);
-    Quest const* quest = QuestOf(master, arg);
-    if (!quest)
-    {
-        botAI->TellMaster("Usage: quest take <quest id or link>");
-        return false;
-    }
-    return Take(quest, false);
-}
-
 bool CoaAltAction::Execute(Event event)
 {
     Player* master = GetMaster();
