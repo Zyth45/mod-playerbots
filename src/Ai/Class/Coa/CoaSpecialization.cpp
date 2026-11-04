@@ -1201,10 +1201,11 @@ void CoaAnnounceJoin(Player* bot, Player* master)
 bool RecruitCoaRaid(Player* master, uint32 size, uint32 tanks, uint32 heals, std::string& message)
 {
     size = std::clamp<uint32>(size ? size : 25, 6, MAXRAIDSIZE);
+    // A raid of 15 (Manastorm) needs one tank and two healers.
     if (!tanks)
-        tanks = std::max<uint32>(2, size / 8);
+        tanks = size == 15 ? 1 : std::max<uint32>(2, size / 8);
     if (!heals)
-        heals = (size + 2) / 4;
+        heals = size == 15 ? 2 : (size + 2) / 4;
     tanks = std::min(tanks, size - 1);
     heals = std::min(heals, size - 1 - tanks);
 
@@ -1246,7 +1247,21 @@ bool RecruitCoaRaid(Player* master, uint32 size, uint32 tanks, uint32 heals, std
         if (Player* member = ref->GetSource())
         {
             ++classCount[member->getClass()];
-            uint8 const role = uint8(RoleOfMember(member));
+            uint8 role = uint8(RoleOfMember(member));
+            // A player counts as the role chosen in the group (Dungeon Finder roles) when there is one.
+            if (!GET_PLAYERBOT_AI(member))
+            {
+                uint8 chosen = 0;
+                for (Group::MemberSlot const& slot : group->GetMemberSlots())
+                    if (slot.guid == member->GetGUID())
+                        chosen = slot.roles;
+                if (chosen & lfg::PLAYER_ROLE_TANK)
+                    role = uint8(CoaRole::Tank);
+                else if (chosen & lfg::PLAYER_ROLE_HEALER)
+                    role = uint8(CoaRole::Heal);
+                else if (chosen & lfg::PLAYER_ROLE_DAMAGE)
+                    role = uint8(CoaRole::Dps);
+            }
             if (role != uint8(CoaRole::Dps) && wanted[role])
                 --wanted[role];
         }

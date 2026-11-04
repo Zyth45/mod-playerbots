@@ -14,6 +14,9 @@
 - **Gear above the bot's level**: a random bot brought down in level no longer keeps equipped items it could not wear
   at its new level (a level 38 hat on a level 13 bot): they are taken off at login and when the bot is randomized.
   Alts are never touched.
+- **Raid of 15 (Manastorm)**: a raid of 15 built with bots asks by default for 1 tank and 2 healers (other sizes
+  unchanged), and the player counts as the role chosen in the group when there is one: a tank or a healer player is one
+  less to recruit.
 
 ## v2.9.2 (in progress)
 
