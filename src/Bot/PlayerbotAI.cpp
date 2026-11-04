@@ -7,6 +7,7 @@
 #include "PlayerbotAI.h"
 #include "CurrentTargetValue.h"
 
+#include <set>
 #include <functional>
 #include "RaceMgr.h"
 #include "CoaSpecialization.h"
@@ -819,6 +820,27 @@ void PlayerbotAI::UpdateAIInternal([[maybe_unused]] uint32 elapsed, bool minimal
         pmo->finish();
 }
 
+// A command of the master (a real player): a list asked again within 2 s (SquidBots Lite refreshing) came back short,
+// because TellMaster drops a line said less than 2 s before, so the master's list commands start from a clean slate;
+// and a command waited for the next AI update, up to 18 s while the bot eats or drinks (as an invitation did), so the
+// master's commands wake it, at most once a second.
+void PlayerbotAI::OnMasterCommand(std::string const& filtered, Player* fromPlayer)
+{
+    if (!fromPlayer || fromPlayer != master || GET_PLAYERBOT_AI(fromPlayer))
+        return;
+
+    static std::set<std::string> const lists = {"c", "bank", "quests all", "mount ?", "talents ?", "co ?", "nc ?", "stats"};
+    if (lists.contains(filtered))
+        whispers.clear();
+
+    time_t const now = time(nullptr);
+    if (now != lastMasterWakeAt)
+    {
+        lastMasterWakeAt = now;
+        SetNextCheckDelay(0);
+    }
+}
+
 void PlayerbotAI::HandleCommands()
 {
     ExternalEventHelper helper(aiObjectContext);
@@ -939,6 +961,8 @@ void PlayerbotAI::HandleCommand(uint32 type, std::string const& text, Player& fr
         !GetSecurity()->CheckLevelFor(PlayerbotSecurityLevel::PLAYERBOT_SECURITY_ALLOW_ALL, type != CHAT_MSG_WHISPER,
                                       &fromPlayer))
         return;
+
+    OnMasterCommand(filtered, &fromPlayer);
 
     if (type == CHAT_MSG_RAID_WARNING && filtered.find(bot->GetName()) != std::string::npos &&
         filtered.find("award") == std::string::npos)
@@ -1284,6 +1308,8 @@ void PlayerbotAI::HandleCommand(uint32 type, std::string const text, Player* fro
     if (!IsAllowedCommand(filtered) &&
         (!GetSecurity()->CheckLevelFor(PLAYERBOT_SECURITY_ALLOW_ALL, type != CHAT_MSG_WHISPER, fromPlayer)))
         return;
+
+    OnMasterCommand(filtered, fromPlayer);
 
     if (type == CHAT_MSG_RAID_WARNING && filtered.find(bot->GetName()) != std::string::npos &&
         filtered.find("award") == std::string::npos)

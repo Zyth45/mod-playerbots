@@ -21,6 +21,7 @@
 #include "ObjectMgr.h"
 #include "PlayerbotAIConfig.h"
 #include "PlayerbotFactory.h"
+#include "CoaAltAddon.h"
 #include "PlayerbotGuildMgr.h"
 #include "PlayerbotOperations.h"
 #include "PlayerbotRepository.h"
@@ -444,6 +445,10 @@ void PlayerbotHolder::LogoutPlayerBot(ObjectGuid guid)
         // A gathering mission is saved, to resume at the next login.
         sCoaMissionMgr.OnBotLogout(bot);
 
+        // SquidBots Lite updates its list of alts at once instead of at its next refresh.
+        if (botAI->IsAltBot() && CoaAltAddon::MasterHasAddon(botAI->GetMaster()))
+            CoaAltAddon::Send(bot, botAI->GetMaster(), "OFFLINE");
+
         // Remove taxi cheat flag on alts.
         if (!sRandomPlayerbotMgr.IsRandomBot(bot) && bot->isTaxiCheater())
             bot->SetTaxiCheater(false);
@@ -717,6 +722,11 @@ void PlayerbotHolder::OnBotLogin(Player* const bot)
     SpendAltBotTalentPoints(bot);
 
     JoinBotChannels(bot);
+
+    // SquidBots Lite updates its list of alts at once instead of at its next refresh.
+    if (PlayerbotAI* botAI = GET_PLAYERBOT_AI(bot))
+        if (botAI->IsAltBot() && CoaAltAddon::MasterHasAddon(botAI->GetMaster()))
+            CoaAltAddon::Send(bot, botAI->GetMaster(), "ONLINE");
 }
 
 // The channels a client joins for the zone it stands in. A bot only did this at login, so after a

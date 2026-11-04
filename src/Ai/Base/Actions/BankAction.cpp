@@ -137,6 +137,7 @@ void BankAction::ListItems()
                         }
 
     TellItems(items, soulbound);
+    botAI->TellMaster("Items: " + std::to_string(items.size()));
 }
 
 Item* BankAction::FindItemInBank(uint32 ItemId)

@@ -674,6 +674,12 @@ AiPlayerbot.RandomBotTransmogMinLevel = 10
 # Default: 50
 AiPlayerbot.RandomBotTransmogCosmeticSets = 50
 
+# A player who tanks with bot off-tanks ("tank main on", SquidBots Lite Main Tank bar): the bot tanks leave the
+# enemies hitting that player to the player, until the player's health falls below this percent (or the player dies).
+# 0: never take them back while the player lives.
+# Default: 10
+AiPlayerbot.PlayerMainTankRescueHealth = 10
+
 # Random property and random suffix of the gear given to bots ("of the Bear", "of the Eagle"...).
 # 0: each item takes a property or suffix that scores well for the bot's role (stamina, and defense for a tank,
 #    count too), chosen among the best ones by the bot itself, so bots of the same spec do not all wear the same.

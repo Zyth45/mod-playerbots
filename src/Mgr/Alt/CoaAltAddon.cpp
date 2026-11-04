@@ -363,12 +363,27 @@ bool OnAddonWhisper(Player* from, Player* receiver, std::string const& msg)
         return false;
 
     PlayerbotAI* botAI = GET_PLAYERBOT_AI(receiver);
-    if (!botAI || botAI->GetMaster() != from || !botAI->IsAltBot())
+    if (!botAI || botAI->GetMaster() != from)
         return true;
 
-    MarkSeen(from);
     std::string command = msg.substr(5);
     std::replace(command.begin(), command.end(), '\t', ' ');
+    // The Main Tank bar talks to the bot tanks of the group, alts or random bots alike (contract of 04/11).
+    if (command.rfind("tank ", 0) == 0)
+    {
+        MarkSeen(from);
+        botAI->HandleCommand(CHAT_MSG_WHISPER, command, from);
+        return true;
+    }
+    if (!botAI->IsAltBot())
+    {
+        // A player with no alt (a raid of random bots) announces the addon to any bot of the group.
+        if (command.rfind("HELLO", 0) == 0)
+            MarkSeen(from);
+        return true;
+    }
+
+    MarkSeen(from);
     if (command.rfind("HELLO", 0) == 0)
     {
         {

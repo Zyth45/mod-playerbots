@@ -19,6 +19,7 @@
 #include "ChangeTalentsAction.h"
 #include "CoaWcrAction.h"
 #include "CoaAltAction.h"
+#include "CoaTankAction.h"
 #include "CoaMissionAction.h"
 #include "CoaWildcardAction.h"
 #include "ChatShortcutActions.h"
@@ -141,6 +142,7 @@ public:
         creators["wcr"] = &ChatActionContext::wcr;
         creators["mission"] = &ChatActionContext::mission;
         creators["alt"] = &ChatActionContext::alt;
+        creators["tank"] = &ChatActionContext::tank;
         creators["wildcard"] = &ChatActionContext::wildcard;
         creators["spells"] = &ChatActionContext::spells;
         creators["co"] = &ChatActionContext::co;
@@ -283,6 +285,7 @@ private:
     static Action* wcr(PlayerbotAI* botAI) { return new CoaWcrAction(botAI); }
     static Action* mission(PlayerbotAI* botAI) { return new CoaMissionAction(botAI); }
     static Action* alt(PlayerbotAI* botAI) { return new CoaAltAction(botAI); }
+    static Action* tank(PlayerbotAI* botAI) { return new CoaTankAction(botAI); }
     static Action* wildcard(PlayerbotAI* botAI) { return new CoaWildcardAction(botAI); }
 
     static Action* equip(PlayerbotAI* botAI) { return new EquipAction(botAI); }

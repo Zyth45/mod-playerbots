@@ -693,6 +693,8 @@ protected:
     // giver it reacts to - and whether a greeting is being sent: what MasterWantsThis lets through
     // to a master who turned bot whispers off.
     time_t lastCommandAt = 0;
+    time_t lastMasterWakeAt = 0;
+    void OnMasterCommand(std::string const& filtered, Player* fromPlayer);
     bool greeting = false;
     bool MasterWantsThis();
     static std::set<std::string> unsecuredCommands;

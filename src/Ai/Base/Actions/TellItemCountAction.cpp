@@ -29,6 +29,8 @@ bool TellItemCountAction::Execute(Event event)
         ItemTemplate const* proto = sObjectMgr->GetItemTemplate(i->first);
         TellItem(proto, i->second, soulbound[i->first]);
     }
+    // The end of the list, as for Mounts and Talents: SquidBots Lite closes it at once instead of waiting.
+    botAI->TellMaster("Items: " + std::to_string(itemMap.size()));
 
     return true;
 }

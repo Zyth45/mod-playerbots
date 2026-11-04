@@ -1,5 +1,24 @@
 # CoA Bots — changelog
 
+## v2.9.4 (in progress)
+
+- **Player main tank and bot off-tanks** (SquidBots Lite Main Tank bar, or whispered): `tank main on|off|status` makes
+  you the main tank of your bots: the bot tanks no longer take back what is on you (until you fall below
+  `AiPlayerbot.PlayerMainTankRescueHealth`, new, 10 %, or die) and no longer pull for you. `tank target` gives a bot
+  tank your current target and marks it with a raid icon (square, triangle, diamond, cross, star, circle); when it dies
+  the bot helps you on your target. `tank taunt`, `tank swap` (take your target and taunt it) and `tank swap back` (give
+  it back: the bot leaves it to your taunt), `tank hold` (stand where you are and tank there), `tank clear`,
+  `tank status [all]` and `tank spec tank|dps` (out of combat). Random bots of your group take these orders too.
+- **SquidBots Lite answers faster**: an alt tells the addon when it comes online or goes offline (its list updates at
+  once), the bag and bank lists end with an `Items: N` line, a list asked again within 2 seconds is no longer cut
+  short, and a command from you wakes the bot at once instead of waiting up to 18 seconds while it eats or drinks.
+- **Tinker bots no longer build the Firepot Drone in dungeons and raids**: the flying bomb went through walls and floors
+  after its target and pulled whole rooms (a Shadowfang Keep wipe of 38 on the bench).
+- **Dispels and interrupts that land**: bots no longer try to dispel or interrupt while mounted, only cleanse a member
+  within the spell's own range and in sight (another dispeller takes the rest), healers dispel right after their
+  critical heals, cleanses around the caster (Holy Supernova Cleanse) are used for nearby members, and an interrupt is
+  no longer kept for dangerous casts only in raids (5-player dungeons keep that reserve).
+
 ## v2.9.3 (5 November 2026)
 
 - **Random bots mount with you**: on a mount that can also fly (most Conquest of Azeroth mounts), the random bots of your

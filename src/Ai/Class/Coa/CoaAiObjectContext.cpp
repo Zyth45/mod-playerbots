@@ -5,6 +5,7 @@
  */
 
 #include "CoaAiObjectContext.h"
+#include "CoaPlayerMainTank.h"
 
 #include "Action.h"
 #include "AttackAction.h"
@@ -34,6 +35,7 @@
 #include "Trigger.h"
 #include "AscensionSpecialization.h"
 
+#include <string_view>
 #include <algorithm>
 #include <numeric>
 #include <array>
@@ -265,6 +267,12 @@ bool TakesOverBoss(SpellInfo const* info, Unit* target)
                                      effect.ApplyAuraName == SPELL_AURA_AOE_CHARM))
             return true;
     return false;
+}
+
+// The Tinker's Firepot Drone: a bomb that flies after its target, whatever lies between.
+bool SummonsFlyingBomb(SpellInfo const* info)
+{
+    return info->Id == 707300 || std::string_view(info->SpellName[0]) == "Build: Firepot Drone";
 }
 
 // A spell that sends its caster to its home inn, the way a hearthstone does.
@@ -2244,19 +2252,35 @@ Unit* DispelTarget(Player* bot, Usable const& spell, Player* member)
         if (effect.Effect != SPELL_EFFECT_DISPEL)
             continue;
 
-        switch (effect.TargetA.GetTarget())
+        // The area is in TargetA or, around a source on the caster, in TargetB: Holy Supernova Cleanse (81200) is
+        // TARGET_SRC_CASTER then TARGET_UNIT_CASTER_AREA_RAID / TARGET_UNIT_SRC_AREA_ALLY.
+        for (Targets const target : {effect.TargetA.GetTarget(), effect.TargetB.GetTarget()})
         {
-            case TARGET_UNIT_CASTER_AREA_PARTY: case TARGET_UNIT_SRC_AREA_ALLY: case TARGET_UNIT_SRC_AREA_PARTY:
-            case TARGET_UNIT_CASTER_AREA_RAID:
-                if (bot->IsWithinDistInMap(member, effect.CalcRadius(bot)))
-                    return bot;
-                break;
-            default:
-                break;
+            switch (target)
+            {
+                case TARGET_UNIT_CASTER_AREA_PARTY: case TARGET_UNIT_SRC_AREA_ALLY: case TARGET_UNIT_SRC_AREA_PARTY:
+                case TARGET_UNIT_CASTER_AREA_RAID:
+                    if (bot->IsWithinDistInMap(member, effect.CalcRadius(bot)))
+                        return bot;
+                    break;
+                default:
+                    break;
+            }
         }
     }
 
     return nullptr;
+}
+
+// The trigger looked 40 yards around while Rebuke and Resonance Rune reach 20, and the bot never walks to a member to
+// cleanse it: 6 500 OUT_OF_RANGE and 2 000 LINE_OF_SIGHT failures on the bench (05/11). A member out of the spell's own
+// reach or out of sight is left to another dispeller; the healer keeps its place.
+bool InDispelReach(Player* bot, Usable const& spell, Unit* castOn)
+{
+    if (castOn == bot)
+        return true;
+    SpellInfo const* const info = EffectiveSpell(bot, spell.info);
+    return bot->IsWithinDistInMap(castOn, info->GetMaxRange(true, bot)) && bot->IsWithinLOSInMap(castOn);
 }
 
 // Another bot of the group is already casting a cleanse on the member: one dispel per member, not
@@ -2427,6 +2451,15 @@ bool KickReaches(Player* bot, SpellInfo const* kick, Unit* caster)
 // stealth: a Ranger out of stealth tried it 436 times for no kick, and won the kick claim each time.
 bool KickFits(Player* bot, SpellInfo const* kick, Unit* caster)
 {
+    // A mounted bot cannot cast it (SPELL_FAILED_NOT_MOUNTED), nor one that needs a state or an aura of its caster it
+    // lacks: Nullifying Toxin, from camouflage only, failed 27 times on CASTER_AURASTATE for 11 kicks, and while it
+    // was the chosen kicker the others waited for nothing (20 917 waits, logs of 05/11).
+    if (bot->IsMounted())
+        return false;
+    if (kick->CasterAuraState && !bot->HasAuraState(AuraStateType(kick->CasterAuraState), kick, bot))
+        return false;
+    if (kick->CasterAuraSpell && !bot->HasAura(kick->CasterAuraSpell))
+        return false;
     if (kick->CheckShapeshift(bot->GetShapeshiftForm()) != SPELL_CAST_OK)
         return false;
     if (caster && caster->IsImmunedToSpell(kick, static_cast<Unit const*>(bot)))
@@ -2557,7 +2590,7 @@ bool MayKick(Player* bot, Unit* caster, Spell* cast)
 
     uint32 ready = 0;
     Player* const chosen = ChooseKicker(bot, caster, ready);
-    if (!claim.danger && ready < 2 && bot->GetMap()->IsDungeon())
+    if (!claim.danger && ready < 2 && bot->GetMap()->IsDungeon() && !bot->GetMap()->IsRaid())
         ++InterruptStats.heldBack;
     else
     {
@@ -3451,7 +3484,7 @@ public:
                 if (!castOn)
                     continue;
 
-                if (!HasDispellable(member, spell.dispelMask))
+                if (!HasDispellable(member, spell.dispelMask) || !InDispelReach(bot, spell, castOn))
                     continue;
 
                 if (SpellInfo const* cast = CastFirst(botAI, bot, { spell }, castOn, USAGE_DISPEL))
@@ -3874,7 +3907,8 @@ public:
 
     bool IsActive() override
     {
-        if (!ClassHas(bot, KIND_DISPEL))
+        // Mounted, a dispel fails (SPELL_FAILED_NOT_MOUNTED): about 40 000 of the 250 000 failures of the bench.
+        if (!ClassHas(bot, KIND_DISPEL) || bot->IsMounted())
             return false;
 
         // Only the cleanses ready now: a Ranger whose one cleanse able to clear her debuff was on
@@ -3882,9 +3916,10 @@ public:
         std::vector<Usable> const spells = KnownAbilities(bot, IsGroupDispel);
         for (Player* member : NearbyGroup(bot))
             for (Usable const& spell : spells)
-                if (DispelTarget(bot, spell, member) && HasDispellable(member, spell.dispelMask) &&
-                    !bot->HasSpellCooldown(EffectiveSpell(bot, spell.info)->Id))
-                    return true;
+                if (Unit* const castOn = DispelTarget(bot, spell, member))
+                    if (HasDispellable(member, spell.dispelMask) && InDispelReach(bot, spell, castOn) &&
+                        !bot->HasSpellCooldown(EffectiveSpell(bot, spell.info)->Id))
+                        return true;
 
         return false;
     }
@@ -3901,13 +3936,15 @@ public:
     bool IsActive() override
     {
         // a dispel on cooldown or under a silence: 165 tries and no cast in one run
-        if (!sPlayerbotAIConfig.coaSmartDispel || !ClassHas(bot, KIND_DISPEL) || !HasReadyAbility(botAI, bot, IsGroupDispel))
+        if (!sPlayerbotAIConfig.coaSmartDispel || !ClassHas(bot, KIND_DISPEL) || bot->IsMounted() ||
+            !HasReadyAbility(botAI, bot, IsGroupDispel))
             return false;
 
         std::vector<Usable> const spells = KnownAbilities(bot, IsGroupDispel);
         for (Player* member : NearbyGroup(bot))
             for (Usable const& spell : spells)
-                if (DispelTarget(bot, spell, member) && HasDispellableControl(member, spell.dispelMask))
+                if (Unit* const castOn = DispelTarget(bot, spell, member);
+                    castOn && HasDispellableControl(member, spell.dispelMask) && InDispelReach(bot, spell, castOn))
                     return true;
 
         return false;
@@ -4589,7 +4626,9 @@ public:
 
 protected:
     float InterruptPriority() override { return ACTION_MEDIUM_HEAL + 7; }
-    float DispelPriority() override { return ACTION_MEDIUM_HEAL + 6; }
+    // At 26 the healer's dispel sat under every heal (30 to 34) and never went off in Zul'Gurub (Azuriah, 05/11): just
+    // above the lowest of them now, still under the heals of a member in danger. To watch on the bench (deaths).
+    float DispelPriority() override { return ACTION_CRITICAL_HEAL + 0.5f; }
     // Above the heals of a member at medium health, below those of a member at low health.
     float DispelControlPriority() override { return ACTION_CRITICAL_HEAL + 1.5f; }
     float PurgePriority() override { return ACTION_MEDIUM_HEAL + 5; }
@@ -4681,6 +4720,9 @@ public:
             return false;
         // One puller: with two tanks in the group, the main tank only.
         if (bot->GetGroup() && !botAI->IsMainTank(bot))
+            return false;
+        // A player who tanks for the group ("tank main on") leads the pulls.
+        if (CoaPlayerMainTank::FlaggedInGroup(bot->GetGroup(), bot))
             return false;
         // A Manastorm floor is one room with its boss: the tank pulled the boss across it on its own (17/10).
         if (bot->GetScriptedPrivateMapId() != MAPID_INVALID)
@@ -5419,6 +5461,11 @@ bool CoaRotationMayCast(PlayerbotAI* botAI, Player* bot, SpellInfo const* info)
     // (jealous-sound/azerothcore-wotlk-coa#6286). Befriend Beast, in the three Ranger rotations, possesses
     // a beast no bot can steer (#6111).
     if (TeleportsCasterHome(info) || PossessesTarget(info))
+        return false;
+    // The Tinker's Firepot Drone flies after its target in a straight line, through walls and floors: in Shadowfang
+    // Keep it pulled Captain Midwinter from the floor above, then Silverlaine and the Haunted Servitors, a wipe of 38
+    // (DC, tr-20261104-232907-54 and -233824-56). Never inside a dungeon or a raid; its gain is small next to that.
+    if (bot->GetMap()->IsDungeon() && SummonsFlyingBomb(info))
         return false;
     if (CoaHoldsExclusiveSibling(bot, info))
         return false;

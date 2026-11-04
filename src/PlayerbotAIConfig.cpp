@@ -765,6 +765,8 @@ bool PlayerbotAIConfig::Initialize()
     randomBotTransmogMinLevel = sConfigMgr->GetOption<uint32>("AiPlayerbot.RandomBotTransmogMinLevel", 10);
     randomBotTransmogCosmeticSets =
         std::min<uint32>(sConfigMgr->GetOption<uint32>("AiPlayerbot.RandomBotTransmogCosmeticSets", 50), 100);
+    playerMainTankRescueHealth =
+        std::min<uint32>(sConfigMgr->GetOption<uint32>("AiPlayerbot.PlayerMainTankRescueHealth", 10), 100);
     gearRollRandomSuffix = GetSwitchLevel("AiPlayerbot.GearRollRandomSuffix", 0, 2);
     autoGearBisCommand = sConfigMgr->GetOption<int32>("AiPlayerbot.AutoGearBisCommand", 0);
     autoGearQualityLimit = sConfigMgr->GetOption<int32>("AiPlayerbot.AutoGearQualityLimit", 3);

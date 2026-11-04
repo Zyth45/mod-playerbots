@@ -5,6 +5,7 @@
  */
 
 #include "GenericTriggers.h"
+#include "CoaPlayerMainTank.h"
 #include "Corpse.h"
 #include "CreatureAI.h"
 #include "GenericBuffUtils.h"
@@ -111,6 +112,9 @@ bool LoseAggroTrigger::IsActive()
     Unit* target = AI_VALUE(Unit*, "current target");
     if (target && target->IsPlayer())
         return false;  // players have no threat: taunts only waste the cooldown
+    // Never taunt what the player main tank holds, nor a target given back to the player after a swap.
+    if (target && (CoaPlayerMainTank::HeldByPlayer(bot, target) || CoaPlayerMainTank::Released(bot, target->GetGUID())))
+        return false;
     return !AI_VALUE2(bool, "has aggro", "current target");
 }
 

@@ -17,6 +17,9 @@ public:
     TankTargetValue(PlayerbotAI* botAI, std::string const name = "tank target") : RtiTargetValue(botAI, "rti", name) {}
 
     Unit* Calculate() override;
+
+private:
+    Unit* PinnedOrAssist();
 };
 
 #endif

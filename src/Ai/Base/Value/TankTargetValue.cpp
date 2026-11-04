@@ -7,6 +7,8 @@
 #include "TankTargetValue.h"
 #include "AiObjectContext.h"
 #include "AttackersValue.h"
+#include "CoaAltAddon.h"
+#include "CoaPlayerMainTank.h"
 #include "Group.h"
 #include "PlayerbotAI.h"
 #include "Playerbots.h"
@@ -61,6 +63,12 @@ public:
         }
 
         if (!attacker->IsAlive())
+            return;
+
+        // A player who tanks for the group ("tank main on") keeps what is on the player; a target this bot gave back
+        // after a swap stays the player's to taunt (SquidBots Lite Main Tank bar).
+        Player* bot = botAI->GetBot();
+        if (CoaPlayerMainTank::HeldByPlayer(bot, attacker) || CoaPlayerMainTank::Released(bot, attacker->GetGUID()))
             return;
 
         // Passive summons that hit nobody never give aggro: the tank walked to them (Amanitar mushrooms).
@@ -155,8 +163,35 @@ public:
     }
 };
 
+// The target the player gave this bot ("tank target", "tank swap"): first, while it lives. Once it dies the order
+// ends, its icon goes, the addon hears it, and the bot helps the player main tank on the player's target.
+Unit* TankTargetValue::PinnedOrAssist()
+{
+    uint8 icon = 0xFF;
+    ObjectGuid const pinned = CoaPlayerMainTank::Pinned(bot, &icon);
+    if (!pinned)
+        return nullptr;
+
+    Unit* target = ObjectAccessor::GetUnit(*bot, pinned);
+    if (target && target->IsAlive() && target->IsInWorld() && target->GetMap() == bot->GetMap())
+        return target;
+
+    CoaPlayerMainTank::Unpin(bot);
+    if (CoaAltAddon::MasterHasAddon(botAI->GetMaster()))
+        CoaAltAddon::SendToMaster(botAI, "TK\ttarget\tdead\t" + std::to_string(icon == 0xFF ? 0 : uint32(icon) + 1) +
+                                             "\t" + (target ? target->GetName() : std::string("-")));
+    Player* mainTank = CoaPlayerMainTank::FlaggedInGroup(bot->GetGroup(), bot);
+    Unit* assist = mainTank && mainTank->GetTarget() ? ObjectAccessor::GetUnit(*mainTank, mainTank->GetTarget()) : nullptr;
+    if (assist && assist->IsAlive() && assist->GetMap() == bot->GetMap() && bot->IsValidAttackTarget(assist))
+        return assist;
+    return nullptr;
+}
+
 Unit* TankTargetValue::Calculate()
 {
+    if (Unit* pinned = PinnedOrAssist())
+        return pinned;
+
     GuidSet const exclusions = GatherStrategyTargetExclusions(botAI, TargetValueExclusionType::TankTarget);
     std::string const rti = botAI->GetAiObjectContext()->GetValue<std::string>("rti")->Get();
     Unit* rtiTarget = RtiTargetValue::Calculate();
