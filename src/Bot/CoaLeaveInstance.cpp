@@ -8,6 +8,7 @@
 #include "CoaMissionMgr.h"
 #include "GameTime.h"
 #include "Group.h"
+#include "GroupMgr.h"
 #include "Map.h"
 #include "ObjectAccessor.h"
 #include "Player.h"
@@ -25,6 +26,7 @@
 namespace
 {
     constexpr uint64 FollowDelayMs = 2500;
+    constexpr uint64 RegroupDelayMs = 3000;
 
     struct PendingLeave
     {
@@ -32,6 +34,8 @@ namespace
         uint32 instanceId;
         uint64 dueMs;
         std::vector<ObjectGuid> bots;
+        // Second step: the alts teleported out of a Dungeon Finder group join the player's group again.
+        bool regroup = false;
     };
 
     std::mutex PendingLock;
@@ -39,6 +43,82 @@ namespace
     std::atomic<uint32> PendingCount{0};
 
     uint64 NowMs() { return GameTime::GetGameTimeMS().count(); }
+
+    void Schedule(ObjectGuid playerGuid, PendingLeave leave)
+    {
+        std::lock_guard<std::mutex> lock(PendingLock);
+        if (leave.bots.empty())
+            Pending.erase(playerGuid);
+        else
+            Pending[playerGuid] = std::move(leave);
+        PendingCount = uint32(Pending.size());
+    }
+
+    // Runs in the world thread once the alts are out: the Dungeon Finder Leave took the player out of the Dungeon
+    // Finder group, and the alts teleported next to the player were still in it, outside the player's group (test of
+    // 04/11). Each leaves it and joins the player's group, made by the player when there is none, as before the queue.
+    class RegroupOperation : public PlayerbotOperation
+    {
+    public:
+        RegroupOperation(ObjectGuid playerGuid, std::vector<ObjectGuid> bots)
+            : m_playerGuid(playerGuid), m_bots(std::move(bots))
+        {
+        }
+
+        bool Execute() override
+        {
+            Player* player = ObjectAccessor::FindPlayer(m_playerGuid);
+            if (!player || !player->IsInWorld() || player->InBattleground() || player->InArena())
+                return false;
+            Group* own = player->GetGroup();
+            if (own && (own->isLFGGroup() || own->isBGGroup() || own->isBFGroup()))
+                return false;
+
+            uint32 joined = 0;
+            for (ObjectGuid const& guid : m_bots)
+            {
+                Player* bot = ObjectAccessor::FindPlayer(guid);
+                if (!bot || !bot->IsInWorld() || bot->IsBeingTeleported() || !GET_PLAYERBOT_AI(bot))
+                    continue;
+                if (Group* old = bot->GetGroup())
+                {
+                    if (!old->isLFGGroup() || old->IsMember(player->GetGUID()))
+                        continue;
+                    old->RemoveMember(bot->GetGUID(), GROUP_REMOVEMETHOD_LEAVE);
+                    if (bot->GetGroup())
+                        continue;
+                }
+
+                if (!own)
+                {
+                    own = new Group();
+                    if (!own->Create(player))
+                    {
+                        delete own;
+                        return joined > 0;
+                    }
+                    sGroupMgr->AddGroup(own);
+                }
+                if (own->IsFull() && !own->isRaidGroup())
+                    own->ConvertToRaid();
+                if (own->IsFull() || !own->AddMember(bot))
+                    continue;
+                ++joined;
+            }
+
+            LOG_DEBUG("playerbots", "{} left a Dungeon Finder group: {} alts joined the player's group", player->GetName(),
+                      joined);
+            return joined > 0;
+        }
+
+        ObjectGuid GetBotGuid() const override { return m_playerGuid; }
+        uint32 GetPriority() const override { return 50; }
+        std::string GetName() const override { return "CoaLeaveInstanceRegroup"; }
+
+    private:
+        ObjectGuid m_playerGuid;
+        std::vector<ObjectGuid> m_bots;
+    };
 
     // Runs in the world thread: the bots are on the instance map, the player on another one.
     class FollowOutOperation : public PlayerbotOperation
@@ -58,6 +138,7 @@ namespace
                 return false;
 
             uint32 moved = 0;
+            std::vector<ObjectGuid> regroup;
             for (ObjectGuid const& guid : m_leave.bots)
             {
                 Player* bot = ObjectAccessor::FindPlayer(guid);
@@ -77,9 +158,14 @@ namespace
                 {
                     bot->TeleportTo(player->GetMapId(), player->GetPositionX(), player->GetPositionY(),
                                     player->GetPositionZ(), player->GetOrientation());
+                    if (group && group->isLFGGroup() && !group->IsMember(player->GetGUID()))
+                        regroup.push_back(guid);
                 }
                 ++moved;
             }
+
+            if (!regroup.empty())
+                Schedule(m_playerGuid, PendingLeave{0, 0, NowMs() + RegroupDelayMs, std::move(regroup), true});
 
             LOG_DEBUG("playerbots", "{} left instance {} of map {}: {} bots follow", player->GetName(),
                       m_leave.instanceId, m_leave.mapId, moved);
@@ -126,12 +212,7 @@ void CoaLeaveInstance::OnBeforeTeleport(Player* player, uint32 mapId)
             leave.bots.push_back(bot->GetGUID());
     }
 
-    std::lock_guard<std::mutex> lock(PendingLock);
-    if (leave.bots.empty())
-        Pending.erase(player->GetGUID());
-    else
-        Pending[player->GetGUID()] = std::move(leave);
-    PendingCount = uint32(Pending.size());
+    Schedule(player->GetGUID(), std::move(leave));
 }
 
 void CoaLeaveInstance::OnUpdate(Player* player)
@@ -150,6 +231,13 @@ void CoaLeaveInstance::OnUpdate(Player* player)
         leave = std::move(itr->second);
         Pending.erase(itr);
         PendingCount = uint32(Pending.size());
+    }
+
+    if (leave.regroup)
+    {
+        PlayerbotWorldThreadProcessor::instance().QueueOperation(
+            std::make_unique<RegroupOperation>(player->GetGUID(), std::move(leave.bots)));
+        return;
     }
 
     // Back in the same instance (a teleport inside it, or the player came back in time): nothing to follow.

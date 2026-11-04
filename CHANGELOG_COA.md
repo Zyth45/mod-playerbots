@@ -23,6 +23,8 @@
   hearthstone, exit portal), the bots of your group still inside join you 2 to 3 seconds later; random bots of a
   Dungeon Finder group leave the group and the instance instead. Not after a death (corpse run), not in battlegrounds
   or arenas, and not for bots on a mission.
+  After the Dungeon Finder Leave, your alts also leave the Dungeon Finder group and join your group again (you lead it,
+  as before the queue), instead of standing next to you outside your group.
 - **Server start**: a slow or busy PC no longer gets a false "world stopped during startup": the start waits for the
   worldserver as long as its supervisor runs (up to 5 minutes), and says which of the two happened when it gives up.
 - **Call Boards and mission boards for alts**: at a board of more than 32 quests, an alt now takes the quests of that
