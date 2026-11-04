@@ -9,6 +9,7 @@
 #include "GameTime.h"
 #include "Group.h"
 #include "GroupMgr.h"
+#include "GroupScript.h"
 #include "Map.h"
 #include "ObjectAccessor.h"
 #include "Player.h"
@@ -17,6 +18,7 @@
 #include "PlayerbotWorldThreadProcessor.h"
 #include "Playerbots.h"
 #include "RandomPlayerbotMgr.h"
+#include "ScriptMgr.h"
 
 #include <atomic>
 #include <mutex>
@@ -39,7 +41,9 @@ namespace
     };
 
     std::mutex PendingLock;
+    // Two queues per player: a regroup must not replace a follow still waiting, nor the other way round.
     std::unordered_map<ObjectGuid, PendingLeave> Pending;
+    std::unordered_map<ObjectGuid, PendingLeave> Regroups;
     std::atomic<uint32> PendingCount{0};
 
     uint64 NowMs() { return GameTime::GetGameTimeMS().count(); }
@@ -47,16 +51,18 @@ namespace
     void Schedule(ObjectGuid playerGuid, PendingLeave leave)
     {
         std::lock_guard<std::mutex> lock(PendingLock);
+        auto& queue = leave.regroup ? Regroups : Pending;
         if (leave.bots.empty())
-            Pending.erase(playerGuid);
+            queue.erase(playerGuid);
         else
-            Pending[playerGuid] = std::move(leave);
-        PendingCount = uint32(Pending.size());
+            queue[playerGuid] = std::move(leave);
+        PendingCount = uint32(Pending.size() + Regroups.size());
     }
 
-    // Runs in the world thread once the alts are out: the Dungeon Finder Leave took the player out of the Dungeon
-    // Finder group, and the alts teleported next to the player were still in it, outside the player's group (test of
-    // 04/11). Each leaves it and joins the player's group, made by the player when there is none, as before the queue.
+    // Runs in the world thread: the player has left a Dungeon Finder group (the Leave button only teleports out and
+    // keeps the group; leaving the group comes after, or instead), and the alts were still in it, outside the player's
+    // group (tests of 04/11). Each leaves it and joins the player's group, made by the player when there is none, as
+    // before the queue. Taken out of a Dungeon Finder group inside the dungeon, the core sends the alt out of it.
     class RegroupOperation : public PlayerbotOperation
     {
     public:
@@ -223,14 +229,24 @@ void CoaLeaveInstance::OnUpdate(Player* player)
     PendingLeave leave;
     {
         std::lock_guard<std::mutex> lock(PendingLock);
-        auto itr = Pending.find(player->GetGUID());
-        if (itr == Pending.end() || NowMs() < itr->second.dueMs)
-            return;
         if (player->IsBeingTeleported() || !player->IsInWorld())
             return;
-        leave = std::move(itr->second);
-        Pending.erase(itr);
-        PendingCount = uint32(Pending.size());
+        uint64 const now = NowMs();
+        auto itr = Regroups.find(player->GetGUID());
+        if (itr != Regroups.end() && now >= itr->second.dueMs)
+        {
+            leave = std::move(itr->second);
+            Regroups.erase(itr);
+        }
+        else
+        {
+            itr = Pending.find(player->GetGUID());
+            if (itr == Pending.end() || now < itr->second.dueMs)
+                return;
+            leave = std::move(itr->second);
+            Pending.erase(itr);
+        }
+        PendingCount = uint32(Pending.size() + Regroups.size());
     }
 
     if (leave.regroup)
@@ -246,4 +262,38 @@ void CoaLeaveInstance::OnUpdate(Player* player)
 
     PlayerbotWorldThreadProcessor::instance().QueueOperation(
         std::make_unique<FollowOutOperation>(player->GetGUID(), std::move(leave)));
+}
+
+// A player leaving a Dungeon Finder group, by the Leave of the party frame or after the Leave button that only
+// teleported out: the alts still in it rejoin the player (RegroupOperation), as the player is no longer with them.
+class CoaLeaveInstanceGroupScript : public GroupScript
+{
+public:
+    CoaLeaveInstanceGroupScript() : GroupScript("CoaLeaveInstanceGroupScript", {GROUPHOOK_ON_REMOVE_MEMBER}) {}
+
+    void OnRemoveMember(Group* group, ObjectGuid guid, RemoveMethod /*method*/, ObjectGuid /*kicker*/,
+                        char const* /*reason*/) override
+    {
+        if (!group || !group->isLFGGroup())
+            return;
+        Player* player = ObjectAccessor::FindConnectedPlayer(guid);
+        if (!player || GET_PLAYERBOT_AI(player))
+            return;
+
+        PendingLeave regroup{0, 0, NowMs() + RegroupDelayMs, {}, true};
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+        {
+            Player* bot = ref->GetSource();
+            PlayerbotAI* botAI = bot && bot != player ? GET_PLAYERBOT_AI(bot) : nullptr;
+            if (botAI && botAI->GetMaster() == player && !sRandomPlayerbotMgr.IsRandomBot(bot) &&
+                !sCoaMissionMgr.IsOnMission(bot))
+                regroup.bots.push_back(bot->GetGUID());
+        }
+        Schedule(guid, std::move(regroup));
+    }
+};
+
+void AddSC_coa_leave_instance()
+{
+    new CoaLeaveInstanceGroupScript();
 }

@@ -645,6 +645,7 @@ void AddSC_coa_group_telemetry();
 void AddSC_coa_status_file();
 void AddSC_coa_arena_ready();
 void AddSC_random_bot_transmog();
+void AddSC_coa_leave_instance();
 
 void AddPlayerbotsScripts()
 {
@@ -673,5 +674,6 @@ void AddPlayerbotsScripts()
     AddSC_coa_status_file();
     AddSC_coa_arena_ready();
     AddSC_random_bot_transmog();
+    AddSC_coa_leave_instance();
     AddSC_coa_lfg();
 }
