@@ -41,6 +41,7 @@ public:
 
     private:
     void GenerateWeights(Player* player);
+    void ApplySuffixSurvivalFloors();
     void GenerateBasicWeights(Player* player);
     void GenerateAdditionalWeights(Player* player);
     void GenerateCoaWeights(Player* player);

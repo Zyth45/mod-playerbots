@@ -25,7 +25,9 @@
 #include "StatsCollector.h"
 #include "Unit.h"
 #include "AscensionSpecialization.h"
+#include <cmath>
 #include <memory>
+#include <vector>
 
 namespace
 {
@@ -236,8 +238,10 @@ int32 StatsWeightCalculator::PickBestRandomPropertyId(uint32 itemId)
 
     Reset();
     GenerateWeights(player_);
+    ApplySuffixSurvivalFloors();
 
-    int32 bestId = 0;
+    std::vector<std::pair<int32, float>> scored;
+    scored.reserve(pool.size());
     float bestScore = 0.0f;
     for (uint32 enchId : pool)
     {
@@ -250,15 +254,45 @@ int32 StatsWeightCalculator::PickBestRandomPropertyId(uint32 itemId)
         for (uint32 i = 0; i < STATS_TYPE_MAX; ++i)
             score += stats_weights_[i] * collector_->stats[i];
 
-        if (bestId == 0 || score > bestScore)
-        {
-            bestId = candidate;
+        if (scored.empty() || score > bestScore)
             bestScore = score;
-        }
+        scored.emplace_back(candidate, score);
     }
 
     collector_->Reset();
-    return bestId;
+    if (scored.empty())
+        return 0;
+
+    // Suffixes within 3% of the best are as good for the role: the bot picks one of them by its guid, so bots of a
+    // spec do not all wear the same suffix on every item.
+    float const threshold = bestScore - std::fabs(bestScore) * 0.03f;
+    std::vector<int32> close;
+    for (auto const& [candidate, score] : scored)
+        if (score >= threshold)
+            close.push_back(candidate);
+
+    uint64 pick = (uint64(player_->GetGUID().GetCounter()) << 32) ^ itemId;
+    pick = (pick ^ (pick >> 33)) * 0xFF51AFD7ED558CCDULL;
+    pick ^= pick >> 33;
+    return close[pick % close.size()];
+}
+
+// Without a floor on stamina the best suffix is the one with the most damage or healing stat: bots wore "glass
+// cannon" suffixes (Resinate). Stamina weighs at least 0.6 of the main stat, 1.2 for a tank, whose defense, dodge
+// and parry weigh at least 0.8 of it. Spirit is left as the spec weighs it.
+void StatsWeightCalculator::ApplySuffixSurvivalFloors()
+{
+    float mainStat = 0.0f;
+    for (StatsType stat : {STATS_TYPE_AGILITY, STATS_TYPE_STRENGTH, STATS_TYPE_INTELLECT, STATS_TYPE_SPIRIT})
+        mainStat = std::max(mainStat, stats_weights_[stat]);
+    if (mainStat <= 0.0f)
+        return;
+
+    bool const tank = PlayerbotAI::IsTank(player_);
+    stats_weights_[STATS_TYPE_STAMINA] = std::max(stats_weights_[STATS_TYPE_STAMINA], mainStat * (tank ? 1.2f : 0.6f));
+    if (tank)
+        for (StatsType stat : {STATS_TYPE_DEFENSE, STATS_TYPE_DODGE, STATS_TYPE_PARRY})
+            stats_weights_[stat] = std::max(stats_weights_[stat], mainStat * 0.8f);
 }
 
 void StatsWeightCalculator::GenerateWeights(Player* player)

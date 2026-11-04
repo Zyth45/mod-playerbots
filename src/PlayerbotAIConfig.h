@@ -580,8 +580,9 @@ public:
     bool randomBotTransmog;
     uint32 randomBotTransmogPercent;
     uint32 randomBotTransmogMinLevel;
-    // Bot gear rolls its random property or suffix like a looted item instead of the best one for the spec.
-    bool gearRollRandomSuffix;
+    // Bot gear rolls its random property or suffix like a looted item instead of the best one for the spec:
+    // 0 never, 1 random bots out in the world, 2 every bot.
+    uint32 gearRollRandomSuffix;
 
     uint32 useGroundMountAtMinLevel;
     uint32 useFastGroundMountAtMinLevel;

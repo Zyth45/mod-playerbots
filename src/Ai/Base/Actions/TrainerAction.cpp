@@ -13,6 +13,7 @@
 #include "PlayerbotTextMgr.h"
 #include "Playerbots.h"
 #include "ReputationMgr.h"
+#include "StatsWeightCalculator.h"
 #include "Trainer.h"
 #include "GossipDef.h"
 #include "ObjectAccessor.h"
@@ -579,6 +580,7 @@ bool BisGearAction::Execute(Event event)
     // 3. Apply BiS: only touch slots where the bot can actually equip the BiS item.
     //    If item requires reputation, grant the required rank first. If CanUseItem still
     //    fails (class/race/skill/level), keep autogear's pick for that slot.
+    StatsWeightCalculator bisCalculator(bot);
     for (auto const& kv : bisMap)
     {
         ItemTemplate const* proto = sObjectMgr->GetItemTemplate(kv.second);
@@ -630,7 +632,8 @@ bool BisGearAction::Execute(Event event)
 
         if (eqResult == EQUIP_ERR_OK)
         {
-            bot->EquipNewItem(dest, kv.second, true);
+            if (Item* equipped = bot->EquipNewItem(dest, kv.second, true))
+                PlayerbotFactory::SetRandomProperty(bot, equipped, bisCalculator.PickBestRandomPropertyId(kv.second));
             bot->AutoUnequipOffhandIfNeed();
         }
     }

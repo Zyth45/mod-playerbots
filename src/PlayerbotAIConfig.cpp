@@ -18,6 +18,7 @@
 #include "RandomItemMgr.h"
 #include "RandomPlayerbotFactory.h"
 #include "RandomPlayerbotMgr.h"
+#include "StringConvert.h"
 #include "Talentspec.h"
 #include "TravelMgr.h"
 #include <algorithm>
@@ -118,6 +119,24 @@ static void ParseLevelMgrExcludeNames(std::string const& csv, std::vector<std::s
         if (!s.empty())
             out.push_back(s);
     }
+}
+
+// A setting that was a switch and became a level: "true" and "false" written by a server still read as 1 and 0.
+static uint32 GetSwitchLevel(char const* name, uint32 def, uint32 max)
+{
+    std::string value = sConfigMgr->GetOption<std::string>(name, std::to_string(def), false);
+    std::transform(value.begin(), value.end(), value.begin(), [](unsigned char c) { return std::tolower(c); });
+    if (value == "true" || value == "yes")
+        return 1;
+    if (value == "false" || value == "no")
+        return 0;
+    Optional<uint32> level = Acore::StringTo<uint32>(value);
+    if (!level)
+    {
+        LOG_ERROR("server.loading", "{} = {}: not a number, {} used.", name, value, def);
+        return def;
+    }
+    return std::min(*level, max);
 }
 
 // urand(min, max) asserts max >= min: a pair of settings written the wrong way round (MaxRandomBots lowered
@@ -744,7 +763,7 @@ bool PlayerbotAIConfig::Initialize()
     randomBotTransmog = sConfigMgr->GetOption<bool>("AiPlayerbot.RandomBotTransmog", true);
     randomBotTransmogPercent = std::min<uint32>(sConfigMgr->GetOption<uint32>("AiPlayerbot.RandomBotTransmogPercent", 50), 100);
     randomBotTransmogMinLevel = sConfigMgr->GetOption<uint32>("AiPlayerbot.RandomBotTransmogMinLevel", 10);
-    gearRollRandomSuffix = sConfigMgr->GetOption<bool>("AiPlayerbot.GearRollRandomSuffix", false);
+    gearRollRandomSuffix = GetSwitchLevel("AiPlayerbot.GearRollRandomSuffix", 0, 2);
     autoGearBisCommand = sConfigMgr->GetOption<int32>("AiPlayerbot.AutoGearBisCommand", 0);
     autoGearQualityLimit = sConfigMgr->GetOption<int32>("AiPlayerbot.AutoGearQualityLimit", 3);
     autoGearScoreLimit = sConfigMgr->GetOption<int32>("AiPlayerbot.AutoGearScoreLimit", 0);

@@ -83,6 +83,10 @@ public:
     // at random): every bot of a class and specialization gets the same items, for the test benches.
     void SetDeterministic(bool on) { deterministic = on; }
     bool IsDeterministic() const { return deterministic; }
+    // Gives an equipped item its random property or suffix (the item mods follow). A direct creation (starter kit,
+    // quest item, BiS command) gets none from the core: RollRandomProperty rolls it as the core does at a vendor.
+    static void SetRandomProperty(Player* bot, Item* item, int32 randomPropertyId);
+    static void RollRandomProperty(Player* bot, Item* item);
     // A CoA bot under level 5 left naked by an older version gets its class starter kit back.
     static void DressNakedCoaStarter(Player* bot);
     // Takes off the CoA spell ranks above `level`: the core grants them on the way up only, so a bot

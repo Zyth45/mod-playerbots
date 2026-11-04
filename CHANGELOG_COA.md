@@ -1,5 +1,13 @@
 # CoA Bots — changelog
 
+## v2.9.3 (in progress)
+
+- **Suffixes of the bots' gear**: the suffix chosen for a bot weighs stamina for every role (and defense, dodge and parry
+  for a tank) instead of the most damage or healing, so bots no longer wear "glass cannon" gear; among suffixes as good
+  for the role, each bot picks its own. `AiPlayerbot.GearRollRandomSuffix = 2` rolls the suffix like a looted item for
+  every bot, alts included (0 and 1 unchanged). Items a bot gets directly (starter kit, quest items) roll a suffix as
+  a player's would, and the BiS command gives the best suffix for the spec.
+
 ## v2.9.2 (in progress)
 
 - **Gear of grouped bots**: `AiPlayerbot.RandomGearScoreLimit` caps random bots out in the world only; a bot grouped
