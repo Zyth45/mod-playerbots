@@ -17,6 +17,10 @@
 - **Raid of 15 (Manastorm)**: a raid of 15 built with bots asks by default for 1 tank and 2 healers (other sizes
   unchanged), and the player counts as the role chosen in the group when there is one: a tank or a healer player is one
   less to recruit.
+- **Leaving a dungeon with your bots**: when you leave a dungeon or a raid alive (Dungeon Finder Leave, teleport,
+  hearthstone, exit portal), the bots of your group still inside join you 2 to 3 seconds later; random bots of a
+  Dungeon Finder group leave the group and the instance instead. Not after a death (corpse run), not in battlegrounds
+  or arenas, and not for bots on a mission.
 
 ## v2.9.2 (in progress)
 

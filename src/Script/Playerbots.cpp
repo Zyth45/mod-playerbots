@@ -9,6 +9,7 @@
 #include "BattleGroundTactics.h"
 #include "CoaBossKnowledge.h"
 #include "BattlefieldScript.h"
+#include "CoaLeaveInstance.h"
 #include "CoaMissionMgr.h"
 #include "Channel.h"
 #include "CityDuels.h"
@@ -191,9 +192,11 @@ public:
         }
     }
 
-    bool OnPlayerBeforeTeleport(Player* /*player*/, uint32 /*mapid*/, float /*x*/, float /*y*/, float /*z*/,
+    bool OnPlayerBeforeTeleport(Player* player, uint32 mapid, float /*x*/, float /*y*/, float /*z*/,
                                 float /*orientation*/, uint32 /*options*/, Unit* /*target*/) override
     {
+        CoaLeaveInstance::OnBeforeTeleport(player, mapid);
+
         /* for now commmented out until proven its actually required
         * havent seen any proof CleanVisibilityReferences() is needed
 
@@ -250,6 +253,9 @@ public:
         {
             playerbotMgr->UpdateAI(diff);
         }
+
+        if (botAI == nullptr)
+            CoaLeaveInstance::OnUpdate(player);
     }
 
     using PlayerScript::OnPlayerCanUseChat;  // keep the base overloads visible
