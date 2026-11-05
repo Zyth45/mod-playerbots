@@ -2399,26 +2399,26 @@ void DropSpentClaims(uint32 now)
 }
 
 // Whether letting this cast through hurts the group more than an ordinary hit: a heal, crowd
-// control, a summon, a shield, a channel, a long cast that is likely a big hit, or damage that
-// jumps from member to member (Venoxis' Holy Wrath, 2 s, killed three full-health bots at once).
+// control, a summon, a shield, a channel, a long cast that is likely a big hit, or a hit that
+// jumps from member to member (Venoxis' Holy Wrath 2118020, 2 s, killed three full-health bots at
+// once). That one is a dummy effect whose damage comes from the script, so the jump counts
+// whatever the effect is.
 bool IsDangerousCast(Spell* cast)
 {
     SpellInfo const* info = cast->GetSpellInfo();
-    if (info->IsChanneled() || cast->GetCastTime() >= DangerousCastMs)
+    if (info->IsChanneled() || cast->GetCastTime() >= DangerousCastMs ||
+        info->HasAttribute(SPELL_ATTR4_BOUNCY_CHAIN_MISSILES))
         return true;
 
     for (SpellEffectInfo const& effect : info->Effects)
     {
+        if (effect.ChainTarget >= DangerousChainTargets && effect.TargetA.GetCheckType() == TARGET_CHECK_ENEMY)
+            return true;
         switch (effect.Effect)
         {
             case SPELL_EFFECT_HEAL: case SPELL_EFFECT_HEAL_PCT: case SPELL_EFFECT_HEAL_MAX_HEALTH:
             case SPELL_EFFECT_SUMMON:
                 return true;
-            case SPELL_EFFECT_SCHOOL_DAMAGE: case SPELL_EFFECT_WEAPON_DAMAGE: case SPELL_EFFECT_NORMALIZED_WEAPON_DMG:
-            case SPELL_EFFECT_WEAPON_PERCENT_DAMAGE: case SPELL_EFFECT_WEAPON_DAMAGE_NOSCHOOL:
-                if (effect.ChainTarget >= DangerousChainTargets)
-                    return true;
-                break;
             default:
                 break;
         }
