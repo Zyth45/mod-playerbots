@@ -2633,9 +2633,10 @@ bool MayKick(Player* bot, Unit* caster, Spell* cast)
 
     uint32 ready = 0;
     Player* const chosen = ChooseKicker(bot, caster, ready);
-    // A raid keeps the reserve only against a caster known for dangerous casts; the rest of the raid kicks freely.
-    if (!claim.danger && ready < 2 && bot->GetMap()->IsDungeon() &&
-        (!bot->GetMap()->IsRaid() || DangerousCaster(caster)))
+    // A dungeon keeps its last kick for a worse cast. A raid keeps every kick for the dangerous casts of a caster
+    // known for them (Venoxis: Holy Nova and Holy Fire took the kicks Holy Wrath needed); the rest of the raid kicks freely.
+    if (!claim.danger && bot->GetMap()->IsDungeon() &&
+        (bot->GetMap()->IsRaid() ? DangerousCaster(caster) : ready < 2))
         ++InterruptStats.heldBack;
     else
     {
