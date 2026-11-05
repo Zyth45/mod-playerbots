@@ -173,7 +173,7 @@ bool RecruitCoaBot(Player* master, CoaRole role, std::string& message, uint8 cla
 void CoaAnnounceJoin(Player* bot, Player* master);
 
 // Turns the master's group into a raid of `size` (25 when 0, 6 to 40) filled with recruited bots:
-// `tanks` tanks and `heals` healers (from the size when 0: 3 and 6 for 25), the rest damage dealers,
+// `tanks` tanks and `heals` healers (from the size when 0, see CoaRaidRoles: 2 and 4 for 25), the rest damage dealers,
 // the classes taken in turn. Members already there count. The outcome is told in `message`.
 bool RecruitCoaRaid(Player* master, uint32 size, uint32 tanks, uint32 heals, std::string& message);
 

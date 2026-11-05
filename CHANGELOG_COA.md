@@ -25,6 +25,10 @@
   enemy known for dangerous ones (one of its spells is, or that kind of enemy already cast one since the server
   started); every interrupt is kept for its dangerous casts. At Venoxis the kicks went to Holy Nova and Holy Fire
   and none was left for Holy Wrath. The rest of the raid still interrupts freely, and dungeons are unchanged.
+- **Raid roles by size**: a raid built with bots (`.playerbots coa raid`, the SquidBots Lite Raid buttons) now asks by
+  default for 2 tanks and 3 healers from 11 to 20 players (Raid 15 had 1 tank and 2 healers), and 2 tanks and 4
+  healers from 21 to 25 (was 3 and 6). 10 and under, and past 25, are unchanged. Tanks and healers you give stay
+  yours: `.playerbots coa raid 25 3 6` keeps the old mix.
 - **Quest givers with many quests**: bots no longer pass by a quest giver whose quest list is long overall but short
   for them (Gornek and the class quests): the list is counted for the bot, as the game shows it.
 - **Alts with only flying mounts ride along**: when the player rides a ground mount, an alt that only owns flying mounts

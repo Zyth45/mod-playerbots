@@ -85,7 +85,7 @@ public:
 
     // .playerbots coa tank|heal|dps [class] : recruit a Conquest of Azeroth bot for that role, of
     // that class when one is named (".playerbots coa heal sun cleric").
-    // .playerbots coa raid [size] [tanks] [healers] : fills a raid with bots (25: 3 tanks, 6 healers).
+    // .playerbots coa raid [size] [tanks] [healers] : fills a raid with bots (25: 2 tanks, 4 healers).
     // Players may build a raid too, within AiPlayerbot.CoaRaidPlayerMax raids at a time on the realm and one
     // every AiPlayerbot.CoaRaidPlayerCooldown minutes each; game masters have no limit and alone recruit one role.
     // .playerbots coa regear [level] : game masters only, gears again the random bots online of that level or

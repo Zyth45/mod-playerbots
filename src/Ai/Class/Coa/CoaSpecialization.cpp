@@ -8,6 +8,7 @@
 #include "CoaLevelBuildData.h"
 #include "CoaSpecLookup.h"
 #include "CoaWildcard.h"
+#include "CoaRaidRoles.h"
 #include "CoaReborn.h"
 #include "Channel.h"
 #include "Chat.h"
@@ -1201,13 +1202,7 @@ void CoaAnnounceJoin(Player* bot, Player* master)
 bool RecruitCoaRaid(Player* master, uint32 size, uint32 tanks, uint32 heals, std::string& message)
 {
     size = std::clamp<uint32>(size ? size : 25, 6, MAXRAIDSIZE);
-    // A raid of 15 (Manastorm) needs one tank and two healers.
-    if (!tanks)
-        tanks = size == 15 ? 1 : std::max<uint32>(2, size / 8);
-    if (!heals)
-        heals = size == 15 ? 2 : (size + 2) / 4;
-    tanks = std::min(tanks, size - 1);
-    heals = std::min(heals, size - 1 - tanks);
+    CoaRaidRoles(size, tanks, heals);
 
     if (master->InBattleground() || master->InArena())
     {
