@@ -46,6 +46,7 @@
 #include <map>
 #include <memory>
 #include <mutex>
+#include <set>
 #include <unordered_map>
 #include <unordered_set>
 #include <tuple>
@@ -2403,11 +2404,9 @@ void DropSpentClaims(uint32 now)
 // jumps from member to member (Venoxis' Holy Wrath 2118020, 2 s, killed three full-health bots at
 // once). That one is a dummy effect whose damage comes from the script, so the jump counts
 // whatever the effect is.
-bool IsDangerousCast(Spell* cast)
+bool IsDangerousSpell(SpellInfo const* info, int32 castTime)
 {
-    SpellInfo const* info = cast->GetSpellInfo();
-    if (info->IsChanneled() || cast->GetCastTime() >= DangerousCastMs ||
-        info->HasAttribute(SPELL_ATTR4_BOUNCY_CHAIN_MISSILES))
+    if (info->IsChanneled() || castTime >= DangerousCastMs || info->HasAttribute(SPELL_ATTR4_BOUNCY_CHAIN_MISSILES))
         return true;
 
     for (SpellEffectInfo const& effect : info->Effects)
@@ -2435,6 +2434,41 @@ bool IsDangerousCast(Spell* cast)
                 break;
         }
     }
+    return false;
+}
+
+bool IsDangerousCast(Spell* cast) { return IsDangerousSpell(cast->GetSpellInfo(), cast->GetCastTime()); }
+
+// Creature entries seen casting something dangerous, for the life of the worldserver.
+std::mutex DangerousEntriesLock;
+std::set<uint32> DangerousEntries;
+
+void NoteDangerousCaster(Unit* caster)
+{
+    if (Creature* creature = caster->ToCreature())
+    {
+        std::lock_guard<std::mutex> guard(DangerousEntriesLock);
+        DangerousEntries.insert(creature->GetEntry());
+    }
+}
+
+// Whether this enemy is one to keep a kick for in a raid: its entry already cast something dangerous on this server,
+// or one of its own spells is dangerous. Without that, the first Holy Wrath of each Venoxis fight went through and
+// took three full-health bots at once.
+bool DangerousCaster(Unit* caster)
+{
+    Creature* creature = caster->ToCreature();
+    if (!creature)
+        return false;
+    {
+        std::lock_guard<std::mutex> guard(DangerousEntriesLock);
+        if (DangerousEntries.count(creature->GetEntry()))
+            return true;
+    }
+    for (uint32 const spellId : creature->m_spells)
+        if (SpellInfo const* info = spellId ? sSpellMgr->GetSpellInfo(spellId) : nullptr)
+            if ((info->InterruptFlags & SPELL_INTERRUPT_FLAG_INTERRUPT) && IsDangerousSpell(info, info->CalcCastTime()))
+                return true;
     return false;
 }
 
@@ -2589,6 +2623,8 @@ bool MayKick(Player* bot, Unit* caster, Spell* cast)
     claim.danger = IsDangerousCast(cast) ||
                    (sPlayerbotAIConfig.coaDungeonPriorities && CoaDungeonPriorities::InterruptRank(cast->GetSpellInfo()) == 2);
     claim.until = now + remaining + InterruptLandMarginMs;
+    if (claim.danger)
+        NoteDangerousCaster(caster);
     if (!CoordinateInterrupts())
     {
         InterruptClaims.emplace(KeyOf(caster), claim);
@@ -2597,7 +2633,9 @@ bool MayKick(Player* bot, Unit* caster, Spell* cast)
 
     uint32 ready = 0;
     Player* const chosen = ChooseKicker(bot, caster, ready);
-    if (!claim.danger && ready < 2 && bot->GetMap()->IsDungeon() && !bot->GetMap()->IsRaid())
+    // A raid keeps the reserve only against a caster known for dangerous casts; the rest of the raid kicks freely.
+    if (!claim.danger && ready < 2 && bot->GetMap()->IsDungeon() &&
+        (!bot->GetMap()->IsRaid() || DangerousCaster(caster)))
         ++InterruptStats.heldBack;
     else
     {

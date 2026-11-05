@@ -21,6 +21,10 @@
 - **Bouncing damage is interrupted first**: a cast whose damage jumps to three targets or more (Holy Wrath at Venoxis
   in Zul'Gurub, which killed several bots at full health at once) now counts as dangerous, like a heal or crowd control:
   bots save an interrupt for it and take it before ordinary casts.
+- **An interrupt is kept for dangerous raid bosses**: in a raid, when only one interrupt is left in reach, bots no
+  longer spend it on the ordinary casts of an enemy known for dangerous ones (one of its spells is, or that kind of
+  enemy already cast one since the server started). At Venoxis the kicks went to Holy Nova and Holy Fire and none
+  was left for Holy Wrath. The rest of the raid still interrupts freely.
 
 ## v2.9.3 (5 November 2026)
 
