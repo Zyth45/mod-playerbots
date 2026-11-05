@@ -29,7 +29,7 @@ class SpellInfo;
 
 namespace CoaDungeonPriorities
 {
-// 2 for a cast of the table, 1 for a heal, crowd control or summon, 0 for any other cast.
+// 2 for a cast of the table, 1 for a heal, crowd control, summon or bouncing damage, 0 for any other cast.
 uint8 InterruptRank(SpellInfo const* info);
 
 // Whether this enemy creature keeps its side alive: a totem, an add of the table (Healing Ward,

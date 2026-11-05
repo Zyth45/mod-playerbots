@@ -18,6 +18,9 @@
   within the spell's own range and in sight (another dispeller takes the rest), healers dispel right after their
   critical heals, cleanses around the caster (Holy Supernova Cleanse) are used for nearby members, and an interrupt is
   no longer kept for dangerous casts only in raids (5-player dungeons keep that reserve).
+- **Bouncing damage is interrupted first**: a cast whose damage jumps to three targets or more (Holy Wrath at Venoxis
+  in Zul'Gurub, which killed several bots at full health at once) now counts as dangerous, like a heal or crowd control:
+  bots save an interrupt for it and take it before ordinary casts.
 
 ## v2.9.3 (5 November 2026)
 

@@ -2352,6 +2352,7 @@ bool IsInterruptibleCast(Unit* unit) { return InterruptibleSpell(unit) != nullpt
 constexpr uint32 InterruptHandOverMs = 600;    // how long the chosen bot has to kick before another may
 constexpr uint32 InterruptLandMarginMs = 300;  // after a kick should have landed: the cast is then over or missed
 constexpr int32 DangerousCastMs = 2500;        // a longer cast is taken for a big hit
+constexpr uint32 DangerousChainTargets = 3;    // damage that jumps to this many targets hits the whole group
 
 struct InterruptClaim
 {
@@ -2398,7 +2399,8 @@ void DropSpentClaims(uint32 now)
 }
 
 // Whether letting this cast through hurts the group more than an ordinary hit: a heal, crowd
-// control, a summon, a shield, a channel, or a long cast that is likely a big hit.
+// control, a summon, a shield, a channel, a long cast that is likely a big hit, or damage that
+// jumps from member to member (Venoxis' Holy Wrath, 2 s, killed three full-health bots at once).
 bool IsDangerousCast(Spell* cast)
 {
     SpellInfo const* info = cast->GetSpellInfo();
@@ -2412,6 +2414,11 @@ bool IsDangerousCast(Spell* cast)
             case SPELL_EFFECT_HEAL: case SPELL_EFFECT_HEAL_PCT: case SPELL_EFFECT_HEAL_MAX_HEALTH:
             case SPELL_EFFECT_SUMMON:
                 return true;
+            case SPELL_EFFECT_SCHOOL_DAMAGE: case SPELL_EFFECT_WEAPON_DAMAGE: case SPELL_EFFECT_NORMALIZED_WEAPON_DMG:
+            case SPELL_EFFECT_WEAPON_PERCENT_DAMAGE: case SPELL_EFFECT_WEAPON_DAMAGE_NOSCHOOL:
+                if (effect.ChainTarget >= DangerousChainTargets)
+                    return true;
+                break;
             default:
                 break;
         }

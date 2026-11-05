@@ -169,6 +169,12 @@ bool HealsOrControls(SpellInfo const* info, uint8 depth)
             case SPELL_EFFECT_HEAL: case SPELL_EFFECT_HEAL_PCT: case SPELL_EFFECT_HEAL_MAX_HEALTH:
             case SPELL_EFFECT_HEALTH_LEECH: case SPELL_EFFECT_SUMMON:
                 return true;
+            // Damage that jumps to three targets or more (Venoxis' Holy Wrath) can take several players out at once.
+            case SPELL_EFFECT_SCHOOL_DAMAGE: case SPELL_EFFECT_WEAPON_DAMAGE: case SPELL_EFFECT_NORMALIZED_WEAPON_DMG:
+            case SPELL_EFFECT_WEAPON_PERCENT_DAMAGE: case SPELL_EFFECT_WEAPON_DAMAGE_NOSCHOOL:
+                if (effect.ChainTarget >= 3)
+                    return true;
+                break;
             default:
                 break;
         }
