@@ -16,24 +16,41 @@
 #include <iterator>
 #include <vector>
 
-// Whether Player::PrepareQuestMenu can list every quest of that quest giver. The core asserts once a
+// Whether Player::PrepareQuestMenu can list every quest of that quest giver for this bot. The core asserts once a
 // quest menu holds more than GOSSIP_MAX_MENU_ITEMS: the Stormwind and Orgrimmar Call Boards of Jealous's
 // mod-hero-call-board carry 47 dailies, and a bot looking them over for a quest crashed the server
 // (28/09). A player never gets there - the module shows the board by category - so bots leave them be.
-inline bool CoaQuestMenuFits(ObjectGuid guid)
+// Counted as PrepareQuestMenu adds them: the quests the bot can hand in or has under way, and those it may take.
+// Counting every relation turned Gornek away (36 with the class quests, 52000-52016) though few are for one bot.
+inline bool CoaQuestMenuFits(Player* bot, ObjectGuid guid)
 {
-    std::size_t quests = 0;
+    QuestRelationBounds starts;
+    QuestRelationBounds ends;
     if (guid.IsAnyTypeCreature())
     {
-        auto const starts = sObjectMgr->GetCreatureQuestRelationBounds(guid.GetEntry());
-        auto const ends = sObjectMgr->GetCreatureQuestInvolvedRelationBounds(guid.GetEntry());
-        quests = std::distance(starts.first, starts.second) + std::distance(ends.first, ends.second);
+        starts = sObjectMgr->GetCreatureQuestRelationBounds(guid.GetEntry());
+        ends = sObjectMgr->GetCreatureQuestInvolvedRelationBounds(guid.GetEntry());
     }
     else if (guid.IsGameObject())
     {
-        auto const starts = sObjectMgr->GetGOQuestRelationBounds(guid.GetEntry());
-        auto const ends = sObjectMgr->GetGOQuestInvolvedRelationBounds(guid.GetEntry());
-        quests = std::distance(starts.first, starts.second) + std::distance(ends.first, ends.second);
+        starts = sObjectMgr->GetGOQuestRelationBounds(guid.GetEntry());
+        ends = sObjectMgr->GetGOQuestInvolvedRelationBounds(guid.GetEntry());
+    }
+    else
+        return true;
+
+    std::size_t quests = 0;
+    for (auto itr = ends.first; itr != ends.second; ++itr)
+    {
+        QuestStatus const status = bot->GetQuestStatus(itr->second);
+        quests += status == QUEST_STATUS_COMPLETE || status == QUEST_STATUS_INCOMPLETE;
+    }
+    for (auto itr = starts.first; itr != starts.second; ++itr)
+    {
+        Quest const* quest = sObjectMgr->GetQuestTemplate(itr->second);
+        if (quest && bot->CanTakeQuest(quest, false) &&
+            (quest->IsAutoComplete() || bot->GetQuestStatus(itr->second) == QUEST_STATUS_NONE))
+            ++quests;
     }
     return quests <= GOSSIP_MAX_MENU_ITEMS;
 }

@@ -198,7 +198,7 @@ bool QuestAction::ProcessQuests(WorldObject* questGiver)
         bot->SetFacingToObject(questGiver);
 
     bot->SetTarget(guid);
-    if (!CoaQuestMenuFits(guid))
+    if (!CoaQuestMenuFits(bot, guid))
     {
         // A Call Board or mission board: an alt follows its player there without a quest menu; random bots skip it.
         Player* master = botAI->GetMaster();

@@ -312,7 +312,7 @@ bool NewRpgBaseAction::InteractWithNpcOrGameObjectForQuest(ObjectGuid guid)
     //     bot->GetSession()->HandleGossipHelloOpcode(packet);
     // }
 
-    if (!CoaQuestMenuFits(guid))
+    if (!CoaQuestMenuFits(bot, guid))
         return true;
     bot->PrepareQuestMenu(guid);
     QuestMenu const& menu = bot->PlayerTalkClass->GetQuestMenu();
@@ -807,7 +807,7 @@ ObjectGuid NewRpgBaseAction::ChooseNpcOrGameObjectToInteract(bool questgiverOnly
 bool NewRpgBaseAction::HasQuestToAcceptOrReward(WorldObject* object)
 {
     ObjectGuid guid = object->GetGUID();
-    if (!CoaQuestMenuFits(guid))
+    if (!CoaQuestMenuFits(bot, guid))
         return false;
     bot->PrepareQuestMenu(guid);
     QuestMenu const& menu = bot->PlayerTalkClass->GetQuestMenu();

@@ -25,6 +25,12 @@
   longer spend it on the ordinary casts of an enemy known for dangerous ones (one of its spells is, or that kind of
   enemy already cast one since the server started). At Venoxis the kicks went to Holy Nova and Holy Fire and none
   was left for Holy Wrath. The rest of the raid still interrupts freely.
+- **Quest givers with many quests**: bots no longer pass by a quest giver whose quest list is long overall but short
+  for them (Gornek and the class quests): the list is counted for the bot, as the game shows it.
+- **Alts with only flying mounts ride along**: when the player rides a ground mount, an alt that only owns flying mounts
+  now takes one that can also run on the ground, instead of walking.
+- **Option to keep the random bots of a Dungeon Finder group** (AiPlayerbot.LfgKeepRandomBots, off by default): when
+  you leave the dungeon alive, they stay in your group and follow you out, so you can queue the same group again.
 
 ## v2.9.3 (5 November 2026)
 

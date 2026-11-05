@@ -21,6 +21,9 @@ struct MountData
     bool swiftMount = false;
     // Outer map: index (0 for ground, 1 for flight), inner map: effect speed -> vector of spell IDs.
     std::map<uint32, std::map<int32, std::vector<uint32>>> allSpells;
+    // Flying mounts that also carry a ground speed (SPELL_AURA_MOD_INCREASE_MOUNTED_SPEED): the core lets them ride
+    // where nobody can fly, so they stand in for ground mounts when the bot has none. Ground speed -> spell IDs.
+    std::map<int32, std::vector<uint32>> flyersThatRun;
     // Default mount speed.
     int32 maxSpeed = 59;
 };

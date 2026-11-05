@@ -62,8 +62,28 @@ MountData CollectMountData(Player const* bot)
                         // checks so that they are all correctly detected.
                         spellInfo->Id == 54729) ? 1 : 0;
         data.allSpells[index][speed].push_back(spellId);
+        if (index == 1)
+            for (uint8 i = EFFECT_1; i <= EFFECT_2; ++i)
+                if (spellInfo->Effects[i].ApplyAuraName == SPELL_AURA_MOD_INCREASE_MOUNTED_SPEED)
+                {
+                    data.flyersThatRun[spellInfo->Effects[i].BasePoints].push_back(spellId);
+                    break;
+                }
     }
     return data;
+}
+
+// The mounts of that type the bot can ride: a master on a ground mount and an alt with only flying mounts (SupportDesk,
+// 05/11) left the alt on foot; its flyers that also run take the place of ground mounts. A pure flyer stays out: the
+// core refuses it where nobody can fly.
+static std::map<int32, std::vector<uint32>> const* MountsOfType(MountData const& data, uint32 type)
+{
+    auto const itr = data.allSpells.find(type);
+    if (itr != data.allSpells.end())
+        return &itr->second;
+    if (type == 0 && !data.flyersThatRun.empty())
+        return &data.flyersThatRun;
+    return nullptr;
 }
 
 bool CheckMountStateAction::Execute(Event /*event*/)
@@ -235,17 +255,19 @@ bool CheckMountStateAction::FollowsMountedMasterBelowMinLevel()
     if (!botAI->IsAltBot() || !master || master == bot || !master->IsMounted())
         return false;
 
-    return CollectMountData(bot).allSpells.contains(MountTypeFor(master, CollectMountData(bot)));
+    MountData const data = CollectMountData(bot);
+    return MountsOfType(data, MountTypeFor(master, data)) != nullptr;
 }
 
 // A master on a mount that can fly (most CoA mounts carry a flight speed, as Aima, Steed of the Second Eidolon) asks
 // for a flying mount even where nobody can fly: random bots, which own only their race's ground mounts below level 60
 // and an Outland flyer at 60, stayed on foot in Elwynn while the alts, whose collection mounts fly too, rode along
-// (test of 04/11). Where the bot cannot fly, its ground mount does; a bot with only flying mounts keeps them.
+// (test of 04/11). Where the bot cannot fly, its ground mount does, or a flyer of its that also runs; a bot with only
+// pure flyers keeps them.
 uint32 CheckMountStateAction::MountTypeFor(Player* master, MountData const& data) const
 {
     uint32 const type = GetMountType(master);
-    if (type == 1 && !BotCanUseFlyingMount(bot) && data.allSpells.contains(0))
+    if (type == 1 && !BotCanUseFlyingMount(bot) && (data.allSpells.contains(0) || !data.flyersThatRun.empty()))
         return 0;
     return type;
 }
@@ -279,10 +301,9 @@ bool CheckMountStateAction::Mount()
         return true;
 
     // Try random mount
-    auto spellsIt = mountData.allSpells.find(masterMountType);
-    if (spellsIt != mountData.allSpells.end())
+    if (auto const* mounts = MountsOfType(mountData, masterMountType))
     {
-        auto& spells = spellsIt->second;
+        auto& spells = *mounts;
         // CoA teaches riding 300 to bots too: under the fast mount level a bot owns only its 60% mount, which the
         // speed filter dropped behind a master on a 100% mount, and it walked (jealous-sound/azerothcore-wotlk-coa#5596).
         if (TryRandomMountFiltered(spells, masterSpeed) || TryRandomMountFiltered(spells, 0))
