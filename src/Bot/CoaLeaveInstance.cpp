@@ -155,7 +155,9 @@ namespace
                     continue;
 
                 Group* group = bot->GetGroup();
-                if (group && group->isLFGGroup() && sRandomPlayerbotMgr.IsRandomBot(bot))
+                // AiPlayerbot.LfgKeepRandomBots: they stay with a player still in their group, to queue it again.
+                bool const kept = sPlayerbotAIConfig.lfgKeepRandomBots && group && group->IsMember(player->GetGUID());
+                if (group && group->isLFGGroup() && sRandomPlayerbotMgr.IsRandomBot(bot) && !kept)
                 {
                     botAI->LeaveOrDisbandGroup();
                     bot->TeleportToEntryPoint();

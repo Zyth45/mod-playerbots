@@ -1791,6 +1791,14 @@ AiPlayerbot.CoaPlayersReplaceBotsMin = 0
 # Default: 1 (enabled)
 AiPlayerbot.CoaLfgMissingRoles = 1
 
+# Random bots of a Dungeon Finder group stay in the group when the player leaves the dungeon
+# alive (teleport, hearthstone): they follow the player out like the alts, and the player can
+# queue the same group again in the Dungeon Finder for the next dungeon. A player who leaves the
+# group still lets them go.
+# 0 - they leave the group and go back to where they entered, as before.
+# Default: 0 (disabled)
+AiPlayerbot.LfgKeepRandomBots = 0
+
 # CoA 2.3, ideas taken from other mod-playerbots forks. Each one can be turned off on its own.
 # They are read once at start-up (and again by ".reload config").
 
@@ -2245,7 +2253,8 @@ AiPlayerbot.CoaStealthIsNotStance = 0
 #                     with a kick ready and in reach, a damage dealer before a healer before the tank,
 #                     the one that kicked longest ago first; the others hold theirs until the kick has
 #                     landed. In a dungeon a routine cast is let through when only one kick is left in
-#                     reach, kept for a heal, crowd control or long cast. Kicks are only tried on casters
+#                     reach, kept for a heal, crowd control or long cast; in a raid only from an enemy
+#                     known for such casts. Kicks are only tried on casters
 #                     they reach. Bots without a group are not affected; real players are never counted on.
 #                     0 - every bot kicks the first cast it sees, as in 1.6. Either way CoaBots.log counts
 #                     the enemy casts seen and kicked and the kicks wasted on a cast already kicked.
