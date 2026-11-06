@@ -195,6 +195,11 @@ Unit* TankTargetValue::Calculate()
     GuidSet const exclusions = GatherStrategyTargetExclusions(botAI, TargetValueExclusionType::TankTarget);
     std::string const rti = botAI->GetAiObjectContext()->GetValue<std::string>("rti")->Get();
     Unit* rtiTarget = RtiTargetValue::Calculate();
+    // The skull the player put on the boss the player tanks is the player's, not an order to the bot tanks: they took
+    // the boss, its victim being no bot (06/11 review, point 1).
+    if (rtiTarget &&
+        (CoaPlayerMainTank::HeldByPlayer(bot, rtiTarget) || CoaPlayerMainTank::Released(bot, rtiTarget->GetGUID())))
+        rtiTarget = nullptr;
     if (rtiTarget &&
         (!sPlayerbotAIConfig.coaExclusionsEverywhere || exclusions.find(rtiTarget->GetGUID()) == exclusions.end()))
     {
