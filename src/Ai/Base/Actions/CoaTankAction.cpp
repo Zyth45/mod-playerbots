@@ -81,6 +81,14 @@ uint32 TauntSpell(Player* bot, Unit* target)
     }
     return best;
 }
+// ObjectAccessor::GetUnit looks on the map of `from`, and a player between two maps (a teleport, a loading screen) has
+// none: nullptr then, not an assert (06/11 review, point 12).
+Unit* UnitOnMapOf(Player* from, ObjectGuid guid)
+{
+    if (!from || !from->IsInWorld() || !from->FindMap())
+        return nullptr;
+    return ObjectAccessor::GetUnit(*from, guid);
+}
 }  // namespace
 
 void CoaTankAction::Reply(std::string const& action, std::string const& result, uint8 icon, Unit* target)
@@ -99,7 +107,7 @@ void CoaTankAction::SendStatus(Player* tank)
 {
     uint8 icon = NoIcon;
     ObjectGuid const pinned = CoaPlayerMainTank::Pinned(tank, &icon);
-    Unit* target = pinned ? ObjectAccessor::GetUnit(*tank, pinned) : nullptr;
+    Unit* target = pinned ? UnitOnMapOf(tank, pinned) : nullptr;
     std::string const line = "TS\t" + tank->GetName() + "\t" + Role(tank) + "\t" + (CanTank(tank) ? "1" : "0") + "\t" +
                              std::to_string(icon == NoIcon ? 0 : uint32(icon) + 1) + "\t" +
                              (target ? target->GetName() : "-");
@@ -111,7 +119,9 @@ void CoaTankAction::SendStatus(Player* tank)
 
 Unit* CoaTankAction::MasterTarget(Player* master)
 {
-    Unit* target = master->GetTarget() ? ObjectAccessor::GetUnit(*master, master->GetTarget()) : nullptr;
+    if (master->FindMap() != bot->FindMap())
+        return nullptr;
+    Unit* target = master->GetTarget() ? UnitOnMapOf(master, master->GetTarget()) : nullptr;
     if (!target || !target->IsAlive() || target->GetMap() != bot->GetMap() || !bot->IsValidAttackTarget(target))
         return nullptr;
     return target;
