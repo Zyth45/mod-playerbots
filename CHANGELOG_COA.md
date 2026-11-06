@@ -1,6 +1,6 @@
 # CoA Bots — changelog
 
-## v2.9.4 (in progress)
+## v2.9.4 (6 November 2026)
 
 - **Player main tank and bot off-tanks** (SquidBots Lite Main Tank bar, or whispered): `tank main on|off|status` makes
   you the main tank of your bots: the bot tanks no longer take back what is on you (until you fall below
