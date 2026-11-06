@@ -168,12 +168,21 @@ void CoaPlayerMainTank::Forget(ObjectGuid guid)
 class CoaPlayerMainTankPlayerScript : public PlayerScript
 {
 public:
-    CoaPlayerMainTankPlayerScript() : PlayerScript("CoaPlayerMainTankPlayerScript", {PLAYERHOOK_ON_LOGOUT}) {}
+    CoaPlayerMainTankPlayerScript()
+        : PlayerScript("CoaPlayerMainTankPlayerScript", {PLAYERHOOK_ON_LOGOUT, PLAYERHOOK_ON_PLAYER_JUST_DIED}) {}
 
     void OnPlayerLogout(Player* player) override
     {
         if (player)
             CoaPlayerMainTank::Forget(player->GetGUID());
+    }
+
+    // A bot tank that dies (a wipe) drops its order and its raid icon: the target it was given resets with the
+    // fight, and the next pull is the player's to give again (06/11 review, point 8).
+    void OnPlayerJustDied(Player* player) override
+    {
+        if (player && GET_PLAYERBOT_AI(player) && CoaPlayerMainTank::Pinned(player))
+            CoaPlayerMainTank::Unpin(player);
     }
 };
 

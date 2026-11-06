@@ -172,8 +172,11 @@ Unit* TankTargetValue::PinnedOrAssist()
     if (!pinned)
         return nullptr;
 
+    // An enemy back to its spawn after a wipe or a leash (evade) is no order any more (06/11 review, point 8).
     Unit* target = ObjectAccessor::GetUnit(*bot, pinned);
-    if (target && target->IsAlive() && target->IsInWorld() && target->GetMap() == bot->GetMap())
+    Creature* creature = target ? target->ToCreature() : nullptr;
+    if (target && target->IsAlive() && target->IsInWorld() && target->GetMap() == bot->GetMap() &&
+        !(creature && creature->IsInEvadeMode()) && bot->IsValidAttackTarget(target))
         return target;
 
     CoaPlayerMainTank::Unpin(bot);
