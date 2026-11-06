@@ -305,6 +305,26 @@ bool CoaTankAction::Execute(Event event)
         return true;
     }
 
+    // The bar's Taunt button is the bot tank's own: its pinned target first, the player's target only when it has
+    // none (06/11 review, point 4).
+    if (command == "taunt")
+    {
+        uint8 icon = NoIcon;
+        ObjectGuid const pinned = CoaPlayerMainTank::Pinned(bot, &icon);
+        Unit* own = pinned ? UnitOnMapOf(bot, pinned) : nullptr;
+        if (own && own->IsAlive() && own->GetMap() == bot->GetMap() && bot->IsValidAttackTarget(own))
+            target = own;
+        if (!target)
+        {
+            Reply(command, "no_target");
+            return false;
+        }
+        if (!Taunt(target, "taunt"))
+            return false;
+        Reply("taunt", "ok", target == own ? icon : NoIcon, target);
+        return true;
+    }
+
     if (!target)
     {
         Reply(command, "no_target");
@@ -313,14 +333,6 @@ bool CoaTankAction::Execute(Event event)
 
     if (command == "target")
         return PinTarget(target, "target");
-
-    if (command == "taunt")
-    {
-        if (!Taunt(target, "taunt"))
-            return false;
-        Reply("taunt", "ok", NoIcon, target);
-        return true;
-    }
 
     if (command == "swap")
     {
