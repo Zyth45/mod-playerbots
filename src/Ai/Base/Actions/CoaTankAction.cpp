@@ -38,22 +38,48 @@ bool Busy(Player* bot)
     return !bot->IsAlive() || bot->GetVehicle() || bot->HasUnitState(UNIT_STATE_CONTROLLED);
 }
 
-// A taunt is any spell of the bot that forces the target to attack it (SPELL_EFFECT_ATTACK_ME): Taunt, Growl, Hand
-// of Reckoning, Dark Command and the taunts of the CoA classes alike, with no table to keep.
-uint32 TauntSpell(Player* bot)
+// Whether a spell forces its target to attack the caster: SPELL_EFFECT_ATTACK_ME (Taunt, Growl, Hand of Reckoning,
+// Dark Command) or a SPELL_AURA_MOD_TAUNT aura (most taunts of the CoA classes in the client DBC), itself or through
+// the spell it triggers, as the CoA rotation reads them.
+bool IsTaunt(SpellInfo const* info, uint8 depth = 0)
 {
+    for (SpellEffectInfo const& effect : info->Effects)
+    {
+        if (effect.Effect == SPELL_EFFECT_ATTACK_ME ||
+            (effect.Effect == SPELL_EFFECT_APPLY_AURA && effect.ApplyAuraName == SPELL_AURA_MOD_TAUNT))
+            return true;
+        if (depth < 2 && effect.TriggerSpell && effect.TriggerSpell != info->Id)
+            if (SpellInfo const* triggered = sSpellMgr->GetSpellInfo(effect.TriggerSpell))
+                if (IsTaunt(triggered, depth + 1))
+                    return true;
+    }
+    return false;
+}
+
+// The single target taunt the bot casts on `target` for the Main Tank bar: never one that hits an area (Challenging
+// Shout), nor one the target is immune to; a ready one before one on cooldown, then the lowest id, so that the choice
+// does not hang on the order of the spell map (06/11 review, point 6). 0 when the bot has none.
+uint32 TauntSpell(Player* bot, Unit* target)
+{
+    uint32 best = 0;
+    bool bestReady = false;
     for (auto const& [spellId, spell] : bot->GetSpellMap())
     {
         if (spell->State == PLAYERSPELL_REMOVED || !spell->Active)
             continue;
         SpellInfo const* info = sSpellMgr->GetSpellInfo(spellId);
-        if (!info || info->IsPassive())
+        if (!info || info->IsPassive() || info->IsAffectingArea() || !info->NeedsExplicitUnitTarget() || !IsTaunt(info))
             continue;
-        for (SpellEffectInfo const& effect : info->Effects)
-            if (effect.Effect == SPELL_EFFECT_ATTACK_ME)
-                return spellId;
+        if (target && target->IsImmunedToSpell(info))
+            continue;
+        bool const ready = !bot->HasSpellCooldown(spellId);
+        if (!best || (ready && !bestReady) || (ready == bestReady && spellId < best))
+        {
+            best = spellId;
+            bestReady = ready;
+        }
     }
-    return 0;
+    return best;
 }
 }  // namespace
 
@@ -93,7 +119,7 @@ Unit* CoaTankAction::MasterTarget(Player* master)
 
 bool CoaTankAction::Taunt(Unit* target, std::string const& action)
 {
-    uint32 const spellId = TauntSpell(bot);
+    uint32 const spellId = TauntSpell(bot, target);
     SpellInfo const* info = spellId ? sSpellMgr->GetSpellInfo(spellId) : nullptr;
     if (!info)
     {
