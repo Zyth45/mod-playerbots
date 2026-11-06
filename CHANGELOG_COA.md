@@ -25,6 +25,8 @@
   enemy known for dangerous ones (one of its spells is, or that kind of enemy already cast one since the server
   started); every interrupt is kept for its dangerous casts. At Venoxis the kicks went to Holy Nova and Holy Fire
   and none was left for Holy Wrath. The rest of the raid still interrupts freely, and dungeons are unchanged.
+- **Trades are answered**: an alt that puts on an item you just traded it now says so ("Equipping [item]"), even with
+  `AiPlayerbot.CoaTellEquipUpgrades` at 0, which keeps loot and regear upgrades silent.
 - **"I don't have the necessary skill"**: bots no longer want, roll need on or try to wear a weapon or armor whose skill
   they do not have (a mace for a bot without the Maces skill): the item is left for those who can use it.
 - **Raid roles by size**: a raid built with bots (`.playerbots coa raid`, the SquidBots Lite Raid buttons) now asks by

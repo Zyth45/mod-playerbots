@@ -1604,7 +1604,7 @@ AiPlayerbot.CoaRaidPlayerCooldown = 30
 AiPlayerbot.CoaOrphanGroupReleaseDelay = 300
 
 # Bots whisper their master each item they put on by themselves (loot, trade, regear: "Equipping [item]").
-# In a raid of 25 bots that is a lot of whispers. An item you ask for (e <item>) is always answered.
+# In a raid of 25 bots that is a lot of whispers. An item you ask for (e <item>) is always answered, and so is a trade from you.
 # Default: 0 (silent), 1 = whisper every automatic upgrade, as before. Read again by ".reload config".
 AiPlayerbot.CoaTellEquipUpgrades = 0
 

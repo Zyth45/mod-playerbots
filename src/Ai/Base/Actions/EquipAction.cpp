@@ -460,7 +460,8 @@ bool EquipUpgradesPacketAction::Execute(Event event)
     }
 
     ItemIds items = SelectInventoryItemsToEquip();
-    silent = !sPlayerbotAIConfig.coaTellEquipUpgrades;
+    // A trade is an item the player gave on purpose: answered like "e <item>", whatever CoaTellEquipUpgrades says.
+    silent = source != "trade status" && !sPlayerbotAIConfig.coaTellEquipUpgrades;
     EquipItems(items);
     silent = false;
     return true;
