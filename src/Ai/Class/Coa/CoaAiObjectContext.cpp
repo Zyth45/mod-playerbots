@@ -1206,11 +1206,14 @@ bool IsAttack(uint16 kind, bool tank)
 // Whether another tank holds this enemy. As for "has aggro", only the main tank set on the group takes
 // it from them: otherwise two tanks taunt back and forth what the other holds, and a bot tank pulls the
 // boss off a player tank (the same fault fixed in three forks: sksmith261, ShatteredDawn, pengjinfei).
+// A player main tank ("tank main on") holds what is on the player in any spec, even from the main tank set on the
+// group, until the rescue health: then the bots may taunt it off the player (06/11 review, points 2 and 3).
 bool HeldByOtherTank(Player* bot, Unit* enemy)
 {
     Unit* victim = enemy->GetVictim();
     Player* holder = victim ? victim->ToPlayer() : nullptr;
-    return holder && holder != bot && PlayerbotAI::IsTank(holder) && !PlayerbotAI::IsExplicitMainTank(bot);
+    return CoaHeldByOtherTank(holder && holder != bot, CoaPlayerMainTank::Hold(bot, enemy),
+                              holder && PlayerbotAI::IsTank(holder), PlayerbotAI::IsExplicitMainTank(bot));
 }
 
 /*

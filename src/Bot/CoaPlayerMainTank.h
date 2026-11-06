@@ -7,6 +7,7 @@
 #define _PLAYERBOT_COAPLAYERMAINTANK_H
 
 #include "Common.h"
+#include "CoaMainTankRules.h"
 #include "ObjectGuid.h"
 
 class Group;
@@ -29,6 +30,9 @@ namespace CoaPlayerMainTank
     // Whether the bot tank must leave this enemy to the flagged player: its victim is that player, alive and above
     // AiPlayerbot.PlayerMainTankRescueHealth.
     bool HeldByPlayer(Player const* bot, Unit const* enemy);
+    // Whether this enemy's victim is a flagged player of the bot's raid, and whether that player still holds it or
+    // must be rescued (at or under AiPlayerbot.PlayerMainTankRescueHealth).
+    CoaPlayerHold Hold(Player const* bot, Unit const* enemy);
 
     // The target given to a bot tank, and its raid icon (server index 0-7, 0xFF for none).
     void Pin(Player* bot, ObjectGuid target, uint8 icon);

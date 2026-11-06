@@ -5,6 +5,7 @@
  */
 
 #include "AttackerCountValues.h"
+#include "CoaPlayerMainTank.h"
 #include "Playerbots.h"
 #include "SharedDefines.h"
 
@@ -22,13 +23,10 @@ bool HasAggroValue::Calculate()
     {
         return true;
     }
-    bool isMT = botAI->IsExplicitMainTank(bot);
-    if (victim &&
-        (victim->GetGUID() == bot->GetGUID() || (!isMT && victim->ToPlayer() && botAI->IsTank(victim->ToPlayer()))))
-    {
-        return true;
-    }
-    return false;
+    // As PlayerbotAI::HasAggro: a player main tank holds what is on the player until the rescue health.
+    Player* victimPlayer = victim->ToPlayer();
+    return CoaHasAggro(victim->GetGUID() == bot->GetGUID(), CoaPlayerMainTank::Hold(bot, target),
+                       victimPlayer && botAI->IsTank(victimPlayer), botAI->IsExplicitMainTank(bot));
 }
 
 uint8 AttackerCountValue::Calculate()

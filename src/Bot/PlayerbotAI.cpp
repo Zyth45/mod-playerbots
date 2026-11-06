@@ -54,6 +54,7 @@
 #include "PlayerbotOperations.h"
 #include "PlayerbotTextMgr.h"
 #include "PlayerbotWorldThreadProcessor.h"
+#include "CoaPlayerMainTank.h"
 #include "Playerbots.h"
 #include "PositionValue.h"
 #include "RBAC.h"
@@ -2586,13 +2587,14 @@ bool PlayerbotAI::HasAggro(Unit* unit)
     if (!IsValidUnit(unit))
         return false;
 
-    bool isMT = IsExplicitMainTank(bot);
+    // A player main tank ("tank main on") holds what is on the player, in any spec and even when the group's main
+    // tank flag is on a bot; under the rescue health, the bots take it back (06/11 review, points 2 and 3).
     Unit* victim = unit->GetVictim();
-    if (victim && (victim->GetGUID() == bot->GetGUID() || (!isMT && victim->ToPlayer() && IsTank(victim->ToPlayer()))))
-    {
-        return true;
-    }
-    return false;
+    if (!victim)
+        return false;
+    Player* victimPlayer = victim->ToPlayer();
+    return CoaHasAggro(victim->GetGUID() == bot->GetGUID(), CoaPlayerMainTank::Hold(bot, unit),
+                       victimPlayer && IsTank(victimPlayer), IsExplicitMainTank(bot));
 }
 
 bool PlayerbotAI::IsMovementImpaired(Unit* unit)

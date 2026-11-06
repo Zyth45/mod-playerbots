@@ -80,13 +80,19 @@ void CoaPlayerMainTank::Set(Player* player, bool on)
 
 bool CoaPlayerMainTank::HeldByPlayer(Player const* bot, Unit const* enemy)
 {
+    return Hold(bot, enemy) == CoaPlayerHold::Holds;
+}
+
+CoaPlayerHold CoaPlayerMainTank::Hold(Player const* bot, Unit const* enemy)
+{
     if (!FlaggedCount || !bot || !enemy)
-        return false;
+        return CoaPlayerHold::None;
     Unit const* victim = enemy->GetVictim();
     Player const* player = victim ? victim->ToPlayer() : nullptr;
     if (!player || player == bot || !player->IsAlive() || !IsSet(player) || !player->IsInSameRaidWith(bot))
-        return false;
-    return player->GetHealthPct() > float(sPlayerbotAIConfig.playerMainTankRescueHealth);
+        return CoaPlayerHold::None;
+    return player->GetHealthPct() > float(sPlayerbotAIConfig.playerMainTankRescueHealth) ? CoaPlayerHold::Holds
+                                                                                         : CoaPlayerHold::Rescue;
 }
 
 void CoaPlayerMainTank::Pin(Player* bot, ObjectGuid target, uint8 icon)
