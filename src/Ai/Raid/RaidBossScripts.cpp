@@ -6,6 +6,7 @@
 
 #include "RaidBossScripts.h"
 
+#include "CoaPlayerMainTank.h"
 #include "Event.h"
 #include "Group.h"
 #include "Playerbots.h"
@@ -133,8 +134,10 @@ bool RaidBackupTauntTrigger::IsActive()
     if (!victim)
         return false;
 
+    // A player main tank ("tank main on") holds the boss in any spec, and is rescued under the rescue health even in
+    // a tank spec (06/11 review, point 7).
     if (Player* victimPlayer = victim->ToPlayer())
-        if (PlayerbotAI::IsTank(victimPlayer))
+        if (!CoaLooseOnMember(CoaPlayerMainTank::Hold(bot, boss), PlayerbotAI::IsTank(victimPlayer)))
             return false;
 
     Group* group = bot->GetGroup();

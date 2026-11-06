@@ -3350,8 +3350,10 @@ Unit* LooseEnemy(PlayerbotAI* botAI, Player* bot)
             continue;
         Unit* victim = enemy->GetVictim();
         Player* victimPlayer = victim ? victim->ToPlayer() : nullptr;
+        // A player main tank holds what is on the player in any spec, and is rescued under the rescue health even in
+        // a tank spec (06/11 review, points 3 and 7).
         if (!victimPlayer || victimPlayer == bot || victimPlayer->GetGroup() != group ||
-            PlayerbotAI::IsTank(victimPlayer))
+            !CoaLooseOnMember(CoaPlayerMainTank::Hold(bot, enemy), PlayerbotAI::IsTank(victimPlayer)))
             continue;
         if (bot->GetDistance(enemy) > 30.0f || !bot->IsWithinLOSInMap(enemy))
             continue;
