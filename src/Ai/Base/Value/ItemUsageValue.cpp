@@ -23,6 +23,21 @@
 #include <string_view>
 #include <vector>
 
+namespace
+{
+// BotCanUseItem does not check the weapon or armor skill the item needs: the core then refuses to equip it
+// (EQUIP_ERR_NO_REQUIRED_PROFICIENCY) and the bot says "I don't have the necessary skill". Same exception as
+// Player::CanEquipItem for heirloom armor.
+InventoryResult BotCanEquipItem(Player* bot, ItemTemplate const* proto)
+{
+    uint32 const skill = proto->GetSkill();
+    bool const heirloomArmor = proto->Quality == ITEM_QUALITY_HEIRLOOM && proto->Class == ITEM_CLASS_ARMOR;
+    if (skill && !heirloomArmor && !bot->GetSkillValue(skill))
+        return EQUIP_ERR_NO_REQUIRED_PROFICIENCY;
+    return bot->BotCanUseItem(proto);
+}
+}  // namespace
+
 ItemUsage ItemUsageValue::Calculate()
 {
     ParsedItemUsage const parsed = GetItemIdFromQualifier();
@@ -212,7 +227,7 @@ ItemUsage ItemUsageValue::QueryItemUsageForLookahead(ItemTemplate const* proto, 
             return;
         if (botAI->FindEquipSlot(other, NULL_SLOT, true) != slot)
             return;
-        InventoryResult use = bot->BotCanUseItem(other);
+        InventoryResult use = BotCanEquipItem(bot, other);
         if (use != EQUIP_ERR_OK && use != EQUIP_ERR_CANT_EQUIP_LEVEL_I)
             return;
         float const otherScore =
@@ -234,7 +249,7 @@ ItemUsage ItemUsageValue::QueryItemUsageForLookahead(ItemTemplate const* proto, 
 ItemUsage ItemUsageValue::QueryItemUsageForEquip(ItemTemplate const* itemProto, int32 randomPropertyId, bool lookahead)
 {
     // With lookahead, a too-high required level is the one failure allowed.
-    InventoryResult canUse = bot->BotCanUseItem(itemProto);
+    InventoryResult canUse = BotCanEquipItem(bot, itemProto);
     if (canUse != EQUIP_ERR_OK && !(lookahead && canUse == EQUIP_ERR_CANT_EQUIP_LEVEL_I))
         return ITEM_USAGE_NONE;
 
