@@ -18,17 +18,25 @@ void VanillaDungeonRFCStrategy::InitTriggers(std::vector<TriggerNode*> &triggers
     // Taragaman the Hungerer
     // Fire Nova reaches ten yards from the boss. Only the ranged are moved; melee have to be there.
     //
-    // Uppercut is not handled. Its knockback is instant and has no cast to react to, and the lava
-    // it throws people into has no boundary the bot could query. Keeping the tank away from the
-    // edge stays a job for the player.
     triggers.push_back(new TriggerNode("taragaman fire nova",
             { NextAction("avoid fire nova", ACTION_MOVE + 5) }));
+
+    // Uppercut's knockback is instant, so it is answered by where the tank stands: Taragaman stays on his spawn
+    // point in the middle of the rock cross, the tank on the longest arm next to him, and an Uppercut slides it along
+    // the rock. After a throw the tank walks back and brings him along.
+    triggers.push_back(new TriggerNode("taragaman tank spot",
+            { NextAction("taragaman hold center", ACTION_RAID + 3) }));
 
     // Massive Fire Nova covers the whole room; the rock pillar he raises shortly before is the
     // only cover. Everyone but the tank goes behind it as soon as it appears, the tank once the
     // cast has started.
     triggers.push_back(new TriggerNode("taragaman massive fire nova",
             { NextAction("hide behind earth pillar", ACTION_EMERGENCY + 6) }));
+
+    // The pillar breaks out of the ground five seconds after it appears, under a player, and kills
+    // whoever still stands in its swirling ground warning. Everyone leaves it, the tank included.
+    triggers.push_back(new TriggerNode("taragaman earth break",
+            { NextAction("avoid earth break", ACTION_EMERGENCY + 7) }));
 
     // Jergosh the Invoker
     triggers.push_back(new TriggerNode("jergosh adds",
