@@ -741,10 +741,13 @@ void PlayerbotAI::UpdateAIInternal([[maybe_unused]] uint32 elapsed, bool minimal
     RejoinLfgDungeon();
     ResumeFollowAfterMasterRevive();
 
-    // kinda expensive call to make on every single updateAI, do we really need this information?
-    std::string const mapString = WorldPosition(bot).isOverworld() ? std::to_string(bot->GetMapId()) : "I";
-    PerfMonitorOperation* pmo =
-        sPerfMonitor.start(PERF_MON_TOTAL, "PlayerbotAI::UpdateAIInternal " + mapString);
+    // Only build the metric name when the profiler is enabled; start() returns nullptr otherwise.
+    PerfMonitorOperation* pmo = nullptr;
+    if (sPlayerbotAIConfig.perfMonEnabled)
+    {
+        std::string const mapString = WorldPosition(bot).isOverworld() ? std::to_string(bot->GetMapId()) : "I";
+        pmo = sPerfMonitor.start(PERF_MON_TOTAL, "PlayerbotAI::UpdateAIInternal " + mapString);
+    }
 
     ExternalEventHelper helper(aiObjectContext);
 
@@ -777,7 +780,7 @@ void PlayerbotAI::UpdateAIInternal([[maybe_unused]] uint32 elapsed, bool minimal
     {
         WorldSession* botWorldSessionPtr = bot->GetSession();
         bool logout = botWorldSessionPtr->ShouldLogOut(time(nullptr));
-        if (!master || !master->GetSession()->GetPlayer())
+        if (!master || !master->IsInWorld() || !master->GetSession() || !master->GetSession()->GetPlayer())
             logout = true;
 
         if (bot->HasFlag(PLAYER_FLAGS, PLAYER_FLAGS_RESTING) || bot->HasUnitState(UNIT_STATE_IN_FLIGHT) ||
@@ -786,7 +789,7 @@ void PlayerbotAI::UpdateAIInternal([[maybe_unused]] uint32 elapsed, bool minimal
             logout = true;
         }
 
-        if (master &&
+        if (master && master->IsInWorld() &&
             (master->HasFlag(PLAYER_FLAGS, PLAYER_FLAGS_RESTING) || master->HasUnitState(UNIT_STATE_IN_FLIGHT) ||
              (master->GetSession() &&
               master->GetSession()->HasPermission(rbac::RBAC_PERM_INSTANT_LOGOUT))))
