@@ -1,0 +1,232 @@
+/*
+ * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
+ * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
+ * or (at your option) any later version.
+ */
+
+#include "CoaGardesCombat.h"
+
+#include "Brd/CoaLyceumCloseUpDecision.h"
+#include "Common/CoaGardesGate.h"
+#include "Common/CoaGardesRunHooks.h"
+#include "Common/CoaGardesSettings.h"
+#include "Common/CoaGardesUnits.h"
+#include "EscapeLeap/CoaEscapeLeap.h"
+#include "RoomBoss/CoaRoomBossChase.h"
+
+#include "Creature.h"
+#include "Map.h"
+#include "ObjectAccessor.h"
+#include "Playerbots.h"
+#include "ReachTargetActions.h"
+#include "Timer.h"
+
+#include <unordered_map>
+
+// The multipliers of the party combat guards (from Dungeon Clear's DungeonClear{,Combat}Multiplier) and the two
+// strategies that carry every guard for every bot.
+namespace
+{
+    bool InGroupInstance(Player* bot)
+    {
+        Map* map = bot->GetMap();
+        return map && map->IsDungeon();
+    }
+
+    bool EscapeLeapBanned(Player* bot, std::string const& name, bool combatEngine)
+    {
+        if (!CoaEscapeLeap::IsBanned(name) || !CoaGroupTank::ModuleGuardActs(bot, CoaGardesGate::ESCAPE_LEAP_BAN))
+            return false;
+        CoaEscapeLeap::Gate g;
+        g.hasTank = CoaGardesUnits::Tank(bot) != nullptr;
+        g.inInstance = InGroupInstance(bot);
+        g.combatEngine = combatEngine;
+        g.raidStandDown = combatEngine && CoaGroupTank::InDungeonClearRun(bot) && CoaGardesRunHooks::IsRaidStandDown(bot);
+        return CoaEscapeLeap::Bans(true, g);
+    }
+
+    // The Lyceum close-up, chase half: no stock reach / chase toward a target further than LEASH from the tank.
+    bool LyceumChaseLeavesThePack(Player* bot, AiObjectContext* context, Action* action)
+    {
+        if (bot->GetMapId() != CoaBrd::MAP_ID)
+            return false;
+        auto* reach = dynamic_cast<ReachTargetAction*>(action);
+        if (!reach || !CoaLyceumCloseUp::InRoom(bot->GetPositionX(), bot->GetPositionY(), bot->GetPositionZ()))
+            return false;
+        if (!CoaGroupTank::ModuleGuardActs(bot, CoaGardesGate::LYCEUM_CLOSE_UP))
+            return false;
+        Player* tank = CoaGardesUnits::Tank(bot);
+        CoaLyceumCloseUp::Gate g;
+        g.hasTank = tank != nullptr;
+        g.tankIsSelf = tank == bot;
+        g.tankAlive = tank && tank->IsAlive();
+        g.sameInstance = tank && tank->FindMap() == bot->FindMap();
+        g.tankIsHuman = CoaGardesUnits::IsHuman(tank);
+        g.botIsTank = PlayerbotAI::IsTank(bot);
+        g.botInRoom = true;
+        g.tankInRoom = tank && CoaLyceumCloseUp::InRoom(tank->GetPositionX(), tank->GetPositionY(), tank->GetPositionZ());
+        if (!CoaLyceumCloseUp::Applies(g))
+            return false;
+        Unit* target = context->GetValue<Unit*>(reach->GetTargetName())->Get();
+        return target && target->FindMap() == bot->FindMap() &&
+               CoaLyceumCloseUp::ChaseLeavesThePack(target->GetPositionX(), target->GetPositionY(),
+                                                    tank->GetPositionX(), tank->GetPositionY());
+    }
+
+    // The flagged room-aggro bosses of the bot's map within 150yd. A grid search per boss is too dear for a check every
+    // reach action pays, so the GUIDs are kept per bot for ROOM_BOSS_MEMO_MS and only resolved and re-tested on each
+    // read. thread_local: a bot is only evaluated on its own map's thread (no lock, no cross-map read).
+    std::vector<ObjectGuid> const& SleepingRoomBossesNear(Player* bot)
+    {
+        constexpr uint32 ROOM_BOSS_MEMO_MS = 2000;
+        struct Memo
+        {
+            uint32 stampMs = 0;
+            uint32 mapId = 0;
+            uint32 instanceId = 0;
+            std::vector<ObjectGuid> bosses;
+        };
+        thread_local std::unordered_map<uint64, Memo> memos;
+        Memo& m = memos[bot->GetGUID().GetRawValue()];
+        uint32 const now = getMSTime();
+        if (m.stampMs == 0 || m.mapId != bot->GetMapId() || m.instanceId != bot->GetInstanceId() ||
+            getMSTimeDiff(m.stampMs, now) >= ROOM_BOSS_MEMO_MS)
+        {
+            m.bosses.clear();
+            for (CoaRoomBossChase::RoomBoss const* row : CoaRoomBossChase::ForMap(bot->GetMapId()))
+                if (Creature* const boss = bot->FindNearestCreature(row->bossEntry, 150.0f, true))
+                    m.bosses.push_back(boss->GetGUID());
+            m.stampMs = now != 0 ? now : 1u;
+            m.mapId = bot->GetMapId();
+            m.instanceId = bot->GetInstanceId();
+        }
+        return m.bosses;
+    }
+
+    // DcEngageGeometry::RoomAggroSphereRadius: the boss's aggro reach on `sizer` plus the path padding, widened by the
+    // boss's skirt override.
+    float WakeSphere(Player* sizer, Creature* boss, CoaGardesSettings const& settings)
+    {
+        float const computed =
+            CoaRoomBossChase::AggroReachYards(boss->GetAggroRange(sizer), boss->GetCombatReach(),
+                                              sizer->GetCombatReach(), settings.aggroRangeMargin,
+                                              settings.roomAggroPathPadding);
+        return CoaRoomBossChase::WakeSphere(computed,
+                                            CoaRoomBossChase::SkirtOverride(boss->GetMapId(), boss->GetEntry()));
+    }
+
+    bool ChaseWakesSleepingRoomBoss(Player* bot, AiObjectContext* context, Action* action)
+    {
+        std::string targetName;
+        float range = 0.0f;  // only `reach spell` stops short of its target
+        bool chase = false;
+        if (auto* reach = dynamic_cast<ReachTargetAction*>(action))
+        {
+            chase = true;
+            targetName = reach->GetTargetName();
+            if (action->getName() == "reach spell")
+                if (PlayerbotAI* const botAI = GET_PLAYERBOT_AI(bot))
+                    range = botAI->GetRange("spell");
+        }
+        else if (auto* leap = dynamic_cast<CastReachTargetSpellAction*>(action))
+        {
+            chase = true;
+            targetName = leap->GetTargetName();
+        }
+        if (!chase || !CoaGroupTank::ModuleGuardActs(bot, CoaGardesGate::ROOM_BOSS_CHASE))
+            return false;
+
+        Player* tank = CoaGardesUnits::Tank(bot);
+        bool const inRun = CoaGroupTank::InDungeonClearRun(bot);
+        CoaRoomBossChase::BranchInputs in;
+        in.chaseAction = true;
+        in.hasTank = tank && tank->IsAlive() && tank->FindMap() == bot->FindMap();
+        in.tankIsHuman = CoaGardesUnits::IsHuman(tank);
+        in.inDcRun = inRun;
+        in.botIsTank = PlayerbotAI::IsTank(bot);
+        CoaRoomBossChase::Branch const branch = CoaRoomBossChase::ChooseBranch(in);
+        if (branch == CoaRoomBossChase::Branch::None)
+            return false;
+        // A raid encounter's stand-down hands the fight to the raid strategy.
+        if (inRun && CoaGardesRunHooks::IsRaidStandDown(bot))
+            return false;
+
+        Unit* const target = context->GetValue<Unit*>(targetName)->Get();
+        if (!target || target->FindMap() != bot->FindMap())
+            return false;
+        CoaGardesSettings const settings = CoaGardesSettings::Get();
+
+        if (branch == CoaRoomBossChase::Branch::RunBoss)
+        {
+            Creature* const boss = CoaGardesRunHooks::RoomClearBossOf(tank);
+            if (!boss || boss == target || boss->FindMap() != bot->FindMap())
+                return false;
+            float const chaseEnd = CoaRoomBossChase::ChaseEndToBoss(
+                bot->GetPositionX(), bot->GetPositionY(), target->GetPositionX(), target->GetPositionY(),
+                boss->GetPositionX(), boss->GetPositionY(), range);
+            return CoaRoomBossChase::ChaseWakesSleepingBoss(chaseEnd, WakeSphere(tank, boss, settings),
+                                                            boss->IsInCombat());
+        }
+
+        for (ObjectGuid const& bossGuid : SleepingRoomBossesNear(bot))
+        {
+            Creature* const boss = ObjectAccessor::GetCreature(*bot, bossGuid);
+            if (!boss || !boss->IsAlive() || boss == target || boss->IsInCombat())
+                continue;
+            float const chaseEnd = CoaRoomBossChase::ChaseEndToBoss(
+                bot->GetPositionX(), bot->GetPositionY(), target->GetPositionX(), target->GetPositionY(),
+                boss->GetPositionX(), boss->GetPositionY(), range);
+            if (CoaRoomBossChase::ChaseWakesSleepingBoss(chaseEnd, WakeSphere(bot, boss, settings), false))
+                return true;
+        }
+        return false;
+    }
+}
+
+float CoaGardesCombatMultiplier::GetValue(Action* action)
+{
+    if (!action || !bot || !botAI)
+        return 1.0f;
+    std::string const& name = action->getName();
+    if (EscapeLeapBanned(bot, name, true))
+        return 0.0f;
+    if (LyceumChaseLeavesThePack(bot, context, action))
+        return 0.0f;
+    if (ChaseWakesSleepingRoomBoss(bot, context, action))
+        return 0.0f;
+    return 1.0f;
+}
+
+float CoaGardesNonCombatMultiplier::GetValue(Action* action)
+{
+    if (!action || !bot || !botAI)
+        return 1.0f;
+    if (EscapeLeapBanned(bot, action->getName(), false))
+        return 0.0f;
+    return 1.0f;
+}
+
+// Relevances are Dungeon Clear's (DcRelevance): the Iron Hall hop 57 (above every mover that parks a bot), the
+// Lyceum close-up 44 (above every stock combat mover), the combat regroup 29 (above reach spell and the rotation,
+// below the heal reposition).
+void CoaGardesCombatStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
+{
+    triggers.push_back(new TriggerNode("coa iron hall safe spot", {NextAction("coa iron hall safe spot", 57.0f)}));
+    triggers.push_back(new TriggerNode("coa lyceum close up", {NextAction("coa lyceum close up", 44.0f)}));
+    triggers.push_back(new TriggerNode("coa combat regroup", {NextAction("coa combat regroup", 29.0f)}));
+}
+
+void CoaGardesCombatStrategy::InitMultipliers(std::vector<Multiplier*>& multipliers)
+{
+    multipliers.push_back(new CoaGardesCombatMultiplier(botAI));
+}
+
+void CoaGardesNonCombatStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
+{
+    triggers.push_back(new TriggerNode("coa iron hall safe spot", {NextAction("coa iron hall safe spot", 57.0f)}));
+}
+
+void CoaGardesNonCombatStrategy::InitMultipliers(std::vector<Multiplier*>& multipliers)
+{
+    multipliers.push_back(new CoaGardesNonCombatMultiplier(botAI));
+}
