@@ -647,6 +647,7 @@ void AddSC_coa_arena_ready();
 void AddSC_random_bot_transmog();
 void AddSC_coa_leave_instance();
 void AddSC_coa_player_main_tank();
+void AddSC_coa_gardes_menace();
 
 void AddPlayerbotsScripts()
 {
@@ -677,5 +678,6 @@ void AddPlayerbotsScripts()
     AddSC_random_bot_transmog();
     AddSC_coa_leave_instance();
     AddSC_coa_player_main_tank();
+    AddSC_coa_gardes_menace();
     AddSC_coa_lfg();
 }

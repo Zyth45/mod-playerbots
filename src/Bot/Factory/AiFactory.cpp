@@ -306,7 +306,11 @@ void AiFactory::AddDefaultCombatStrategies(Player* player, PlayerbotAI* const fa
     bool const reborn = IsRebornBot(player);
 
     if (!player->InBattleground())
+    {
         engine->addStrategiesNoInit("racials", "chat", "default", "cast time", "potions", "duel", "boost", nullptr);
+        // Threat lead and assist on the tank's fight, which came from Dungeon Clear (CoaGardesMenaceStrategy).
+        engine->addStrategy("coa gardes menace", false);
+    }
 
     // CoA: a grouped bot steps out of ground effects too, not only one a real player leads: in headless dungeon runs
     // (11/12/10) two bots stood in Ramstein's Venom Belch down to 19-24 % health.
@@ -685,6 +689,7 @@ void AiFactory::AddDefaultNonCombatStrategies(Player* player, PlayerbotAI* const
     {
         nonCombatEngine->addStrategiesNoInit("nc", "food", "chat", "follow", "default", "force rebuff", "quest", "loot",
                                             "gather", "duel", "pvp", "buff", "mount", "emote", nullptr);
+        nonCombatEngine->addStrategy("coa gardes menace nc", false);
     }
 
     if (sPlayerbotAIConfig.autoSaveMana && PlayerbotAI::IsHeal(player, true))

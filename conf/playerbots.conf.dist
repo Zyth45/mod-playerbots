@@ -698,6 +698,21 @@ AiPlayerbot.CoaHealRepositionMaxRange = 60
 AiPlayerbot.CoaTopOffParty = 1
 # Top-off floor in %, 0-100; 0 = the lower of 90 and AlmostFullHealth (DungeonClear.RestHealthPct).
 AiPlayerbot.CoaTopOffHealthPct = 0
+# Seconds damage-dealer bots wait after the tank's first hit before dealing damage, 0 = off; heroic tier: ...Heroic
+# (DungeonClear.PullPlayerReleaseDelay, DungeonClear.PullPlayerReleaseDelay.Heroic).
+AiPlayerbot.CoaThreatLeadDelay = 1.5
+AiPlayerbot.CoaThreatLeadDelayHeroic = 3.0
+# Below this tank health %, nobody waits for the threat lead, 0 = never
+# (DungeonClear.PullThreatLeadPanicHp, DungeonClear.PullThreatLeadPanicHp.Heroic).
+AiPlayerbot.CoaThreatLeadPanicHp = 60
+AiPlayerbot.CoaThreatLeadPanicHpHeroic = 70
+# Seconds the group's fight stays "on" after the last combat seen, for the assist on the tank's fight
+# (DungeonClear.PartyCombatLatch).
+AiPlayerbot.CoaTankFightLatch = 3
+# Yards from the tank within which a bot's combat counts as the tank's fight; raids: ...Raid
+# (DungeonClear.PartyMaxSpread, DungeonClear.PartyMaxSpread.Raid).
+AiPlayerbot.CoaTankFightSpread = 25
+AiPlayerbot.CoaTankFightSpreadRaid = 40
 
 # Random property and random suffix of the gear given to bots ("of the Bear", "of the Eagle"...).
 # 0: each item takes a property or suffix that scores well for the bot's role (stamina, and defense for a tank,
