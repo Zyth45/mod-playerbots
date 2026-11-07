@@ -7,6 +7,7 @@
 #include "PlayerbotMgr.h"
 #include "CoaSpecialization.h"
 #include "CoaBotRacePolicy.h"
+#include "CoaBotControlRules.h"
 #include "BroadcastHelper.h"
 #include "ChannelMgr.h"
 #include "CharacterCache.h"
@@ -146,50 +147,19 @@ void PlayerbotHolder::AddPlayerBot(ObjectGuid playerGuid, uint32 masterAccountId
 
     WorldSession* masterSession = masterAccountId ? sWorldSessionMgr->FindSession(masterAccountId) : nullptr;
     Player* masterPlayer = masterSession ? masterSession->GetPlayer() : nullptr;
-
-    bool isRndbot = !masterAccountId;
-    bool sameAccount = sPlayerbotAIConfig.allowAccountBots && accountId == masterAccountId;
-    Guild* guild = masterPlayer ? sGuildMgr->GetGuildById(masterPlayer->GetGuildId()) : nullptr;
-    bool sameGuild = sPlayerbotAIConfig.allowGuildBots && guild && guild->GetMember(playerGuid);
-    bool addClassBot = sRandomPlayerbotMgr.IsAddclassBot(playerGuid.GetCounter());
-    bool linkedAccount = sPlayerbotAIConfig.allowTrustedAccountBots && IsAccountLinked(accountId, masterAccountId);
-
-    bool allowed = true;
-    std::ostringstream out;
-    std::string botName;
-    sCharacterCache->GetCharacterNameByGuid(playerGuid, botName);
-    if (!isRndbot && !sameAccount && !sameGuild && !addClassBot && !linkedAccount)
+    if (masterAccountId && masterPlayer && !GET_PLAYERBOT_MGR(masterPlayer))
     {
-        allowed = false;
-        out << "Failure: You are not allowed to control bot " << botName.c_str();
+        LOG_DEBUG("playerbots", "PlayerbotMgr not found for master player with GUID: {}", masterPlayer->GetGUID().GetRawValue());
+        return;
     }
-    if (masterAccountId && masterPlayer)
-    {
-        PlayerbotMgr* mgr = GET_PLAYERBOT_MGR(masterPlayer);
-        if (!mgr)
-        {
-            LOG_DEBUG("playerbots", "PlayerbotMgr not found for master player with GUID: {}", masterPlayer->GetGUID().GetRawValue());
-            return;
-        }
-        uint32 loadingForMaster = 0;
-        for (auto const& [guid, progress] : botLoading)
-        {
-            if (progress.masterAccountId == masterAccountId)
-                ++loadingForMaster;
-        }
-        uint32 count = mgr->GetPlayerbotsCount() + loadingForMaster;
-        if (count >= uint32(PlayerbotAIConfig::instance().maxAddedBots))
-        {
-            allowed = false;
-            out << "Failure: You have added too many bots (more than " << sPlayerbotAIConfig.maxAddedBots << ")";
-        }
-    }
-    if (!allowed)
+
+    std::string const refusal = AddPlayerBotRefusal(playerGuid, masterAccountId);
+    if (!refusal.empty())
     {
         if (masterSession)
         {
             ChatHandler ch(masterSession);
-            ch.SendSysMessage(out.str());
+            ch.SendSysMessage("Failure: " + refusal);
         }
         return;
     }
@@ -235,6 +205,46 @@ void PlayerbotHolder::AddPlayerBot(ObjectGuid playerGuid, uint32 masterAccountId
 
                 RandomPlayerbotMgr ::instance().HandlePlayerBotLoginCallback(holder);
             });
+}
+
+std::string PlayerbotHolder::AddPlayerBotRefusal(ObjectGuid playerGuid, uint32 masterAccountId)
+{
+    uint32 const accountId = sCharacterCache->GetCharacterAccountIdByGuid(playerGuid);
+    WorldSession* masterSession = masterAccountId ? sWorldSessionMgr->FindSession(masterAccountId) : nullptr;
+    Player* masterPlayer = masterSession ? masterSession->GetPlayer() : nullptr;
+
+    bool const isRndbot = !masterAccountId;
+    bool const sameAccount = sPlayerbotAIConfig.allowAccountBots && accountId == masterAccountId;
+    Guild* guild = masterPlayer ? sGuildMgr->GetGuildById(masterPlayer->GetGuildId()) : nullptr;
+    bool const sameGuild = sPlayerbotAIConfig.allowGuildBots && guild && guild->GetMember(playerGuid);
+    bool const addClassBot = sRandomPlayerbotMgr.IsAddclassBot(playerGuid.GetCounter());
+    bool const linkedAccount = sPlayerbotAIConfig.allowTrustedAccountBots && IsAccountLinked(accountId, masterAccountId);
+
+    std::ostringstream out;
+    if (!CoaMayControlBot(isRndbot, sameAccount, sameGuild, addClassBot, linkedAccount))
+    {
+        std::string botName;
+        sCharacterCache->GetCharacterNameByGuid(playerGuid, botName);
+        out << "You are not allowed to control bot " << botName;
+        return out.str();
+    }
+    if (masterAccountId && masterPlayer)
+        if (PlayerbotMgr* mgr = GET_PLAYERBOT_MGR(masterPlayer))
+        {
+            uint32 loadingForMaster = 0;
+            for (auto const& [guid, progress] : botLoading)
+            {
+                if (progress.masterAccountId == masterAccountId)
+                    ++loadingForMaster;
+            }
+            uint32 const count = mgr->GetPlayerbotsCount() + loadingForMaster;
+            if (count >= uint32(PlayerbotAIConfig::instance().maxAddedBots))
+            {
+                out << "You have added too many bots (more than " << sPlayerbotAIConfig.maxAddedBots << ")";
+                return out.str();
+            }
+        }
+    return "";
 }
 
 bool PlayerbotHolder::IsAccountLinked(uint32 accountId, uint32 linkedAccountId)
@@ -858,6 +868,12 @@ std::string const PlayerbotHolder::ProcessBotCommand(std::string const cmd, Obje
                 return "you can only add bots from your own account or linked accounts";
             }
         }
+
+        // The loader's own check, asked first: "ok" was answered (to the player and the addon) for an offline
+        // character of another account that the loader then refused.
+        std::string const refusal = AddPlayerBotRefusal(guid, masterAccountId);
+        if (!refusal.empty())
+            return refusal;
 
         AddPlayerBot(guid, masterAccountId);
         return "ok";

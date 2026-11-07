@@ -35,6 +35,9 @@ public:
     virtual ~PlayerbotHolder(){};
 
     void AddPlayerBot(ObjectGuid guid, uint32 masterAccountId);
+    // Why this character may not be logged in as a bot of this master account now, or empty: the check of
+    // AddPlayerBot, asked by the "add" command before it answers ok.
+    std::string AddPlayerBotRefusal(ObjectGuid guid, uint32 masterAccountId);
     bool IsAccountLinked(uint32 accountId, uint32 masterAccountId);
     void HandlePlayerBotLoginCallback(PlayerbotLoginQueryHolder const& holder);
     static bool HasPendingLogins();
