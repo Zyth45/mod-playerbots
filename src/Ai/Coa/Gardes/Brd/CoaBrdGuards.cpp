@@ -284,14 +284,3 @@ bool CoaIronHallSafeSpotAction::Execute(Event /*event*/)
                   v.verdict.inReach ? ", in reach of its target" : "");
     return true;
 }
-
-bool CoaIronHallHoldsFollow(Player* bot, Player* tank)
-{
-    if (!bot || !tank || bot == tank || bot->GetMapId() != B::MAP_ID || tank->FindMap() != bot->FindMap())
-        return false;
-    if (!CoaIronHall::InHall(bot->GetPositionX(), bot->GetPositionY(), bot->GetPositionZ()))
-        return false;
-    if (StateOf(bot).ironHallHopMs)
-        return true;
-    return CoaIronHall::HoldFollow(bot->GetPositionX(), bot->GetPositionY(), tank->GetPositionX(), tank->GetPositionY());
-}

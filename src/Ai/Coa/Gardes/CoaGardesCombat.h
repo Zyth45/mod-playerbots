@@ -80,11 +80,6 @@ public:
     bool Execute(Event event) override;
 };
 
-// The Iron Hall follow-tank clamp (CoaIronHall::HoldFollow, live half): true while this follower should stay where
-// the hop put it rather than follow its tank. For the follow that keeps a party on its tank (Dungeon Clear's
-// follow-tank today).
-bool CoaIronHallHoldsFollow(Player* bot, Player* tank);
-
 // --- the bans: escape leaps, chases onto a sleeping room boss, chases out of the Lyceum pack ---
 class CoaGardesCombatMultiplier : public Multiplier
 {
