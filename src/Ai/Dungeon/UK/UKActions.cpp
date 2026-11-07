@@ -68,3 +68,42 @@ bool IngvarSmashReturnAction::Execute(Event /*event*/)
     float distance = bot->GetExactDist2d(boss->GetPosition());
     return Move(bot->GetAngle(boss), distance + bot->GetMeleeReach());
 }
+
+bool IngvarHideFromRoarAction::Execute(Event /*event*/)
+{
+    Unit* boss = IngvarCover::Boss(botAI, context);
+    if (!boss || !IngvarCover::CastingRoar(boss))
+        return false;
+
+    std::vector<Position> const candidates = DungeonBoss::RingAround(bot->GetPositionX(), bot->GetPositionY(),
+                                                                     bot->GetPositionZ(), { 3.0f, 6.0f, 9.0f, 12.0f }, 16);
+    return MoveToReachableSpot(candidates, [this, boss](float x, float y, float z)
+        { return IngvarCover::Hidden(bot, boss, x, y, z); }, IngvarCover::HIDE_MAX_PATH);
+}
+
+bool IngvarCoverReadyAction::Execute(Event /*event*/)
+{
+    Unit* boss = IngvarCover::Boss(botAI, context);
+    if (!boss)
+        return false;
+
+    std::vector<Position> const candidates = DungeonBoss::RingAround(boss->GetPositionX(), boss->GetPositionY(),
+                                                                     boss->GetPositionZ(), { 8.0f, 11.0f, 14.0f, 18.0f }, 16);
+    return MoveToReachableSpot(candidates, [this, boss](float x, float y, float z)
+        {
+            return boss->GetExactDist2d(x, y) <= IngvarCover::READY_MAX_FROM_BOSS &&
+                   IngvarCover::NearCover(bot, boss, x, y, z);
+        }, IngvarCover::READY_MAX_PATH);
+}
+
+bool IngvarHoldSpotAction::Execute(Event /*event*/)
+{
+    Unit* boss = IngvarCover::Boss(botAI, context);
+    if (!boss)
+        return false;
+    Position const spot = IngvarCover::TankSpot(boss);
+    if (bot->GetExactDist2d(spot.GetPositionX(), spot.GetPositionY()) <= IngvarCover::TANK_TOLERANCE)
+        return false;
+    return MoveTo(bot->GetMapId(), spot.GetPositionX(), spot.GetPositionY(), spot.GetPositionZ(), false, false, false,
+                  true, MovementPriority::MOVEMENT_COMBAT);
+}

@@ -9,6 +9,7 @@
 
 #include "Action.h"
 #include "AttackAction.h"
+#include "DungeonBossHelpers.h"
 #include "PlayerbotAI.h"
 #include "Playerbots.h"
 #include "UKTriggers.h"
@@ -42,6 +43,27 @@ public:
     IngvarSmashReturnAction(PlayerbotAI* ai) : MovementAction(ai, "ingvar smash return") {}
     bool Execute(Event event) override;
     bool isUseful() override;
+};
+
+class IngvarHideFromRoarAction : public DungeonBossMovementAction
+{
+public:
+    IngvarHideFromRoarAction(PlayerbotAI* ai) : DungeonBossMovementAction(ai, "ingvar hide from roar") {}
+    bool Execute(Event event) override;
+};
+
+class IngvarCoverReadyAction : public DungeonBossMovementAction
+{
+public:
+    IngvarCoverReadyAction(PlayerbotAI* ai) : DungeonBossMovementAction(ai, "ingvar cover ready") {}
+    bool Execute(Event event) override;
+};
+
+class IngvarHoldSpotAction : public MovementAction
+{
+public:
+    IngvarHoldSpotAction(PlayerbotAI* ai) : MovementAction(ai, "ingvar hold spot") {}
+    bool Execute(Event event) override;
 };
 
 #endif

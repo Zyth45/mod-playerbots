@@ -19,11 +19,15 @@ void WotlkDungeonUKStrategy::InitTriggers(std::vector<TriggerNode*> &triggers)
 
     // Ingvar the Plunderer
 
-    // No easy way to check LoS here, the pillars do not seem to count as gameobjects.
-    // Not implemented for now, unsure if this is needed as a good group can probably burst through the boss
-    // and just eat the debuff.
-    // triggers.push_back(new TriggerNode("ingvar dreadful roar",
-    //          { NextAction("ingvar hide los", ACTION_RAID + 1) }));
+    // His roars need line of sight, which the pillar ring next to his spawn point blocks: the tank holds him on his
+    // spawn point, the ranged and healers stand one step from cover, and when a roar begins everyone, the tank and
+    // melee too, ducks behind the pillars and comes back afterwards.
+    triggers.push_back(new TriggerNode("ingvar roar",
+            { NextAction("ingvar hide from roar", ACTION_EMERGENCY + 5) }));
+    triggers.push_back(new TriggerNode("ingvar tank spot",
+            { NextAction("ingvar hold spot", ACTION_RAID + 3) }));
+    triggers.push_back(new TriggerNode("ingvar cover ready",
+            { NextAction("ingvar cover ready", ACTION_MOVE + 4) }));
     triggers.push_back(new TriggerNode("ingvar smash tank",
             { NextAction("ingvar dodge smash", ACTION_MOVE + 5) }));
     triggers.push_back(new TriggerNode("ingvar smash tank return",

@@ -209,7 +209,7 @@ namespace
 }
 
 bool DungeonBossMovementAction::MoveToReachableSpot(std::vector<Position> const& candidates,
-                                                    std::function<bool(float, float)> const& safe)
+                                                    std::function<bool(float, float, float)> const& safe, float maxPath)
 {
     uint32 const now = getMSTime();
     std::vector<std::pair<float, float>> others;
@@ -239,14 +239,15 @@ bool DungeonBossMovementAction::MoveToReachableSpot(std::vector<Position> const&
         if (path.GetPathType() != PATHFIND_NORMAL || path.GetPath().empty())
             continue;
         G3D::Vector3 const end = path.GetPath().back();
-        if (!safe(end.x, end.y))
+        float const length = PathLength(path.GetPath());
+        if ((maxPath > 0.0f && length > maxPath) || !safe(end.x, end.y, end.z))
             continue;
 
         uint32 crowd = 0;
         for (auto const& [x, y] : others)
             if (std::hypot(x - end.x, y - end.y) < SPOT_CROWD_RADIUS)
                 ++crowd;
-        float const score = PathLength(path.GetPath()) + crowd * SPOT_CROWD_PENALTY;
+        float const score = length + crowd * SPOT_CROWD_PENALTY;
         if (score < bestScore)
         {
             bestScore = score;

@@ -7,6 +7,7 @@
 #ifndef PLAYERBOTS_UKTRIGGERS_H
 #define PLAYERBOTS_UKTRIGGERS_H
 
+#include "DungeonBossHelpers.h"
 #include "DungeonStrategyUtils.h"
 #include "GenericTriggers.h"
 #include "PlayerbotAIConfig.h"
@@ -75,6 +76,53 @@ class NotBehindIngvarTrigger : public Trigger
 {
 public:
     NotBehindIngvarTrigger(PlayerbotAI* ai) : Trigger(ai, "not behind ingvar") {}
+    bool IsActive() override;
+};
+
+// Ingvar's roars (Staggering Roar in the first phase, Dreadful Roar with its stacking shadow vulnerability in the
+// second) are 2 s casts over 60 yd that need line of sight. The ring of pillars beside his spawn point blocks it: a
+// probe of 2026-10-22 found no cover within 7 yd of the spawn point and full cover from about 9 yd on toward the
+// ring. The pillars are building geometry, not objects, so cover is tested the way the spell tests it, from the
+// boss to the bot's chest with M2 models ignored, on spots the navmesh reaches.
+namespace IngvarCover
+{
+    // 2 s at run speed, less a margin for the turn.
+    constexpr float HIDE_MAX_PATH = 13.0f;
+    // The ranged and healers stand where one step reaches cover.
+    constexpr float READY_STEP = 3.5f;
+    constexpr float READY_MAX_FROM_BOSS = 25.0f;
+    constexpr float READY_MAX_PATH = 30.0f;
+    // The tank holds Ingvar on his spawn point and stands on the side away from the pillar ring, so Smash goes away
+    // from the group and the melee behind him are next to cover.
+    constexpr float TANK_OFFSET = 3.0f;
+    constexpr float TANK_TOLERANCE = 2.0f;
+
+    Unit* Boss(PlayerbotAI* botAI, AiObjectContext* context);
+    bool CastingRoar(Unit* boss);
+    bool Hidden(Player* bot, Unit* boss, float x, float y, float z);
+    // Seen by Ingvar, with cover one step away.
+    bool NearCover(Player* bot, Unit* boss, float x, float y, float z);
+    Position TankSpot(Unit* boss);
+}
+
+class IngvarRoarTrigger : public Trigger
+{
+public:
+    IngvarRoarTrigger(PlayerbotAI* ai) : Trigger(ai, "ingvar roar") {}
+    bool IsActive() override;
+};
+
+class IngvarCoverReadyTrigger : public Trigger
+{
+public:
+    IngvarCoverReadyTrigger(PlayerbotAI* ai) : Trigger(ai, "ingvar cover ready", 2000) {}
+    bool IsActive() override;
+};
+
+class IngvarTankSpotTrigger : public Trigger
+{
+public:
+    IngvarTankSpotTrigger(PlayerbotAI* ai) : Trigger(ai, "ingvar tank spot") {}
     bool IsActive() override;
 };
 

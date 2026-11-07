@@ -21,6 +21,9 @@ class WotlkDungeonUKTriggerContext : public NamedObjectContext<Trigger>
             creators["ingvar smash tank"] = &WotlkDungeonUKTriggerContext::ingvar_smash_tank;
             creators["ingvar smash tank return"] = &WotlkDungeonUKTriggerContext::ingvar_smash_tank_return;
             creators["not behind ingvar"] = &WotlkDungeonUKTriggerContext::not_behind_ingvar;
+            creators["ingvar roar"] = &WotlkDungeonUKTriggerContext::ingvar_roar;
+            creators["ingvar cover ready"] = &WotlkDungeonUKTriggerContext::ingvar_cover_ready;
+            creators["ingvar tank spot"] = &WotlkDungeonUKTriggerContext::ingvar_tank_spot;
         }
     private:
         static Trigger* keleseth_frost_tomb(PlayerbotAI* ai) { return new KelesethFrostTombTrigger(ai); }
@@ -29,6 +32,9 @@ class WotlkDungeonUKTriggerContext : public NamedObjectContext<Trigger>
         static Trigger* ingvar_smash_tank(PlayerbotAI* ai) { return new IngvarSmashTankTrigger(ai); }
         static Trigger* ingvar_smash_tank_return(PlayerbotAI* ai) { return new IngvarSmashTankReturnTrigger(ai); }
         static Trigger* not_behind_ingvar(PlayerbotAI* ai) { return new NotBehindIngvarTrigger(ai); }
+        static Trigger* ingvar_roar(PlayerbotAI* ai) { return new IngvarRoarTrigger(ai); }
+        static Trigger* ingvar_cover_ready(PlayerbotAI* ai) { return new IngvarCoverReadyTrigger(ai); }
+        static Trigger* ingvar_tank_spot(PlayerbotAI* ai) { return new IngvarTankSpotTrigger(ai); }
 };
 
 #endif

@@ -51,8 +51,19 @@ float IngvarThePlundererMultiplier::GetValue(Action* action)
     bool isTank = botAI->IsTank(bot);
     if (!boss) { return 1.0f; }
 
+    bool const coverMove = dynamic_cast<IngvarHideFromRoarAction*>(action) ||
+                           dynamic_cast<IngvarHoldSpotAction*>(action);
+
+    // Behind cover while he roars: nothing walks the bot back into his sight before the cast is over.
+    if (IngvarCover::CastingRoar(boss) && !dynamic_cast<IngvarHideFromRoarAction*>(action) &&
+        dynamic_cast<MovementAction*>(action) &&
+        IngvarCover::Hidden(bot, boss, bot->GetPositionX(), bot->GetPositionY(), bot->GetPositionZ()))
+    {
+        return 0.0f;
+    }
+
     // Prevent movement actions overriding current movement, we're probably dodging a slam
-    if (isTank && bot->isMoving() && dynamic_cast<MovementAction*>(action))
+    if (isTank && bot->isMoving() && dynamic_cast<MovementAction*>(action) && !coverMove)
     {
         return 0.0f;
     }

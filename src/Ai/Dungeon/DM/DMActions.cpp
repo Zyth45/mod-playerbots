@@ -45,7 +45,7 @@ bool DmLeaveMassiveGeyserAction::Execute(Event /*event*/)
 
     std::vector<Position> const candidates = RingAround(bot->GetPositionX(), bot->GetPositionY(), bot->GetPositionZ(),
                                                         { 6.0f, 10.0f, 14.0f, 18.0f }, 12);
-    return MoveToReachableSpot(candidates, [this, &centers, target](float x, float y)
+    return MoveToReachableSpot(candidates, [this, &centers, target](float x, float y, float)
     {
         if (!SafeFromGeysers(centers, x, y))
             return false;
@@ -62,7 +62,7 @@ bool DmGeyserSpreadAction::Execute(Event /*event*/)
     std::vector<Position> const centers = GeyserCenters(bot, hydrospawn);
     std::vector<Position> const candidates = RingAround(bot->GetPositionX(), bot->GetPositionY(), bot->GetPositionZ(),
                                                         { 4.0f, 7.0f, 10.0f }, 12);
-    return MoveToReachableSpot(candidates, [this, hydrospawn, &centers](float x, float y)
+    return MoveToReachableSpot(candidates, [this, hydrospawn, &centers](float x, float y, float)
     {
         float const fromBoss = std::hypot(hydrospawn->GetPositionX() - x, hydrospawn->GetPositionY() - y);
         return fromBoss >= SPREAD_MIN_FROM_BOSS && fromBoss <= SPREAD_MAX_FROM_BOSS &&
