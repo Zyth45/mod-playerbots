@@ -7,6 +7,8 @@
 #ifndef PLAYERBOTS_WCTRIGGERS_H
 #define PLAYERBOTS_WCTRIGGERS_H
 
+#include <optional>
+
 #include "DungeonBossHelpers.h"
 #include "GenericTriggers.h"
 #include "Trigger.h"
@@ -14,19 +16,29 @@
 // Wailing Caverns (map 43).
 namespace WailingCaverns
 {
-    // Skum's Overrun (2102624): he turns to a random player, roots for the 4 s cast, then charges 25 yd straight
-    // ahead and tramples everyone within 4 yd of his path (spell_coa_skum_overrun: 400/1350/1750 damage and a
-    // knockback).
+    // Skum's Overrun (2102624): he turns to a random player, roots for the 3 s cast, then charges up to 25 yd
+    // straight ahead, stopping at the first obstacle, and tramples everyone within 4 yd of himself for 1.75 s
+    // (spell_coa_skum_overrun: 400/1350/1750 damage and a 12 yd knockback). He stands in a pen of wooden stakes
+    // against the cave wall, so a plain side step often ends on a stake or in the rock.
     constexpr float OVERRUN_LENGTH = 25.0f;
     constexpr float OVERRUN_RADIUS = 4.0f;
-    constexpr float OVERRUN_MARGIN = 1.5f;
-    constexpr float OVERRUN_SIDE_STEP = 3.0f;
+    constexpr float OVERRUN_MARGIN = 2.5f;
+    // The trample runs on after the cast; the danger lasts until it has stopped.
+    constexpr uint32 OVERRUN_CHARGE_MS = 2200;
 
-    bool IsOverrunning(Unit const* skum);
+    struct OverrunLine
+    {
+        float x = 0.0f;
+        float y = 0.0f;
+        float angle = 0.0f;
+    };
 
-    // How far to either side of Skum's path the trample reaches for this bot.
+    // The line of the Overrun Skum is casting or still running, remembered from the moment the cast began.
+    std::optional<OverrunLine> ActiveOverrun(Unit* skum);
+
+    // How far to either side of Skum's line the trample reaches for this bot.
     float OverrunHalfWidth(Unit const* skum, Unit const* bot);
-    bool InOverrunPath(Unit const* skum, Unit const* bot);
+    bool InOverrunPath(OverrunLine const& line, float halfWidth, float x, float y);
 }
 
 class WcSkumOverrunTrigger : public Trigger

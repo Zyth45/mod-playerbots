@@ -16,9 +16,10 @@ void VanillaDungeonWCStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
     // point blank spells of 10 yd (Thunderclap, Thunder Clap, Grasping Vines). The class interrupt and dispel
     // actions, "avoid aoe" and "coa boss dodge" cover them. Brightwing's Power Word: Shield is left to the purge.
 
-    // Skum: everyone, the tank too, steps out of the line of his Overrun before he charges.
+    // Skum: everyone, the tank too, gets out of the line of his Overrun before he charges and stays out until the
+    // trample has stopped, each to a reachable spot of its own.
     triggers.push_back(new TriggerNode("wc skum overrun",
-            { NextAction("wc move from overrun", ACTION_RAID + 2) }));
+            { NextAction("wc move from overrun", ACTION_EMERGENCY + 5) }));
 }
 
 void VanillaDungeonWCStrategy::InitMultipliers(std::vector<Multiplier*>& multipliers)

@@ -18,7 +18,8 @@ float SkumMultiplier::GetValue(Action* action)
     if (!MovesIntoDanger(action))
         return 1.0f;
 
-    // Walking back in to Skum from the side of his path leads straight into it; he holds still until he charges.
+    // Walking back in to Skum from the side of his path leads straight into it, while he holds still for the cast
+    // and while he charges and tramples after it.
     Unit* skum = AI_VALUE2(Unit*, "find target", "skum");
-    return IsOverrunning(skum) ? 0.0f : 1.0f;
+    return ActiveOverrun(skum) ? 0.0f : 1.0f;
 }
