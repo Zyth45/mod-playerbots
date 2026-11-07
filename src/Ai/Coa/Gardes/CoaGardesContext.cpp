@@ -6,6 +6,7 @@
 
 #include "CoaGardesContext.h"
 
+#include "CoaGardesSoins.h"
 #include "CoaGroupTank.h"
 #include "Playerbots.h"
 #include "Value.h"
@@ -26,10 +27,22 @@ namespace
 CoaGardesValueContext::CoaGardesValueContext()
 {
     creators["coa reference tank"] = &reference_tank;
+    creators["coa heal target"] = [](PlayerbotAI* ai) -> UntypedValue* { return new CoaHealTargetValue(ai); };
+    creators["party member to heal"] = [](PlayerbotAI* ai) -> UntypedValue* { return new CoaPartyMemberToHealValue(ai); };
 }
 
-CoaGardesTriggerContext::CoaGardesTriggerContext() {}
+CoaGardesTriggerContext::CoaGardesTriggerContext()
+{
+    creators["coa heal reposition"] = [](PlayerbotAI* ai) -> Trigger* { return new CoaHealRepositionTrigger(ai); };
+    creators["coa top off party"] = [](PlayerbotAI* ai) -> Trigger* { return new CoaTopOffPartyTrigger(ai); };
+}
 
-CoaGardesActionContext::CoaGardesActionContext() {}
+CoaGardesActionContext::CoaGardesActionContext()
+{
+    creators["coa heal reposition"] = [](PlayerbotAI* ai) -> Action* { return new CoaHealRepositionAction(ai); };
+}
 
-CoaGardesStrategyContext::CoaGardesStrategyContext() {}
+CoaGardesStrategyContext::CoaGardesStrategyContext()
+{
+    creators["coa gardes soins"] = [](PlayerbotAI* ai) -> Strategy* { return new CoaGardesSoinsStrategy(ai); };
+}

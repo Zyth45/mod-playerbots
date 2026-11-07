@@ -680,6 +680,25 @@ AiPlayerbot.RandomBotTransmogCosmeticSets = 50
 # Default: 10
 AiPlayerbot.PlayerMainTankRescueHealth = 10
 
+# Combat guards that came from Dungeon Clear (07/11), for every bot. Each one reads the old DungeonClear.* setting
+# first when your dungeon_clear.conf has it, so an update never changes a value you set.
+#
+# A healer walks back into sight and heal range of a hurt member it cannot heal from where it stands
+# (old setting: DungeonClear.HealReposition).
+AiPlayerbot.CoaHealReposition = 1
+# Health % under which a member counts as needing heals for that walk, 1-100 (DungeonClear.HealRepositionHpFloor).
+AiPlayerbot.CoaHealRepositionHpFloor = 90
+# Health % by which the group's tank is favoured when choosing whom to walk to, 0-50
+# (DungeonClear.HealRepositionTankBias).
+AiPlayerbot.CoaHealRepositionTankBias = 15
+# Farthest heal target, in yards, a healer walks to; beyond it, it does not chase, 20-120
+# (DungeonClear.HealRepositionMaxRange).
+AiPlayerbot.CoaHealRepositionMaxRange = 60
+# Out of combat, CoA healers top off members below the floor before drinking.
+AiPlayerbot.CoaTopOffParty = 1
+# Top-off floor in %, 0-100; 0 = the lower of 90 and AlmostFullHealth (DungeonClear.RestHealthPct).
+AiPlayerbot.CoaTopOffHealthPct = 0
+
 # Random property and random suffix of the gear given to bots ("of the Bear", "of the Eagle"...).
 # 0: each item takes a property or suffix that scores well for the bot's role (stamina, and defense for a tank,
 #    count too), chosen among the best ones by the bot itself, so bots of the same spec do not all wear the same.
