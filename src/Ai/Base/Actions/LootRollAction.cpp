@@ -13,6 +13,33 @@
 #include "PlayerbotAIConfig.h"
 #include "Playerbots.h"
 
+#include <map>
+#include <mutex>
+
+
+// CMSG_LOOT_ROLL is a world thread opcode (PROCESS_THREADUNSAFE): Group::CountRollVote, run from the bot's map thread,
+// changed the group and gave the item to a winner who may be on another map (Map::SendObjectUpdates crash, 06/11). The
+// vote goes through the bot's session, handled in the world thread like a player's. The roll shows no vote until then,
+// and CountRollVote counts a vote sent twice twice: one vote per bot and roll is sent.
+static void QueueLootRoll(Player* bot, ObjectGuid lootGuid, uint8 vote)
+{
+    static std::mutex lock;
+    static std::map<std::pair<ObjectGuid, ObjectGuid>, uint32> sent;
+    uint32 const now = getMSTime();
+    {
+        std::lock_guard<std::mutex> guard(lock);
+        for (auto itr = sent.begin(); itr != sent.end();)
+            itr = getMSTimeDiff(itr->second, now) > 120000 ? sent.erase(itr) : std::next(itr);
+        if (!sent.emplace(std::make_pair(bot->GetGUID(), lootGuid), now).second)
+            return;
+    }
+    WorldPacket* packet = new WorldPacket(CMSG_LOOT_ROLL, 8 + 4 + 1);
+    *packet << lootGuid;
+    *packet << uint32(0);
+    *packet << vote;
+    bot->GetSession()->QueuePacket(packet);
+}
+
 bool LootRollAction::Execute(Event /*event*/)
 {
     Group* group = bot->GetGroup();
@@ -102,10 +129,10 @@ bool LootRollAction::Execute(Event /*event*/)
         {
             case MASTER_LOOT:
             case FREE_FOR_ALL:
-                group->CountRollVote(bot->GetGUID(), guid, PASS);
+                QueueLootRoll(bot, guid, PASS);
                 break;
             default:
-                group->CountRollVote(bot->GetGUID(), guid, vote);
+                QueueLootRoll(bot, guid, vote);
                 break;
         }
         voted = true;
@@ -189,7 +216,7 @@ bool MasterLootRollAction::Execute(Event event)
     if (!group)
         return false;
 
-    group->CountRollVote(bot->GetGUID(), creatureGuid, CalculateRollVote(proto));
+    QueueLootRoll(bot, creatureGuid, CalculateRollVote(proto));
 
     return true;
 }

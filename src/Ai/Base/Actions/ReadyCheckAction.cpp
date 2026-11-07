@@ -14,8 +14,9 @@
 static void SendReadyConfirm(Player* bot)
 {
     // A world thread opcode (PROCESS_THREADUNSAFE), queued for the world thread instead of run from the bot's map thread (Map::SendObjectUpdates crash, 06/11).
-    WorldPacket* packet = new WorldPacket(MSG_RAID_READY_CHECK);
-    *packet << bot->GetGUID();
+    // The answer is the state alone (WorldSession::HandleRaidReadyCheckOpcode reads one uint8): the guid sent first made
+    // the first byte of the bot's guid its answer.
+    WorldPacket* packet = new WorldPacket(MSG_RAID_READY_CHECK, 1);
     *packet << uint8(1);
     bot->GetSession()->QueuePacket(packet);
 }
