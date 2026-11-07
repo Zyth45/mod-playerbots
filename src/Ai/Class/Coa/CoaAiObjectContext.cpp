@@ -602,9 +602,10 @@ CoaModule KeptModule(Player* bot, bool knowsMana, bool knowsPower)
             }
             if (!member || !member->IsInWorld() || member->GetMapId() != bot->GetMapId())
                 continue;
+            // A Tinker is a mana user too: a damage Tinker and a mana healer Tinker give the healer Mana Module.
             if (member->getClass() == CLASS_TINKER)
                 tinkerIndex += beforeBot;
-            else if (ManaCasterOrHealer(member))
+            if (ManaCasterOrHealer(member))
                 manaUsers = true;
         }
     return CoaModuleChoice(manaUsers, tinkerIndex, knowsMana, knowsPower);
@@ -3952,6 +3953,11 @@ public:
             ? KeptModule(bot, knowsModule[uint8(CoaModule::Mana)], knowsModule[uint8(CoaModule::Power)])
             : CoaModule::None;
         bool const moduleWorn = keptModule != CoaModule::None && WearsModuleFrom(bot, keptModule);
+        // A single target Module goes to an ally it helps, or to anyone when none does (a Tinker that knows one
+        // kind only, its group having no use for it): better than none.
+        bool const moduleHelpsSomeone = keptModule != CoaModule::None &&
+            std::any_of(group.begin(), group.end(), [keptModule](Player* member)
+                { return CoaModuleProfits(keptModule, ManaCasterOrHealer(member)); });
 
         for (Usable const& spell : spells)
             for (Player* member : group)
@@ -3963,7 +3969,7 @@ public:
                 {
                     bool const area = spell.info->IsAffectingArea();
                     if (kind != keptModule || moduleWorn || (!area && knowsAreaModule[uint8(kind)]) ||
-                        (!area && !CoaModuleProfits(kind, ManaCasterOrHealer(member))))
+                        (!area && moduleHelpsSomeone && !CoaModuleProfits(kind, ManaCasterOrHealer(member))))
                         continue;
                 }
 
@@ -5599,6 +5605,19 @@ bool CoaCarriesBotAway(Player* bot, SpellInfo const* info)
     return away;
 }
 
+// The Module kind a Tinker bot keeps, from the Modules it knows; None for any other bot.
+CoaModule TinkerKeptModule(Player* bot)
+{
+    if (bot->getClass() != CLASS_TINKER)
+        return CoaModule::None;
+    bool knows[3] = {false, false, false};
+    for (Usable const& spell : KnownAbilities(bot, [](uint16 kind) { return (kind & KIND_BUFF) != 0; }))
+        knows[uint8(ModuleKind(spell.info))] = true;
+    if (!knows[uint8(CoaModule::Mana)] && !knows[uint8(CoaModule::Power)])
+        return CoaModule::None;
+    return KeptModule(bot, knows[uint8(CoaModule::Mana)], knows[uint8(CoaModule::Power)]);
+}
+
 bool CoaRotationMayCast(PlayerbotAI* botAI, Player* bot, SpellInfo const* info)
 {
     if (!info)
@@ -5615,6 +5634,11 @@ bool CoaRotationMayCast(PlayerbotAI* botAI, Player* bot, SpellInfo const* info)
     if (bot->GetMap()->IsDungeon() && SummonsFlyingBomb(info))
         return false;
     if (CoaHoldsExclusiveSibling(bot, info))
+        return false;
+    // One Module per Tinker (CoaTinkerModule.h): the combat and non-combat rotations ask for both kinds ("buff
+    // missing::Greater Power Module", "can cast::Greater Mana Module"), and each took the other off. Only the kind
+    // the bot keeps for its group is cast.
+    if (CoaModule const kind = ModuleKind(info); kind != CoaModule::None && kind != TinkerKeptModule(bot))
         return false;
     if (!sPlayerbotAIConfig.coaExclusiveFamilies)
         return true;
