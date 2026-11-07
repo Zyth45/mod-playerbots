@@ -15,6 +15,7 @@
 #include <array>
 #include <atomic>
 #include <mutex>
+#include <set>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -327,6 +328,7 @@ private:
     void RandomTeleport(Player* bot, std::vector<WorldLocation>& locs, bool hearth = false);
     uint32 GetZoneLevel(uint16 mapId, float teleX, float teleY, float teleZ);
     std::vector<WorldLocation> GetPlayerZoneTeleportLocations(std::vector<WorldLocation> const& locs, Player* bot);
+    void UpdatePlayerZones();
     typedef void (RandomPlayerbotMgr::*ConsoleCommandHandler)(Player*);
     std::vector<Player*> players;
 
@@ -338,6 +340,10 @@ private:
     // read by the bots from the map update threads.
     std::map<TeamId, std::map<uint32, std::pair<uint8, uint8>>> lfgPlayerLevels;
     std::mutex lfgPlayerLevelsLock;
+    // Map and zone of the real players, for RandomBotConcentrateInPlayerZone. Written on the world thread, read
+    // from the map update threads.
+    std::set<std::pair<uint32, uint32>> _playerZones;
+    std::mutex _playerZonesLock;
     // Bot AI reads and writes these values from the map update threads.
     std::mutex eventCacheLock;
     std::unordered_map<uint32, BotEventCache> eventCache;

@@ -363,6 +363,9 @@ void RandomPlayerbotMgr::UpdateAIInternal(uint32 /*elapsed*/, bool /*minimal*/)
     if (!sPlayerbotAIConfig.randomBotAutologin || !sPlayerbotAIConfig.enabled)
         return;
 
+    if (sPlayerbotAIConfig.randomBotConcentrateInPlayerZone)
+        UpdatePlayerZones();
+
     /*if (sPlayerbotAIConfig.enablePrototypePerformanceDiff)
     {
         LOG_INFO("playerbots", "---------------------------------------");
@@ -2420,14 +2423,9 @@ void RandomPlayerbotMgr::RandomTeleportForLevel(Player* bot)
     }
 }
 
-// Returns the subset of teleport locations that lie in a zone currently occupied by a real
-// (non-GM) player, so random bots can be gathered where players actually are. Returns an empty
-// vector when no player is online or none of the locations match, letting the caller fall back
-// to the default world-wide behaviour.
-std::vector<WorldLocation> RandomPlayerbotMgr::GetPlayerZoneTeleportLocations(std::vector<WorldLocation> const& locs,
-                                                                              Player* bot)
+// World thread only: the snapshot of the real players' maps and zones that GetPlayerZoneTeleportLocations reads.
+void RandomPlayerbotMgr::UpdatePlayerZones()
 {
-    std::set<uint32> playerMaps;
     std::set<std::pair<uint32, uint32>> playerMapZones;
 
     // players only ever holds real (non random bot) players and is maintained on login/logout, so
@@ -2451,9 +2449,31 @@ std::vector<WorldLocation> RandomPlayerbotMgr::GetPlayerZoneTeleportLocations(st
         // so a player standing in a phased area still matches its underlying zone.
         uint32 zoneId = map->GetZoneId(PHASEMASK_NORMAL, player->GetPositionX(), player->GetPositionY(),
                                        player->GetPositionZ());
-        playerMaps.insert(map->GetId());
         playerMapZones.insert(std::make_pair(map->GetId(), zoneId));
     }
+
+    std::lock_guard<std::mutex> lock(_playerZonesLock);
+    _playerZones = std::move(playerMapZones);
+}
+
+// Returns the subset of teleport locations that lie in a zone currently occupied by a real
+// (non-GM) player, so random bots can be gathered where players actually are. Returns an empty
+// vector when no player is online or none of the locations match, letting the caller fall back
+// to the default world-wide behaviour.
+std::vector<WorldLocation> RandomPlayerbotMgr::GetPlayerZoneTeleportLocations(std::vector<WorldLocation> const& locs,
+                                                                              Player* bot)
+{
+    // Called from the map update threads (RandomTeleportForLevel runs from bot actions): read the snapshot
+    // UpdatePlayerZones takes on the world thread, never the player list itself.
+    std::set<std::pair<uint32, uint32>> playerMapZones;
+    {
+        std::lock_guard<std::mutex> lock(_playerZonesLock);
+        playerMapZones = _playerZones;
+    }
+
+    std::set<uint32> playerMaps;
+    for (auto const& mapZone : playerMapZones)
+        playerMaps.insert(mapZone.first);
 
     std::vector<WorldLocation> filtered;
     if (playerMapZones.empty())

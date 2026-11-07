@@ -883,7 +883,17 @@ public:
     std::vector<WorldLocation> GetCityLocations(Player* bot);
     std::vector<uint32> GetFlightNodesInZone(uint32 zoneId, TeamId team, uint32 excludeNode = 0) const;
     bool SelectAuctioneerByMap(Player* bot, NpcLocation& outAuctioneer);
-    std::vector<WorldLocation> const& GetLocsPerLevelCache(uint8 level) { return locsPerLevelCache[level]; }
+    std::vector<WorldLocation> const& GetLocsPerLevelCache(uint8 level) { return CacheAt(locsPerLevelCache, level); }
+
+    // The per-level caches are read from the map update threads: find() never inserts, operator[] did for a level
+    // with no entry, a write racing every other reader of the map.
+    template <class T>
+    static std::vector<T> const& CacheAt(std::map<uint8, std::vector<T>> const& cache, uint32 level)
+    {
+        static std::vector<T> const empty;
+        auto const itr = cache.find(static_cast<uint8>(level));
+        return itr != cache.end() ? itr->second : empty;
+    }
 
     // Herbs and mining veins of the world, grouped by 200-yard cell, for the gathering missions of the alts; the
     // beasts to skin and the fishing pools too (2.8.4).

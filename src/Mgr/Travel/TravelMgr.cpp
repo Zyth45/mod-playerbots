@@ -4498,16 +4498,16 @@ const std::vector<WorldLocation> TravelMgr::GetTeleportLocations(Player* bot)
     uint32 level = bot->GetLevel();
     uint8 isAlliance = bot->GetTeamId() == TEAM_ALLIANCE;
     if (sPlayerbotAIConfig.enableNewRpgStrategy)
-        return isAlliance ? allianceHubsPerLevelCache[level] : hordeHubsPerLevelCache[level];
+        return isAlliance ? CacheAt(allianceHubsPerLevelCache, level) : CacheAt(hordeHubsPerLevelCache, level);
 
-    return locsPerLevelCache[level];
+    return CacheAt(locsPerLevelCache, level);
 }
 
 const std::vector<WorldLocation> TravelMgr::GetTravelHubs(Player* bot)
 {
     std::vector<WorldLocation> locs = bot->GetTeamId() == TEAM_ALLIANCE
-                                                 ? allianceHubsPerLevelCache[bot->GetLevel()]
-                                                 : hordeHubsPerLevelCache[bot->GetLevel()];
+                                                 ? CacheAt(allianceHubsPerLevelCache, bot->GetLevel())
+                                                 : CacheAt(hordeHubsPerLevelCache, bot->GetLevel());
     return locs;
 }
 
@@ -4516,7 +4516,7 @@ std::vector<WorldLocation> TravelMgr::GetCityLocations(Player* bot)
     uint32 level = bot->GetLevel();
 
     std::vector<WorldLocation> fallbackLocations;
-    for (auto& bLoc : bankerLocsPerLevelCache[level])
+    for (auto const& bLoc : CacheAt(bankerLocsPerLevelCache, level))
         fallbackLocations.push_back(bLoc.loc);
 
     if (!sPlayerbotAIConfig.enableWeightTeleToCityBankers)
@@ -4524,7 +4524,7 @@ std::vector<WorldLocation> TravelMgr::GetCityLocations(Player* bot)
 
     TeamId botTeamId = bot->GetTeamId();
     std::unordered_set<uint32> validBankerCities;
-    for (auto& loc : bankerLocsPerLevelCache[level])
+    for (auto const& loc : CacheAt(bankerLocsPerLevelCache, level))
     {
         Capital const* capital = FindCapitalByBanker(loc.entry);
         if (!capital)
