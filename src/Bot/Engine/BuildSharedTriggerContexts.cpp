@@ -5,6 +5,7 @@
  */
 
 #include "AiObjectContext.h"
+#include "CoaGardesContext.h"
 #include "Aq20TriggerContext.h"
 #include "Aq40TriggerContext.h"
 #include "BTTriggerContext.h"
@@ -101,4 +102,5 @@ void AiObjectContext::BuildSharedTriggerContexts(SharedNamedObjectContextList<Tr
     // CoA: generische, parametrisierbare Bausteine (GenericTrigger)
     // machen Kampfverhalten zu Daten - siehe Ai/Coa/CoaGenericContext.h
     triggerContexts.Add(new CoaGenericTriggerContext());
+    triggerContexts.Add(new CoaGardesTriggerContext());
 }

@@ -6,6 +6,7 @@
 
 #include "ActionContext.h"
 #include "AiObjectContext.h"
+#include "CoaGardesContext.h"
 #include "Aq20ActionContext.h"
 #include "Aq40ActionContext.h"
 #include "BTActionContext.h"
@@ -101,4 +102,5 @@ void AiObjectContext::BuildSharedActionContexts(SharedNamedObjectContextList<Act
     // CoA: generische, parametrisierbare Bausteine (GenericAction)
     // machen Kampfverhalten zu Daten - siehe Ai/Coa/CoaGenericContext.h
     actionContexts.Add(new CoaGenericActionContext());
+    actionContexts.Add(new CoaGardesActionContext());
 }

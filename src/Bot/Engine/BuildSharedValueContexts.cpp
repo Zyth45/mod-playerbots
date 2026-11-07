@@ -5,6 +5,7 @@
  */
 
 #include "AiObjectContext.h"
+#include "CoaGardesContext.h"
 #include "GDValueContext.h"
 #include "GruulValueContext.h"
 #include "MechValueContext.h"
@@ -21,4 +22,5 @@ void AiObjectContext::BuildSharedValueContexts(
     valueContexts.Add(new TbcDungeonMgTValueContext());
     valueContexts.Add(new TbcDungeonUnderbogValueContext());
     valueContexts.Add(new WotlkDungeonGDValueContext());
+    valueContexts.Add(new CoaGardesValueContext());
 }
