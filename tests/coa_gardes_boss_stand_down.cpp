@@ -78,6 +78,8 @@ namespace
 
 int main()
 {
+    using namespace CoaBossStandDown;
+
     // ---- hysteresis (DC TestRaidCore DcBossStandDownTest) ----
     auto v = Update(false, 0, true, 5000);
     assert(v.active && v.lastSignalMs == 5000);  // enters instantly

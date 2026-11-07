@@ -56,6 +56,8 @@ namespace
 
 int main()
 {
+    using namespace CoaTargetExclusion;
+
     // ---- which maps carry rows (TestBlackwingLair / CombatPurge / HoR / Chess / ToC) ----
     assert(HasRowsFor(469) && HasRowsFor(604) && HasRowsFor(668) && HasRowsFor(532) && HasRowsFor(650));
     assert(!HasRowsFor(409) && !HasRowsFor(608) && !HasRowsFor(0) && !HasRowsFor(470));
