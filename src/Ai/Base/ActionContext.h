@@ -10,6 +10,7 @@
 #include "AddLootAction.h"
 #include "AttackAction.h"
 #include "AutoMaintenanceOnLevelupAction.h"
+#include "CoaTankAction.h"
 #include "BattleGroundJoinAction.h"
 #include "BattleGroundTactics.h"
 #include "BuyAction.h"

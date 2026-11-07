@@ -403,14 +403,14 @@ bool CoaPlacementAwayTrigger::IsActive()
 {
     if (!CoaPlayerMainTank::InPlacement(bot))
         return false;
-    PositionInfo const stay = AI_VALUE(PositionMap&, "position")["stay"];
+    PositionInfo stay = AI_VALUE(PositionMap&, "position")["stay"];
     return stay.isSet() && stay.mapId == bot->GetMapId() &&
            CoaPlacementMustWalk(true, bot->IsInCombat(), bot->GetDistance(stay.x, stay.y, stay.z));
 }
 
 bool CoaPlacementMoveAction::isUseful()
 {
-    PositionInfo const stay = AI_VALUE(PositionMap&, "position")["stay"];
+    PositionInfo stay = AI_VALUE(PositionMap&, "position")["stay"];
     return stay.isSet() && stay.mapId == bot->GetMapId() && CoaPlayerMainTank::InPlacement(bot) &&
            bot->GetDistance(stay.x, stay.y, stay.z) < sPlayerbotAIConfig.reactDistance;
 }
