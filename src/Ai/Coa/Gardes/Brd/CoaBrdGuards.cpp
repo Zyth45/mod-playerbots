@@ -6,6 +6,7 @@
 
 #include "../CoaGardesCombat.h"
 
+#include "../Common/CoaGardesBotState.h"
 #include "../Common/CoaGardesGate.h"
 #include "../Common/CoaGardesUnits.h"
 #include "CoaIronHallDecision.h"
@@ -17,7 +18,6 @@
 #include "Playerbots.h"
 #include "Timer.h"
 
-#include <unordered_map>
 
 // Blackrock Depths, the per-bot halves of the Lyceum close-up and the Iron Hall safe spot, from Dungeon Clear
 // (DcLyceumCloseUpAction.cpp, DcIronHallSafeSpotAction.cpp). The rules are the pure kernels next to this file; this
@@ -27,45 +27,13 @@ namespace
 {
     namespace B = CoaBrd;
 
-    // The latches the trigger and the action share, per bot. thread_local: a bot is only evaluated on its own map's
-    // thread, so no lock and no cross-map read; every latch also clears itself when the bot leaves the room or hall.
-    struct ReissueSlot
-    {
-        uint32 ms = 0;
-        float x = 0.0f, y = 0.0f, z = 0.0f;
-
-        // True when the same point was issued within the window (Dungeon Clear's ThrottledIssue).
-        bool Throttled(float px, float py, float pz, float epsilon, uint32 windowMs)
-        {
-            if (ms && GetMSTimeDiffToNow(ms) < windowMs)
-            {
-                float const dx = x - px, dy = y - py, dz = z - pz;
-                if (dx * dx + dy * dy + dz * dz <= epsilon * epsilon)
-                    return true;
-            }
-            x = px;
-            y = py;
-            z = pz;
-            ms = getMSTime() ? getMSTime() : 1u;
-            return false;
-        }
-    };
-
-    struct BrdState
-    {
-        uint32 lyceumCloseUpMs = 0;
-        ReissueSlot lyceumIssue;
-        uint32 ironHallHopMs = 0;
-        uint32 ironHallStillMs = 0;
-        float ironHallHopX = 0.0f;
-        float ironHallHopY = 0.0f;
-        ReissueSlot ironHallIssue;
-    };
+    // The latches the trigger and the action share, kept in the bot's "coa brd state" value (CoaGardesBotState); every
+    // latch also clears itself when the bot leaves the room or hall.
+    using BrdState = CoaBrdState;
 
     BrdState& StateOf(Player* bot)
     {
-        thread_local std::unordered_map<uint64, BrdState> states;
-        return states[bot->GetGUID().GetRawValue()];
+        return GET_PLAYERBOT_AI(bot)->GetAiObjectContext()->GetValue<CoaBrdState&>("coa brd state")->RefGet();
     }
 
     // ---- the Lyceum ----

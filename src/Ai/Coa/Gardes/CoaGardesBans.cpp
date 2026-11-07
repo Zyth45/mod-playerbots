@@ -7,6 +7,7 @@
 #include "CoaGardesCombat.h"
 
 #include "Brd/CoaLyceumCloseUpDecision.h"
+#include "Common/CoaGardesBotState.h"
 #include "Common/CoaGardesGate.h"
 #include "Common/CoaGardesRunHooks.h"
 #include "Common/CoaGardesSettings.h"
@@ -21,7 +22,6 @@
 #include "ReachTargetActions.h"
 #include "Timer.h"
 
-#include <unordered_map>
 
 // The multipliers of the party combat guards (from Dungeon Clear's DungeonClear{,Combat}Multiplier) and the two
 // strategies that carry every guard for every bot.
@@ -68,20 +68,12 @@ namespace
     }
 
     // The flagged room-aggro bosses of the bot's map within 150yd. A grid search per boss is too dear for a check every
-    // reach action pays, so the GUIDs are kept per bot for ROOM_BOSS_MEMO_MS and only resolved and re-tested on each
-    // read. thread_local: a bot is only evaluated on its own map's thread (no lock, no cross-map read).
-    std::vector<ObjectGuid> const& SleepingRoomBossesNear(Player* bot)
+    // reach action pays, so the GUIDs are kept in the bot's "coa room boss memo" value for ROOM_BOSS_MEMO_MS and only
+    // resolved and re-tested on each read.
+    std::vector<ObjectGuid> const& SleepingRoomBossesNear(Player* bot, AiObjectContext* context)
     {
         constexpr uint32 ROOM_BOSS_MEMO_MS = 2000;
-        struct Memo
-        {
-            uint32 stampMs = 0;
-            uint32 mapId = 0;
-            uint32 instanceId = 0;
-            std::vector<ObjectGuid> bosses;
-        };
-        thread_local std::unordered_map<uint64, Memo> memos;
-        Memo& m = memos[bot->GetGUID().GetRawValue()];
+        CoaRoomBossMemo& m = context->GetValue<CoaRoomBossMemo&>("coa room boss memo")->RefGet();
         uint32 const now = getMSTime();
         if (m.stampMs == 0 || m.mapId != bot->GetMapId() || m.instanceId != bot->GetInstanceId() ||
             getMSTimeDiff(m.stampMs, now) >= ROOM_BOSS_MEMO_MS)
@@ -162,7 +154,7 @@ namespace
                                                             boss->IsInCombat());
         }
 
-        for (ObjectGuid const& bossGuid : SleepingRoomBossesNear(bot))
+        for (ObjectGuid const& bossGuid : SleepingRoomBossesNear(bot, context))
         {
             Creature* const boss = ObjectAccessor::GetCreature(*bot, bossGuid);
             if (!boss || !boss->IsAlive() || boss == target || boss->IsInCombat())

@@ -8,6 +8,7 @@
 
 #include "CoaBossStandDown.h"
 #include "CoaDpsTargetValue.h"
+#include "CoaGardesBotState.h"
 #include "CoaGardesCombat.h"
 #include "CoaHazardValues.h"
 #include "CoaHazardVacate.h"
@@ -56,6 +57,8 @@ CoaGardesValueContext::CoaGardesValueContext()
     creators["coa trap hazards"] = [](PlayerbotAI* ai) -> UntypedValue* { return new CoaTrapHazardsValue(ai); };
     creators["dps target"] = [](PlayerbotAI* ai) -> UntypedValue* { return new CoaDpsTargetValue(ai); };
     creators["dps aoe target"] = [](PlayerbotAI* ai) -> UntypedValue* { return new CoaDpsAoeTargetValue(ai); };
+    creators["coa brd state"] = [](PlayerbotAI* ai) -> UntypedValue* { return new CoaBrdStateValue(ai); };
+    creators["coa room boss memo"] = [](PlayerbotAI* ai) -> UntypedValue* { return new CoaRoomBossMemoValue(ai); };
     creators["coa no rti"] = [](PlayerbotAI* ai) -> UntypedValue* { return new CoaNoRtiValue(ai); };
     creators["coa boss stand down"] = [](PlayerbotAI* ai) -> UntypedValue* { return new CoaBossStandDownValue(ai); };
 }
