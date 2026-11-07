@@ -1180,10 +1180,8 @@ bool RecruitCoaBot(Player* master, CoaRole role, std::string& message, uint8 cla
     CoaDropForeignInstanceBinds(chosen, master);
 
     // After joining the group, so the bot may enter the master's dungeon instance.
-    if (!chosen->TeleportTo(master->GetMapId(), master->GetPositionX(), master->GetPositionY(), master->GetPositionZ(),
-                            master->GetOrientation(), 0, nullptr, CoaInOtherInstance(chosen, master)))
-        LOG_WARN("playerbots", "coa regroup: recruit {} to map {}: TeleportTo refused (retried by the raid check)",
-                 chosen->GetName(), master->GetMapId());
+    // Into the master's instance, or to its dungeon's door when the instance does not take it (RC11e).
+    CoaBringBotToLeader(chosen, master, "recruit");
 
     if (PlayerbotAI* botAI = GET_PLAYERBOT_AI(chosen))
     {
@@ -1241,6 +1239,8 @@ struct PendingRegroup
 };
 std::mutex RegroupLock;
 std::vector<PendingRegroup> PendingRegroups;
+// Logins asked for a raid bot found offline: three at most per bot, so a bot that cannot log in is not asked forever.
+std::unordered_map<ObjectGuid, uint8> RegroupLogins;
 
 // Only the bot's own binds to another copy of the leader's map (as summon does for that map); never a player's.
 void DropOtherCopyBinds(Player* bot, Player* leader)
@@ -1260,6 +1260,39 @@ void DropOtherCopyBinds(Player* bot, Player* leader)
 }
 }  // namespace
 
+// The outdoor door of the leader's dungeon (its "go back" area trigger), when the leader is in a dungeon.
+static AreaTriggerTeleport const* LeaderDungeonDoor(Player* leader)
+{
+    return leader->GetMap()->IsDungeon() ? sObjectMgr->GetGoBackTrigger(leader->GetMapId()) : nullptr;
+}
+
+CoaBringResult CoaBringBotToLeader(Player* bot, Player* leader, char const* what)
+{
+    // A bot already waiting at the door of the leader's dungeon is left there: a dungeon that refused it once refuses it
+    // again (a 5-player one for a raid), and the next summon from a raid instance brings it in (RC11e).
+    AreaTriggerTeleport const* door = LeaderDungeonDoor(leader);
+    if (door && bot->GetMapId() == door->target_mapId &&
+        bot->GetExactDist(door->target_X, door->target_Y, door->target_Z) <= RegroupDistance)
+        return CoaBringResult::AtDoor;
+    bool const otherInstance = CoaInOtherInstance(bot, leader);
+    DropOtherCopyBinds(bot, leader);
+    bot->GetMotionMaster()->Clear();
+    if (bot->TeleportTo(leader->GetMapId(), leader->GetPositionX(), leader->GetPositionY(), leader->GetPositionZ(),
+                        leader->GetOrientation(), 0, nullptr, otherInstance))
+        return CoaBringResult::Sent;
+    // The leader's instance does not take it (a raid group in a 5-player dungeon, the instance full): the bot goes to the
+    // dungeon's door outside instead (test humain 07/11, Blackrock Depths on the way to Molten Core).
+    if (door && bot->TeleportTo(door->target_mapId, door->target_X, door->target_Y, door->target_Z, door->target_Orientation))
+    {
+        LOG_WARN("playerbots", "coa regroup: {} ({}) to the entrance of map {} (map {}): the instance refused it",
+                 bot->GetName(), what, leader->GetMapId(), door->target_mapId);
+        return CoaBringResult::ToDoor;
+    }
+    LOG_WARN("playerbots", "coa regroup: {} ({}) from map {} to map {}: TeleportTo refused{}", bot->GetName(), what,
+             bot->GetMapId(), leader->GetMapId(), door ? ", the entrance too" : "");
+    return CoaBringResult::Refused;
+}
+
 uint32 CoaRegroupRaid(Player* leader)
 {
     Group* group = leader ? leader->GetGroup() : nullptr;
@@ -1267,30 +1300,74 @@ uint32 CoaRegroupRaid(Player* leader)
         leader->InBattleground() || !leader->IsInWorld())
         return 0;
     uint32 sent = 0;
+    // Members of the raid that are not in the world: a random bot logged out while in the raid (test humain 07/11:
+    // 9 bots logged out at the same second, still members, never in a regroup line) is logged in again; it is brought
+    // by the next check. Every member left out is said, with its reason.
+    uint32 loggedIn = 0;
+    for (Group::MemberSlot const& slot : group->GetMemberSlots())
+    {
+        if (ObjectAccessor::FindConnectedPlayer(slot.guid))
+            continue;
+        if (sRandomPlayerbotMgr.IsRandomBot(slot.guid.GetCounter()))
+        {
+            uint8 tries = 0;
+            {
+                std::lock_guard<std::mutex> guard(RegroupLock);
+                tries = ++RegroupLogins[slot.guid];
+            }
+            if (tries > 3)
+            {
+                LOG_WARN("playerbots", "coa regroup: {} is offline: left out after 3 logins", slot.name);
+                continue;
+            }
+            LOG_WARN("playerbots", "coa regroup: {} is offline: logged in again ({}/3)", slot.name, tries);
+            sRandomPlayerbotMgr.AddPlayerBot(slot.guid, 0);
+            ++loggedIn;
+        }
+        else
+            LOG_WARN("playerbots", "coa regroup: {} is offline (not a random bot): left out", slot.name);
+    }
+    if (loggedIn)
+        CoaScheduleRegroup(group->GetGUID(), leader->GetGUID());
     for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
         Player* bot = ref->GetSource();
-        PlayerbotAI* botAI = bot ? GET_PLAYERBOT_AI(bot) : nullptr;
-        if (!botAI || bot == leader || bot->InBattleground() || bot->InArena())
+        if (!bot || bot == leader)
             continue;
-        // A far teleport whose acknowledgement never came: finished here (world thread, a bot only).
-        if (bot->IsBeingTeleportedFar())
+        PlayerbotAI* botAI = GET_PLAYERBOT_AI(bot);
+        if (!botAI)
         {
-            time_t const since = time(nullptr) - bot->GetSemaphoreTeleportFar();
+            LOG_WARN("playerbots", "coa regroup: {} left out: a player, not a bot", bot->GetName());
+            continue;
+        }
+        if (bot->InBattleground() || bot->InArena())
+        {
+            LOG_WARN("playerbots", "coa regroup: {} left out: in a battleground or an arena", bot->GetName());
+            continue;
+        }
+        // A teleport whose acknowledgement never came (far: a map change; near: within the map), finished here (world
+        // thread, a bot only) when the bot is out of every map or the teleport is over 10 seconds old.
+        if (bot->IsBeingTeleported())
+        {
+            bool const far = bot->IsBeingTeleportedFar();
+            time_t const since = time(nullptr) - (far ? bot->GetSemaphoreTeleportFar() : bot->GetSemaphoreTeleportNear());
             if (!bot->IsInWorld() || since > StuckTeleportSeconds)
             {
-                LOG_WARN("playerbots", "coa regroup: {} stuck in a far teleport for {} s (in world {}): finished",
-                         bot->GetName(), uint32(since), bot->IsInWorld() ? 1 : 0);
+                LOG_WARN("playerbots", "coa regroup: {} stuck in a {} teleport for {} s (in world {}): finished",
+                         bot->GetName(), far ? "far" : "near", uint32(since), bot->IsInWorld() ? 1 : 0);
                 botAI->HandleTeleportAck();
             }
             if (bot->IsBeingTeleported())
             {
-                LOG_WARN("playerbots", "coa regroup: {} to map {}: still teleporting", bot->GetName(), leader->GetMapId());
+                LOG_WARN("playerbots", "coa regroup: {} left out: still teleporting ({} s)", bot->GetName(), uint32(since));
                 continue;
             }
         }
-        if (!bot->IsInWorld() || bot->IsBeingTeleported())
+        if (!bot->IsInWorld())
+        {
+            LOG_WARN("playerbots", "coa regroup: {} left out: not in the world", bot->GetName());
             continue;
+        }
         if (bot->GetMapId() == leader->GetMapId() && bot->GetInstanceId() == leader->GetInstanceId() &&
             bot->IsWithinDist(leader, RegroupDistance))
             continue;
@@ -1299,15 +1376,9 @@ uint32 CoaRegroupRaid(Player* leader)
             bot->ResurrectPlayer(1.0f, false);
             bot->SpawnCorpseBones();
         }
-        bool const otherInstance = CoaInOtherInstance(bot, leader);
-        DropOtherCopyBinds(bot, leader);
-        bot->GetMotionMaster()->Clear();
-        if (bot->TeleportTo(leader->GetMapId(), leader->GetPositionX(), leader->GetPositionY(), leader->GetPositionZ(),
-                            leader->GetOrientation(), 0, nullptr, otherInstance))
+        CoaBringResult const result = CoaBringBotToLeader(bot, leader, "regroup");
+        if (result == CoaBringResult::Sent || result == CoaBringResult::ToDoor)
             ++sent;
-        else
-            LOG_WARN("playerbots", "coa regroup: {} from map {} to map {}: TeleportTo refused", bot->GetName(),
-                     bot->GetMapId(), leader->GetMapId());
     }
     return sent;
 }
@@ -1315,6 +1386,10 @@ uint32 CoaRegroupRaid(Player* leader)
 void CoaScheduleRegroup(ObjectGuid group, ObjectGuid leader)
 {
     std::lock_guard<std::mutex> guard(RegroupLock);
+    // One check at a time per raid.
+    for (PendingRegroup const& entry : PendingRegroups)
+        if (entry.group == group)
+            return;
     PendingRegroups.push_back({ group, leader, getMSTime() + 5000, 2 });
 }
 
@@ -1349,7 +1424,11 @@ void CoaRegroupUpdate()
         {
             entry.dueMs = now + 10000;
             std::lock_guard<std::mutex> guard(RegroupLock);
-            PendingRegroups.push_back(entry);
+            bool pending = false;
+            for (PendingRegroup const& other : PendingRegroups)
+                pending = pending || other.group == entry.group;
+            if (!pending)
+                PendingRegroups.push_back(entry);
         }
     }
 }

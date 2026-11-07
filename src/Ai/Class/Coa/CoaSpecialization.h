@@ -186,7 +186,17 @@ bool CoaIsBuiltRaid(Group const* group);
 // leader is brought there, across maps and into the leader's instance; a far teleport stuck over 10 s is finished
 // first. Returns how many teleports were sent; nothing outside a built raid.
 uint32 CoaRegroupRaid(Player* leader);
-// The raid check after ".playerbots coa raid": CoaRegroupRaid 5 and 15 seconds later (world thread timer).
+// Teleports a bot to the leader (world thread): into the leader's instance, or, when the instance refuses it (a raid in
+// a 5-player dungeon), to that dungeon's door outside; a bot already at the door is left there. WARN on each fallback.
+enum class CoaBringResult
+{
+    Sent,
+    ToDoor,
+    AtDoor,
+    Refused
+};
+CoaBringResult CoaBringBotToLeader(Player* bot, Player* leader, char const* what);
+// The raid check after ".playerbots coa raid" or bots logged in again: CoaRegroupRaid 5 and 15 seconds later.
 void CoaScheduleRegroup(ObjectGuid group, ObjectGuid leader);
 void CoaRegroupUpdate();
 bool CoaQueueMainTankSync(Player* bot);
