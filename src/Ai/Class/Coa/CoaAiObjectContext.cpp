@@ -6,6 +6,7 @@
 
 #include "CoaAiObjectContext.h"
 #include "CoaPlayerMainTank.h"
+#include "CoaTinkerModule.h"
 
 #include "Action.h"
 #include "AttackAction.h"
@@ -555,6 +556,78 @@ bool WearsRivalBuffFrom(Unit* unit, Unit* caster, SpellInfo const* buff)
         if (BuffFamilyFlags(worn) & flags)
             return true;
     }
+    return false;
+}
+
+// The Tinker's Modules (family flag 0x80000 and "Module" in the name, see CoaTinkerModule.h): Mana Module when it
+// raises mana regeneration, Power Module when it raises attack power. None for any other spell, Guardian Module
+// (a charge on Repair Shot) included.
+CoaModule ModuleKind(SpellInfo const* info)
+{
+    if (!info || !(info->SpellFamilyFlags[0] & 0x80000) ||
+        std::string_view(info->SpellName[LOCALE_enUS]).find("Module") == std::string_view::npos)
+        return CoaModule::None;
+    for (SpellEffectInfo const& effect : info->Effects)
+    {
+        if (!effect.IsAura())
+            continue;
+        if (effect.ApplyAuraName == SPELL_AURA_MOD_POWER_REGEN)
+            return CoaModule::Mana;
+        if (effect.ApplyAuraName == SPELL_AURA_MOD_ATTACK_POWER)
+            return CoaModule::Power;
+    }
+    return CoaModule::None;
+}
+
+bool ManaCasterOrHealer(Player* player)
+{
+    return player->getPowerType() == POWER_MANA && (PlayerbotAI::IsCaster(player) || PlayerbotAI::IsHeal(player));
+}
+
+// The Module kind this Tinker bot keeps for its group (CoaModuleChoice): the group's members on the bot's map, the
+// bot included, decide whether mana casters are there, and the Tinkers before it in group order its rank.
+CoaModule KeptModule(Player* bot, bool knowsMana, bool knowsPower)
+{
+    bool manaUsers = ManaCasterOrHealer(bot);
+    uint32 tinkerIndex = 0;
+    bool beforeBot = true;
+    if (Group* group = bot->GetGroup())
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+        {
+            Player* member = ref->GetSource();
+            if (member == bot)
+            {
+                beforeBot = false;
+                continue;
+            }
+            if (!member || !member->IsInWorld() || member->GetMapId() != bot->GetMapId())
+                continue;
+            if (member->getClass() == CLASS_TINKER)
+                tinkerIndex += beforeBot;
+            else if (ManaCasterOrHealer(member))
+                manaUsers = true;
+        }
+    return CoaModuleChoice(manaUsers, tinkerIndex, knowsMana, knowsPower);
+}
+
+// Whether a member of the bot's group on its map, the bot included, wears a Module of this kind from the bot.
+bool WearsModuleFrom(Player* bot, CoaModule kind)
+{
+    auto wears = [bot, kind](Player* member)
+    {
+        for (auto const& [id, application] : member->GetAppliedAuras())
+            if (application->GetBase()->GetCasterGUID() == bot->GetGUID() &&
+                ModuleKind(application->GetBase()->GetSpellInfo()) == kind)
+                return true;
+        return false;
+    };
+    if (wears(bot))
+        return true;
+    if (Group* group = bot->GetGroup())
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+            if (Player* member = ref->GetSource(); member && member != bot && member->IsInWorld() &&
+                member->GetMapId() == bot->GetMapId() && wears(member))
+                return true;
     return false;
 }
 
@@ -3865,11 +3938,34 @@ public:
                                 cast.until = 0;
                         }
 
+        // One Module per Tinker (CoaTinkerModule.h): the bot keeps one kind for the group, the group-wide form when it
+        // knows it, and puts it up again only once it is worn nowhere.
+        bool knowsModule[3] = {false, false, false};
+        bool knowsAreaModule[3] = {false, false, false};
+        for (Usable const& spell : spells)
+            if (CoaModule const kind = ModuleKind(spell.info); kind != CoaModule::None)
+            {
+                knowsModule[uint8(kind)] = true;
+                knowsAreaModule[uint8(kind)] |= spell.info->IsAffectingArea();
+            }
+        CoaModule const keptModule = knowsModule[uint8(CoaModule::Mana)] || knowsModule[uint8(CoaModule::Power)]
+            ? KeptModule(bot, knowsModule[uint8(CoaModule::Mana)], knowsModule[uint8(CoaModule::Power)])
+            : CoaModule::None;
+        bool const moduleWorn = keptModule != CoaModule::None && WearsModuleFrom(bot, keptModule);
+
         for (Usable const& spell : spells)
             for (Player* member : group)
             {
                 if (member != bot && !(spell.kind & KIND_ALLY_CAST))
                     continue;
+
+                if (CoaModule const kind = ModuleKind(spell.info); kind != CoaModule::None)
+                {
+                    bool const area = spell.info->IsAffectingArea();
+                    if (kind != keptModule || moduleWorn || (!area && knowsAreaModule[uint8(kind)]) ||
+                        (!area && !CoaModuleProfits(kind, ManaCasterOrHealer(member))))
+                        continue;
+                }
 
                 // A buff of under a minute is a fight cooldown, not one to keep up between fights: a Bloodmage
                 // Fleshweaver cast Scarlet Delirium (40 s) again and again out of combat (player report, 10/10).
