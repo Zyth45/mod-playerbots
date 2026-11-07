@@ -367,6 +367,10 @@ public:
                 continue;
             }
 
+            // An arena group is the team's size, no more (as BGJoinAction::gatherArenaTeam stopped at it).
+            if (newGroup->GetMembersCount() >= m_requiredSize)
+                break;
+
             // The arena level of the realm (60 on CoA), as BGJoinAction checks it.
             if (member->GetLevel() < RandomPlayerbotFactory::ArenaTeamMinLevel())
             {

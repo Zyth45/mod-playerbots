@@ -22,15 +22,17 @@ bool AcceptDuelAction::Execute(Event event)
         (botAI->GetMaster() && botAI->GetMaster()->GetGUID() != playerGuid)) &&
         AI_VALUE2(uint8, "health", "self target") < 90)
     {
-        WorldPacket packet(CMSG_DUEL_CANCELLED, 8);
-        packet << flagGuid;
-        bot->GetSession()->HandleDuelCancelledOpcode(packet);
+        WorldPacket* packet = new WorldPacket(CMSG_DUEL_CANCELLED, 8);
+        *packet << flagGuid;
+        bot->GetSession()->QueuePacket(packet);
         return false;
     }
 
-    WorldPacket packet(CMSG_DUEL_ACCEPTED, 8);
-    packet << flagGuid;
-    bot->GetSession()->HandleDuelAcceptedOpcode(packet);
+    // CMSG_DUEL_ACCEPTED and CMSG_DUEL_CANCELLED are world thread opcodes (PROCESS_THREADUNSAFE) that change the
+    // opponent too: queued for the world thread (Map::SendObjectUpdates crash, 06/11).
+    WorldPacket* packet = new WorldPacket(CMSG_DUEL_ACCEPTED, 8);
+    *packet << flagGuid;
+    bot->GetSession()->QueuePacket(packet);
 
     botAI->ResetStrategies();
     return true;

@@ -131,7 +131,7 @@ bool BGJoinAction::gatherArenaTeam(ArenaType type)
     // The group is formed in the world thread (ArenaGroupFormationOperation, below): this bot leads it, full and of
     // the team's members only, on a later try.
     if (Group* formed = bot->GetGroup(); formed && formed->IsLeader(bot->GetGUID()) &&
-                                         formed->GetMembersCount() >= (uint32)arenateam->GetType())
+                                         formed->GetMembersCount() == (uint32)arenateam->GetType())
     {
         bool teamOnly = true;
         for (GroupReference* ref = formed->GetFirstMember(); ref && teamOnly; ref = ref->next())
@@ -1246,8 +1246,8 @@ bool BGStatusCheckAction::Execute(Event /*event*/)
     if (bot->IsInCombat() && !botAI->GetMaster() && sRandomPlayerbotMgr.IsRandomBot(bot))
         bot->CombatStop(true);
 
-    WorldPacket packet(CMSG_BATTLEFIELD_STATUS);
-    bot->GetSession()->HandleBattlefieldStatusOpcode(packet);
+    // A world thread opcode (PROCESS_THREADUNSAFE): queued for the world thread, like the other battlefield opcodes.
+    bot->GetSession()->QueuePacket(new WorldPacket(CMSG_BATTLEFIELD_STATUS));
 
     LOG_INFO("playerbots", "Bot {} <{}> ({} {}) : Checking BG invite status", bot->GetGUID().ToString().c_str(),
              bot->GetName(), bot->GetLevel(), bot->GetTeamId() == TEAM_ALLIANCE ? "A" : "H");
