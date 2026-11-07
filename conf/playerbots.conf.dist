@@ -713,8 +713,18 @@ AiPlayerbot.CoaTankFightLatch = 3
 # (DungeonClear.PartyMaxSpread, DungeonClear.PartyMaxSpread.Raid).
 AiPlayerbot.CoaTankFightSpread = 25
 AiPlayerbot.CoaTankFightSpreadRaid = 40
-# In combat, a bot that strayed too far from the group's tank walks back (DungeonClear.CombatRegroup).
+# In combat, a bot that strayed too far from the group's tank walks back (DungeonClear.CombatRegroup); the hard
+# outer tether in yards, the slack before it walks, and the seconds between two walks (DungeonClear.CombatRegroup*).
 AiPlayerbot.CombatRegroup = 1
+AiPlayerbot.CombatRegroupDistance = 40.0
+AiPlayerbot.CombatRegroupSlack = 8.0
+AiPlayerbot.CombatRegroupCooldown = 5.0
+# Health % under which a member counts as hurt for the regroup and escape guards (DungeonClear.HealRepositionHpFloor).
+AiPlayerbot.HealRepositionHpFloor = 90.0
+# Yards added to a mob's aggro range, and to the path around a sleeping room boss (DungeonClear.AggroRangeMargin,
+# DungeonClear.RoomAggroPathPadding).
+AiPlayerbot.AggroRangeMargin = 2.0
+AiPlayerbot.RoomAggroPathPadding = 3.0
 # A bot standing in a ground effect or a trap steps out of it (DungeonClear.HazardVacate).
 AiPlayerbot.HazardVacate = 1
 
