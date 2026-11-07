@@ -36,7 +36,7 @@ Player* CoaGroupTank::Reference(Player const* member)
     if (ActiveRunLeader)
         if (Player* leader = ActiveRunLeader(member); Usable(leader, member))
             return leader;
-    Group* group = member->GetGroup();
+    Group* group = const_cast<Player*>(member)->GetGroup();
     if (!group)
         return nullptr;
     if (Player* player = CoaPlayerMainTank::FlaggedInGroup(group, member); Usable(player, member))
