@@ -629,6 +629,11 @@ void PlayerbotHolder::OnBotLogin(Player* const bot)
     }
     PlayerbotRepository::instance().Load(botAI);
 
+    // The loaded strategies were saved at the bot's last strategy change and can include another
+    // instance's strategy, so apply the current map's again.
+    if (sPlayerbotAIConfig.applyInstanceStrategies)
+        botAI->ApplyInstanceStrategies(bot->GetMapId());
+
     // An alt whose gathering mission was going on when it logged out resumes it, out of the group.
     sCoaMissionMgr.OnBotLogin(bot);
     bool const onMission = sCoaMissionMgr.IsOnMission(bot);
