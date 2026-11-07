@@ -1204,9 +1204,51 @@ void CoaAnnounceJoin(Player* bot, Player* master)
     ChatHandler(master->GetSession()).SendSysMessage(JoinsAsText(bot, GetCoaRole(bot)));
 }
 
+namespace
+{
+// Raids built by ".playerbots coa raid", and the member each one's main tank flag was given to by the module: only
+// those are kept in step with the roles. A flag a player set by hand, a Dungeon Clear raid and an ordinary group are
+// never touched (RC11 review, point 2).
+std::mutex CoaRaidLock;
+std::unordered_map<ObjectGuid, ObjectGuid> CoaRaidFlag;   // group -> member flagged by the module (empty: none yet)
+
+bool IsCoaRaid(ObjectGuid group, ObjectGuid* flagged = nullptr)
+{
+    std::lock_guard<std::mutex> guard(CoaRaidLock);
+    auto const itr = CoaRaidFlag.find(group);
+    if (itr == CoaRaidFlag.end())
+        return false;
+    if (flagged)
+        *flagged = itr->second;
+    return true;
+}
+}  // namespace
+
+bool CoaIsBuiltRaid(Group const* group)
+{
+    return group && IsCoaRaid(group->GetGUID());
+}
+
 void CoaSyncMainTankFlag(Group* group, bool assignIfNone)
 {
     if (!group || group->isLFGGroup() || group->isBGGroup() || group->isBFGroup())
+        return;
+    if (assignIfNone)
+    {
+        // Built (or built again) by the raid command: a flag a bot already carries is the builder's (raids built before
+        // RC11 flagged a bot that may no longer tank); a player's flag stays the player's.
+        ObjectGuid botFlag;
+        for (Group::MemberSlot const& slot : group->GetMemberSlots())
+            if (slot.flags & MEMBER_FLAG_MAINTANK)
+                if (Player* member = ObjectAccessor::FindConnectedPlayer(slot.guid); member && GET_PLAYERBOT_AI(member))
+                    botFlag = slot.guid;
+        std::lock_guard<std::mutex> guard(CoaRaidLock);
+        ObjectGuid& ours = CoaRaidFlag[group->GetGUID()];
+        if (!ours)
+            ours = botFlag;
+    }
+    ObjectGuid ours;
+    if (!IsCoaRaid(group->GetGUID(), &ours))
         return;
     std::vector<ObjectGuid> guids;
     std::vector<CoaMainTankSeat> seats;
@@ -1214,11 +1256,18 @@ void CoaSyncMainTankFlag(Group* group, bool assignIfNone)
     {
         Player* member = ObjectAccessor::FindConnectedPlayer(slot.guid);
         bool const bot = member && GET_PLAYERBOT_AI(member);
+        bool const flagged = (slot.flags & MEMBER_FLAG_MAINTANK) != 0;
+        // A flag the module did not give is a player's choice (set by hand): the whole sync stops there.
+        if (flagged && slot.guid != ours)
+            return;
         guids.push_back(slot.guid);
-        seats.push_back({ bot, member && RoleOfMember(member) == CoaRole::Tank, member && member->IsAlive(),
-                          (slot.flags & MEMBER_FLAG_MAINTANK) != 0 });
-        // The raid panel shows the role each bot plays now (a raid of the builder: its bots' group roles).
-        if (bot && group->isRaidGroup())
+        // A tank by specialization or, for a bot, by its combat strategy (as the Main Tank bar sees it).
+        bool const tank = member && (RoleOfMember(member) == CoaRole::Tank || (bot && PlayerbotAI::IsTank(member)));
+        seats.push_back({ bot, tank, member && member->IsAlive(), flagged });
+    }
+    // The raid panel shows the role each bot of the built raid plays now.
+    for (Group::MemberSlot const& slot : group->GetMemberSlots())
+        if (Player* member = ObjectAccessor::FindConnectedPlayer(slot.guid); member && GET_PLAYERBOT_AI(member))
         {
             CoaRole const role = RoleOfMember(member);
             uint8 const roles = role == CoaRole::Tank   ? lfg::PLAYER_ROLE_TANK
@@ -1227,7 +1276,6 @@ void CoaSyncMainTankFlag(Group* group, bool assignIfNone)
             if (slot.roles != roles)
                 group->SetLfgRoles(slot.guid, roles);
         }
-    }
     int const holder = CoaMainTankFlagHolder(seats, assignIfNone);
     for (size_t i = 0; i < seats.size(); ++i)
     {
@@ -1239,6 +1287,8 @@ void CoaSyncMainTankFlag(Group* group, bool assignIfNone)
                      guids[i].ToString(), group->GetGUID().ToString());
         }
     }
+    std::lock_guard<std::mutex> guard(CoaRaidLock);
+    CoaRaidFlag[group->GetGUID()] = holder >= 0 ? guids[holder] : ObjectGuid::Empty;
 }
 
 bool CoaQueueMainTankSync(Player* bot)

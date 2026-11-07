@@ -180,6 +180,8 @@ bool RecruitCoaRaid(Player* master, uint32 size, uint32 tanks, uint32 heals, std
 // living tank, or nobody; with assignIfNone a group without it gets one. Raid bots' group roles follow their role.
 // World thread only: CoaQueueMainTankSync queues it from a bot's map update. Not for LFG or battleground groups.
 void CoaSyncMainTankFlag(Group* group, bool assignIfNone);
+// Whether the group is a raid built by ".playerbots coa raid" (the only groups whose flag and roles are kept in step).
+bool CoaIsBuiltRaid(Group const* group);
 bool CoaQueueMainTankSync(Player* bot);
 
 // The free random bot best placed to play `role` for `master` (same faction, on its map, already of

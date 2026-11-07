@@ -16,6 +16,7 @@
 #include "PositionValue.h"
 #include "SpellInfo.h"
 #include "SpellMgr.h"
+#include "MoveSpline.h"
 #include "Timer.h"
 
 #include <mutex>
@@ -425,7 +426,12 @@ bool CoaPlacementMoveAction::Execute(Event event)
                     if (CoaPlacementTaunt(target->GetVictim() == bot, !bot->HasSpellCooldown(spellId) && !info->CalcCastTime(),
                                           bot->IsWithinDistInMap(target, info->GetMaxRange(false, bot))))
                         botAI->CastSpell(spellId, target);
-    return MoveToPositionAction::Execute(event);
+    if (MoveToPositionAction::Execute(event))
+        return true;
+    // MoveTo refuses the same move again while the last one runs (IsWaitingForLastMove, IsDuplicateMove): the bot is
+    // on its way, the action keeps the tick, or the rotation took it back every other tick and stopped the walk (RC11
+    // review, point 1). Rooted, an unreachable point or a path cut short: no spline runs, the others act.
+    return !bot->movespline->Finalized() && !bot->HasUnitState(UNIT_STATE_ROOT);
 }
 
 namespace
@@ -477,7 +483,9 @@ void CoaTankOrderTick(PlayerbotAI* botAI)
 
     // A main tank flag left on a bot that turned damage dealer (a regear, "talents spec") is handed over, checked every
     // 5 seconds by the bot that carries it; the change itself runs in the world thread (CoaQueueMainTankSync).
-    if (!bot->GetGroup())
+    // Only in a raid built by ".playerbots coa raid" (RC11 review, point 2): a Dungeon Clear raid or an ordinary group
+    // keeps its flag as it is.
+    if (!bot->GetGroup() || !CoaIsBuiltRaid(bot->GetGroup()))
         return;
     uint32 const now = getMSTime();
     {
@@ -487,6 +495,6 @@ void CoaTankOrderTick(PlayerbotAI* botAI)
             return;
         at = now ? now : 1;
     }
-    if (CarriesMainTankFlag(bot) && !PlayerbotAI::IsTank(bot, true))
+    if (CarriesMainTankFlag(bot) && !TankNow(bot))
         CoaQueueMainTankSync(bot);
 }
