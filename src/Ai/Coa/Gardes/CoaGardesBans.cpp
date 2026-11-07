@@ -148,7 +148,7 @@ namespace
         Unit* const target = context->GetValue<Unit*>(targetName)->Get();
         if (!target || target->FindMap() != bot->FindMap())
             return false;
-        CoaGardesSettings const settings = CoaGardesSettings::Get();
+        CoaGardesSettings const& settings = CoaGardesSettings::Get();
 
         if (branch == CoaRoomBossChase::Branch::RunBoss)
         {

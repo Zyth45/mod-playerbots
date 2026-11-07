@@ -6,11 +6,14 @@
 
 #include "CoaGroupTank.h"
 
+#include "AiObjectContext.h"
 #include "CoaPlayerMainTank.h"
 #include "Group.h"
 #include "Map.h"
+#include "ObjectAccessor.h"
 #include "Player.h"
 #include "PlayerbotAI.h"
+#include "Playerbots.h"
 
 #include <set>
 
@@ -23,6 +26,32 @@ namespace
     {
         return tank && tank->IsInWorld() && tank->IsAlive() && tank->FindMap() && tank->FindMap() == member->FindMap();
     }
+
+    // One provider read per bot tick: the bot's "coa run leader" value; a human (no AI) reads the provider.
+    CoaGroupTank::RunLeaderMemo RunLeader(Player const* member)
+    {
+        if (!ActiveRunLeader || !member)
+            return {};
+        if (PlayerbotAI* ai = GET_PLAYERBOT_AI(const_cast<Player*>(member)))
+            if (AiObjectContext* context = ai->GetAiObjectContext())
+                if (Value<CoaGroupTank::RunLeaderMemo>* value =
+                        context->GetValue<CoaGroupTank::RunLeaderMemo>("coa run leader"))
+                    return value->Get();
+        return CoaGroupTank::ReadRunLeader(member);
+    }
+}
+
+CoaGroupTank::RunLeaderMemo CoaGroupTank::ReadRunLeader(Player const* member)
+{
+    RunLeaderMemo memo;
+    if (!ActiveRunLeader || !member)
+        return memo;
+    if (Player* leader = ActiveRunLeader(member))
+    {
+        memo.inRun = true;
+        memo.leader = leader->GetGUID();
+    }
+    return memo;
 }
 
 void CoaGroupTank::SetProvider(Provider provider)
@@ -34,8 +63,8 @@ Player* CoaGroupTank::Reference(Player const* member)
 {
     if (!member || !member->IsInWorld())
         return nullptr;
-    if (ActiveRunLeader)
-        if (Player* leader = ActiveRunLeader(member); Usable(leader, member))
+    if (RunLeaderMemo const run = RunLeader(member); run.inRun)
+        if (Player* leader = ObjectAccessor::GetPlayer(*member, run.leader); Usable(leader, member))
             return leader;
     Group* group = const_cast<Player*>(member)->GetGroup();
     if (!group)
@@ -54,7 +83,7 @@ Player* CoaGroupTank::Reference(Player const* member)
 
 bool CoaGroupTank::InDungeonClearRun(Player const* member)
 {
-    return member && ActiveRunLeader && ActiveRunLeader(member) != nullptr;
+    return RunLeader(member).inRun;
 }
 
 void CoaGroupTank::SetHandledByDungeonClear(std::string const& guard, bool handled)

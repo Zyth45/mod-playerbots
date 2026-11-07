@@ -137,7 +137,7 @@ bool CoaCombatRegroupTrigger::IsActive()
         return false;
     }
 
-    CoaGardesSettings const settings = CoaGardesSettings::Get();
+    CoaGardesSettings const& settings = CoaGardesSettings::Get();
     Player* tank = CoaGardesUnits::Tank(bot);
 
     CoaRegroupDecision::GateInputs g;

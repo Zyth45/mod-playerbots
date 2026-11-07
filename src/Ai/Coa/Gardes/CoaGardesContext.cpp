@@ -29,11 +29,23 @@ namespace
     };
 
     UntypedValue* reference_tank(PlayerbotAI* botAI) { return new CoaReferenceTankValue(botAI); }
+
+    // "coa run leader": the run-leader provider's answer for this bot, read at most once per 100 ms (one bot tick),
+    // so that the guards' several reads per action candidate take Dungeon Clear's leader-cache lock once.
+    class CoaRunLeaderValue : public CalculatedValue<CoaGroupTank::RunLeaderMemo>
+    {
+    public:
+        CoaRunLeaderValue(PlayerbotAI* botAI) : CalculatedValue<CoaGroupTank::RunLeaderMemo>(botAI, "coa run leader", 100)
+        {
+        }
+        CoaGroupTank::RunLeaderMemo Calculate() override { return CoaGroupTank::ReadRunLeader(bot); }
+    };
 }
 
 CoaGardesValueContext::CoaGardesValueContext()
 {
     creators["coa reference tank"] = &reference_tank;
+    creators["coa run leader"] = [](PlayerbotAI* ai) -> UntypedValue* { return new CoaRunLeaderValue(ai); };
     creators["coa heal target"] = [](PlayerbotAI* ai) -> UntypedValue* { return new CoaHealTargetValue(ai); };
     creators["party member to heal"] = [](PlayerbotAI* ai) -> UntypedValue* { return new CoaPartyMemberToHealValue(ai); };
     creators["coa tank fight assist state"] = [](PlayerbotAI* ai) -> UntypedValue*

@@ -7,15 +7,11 @@
 #include "CoaGardesSettings.h"
 
 #include "CoaGardesConfig.h"
-#include "Timer.h"
 
-#include <mutex>
 #include <string>
 
 namespace
 {
-    constexpr uint32 REFRESH_MS = 10000;
-
     float ReadFloat(char const* key, float fallback)
     {
         std::string const value = CoaConfigString(std::string("AiPlayerbot.") + key, std::string("DungeonClear.") + key,
@@ -44,18 +40,9 @@ namespace
     }
 }
 
-CoaGardesSettings CoaGardesSettings::Get()
+CoaGardesSettings const& CoaGardesSettings::Get()
 {
-    static std::mutex lock;
-    static CoaGardesSettings cached;
-    static uint32 stamp = 0;
-
-    std::lock_guard<std::mutex> guard(lock);
-    uint32 const now = getMSTime();
-    if (stamp == 0 || getMSTimeDiff(stamp, now) >= REFRESH_MS)
-    {
-        cached = Read();
-        stamp = now ? now : 1;
-    }
-    return cached;
+    // Published once (thread-safe static initialisation), never written again: no lock on the read.
+    static CoaGardesSettings const snapshot = Read();
+    return snapshot;
 }

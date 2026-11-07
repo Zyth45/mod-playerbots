@@ -9,8 +9,8 @@
 
 // The tunables of the party combat guards, each read as AiPlayerbot.<Key> with the player's old DungeonClear.<Key>
 // first (CoaGardesConfig). Defaults are Dungeon Clear's registry defaults. The guards read them every tick, and a
-// configuration lookup walks every key, so the values are kept in one snapshot refreshed every few seconds (a
-// `.reload config` is picked up within that).
+// configuration lookup walks every key, so the values are read once, on the first call, into one immutable snapshot
+// read without a lock afterwards (like the heal and threat lead settings). A change needs a restart.
 struct CoaGardesSettings
 {
     bool combatRegroup = true;          // CombatRegroup
@@ -21,7 +21,7 @@ struct CoaGardesSettings
     float roomAggroPathPadding = 3.0f;  // RoomAggroPathPadding: the room boss wake sphere's party buffer
     float aggroRangeMargin = 2.0f;      // AggroRangeMargin
 
-    static CoaGardesSettings Get();
+    static CoaGardesSettings const& Get();
 };
 
 #endif

@@ -7,6 +7,8 @@
 #ifndef COA_GROUP_TANK_H
 #define COA_GROUP_TANK_H
 
+#include "ObjectGuid.h"
+
 #include <functional>
 #include <string>
 
@@ -26,6 +28,17 @@ namespace CoaGroupTank
     // update; never changed afterwards.
     using Provider = std::function<Player*(Player const* member)>;
     void SetProvider(Provider provider);
+
+    // What the provider answered for one member: whether a run is active for him, and its leader. A bot reads it
+    // through its "coa run leader" value (cached for its tick: the provider takes Dungeon Clear's leader-cache lock,
+    // and the guards ask it several times per action candidate); a human member asks the provider directly.
+    struct RunLeaderMemo
+    {
+        bool inRun = false;
+        ObjectGuid leader;
+    };
+    // The provider's answer, read now (the value's Calculate). Nothing in a run when no provider is set.
+    RunLeaderMemo ReadRunLeader(Player const* member);
 
     Player* Reference(Player const* member);
 
