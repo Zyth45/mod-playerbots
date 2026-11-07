@@ -64,4 +64,9 @@ int main()
     assert(!CoaPlacementTaunt(true, true, true));
     assert(!CoaPlacementTaunt(false, false, true));
     assert(!CoaPlacementTaunt(false, true, false));
+
+    // "tank main on" during a Dungeon Clear run (active or paused): refused; "off" always taken.
+    assert(CoaMainTankOnRefused(true, true));
+    assert(!CoaMainTankOnRefused(true, false));
+    assert(!CoaMainTankOnRefused(false, true));
 }

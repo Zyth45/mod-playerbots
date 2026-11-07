@@ -112,4 +112,11 @@ inline bool CoaPlacementTaunt(bool targetOnBot, bool tauntReady, bool inRange)
 {
     return !targetOnBot && tauntReady && inRange;
 }
+
+// "tank main on" while the player's Dungeon Clear run is active or paused: refused, Dungeon Clear leads the run and
+// the two would give the bots opposite orders. "tank main off" is always taken.
+inline bool CoaMainTankOnRefused(bool turnOn, bool inDungeonClearRun)
+{
+    return turnOn && inDungeonClearRun;
+}
 #endif

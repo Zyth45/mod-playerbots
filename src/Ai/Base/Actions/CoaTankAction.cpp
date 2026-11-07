@@ -7,6 +7,8 @@
 #include "CoaTankAction.h"
 
 #include "CoaAltAddon.h"
+#include "CoaGroupTank.h"
+#include "CoaMainTankRules.h"
 #include "CoaPlayerMainTank.h"
 #include "CoaSpecialization.h"
 #include "Event.h"
@@ -233,6 +235,16 @@ bool CoaTankAction::Execute(Event event)
 
     if (command == "main")
     {
+        // InDungeonClearRun: true while the run is active and while it is paused.
+        if (CoaMainTankOnRefused(arg == "on", CoaGroupTank::InDungeonClearRun(master)))
+        {
+            if (CoaAltAddon::MasterHasAddon(master))
+                CoaAltAddon::SendToMaster(botAI, std::string("TK\tmain\tdc_running\t0\t") +
+                                                     (CoaPlayerMainTank::IsSet(master) ? "on" : "off"));
+            else
+                botAI->TellMaster("Dungeon Clear is running: say \"dc off\" first to lead as Main Tank.");
+            return false;
+        }
         if (arg == "on" || arg == "off")
             CoaPlayerMainTank::Set(master, arg == "on");
         // The flag is the player's: answered ok, its state in the last field (contract with CoA Addon).
