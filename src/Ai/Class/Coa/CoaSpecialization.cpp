@@ -1180,8 +1180,10 @@ bool RecruitCoaBot(Player* master, CoaRole role, std::string& message, uint8 cla
     CoaDropForeignInstanceBinds(chosen, master);
 
     // After joining the group, so the bot may enter the master's dungeon instance.
-    chosen->TeleportTo(master->GetMapId(), master->GetPositionX(), master->GetPositionY(), master->GetPositionZ(),
-                       master->GetOrientation(), 0, nullptr, CoaInOtherInstance(chosen, master));
+    if (!chosen->TeleportTo(master->GetMapId(), master->GetPositionX(), master->GetPositionY(), master->GetPositionZ(),
+                            master->GetOrientation(), 0, nullptr, CoaInOtherInstance(chosen, master)))
+        LOG_WARN("playerbots", "coa regroup: recruit {} to map {}: TeleportTo refused (retried by the raid check)",
+                 chosen->GetName(), master->GetMapId());
 
     if (PlayerbotAI* botAI = GET_PLAYERBOT_AI(chosen))
     {
@@ -1223,6 +1225,134 @@ bool IsCoaRaid(ObjectGuid group, ObjectGuid* flagged = nullptr)
     return true;
 }
 }  // namespace
+
+namespace
+{
+// A far teleport stuck longer than this (its acknowledgement never handled) is finished before teleporting again.
+constexpr time_t StuckTeleportSeconds = 10;
+constexpr float RegroupDistance = 40.0f;
+
+struct PendingRegroup
+{
+    ObjectGuid group;
+    ObjectGuid leader;
+    uint32 dueMs;
+    uint8 left;
+};
+std::mutex RegroupLock;
+std::vector<PendingRegroup> PendingRegroups;
+
+// Only the bot's own binds to another copy of the leader's map (as summon does for that map); never a player's.
+void DropOtherCopyBinds(Player* bot, Player* leader)
+{
+    if (!sRandomPlayerbotMgr.IsRandomBot(bot) || !leader->GetMap()->IsDungeon())
+        return;
+    for (uint8 difficulty = 0; difficulty < MAX_DIFFICULTY; ++difficulty)
+    {
+        std::vector<InstanceSave*> other;
+        for (auto const& [mapId, bind] : sInstanceSaveMgr->PlayerGetBoundInstances(bot->GetGUID(), Difficulty(difficulty)))
+            if (bind.save && bind.save->GetMapId() == leader->GetMapId() &&
+                bind.save->GetInstanceId() != leader->GetInstanceId())
+                other.push_back(bind.save);
+        for (InstanceSave* save : other)
+            sInstanceSaveMgr->PlayerUnbindInstance(bot->GetGUID(), save->GetMapId(), save->GetDifficulty(), true, bot);
+    }
+}
+}  // namespace
+
+uint32 CoaRegroupRaid(Player* leader)
+{
+    Group* group = leader ? leader->GetGroup() : nullptr;
+    if (!group || !CoaIsBuiltRaid(group) || !group->IsLeader(leader->GetGUID()) || GET_PLAYERBOT_AI(leader) ||
+        leader->InBattleground() || !leader->IsInWorld())
+        return 0;
+    uint32 sent = 0;
+    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+    {
+        Player* bot = ref->GetSource();
+        PlayerbotAI* botAI = bot ? GET_PLAYERBOT_AI(bot) : nullptr;
+        if (!botAI || bot == leader || bot->InBattleground() || bot->InArena())
+            continue;
+        // A far teleport whose acknowledgement never came: finished here (world thread, a bot only).
+        if (bot->IsBeingTeleportedFar())
+        {
+            time_t const since = time(nullptr) - bot->GetSemaphoreTeleportFar();
+            if (!bot->IsInWorld() || since > StuckTeleportSeconds)
+            {
+                LOG_WARN("playerbots", "coa regroup: {} stuck in a far teleport for {} s (in world {}): finished",
+                         bot->GetName(), uint32(since), bot->IsInWorld() ? 1 : 0);
+                botAI->HandleTeleportAck();
+            }
+            if (bot->IsBeingTeleported())
+            {
+                LOG_WARN("playerbots", "coa regroup: {} to map {}: still teleporting", bot->GetName(), leader->GetMapId());
+                continue;
+            }
+        }
+        if (!bot->IsInWorld() || bot->IsBeingTeleported())
+            continue;
+        if (bot->GetMapId() == leader->GetMapId() && bot->GetInstanceId() == leader->GetInstanceId() &&
+            bot->IsWithinDist(leader, RegroupDistance))
+            continue;
+        if (bot->isDead() && sPlayerbotAIConfig.reviveBotWhenSummoned == 2)
+        {
+            bot->ResurrectPlayer(1.0f, false);
+            bot->SpawnCorpseBones();
+        }
+        bool const otherInstance = CoaInOtherInstance(bot, leader);
+        DropOtherCopyBinds(bot, leader);
+        bot->GetMotionMaster()->Clear();
+        if (bot->TeleportTo(leader->GetMapId(), leader->GetPositionX(), leader->GetPositionY(), leader->GetPositionZ(),
+                            leader->GetOrientation(), 0, nullptr, otherInstance))
+            ++sent;
+        else
+            LOG_WARN("playerbots", "coa regroup: {} from map {} to map {}: TeleportTo refused", bot->GetName(),
+                     bot->GetMapId(), leader->GetMapId());
+    }
+    return sent;
+}
+
+void CoaScheduleRegroup(ObjectGuid group, ObjectGuid leader)
+{
+    std::lock_guard<std::mutex> guard(RegroupLock);
+    PendingRegroups.push_back({ group, leader, getMSTime() + 5000, 2 });
+}
+
+void CoaRegroupUpdate()
+{
+    std::vector<PendingRegroup> due;
+    uint32 const now = getMSTime();
+    {
+        std::lock_guard<std::mutex> guard(RegroupLock);
+        if (PendingRegroups.empty())
+            return;
+        for (auto itr = PendingRegroups.begin(); itr != PendingRegroups.end();)
+            if (int32(now - itr->dueMs) >= 0)
+            {
+                due.push_back(*itr);
+                itr = PendingRegroups.erase(itr);
+            }
+            else
+                ++itr;
+    }
+    for (PendingRegroup& entry : due)
+    {
+        // GUIDs only, looked up again: a disbanded group or a leader gone drops the entry.
+        Player* leader = ObjectAccessor::FindConnectedPlayer(entry.leader);
+        Group* group = leader ? leader->GetGroup() : nullptr;
+        if (!group || group->GetGUID() != entry.group)
+            continue;
+        uint32 const sent = CoaRegroupRaid(leader);
+        if (sent)
+            LOG_WARN("playerbots", "coa regroup: raid of {}: {} recruit(s) brought again", leader->GetName(), sent);
+        if (--entry.left)
+        {
+            entry.dueMs = now + 10000;
+            std::lock_guard<std::mutex> guard(RegroupLock);
+            PendingRegroups.push_back(entry);
+        }
+    }
+}
 
 bool CoaIsBuiltRaid(Group const* group)
 {
@@ -1416,6 +1546,9 @@ bool RecruitCoaRaid(Player* master, uint32 size, uint32 tanks, uint32 heals, std
     // (the off-tank's ogre went to Maulgar, ladiabale, Gruul 2.4). A dead main tank hands over to the next living tank
     // (PlayerbotAI::GetMainTankGuid); a main tank that is no longer a tank hands the flag over (CoaSyncMainTankFlag).
     CoaSyncMainTankFlag(group, true);
+    // Recruits that did not reach the player (a teleport refused or never finished) are brought again 5 and 15
+    // seconds later, in the world thread (RC11c, test humain 07/11: a third of a raid left in the open world).
+    CoaScheduleRegroup(group->GetGUID(), master->GetGUID());
 
     LOG_INFO("playerbots", "coa: {} built a raid of {}: {} tanks, {} healers, {} damage dealers recruited",
              master->GetName(), size, got[uint8(CoaRole::Tank)], got[uint8(CoaRole::Heal)], got[uint8(CoaRole::Dps)]);

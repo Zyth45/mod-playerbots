@@ -243,7 +243,9 @@ bool SummonAction::Teleport(Player* summoner, Player* player, bool preserveAuras
                 bool const otherInstance = CoaInOtherInstance(player, summoner);
                 if (otherInstance || summoner->GetMap()->IsDungeon())
                     CoaDropForeignInstanceBinds(player, summoner);
-                player->TeleportTo(mapId, x, y, z, 0, 0, nullptr, otherInstance);
+                if (!player->TeleportTo(mapId, x, y, z, 0, 0, nullptr, otherInstance))
+                    LOG_WARN("playerbots", "coa summon: {} from map {} to map {}: TeleportTo refused",
+                             player->GetName(), player->GetMapId(), mapId);
                 if (player->GetPet())
                     player->GetPet()->NearTeleportTo(x, y, z, player->GetOrientation());
                 if (player->GetGuardianPet())
@@ -262,6 +264,9 @@ bool SummonAction::Teleport(Player* summoner, Player* player, bool preserveAuras
         }
     }
 
+    if (summoner->IsBeingTeleported() || player->IsBeingTeleported())
+        LOG_WARN("playerbots", "coa summon: {} to map {}: {} still teleporting", player->GetName(), summoner->GetMapId(),
+                 player->IsBeingTeleported() ? "bot" : "summoner");
     if (summoner != player)
          botAI->TellError(PlayerbotTextMgr::instance().GetBotTextOrDefault(
              "meeting_stone_not_enough_space", "Not enough place to summon", {}));

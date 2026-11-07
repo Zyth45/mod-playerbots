@@ -182,6 +182,13 @@ bool RecruitCoaRaid(Player* master, uint32 size, uint32 tanks, uint32 heals, std
 void CoaSyncMainTankFlag(Group* group, bool assignIfNone);
 // Whether the group is a raid built by ".playerbots coa raid" (the only groups whose flag and roles are kept in step).
 bool CoaIsBuiltRaid(Group const* group);
+// "summon" said by the real-player leader of a built raid (world thread, RC11c): every bot of the raid not beside the
+// leader is brought there, across maps and into the leader's instance; a far teleport stuck over 10 s is finished
+// first. Returns how many teleports were sent; nothing outside a built raid.
+uint32 CoaRegroupRaid(Player* leader);
+// The raid check after ".playerbots coa raid": CoaRegroupRaid 5 and 15 seconds later (world thread timer).
+void CoaScheduleRegroup(ObjectGuid group, ObjectGuid leader);
+void CoaRegroupUpdate();
 bool CoaQueueMainTankSync(Player* bot);
 
 // The free random bot best placed to play `role` for `master` (same faction, on its map, already of

@@ -297,6 +297,17 @@ public:
         if (lang == LANG_ADDON)
             return true;
 
+        // "summon" from the leader of a raid built by ".playerbots coa raid" (SquidBots Lite Regroup): this hook runs
+        // in the world thread (CMSG_MESSAGECHAT), so the server brings every bot of the raid itself, across maps, and
+        // the bots do not get the command again (RC11c). Any other group or command: unchanged.
+        if (group && msg == "summon" && CoaIsBuiltRaid(group) && group->IsLeader(player->GetGUID()) &&
+            !GET_PLAYERBOT_AI(player))
+        {
+            uint32 const sent = CoaRegroupRaid(player);
+            LOG_WARN("playerbots", "coa regroup: {} summons the raid: {} teleport(s) sent", player->GetName(), sent);
+            return true;
+        }
+
         for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
         {
             Player* const member = itr->GetSource();
@@ -476,6 +487,7 @@ public:
         PlayerbotWorldThreadProcessor::instance().Update(diff);
         sRandomPlayerbotMgr.UpdateAI(diff);  // World thread only
         sRandomPlayerbotMgr.CoaReleaseOrphanGroups();
+        CoaRegroupUpdate();  // raid check after ".playerbots coa raid" (RC11c), world thread
         CityDuels::Update(diff);
     }
 

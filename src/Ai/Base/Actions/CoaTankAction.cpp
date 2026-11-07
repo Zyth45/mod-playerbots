@@ -261,7 +261,7 @@ bool CoaTankAction::Execute(Event event)
                         else if (CanTank(member))
                             // Orders need the player as the bot's master (CoaAltAddon): a tank of the raid with another
                             // master is not offered to the bar. Logged to tell it from a role mistake.
-                            LOG_INFO("playerbots", "coa tank: status all of {} skips {} (its master: {})",
+                            LOG_WARN("playerbots", "coa tank: status all of {} skips {} (its master: {})",
                                      master->GetName(), member->GetName(),
                                      memberAI->GetMaster() ? memberAI->GetMaster()->GetName() : std::string("none"));
                     }

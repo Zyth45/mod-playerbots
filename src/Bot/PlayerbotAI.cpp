@@ -964,7 +964,12 @@ void PlayerbotAI::HandleCommand(uint32 type, std::string const& text, Player& fr
     if (!IsAllowedCommand(filtered) &&
         !GetSecurity()->CheckLevelFor(PlayerbotSecurityLevel::PLAYERBOT_SECURITY_ALLOW_ALL, type != CHAT_MSG_WHISPER,
                                       &fromPlayer))
+    {
+        if (filtered == "summon")
+            LOG_WARN("playerbots", "coa summon: {} refuses the summon of {} (its master: {})", bot->GetName(),
+                     fromPlayer.GetName(), master ? master->GetName() : std::string("none"));
         return;
+    }
 
     OnMasterCommand(filtered, &fromPlayer);
 
