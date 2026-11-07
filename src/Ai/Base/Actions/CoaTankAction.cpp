@@ -265,6 +265,9 @@ bool CoaTankAction::Execute(Event event)
                                      master->GetName(), member->GetName(),
                                      memberAI->GetMaster() ? memberAI->GetMaster()->GetName() : std::string("none"));
                     }
+        // End of the list (contract with CoA Addon: exactly "TS\t-"), so that no tank tells from no answer.
+        if (CoaAltAddon::MasterHasAddon(master))
+            CoaAltAddon::SendToMaster(botAI, "TS\t-");
         return true;
     }
 
