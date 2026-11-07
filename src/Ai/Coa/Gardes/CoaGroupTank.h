@@ -36,8 +36,13 @@ namespace CoaGroupTank
     // of the same name stands down for the members of an active run, so that no guard acts twice. Dungeon Clear
     // declares them at load, and drops a name in the same change that cuts its own guard. Set before the maps update.
     void SetHandledByDungeonClear(std::string const& guard, bool handled);
-    // Whether the module's guard `guard` acts for this member: always outside a Dungeon Clear run, and inside one
-    // unless Dungeon Clear still runs that guard itself.
+    // The guards' scope (2.9.4): instances only. True when the member is in a group and on a dungeon or raid map
+    // (Map::IsDungeon; battlegrounds and arenas are out). Every guard (trigger, action, multiplier, value that changes
+    // what a bot does) returns at once, before any lock or setting read, when this is false; the decorating values
+    // ("dps target", "party member to heal", ...) give the stock value back.
+    bool GuardScope(Player const* member);
+    // Whether the module's guard `guard` acts for this member: never outside GuardScope; then always outside a Dungeon
+    // Clear run, and inside one unless Dungeon Clear still runs that guard itself.
     bool ModuleGuardActs(Player const* member, std::string const& guard);
 }
 

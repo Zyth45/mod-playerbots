@@ -8,6 +8,7 @@
 
 #include "CoaPlayerMainTank.h"
 #include "Group.h"
+#include "Map.h"
 #include "Player.h"
 #include "PlayerbotAI.h"
 
@@ -64,7 +65,17 @@ void CoaGroupTank::SetHandledByDungeonClear(std::string const& guard, bool handl
         HandledByDungeonClear.erase(guard);
 }
 
+bool CoaGroupTank::GuardScope(Player const* member)
+{
+    if (!member || !member->GetGroup())
+        return false;
+    Map const* map = member->FindMap();
+    return map && map->IsDungeon();
+}
+
 bool CoaGroupTank::ModuleGuardActs(Player const* member, std::string const& guard)
 {
+    if (!GuardScope(member))
+        return false;
     return !HandledByDungeonClear.count(guard) || !InDungeonClearRun(member);
 }
