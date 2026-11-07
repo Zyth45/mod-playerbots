@@ -37,8 +37,10 @@ void ChangeTalentsAction::ListCoaTalents()
                 break;
             }
         // Talents and the abilities bought with points (Black Prayer, Crystalline Reflection): "talents learn" takes
-        // both, and listing only the talents hid what had just been learned. The free automatic ranks stay out.
-        if (!entry || !(entry->Talent || entry->AECost || entry->TECost) || !item.Rank || !entry->SpellCount)
+        // both, and listing only the talents hid what had just been learned; so are the free choices of the support
+        // specializations (the Fleshweaver ones are abilities). The free automatic ranks stay out.
+        if (!entry || !(entry->Talent || entry->AECost || entry->TECost || CoaFreeGroupOf(entry->EntryId)) || !item.Rank ||
+            !entry->SpellCount)
             continue;
 
         uint32 const rank = std::min<uint32>(item.Rank, entry->SpellCount);

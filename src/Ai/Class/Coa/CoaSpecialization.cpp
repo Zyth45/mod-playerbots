@@ -6,6 +6,7 @@
 
 #include "CoaSpecialization.h"
 #include "CoaMainTankRules.h"
+#include "CoaTalentOfferRules.h"
 #include "PlayerbotOperations.h"
 #include "PlayerbotWorldThreadProcessor.h"
 #include "CoaLevelBuildData.h"
@@ -419,12 +420,18 @@ AscensionCompatData::CoATalentEntry const* FindCoaEntry(uint32 entryId)
     return nullptr;
 }
 
-// The paid entries of the bot's class it may hold now: its class tree and its active specialization's tree.
+namespace
+{
+uint32 FreeGroupOf(uint32 entryId);
+}
+
+// The entries of the bot's class it may hold now, in its class tree and its active specialization's tree: the paid
+// ones, and the free choices of the six support specializations (no cost, one entry of each free-choice group),
+// which were refused for having no cost, so an alt never took them and the addon never drew them.
 bool CoaEntryOffered(Player* bot, AscensionCompatData::CoATalentEntry const& entry)
 {
-    if (entry.ClassId != bot->getClass() || (!entry.AECost && !entry.TECost) || !entry.SpellCount)
-        return false;
-    return !entry.SpecId || entry.SpecId == GetAscensionActiveSpecialization(bot);
+    return CoaTalentEntryOffered(entry.ClassId, bot->getClass(), entry.AECost, entry.TECost, entry.SpellCount,
+                                 FreeGroupOf(entry.EntryId), entry.SpecId, GetAscensionActiveSpecialization(bot));
 }
 
 CoaPoints PointsOf(Player* bot)
@@ -520,6 +527,11 @@ std::vector<std::pair<uint32, uint8>> BuildRanksAtLevel(Player* bot, uint32 spec
     return wanted;
 }
 }  // namespace
+
+uint32 CoaFreeGroupOf(uint32 entryId)
+{
+    return FreeGroupOf(entryId);
+}
 
 uint32 ApplyCoaTalents(Player* bot)
 {

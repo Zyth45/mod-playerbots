@@ -131,8 +131,12 @@ uint32 ApplyCoaTalents(Player* bot);
 // The Character Advancement entry `entryId`, or null.
 AscensionCompatData::CoATalentEntry const* FindCoaEntry(uint32 entryId);
 
-// The paid entries of the bot's class it may hold now: its class tree and its active specialization's tree.
+// The entries of the bot's class it may hold now, in its class tree and its active specialization's tree: paid, or a
+// free choice of a support specialization.
 bool CoaEntryOffered(Player* bot, AscensionCompatData::CoATalentEntry const& entry);
+
+// The free-choice group of an entry (no cost, one entry of the group at a time), or 0.
+uint32 CoaFreeGroupOf(uint32 entryId);
 
 // Class tree points (AE) and specialization tree points (TE): available at the bot's level, and spent.
 struct CoaPoints
