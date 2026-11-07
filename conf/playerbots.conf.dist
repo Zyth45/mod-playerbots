@@ -713,6 +713,10 @@ AiPlayerbot.CoaTankFightLatch = 3
 # (DungeonClear.PartyMaxSpread, DungeonClear.PartyMaxSpread.Raid).
 AiPlayerbot.CoaTankFightSpread = 25
 AiPlayerbot.CoaTankFightSpreadRaid = 40
+# In combat, a bot that strayed too far from the group's tank walks back (DungeonClear.CombatRegroup).
+AiPlayerbot.CombatRegroup = 1
+# A bot standing in a ground effect or a trap steps out of it (DungeonClear.HazardVacate).
+AiPlayerbot.HazardVacate = 1
 
 # Random property and random suffix of the gear given to bots ("of the Bear", "of the Eagle"...).
 # 0: each item takes a property or suffix that scores well for the bot's role (stamina, and defense for a tank,
