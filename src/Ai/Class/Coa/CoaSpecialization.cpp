@@ -1273,7 +1273,11 @@ CoaBringResult CoaBringBotToLeader(Player* bot, Player* leader, char const* what
     // leader out ("instance is full" at Blackrock Depths, test humain 07/11); its bots wait at the door (RC11f).
     Group* group = leader->GetGroup();
     InstanceMap* instance = leader->GetMap()->ToInstanceMap();
-    bool const tooSmall = instance && !instance->IsRaid() && group && group->GetMembersCount() > instance->GetMaxPlayers();
+    // A bot already inside the leader's instance is brought to the leader there, never sent out (RC11g).
+    bool const inLeaderInstance = bot->IsInWorld() && bot->GetMapId() == leader->GetMapId() &&
+                                  bot->GetInstanceId() == leader->GetInstanceId();
+    bool const tooSmall = !inLeaderInstance && instance && !instance->IsRaid() && group &&
+                          group->GetMembersCount() > instance->GetMaxPlayers();
     bool const otherInstance = forceFar || CoaInOtherInstance(bot, leader);
     if (!tooSmall)
     {
