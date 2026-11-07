@@ -103,10 +103,19 @@ constexpr uint32 PriorityAddSummons[] = {
     12506,          // Atal'ai Skeleton Totem (raises skeletons)
 };
 
+// Summons the group races to kill only on Heroic and Mythic, where they are deadly. Hamhock's Greater Fire Nova Totem
+// (Stormwind Stockade) detonates 5 s after it appears with a nova over the whole room: up to 37 damage on Normal, where
+// its level 60 health is beyond a level 25 group anyway, but 3000 on Heroic and 3900 on Mythic. It is summoned as a
+// plain creature, not a totem, so nothing else marks it.
+constexpr uint32 PriorityAddSummonsHeroic[] = {
+    2102745,        // Summon Greater Fire Nova Totem
+};
+
 struct Tables
 {
     std::unordered_set<uint32> casts;
-    std::unordered_set<uint32> adds;  // creature entries
+    std::unordered_set<uint32> adds;        // creature entries
+    std::unordered_set<uint32> heroicAdds;  // creature entries, Heroic and Mythic only
 };
 
 // Built on first use, once the spell store is loaded: a magic static, so thread safe.
@@ -124,21 +133,26 @@ Tables const& Get()
                 ++unknownCasts;
         }
 
-        for (uint32 const id : PriorityAddSummons)
+        auto const addSummoned = [&unknownSummons](uint32 id, std::unordered_set<uint32>& into)
         {
             SpellInfo const* info = sSpellMgr->GetSpellInfo(id);
             if (!info)
             {
                 ++unknownSummons;
-                continue;
+                return;
             }
             for (SpellEffectInfo const& effect : info->GetEffects())
                 if (effect.Effect == SPELL_EFFECT_SUMMON && effect.MiscValue > 0)
-                    built.adds.insert(uint32(effect.MiscValue));
-        }
+                    into.insert(uint32(effect.MiscValue));
+        };
+        for (uint32 const id : PriorityAddSummons)
+            addSummoned(id, built.adds);
+        for (uint32 const id : PriorityAddSummonsHeroic)
+            addSummoned(id, built.heroicAdds);
 
         LOG_INFO("playerbots", "coa dungeon: {} priority casts ({} unknown to the server), {} priority adds from {} summons "
-                 "({} unknown)", built.casts.size(), unknownCasts, built.adds.size(), std::size(PriorityAddSummons),
+                 "({} unknown)", built.casts.size(), unknownCasts, built.adds.size() + built.heroicAdds.size(),
+                 std::size(PriorityAddSummons) + std::size(PriorityAddSummonsHeroic),
                  unknownSummons);
         return built;
     }();
@@ -288,6 +302,8 @@ bool HealsOrProtects(Creature* creature)
         return false;
     if (Get().adds.count(creature->GetEntry()))
         return true;
+    if (Get().heroicAdds.count(creature->GetEntry()))
+        return creature->GetMap()->GetDifficulty() != DUNGEON_DIFFICULTY_NORMAL;
 
     // Several map threads ask; the answer only depends on the entry.
     std::lock_guard<std::mutex> guard(SupportCacheLock);
