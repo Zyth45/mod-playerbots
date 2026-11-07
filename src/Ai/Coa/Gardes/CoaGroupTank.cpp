@@ -11,9 +11,12 @@
 #include "Player.h"
 #include "PlayerbotAI.h"
 
+#include <set>
+
 namespace
 {
     CoaGroupTank::Provider ActiveRunLeader;
+    std::set<std::string> HandledByDungeonClear;
 
     bool Usable(Player const* tank, Player const* member)
     {
@@ -46,4 +49,22 @@ Player* CoaGroupTank::Reference(Player const* member)
         if (Player* tank = ref->GetSource(); Usable(tank, member) && PlayerbotAI::IsTank(tank))
             return tank;
     return nullptr;
+}
+
+bool CoaGroupTank::InDungeonClearRun(Player const* member)
+{
+    return member && ActiveRunLeader && ActiveRunLeader(member) != nullptr;
+}
+
+void CoaGroupTank::SetHandledByDungeonClear(std::string const& guard, bool handled)
+{
+    if (handled)
+        HandledByDungeonClear.insert(guard);
+    else
+        HandledByDungeonClear.erase(guard);
+}
+
+bool CoaGroupTank::ModuleGuardActs(Player const* member, std::string const& guard)
+{
+    return !HandledByDungeonClear.count(guard) || !InDungeonClearRun(member);
 }

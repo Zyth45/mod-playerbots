@@ -8,6 +8,7 @@
 #define COA_GROUP_TANK_H
 
 #include <functional>
+#include <string>
 
 class Player;
 
@@ -27,6 +28,17 @@ namespace CoaGroupTank
     void SetProvider(Provider provider);
 
     Player* Reference(Player const* member);
+
+    // Whether this member is in an active Dungeon Clear run (the provider gives it a run leader).
+    bool InDungeonClearRun(Player const* member);
+
+    // The guards Dungeon Clear still runs itself during its runs (by name, e.g. "heal reposition"): the module's guard
+    // of the same name stands down for the members of an active run, so that no guard acts twice. Dungeon Clear
+    // declares them at load, and drops a name in the same change that cuts its own guard. Set before the maps update.
+    void SetHandledByDungeonClear(std::string const& guard, bool handled);
+    // Whether the module's guard `guard` acts for this member: always outside a Dungeon Clear run, and inside one
+    // unless Dungeon Clear still runs that guard itself.
+    bool ModuleGuardActs(Player const* member, std::string const& guard);
 }
 
 #endif
