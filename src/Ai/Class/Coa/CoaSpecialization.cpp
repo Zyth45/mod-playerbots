@@ -1268,30 +1268,50 @@ static AreaTriggerTeleport const* LeaderDungeonDoor(Player* leader)
 
 CoaBringResult CoaBringBotToLeader(Player* bot, Player* leader, char const* what, bool forceFar)
 {
-    // A bot already waiting at the door of the leader's dungeon is left there: a dungeon that refused it once refuses it
-    // again (a 5-player one for a raid), and the next summon from a raid instance brings it in (RC11e).
     AreaTriggerTeleport const* door = LeaderDungeonDoor(leader);
-    if (!forceFar && door && bot->IsInWorld() && bot->GetMapId() == door->target_mapId &&
-        bot->GetExactDist(door->target_X, door->target_Y, door->target_Z) <= RegroupDistance)
-        return CoaBringResult::AtDoor;
+    // A raid larger than the cap of the leader's 5-player dungeon never goes in: it would fill the instance and lock the
+    // leader out ("instance is full" at Blackrock Depths, test humain 07/11); its bots wait at the door (RC11f).
+    Group* group = leader->GetGroup();
+    InstanceMap* instance = leader->GetMap()->ToInstanceMap();
+    bool const tooSmall = instance && !instance->IsRaid() && group && group->GetMembersCount() > instance->GetMaxPlayers();
     bool const otherInstance = forceFar || CoaInOtherInstance(bot, leader);
-    DropOtherCopyBinds(bot, leader);
+    if (!tooSmall)
+    {
+        // Always into the leader's instance first: a bot standing at the door of the leader's raid (Blackrock Mountain
+        // for Molten Core) is brought in, not left outside (RC11e skipped it silently).
+        DropOtherCopyBinds(bot, leader);
+        if (bot->IsInWorld())
+            bot->GetMotionMaster()->Clear();
+        if (bot->TeleportTo(leader->GetMapId(), leader->GetPositionX(), leader->GetPositionY(), leader->GetPositionZ(),
+                            leader->GetOrientation(), 0, nullptr, otherInstance))
+            return CoaBringResult::Sent;
+    }
+    char const* why = tooSmall ? "the raid is larger than the instance" : "the instance refused it";
+    if (!door)
+    {
+        LOG_WARN("playerbots", "coa regroup: {} ({}) from map {} to map {}: TeleportTo refused", bot->GetName(), what,
+                 bot->GetMapId(), leader->GetMapId());
+        return CoaBringResult::Refused;
+    }
+    // Already at the door after a refusal: no second door teleport.
+    if (!forceFar && bot->IsInWorld() && bot->GetMapId() == door->target_mapId &&
+        bot->GetExactDist(door->target_X, door->target_Y, door->target_Z) <= RegroupDistance)
+    {
+        LOG_WARN("playerbots", "coa regroup: {} ({}) waits at the entrance of map {}: {}", bot->GetName(), what,
+                 leader->GetMapId(), why);
+        return CoaBringResult::AtDoor;
+    }
     if (bot->IsInWorld())
         bot->GetMotionMaster()->Clear();
-    if (bot->TeleportTo(leader->GetMapId(), leader->GetPositionX(), leader->GetPositionY(), leader->GetPositionZ(),
-                        leader->GetOrientation(), 0, nullptr, otherInstance))
-        return CoaBringResult::Sent;
-    // The leader's instance does not take it (a raid group in a 5-player dungeon, the instance full): the bot goes to the
-    // dungeon's door outside instead (test humain 07/11, Blackrock Depths on the way to Molten Core).
-    if (door && bot->TeleportTo(door->target_mapId, door->target_X, door->target_Y, door->target_Z, door->target_Orientation,
-                                0, nullptr, forceFar))
+    if (bot->TeleportTo(door->target_mapId, door->target_X, door->target_Y, door->target_Z, door->target_Orientation, 0,
+                        nullptr, forceFar))
     {
-        LOG_WARN("playerbots", "coa regroup: {} ({}) to the entrance of map {} (map {}): the instance refused it",
-                 bot->GetName(), what, leader->GetMapId(), door->target_mapId);
+        LOG_WARN("playerbots", "coa regroup: {} ({}) to the entrance of map {} (map {}): {}", bot->GetName(), what,
+                 leader->GetMapId(), door->target_mapId, why);
         return CoaBringResult::ToDoor;
     }
-    LOG_WARN("playerbots", "coa regroup: {} ({}) from map {} to map {}: TeleportTo refused{}", bot->GetName(), what,
-             bot->GetMapId(), leader->GetMapId(), door ? ", the entrance too" : "");
+    LOG_WARN("playerbots", "coa regroup: {} ({}) from map {} to map {}: {}, and the entrance refused it too", bot->GetName(),
+             what, bot->GetMapId(), leader->GetMapId(), why);
     return CoaBringResult::Refused;
 }
 
