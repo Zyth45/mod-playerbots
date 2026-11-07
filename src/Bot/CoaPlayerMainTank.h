@@ -47,6 +47,16 @@ namespace CoaPlayerMainTank
     // never moon, which marks crowd control, nor skull, left to the player). Server index 0-7.
     uint8 NextFreeIcon(Group const* group);
     void Forget(ObjectGuid guid);
+
+    // Placement ("tank hold"): the bot tank holds the point it was given, in combat too, until "tank clear" or the end
+    // of its given target (07/11, RC11).
+    void SetPlacement(Player* bot, bool on);
+    bool InPlacement(Player const* bot);
+
+    // The given target's end (dead, or gone: evade, out of reach), noted where the target is read and handled by the
+    // bot's own update before its engine runs (TakeEnded): strategies are not changed while the engine reads them.
+    void MarkEnded(Player* bot, std::string const& name, bool dead);
+    bool TakeEnded(Player const* bot, std::string& name, bool& dead);
 }
 
 #endif

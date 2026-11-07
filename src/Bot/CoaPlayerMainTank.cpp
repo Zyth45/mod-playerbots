@@ -41,6 +41,13 @@ namespace
     std::atomic<uint32> FlaggedCount{0};
     std::unordered_map<ObjectGuid, PinnedTarget> Pins;
     std::unordered_map<ObjectGuid, ReleasedTarget> Releases;
+    std::unordered_set<ObjectGuid> Placements;
+    struct EndedTarget
+    {
+        std::string name;
+        bool dead = false;
+    };
+    std::unordered_map<ObjectGuid, EndedTarget> Ended;
 
     uint64 NowMs() { return GameTime::GetGameTimeMS().count(); }
 }
@@ -163,6 +170,49 @@ void CoaPlayerMainTank::Forget(ObjectGuid guid)
     FlaggedCount = uint32(Flagged.size());
     Pins.erase(guid);
     Releases.erase(guid);
+    Placements.erase(guid);
+    Ended.erase(guid);
+}
+
+void CoaPlayerMainTank::SetPlacement(Player* bot, bool on)
+{
+    if (!bot)
+        return;
+    std::lock_guard<std::mutex> guard(Lock);
+    if (on)
+        Placements.insert(bot->GetGUID());
+    else
+        Placements.erase(bot->GetGUID());
+}
+
+bool CoaPlayerMainTank::InPlacement(Player const* bot)
+{
+    if (!bot)
+        return false;
+    std::lock_guard<std::mutex> guard(Lock);
+    return Placements.contains(bot->GetGUID());
+}
+
+void CoaPlayerMainTank::MarkEnded(Player* bot, std::string const& name, bool dead)
+{
+    if (!bot)
+        return;
+    std::lock_guard<std::mutex> guard(Lock);
+    Ended[bot->GetGUID()] = EndedTarget{name, dead};
+}
+
+bool CoaPlayerMainTank::TakeEnded(Player const* bot, std::string& name, bool& dead)
+{
+    if (!bot)
+        return false;
+    std::lock_guard<std::mutex> guard(Lock);
+    auto const itr = Ended.find(bot->GetGUID());
+    if (itr == Ended.end())
+        return false;
+    name = itr->second.name;
+    dead = itr->second.dead;
+    Ended.erase(itr);
+    return true;
 }
 
 class CoaPlayerMainTankPlayerScript : public PlayerScript

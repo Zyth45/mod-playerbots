@@ -175,10 +175,16 @@ Unit* TankTargetValue::PinnedOrAssist()
     // An enemy back to its spawn after a wipe or a leash (evade) is no order any more (06/11 review, point 8).
     Unit* target = ObjectAccessor::GetUnit(*bot, pinned);
     Creature* creature = target ? target->ToCreature() : nullptr;
-    if (target && target->IsAlive() && target->IsInWorld() && target->GetMap() == bot->GetMap() &&
-        !(creature && creature->IsInEvadeMode()) && bot->IsValidAttackTarget(target))
+    CoaPinEnd const end = CoaPinnedTargetEnd(target != nullptr, target && target->IsAlive(),
+                                             target && target->IsInWorld() && target->GetMap() == bot->GetMap(),
+                                             creature && creature->IsInEvadeMode(),
+                                             target && bot->IsValidAttackTarget(target));
+    if (end == CoaPinEnd::Keep)
         return target;
 
+    // The order ends like "tank clear" (placement lifted, back to assisting, said and told to the bar): done by the
+    // bot's own update before its engine runs (CoaTankOrderTick), not while the engine reads this value (RC11).
+    CoaPlayerMainTank::MarkEnded(bot, target ? target->GetName() : std::string(), end == CoaPinEnd::Dead);
     CoaPlayerMainTank::Unpin(bot);
     if (CoaAltAddon::MasterHasAddon(botAI->GetMaster()))
         CoaAltAddon::SendToMaster(botAI, "TK\ttarget\tdead\t" + std::to_string(icon == 0xFF ? 0 : uint32(icon) + 1) +

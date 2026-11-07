@@ -680,6 +680,11 @@ AiPlayerbot.RandomBotTransmogCosmeticSets = 50
 # Default: 10
 AiPlayerbot.PlayerMainTankRescueHealth = 10
 
+# A bot tank says in /say each order of the Main Tank bar it carries out ("Taking <target>.", "Holding here.",
+# "<target> down, back to assisting you."...). A refused order shows in the bar only.
+# Default: 1 (enabled)
+AiPlayerbot.CoaTankOrdersSay = 1
+
 # Combat guards that came from Dungeon Clear (07/11), for every bot. Each one reads the old DungeonClear.* setting
 # first when your dungeon_clear.conf has it, so an update never changes a value you set.
 #

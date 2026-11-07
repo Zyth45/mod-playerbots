@@ -9,6 +9,16 @@
 
 void StayStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
 {
+    // A bot tank's placement ("tank hold", RC11): in combat, the walk back to its point wins over the rotation and
+    // the reach (under the emergencies); a ready taunt goes to its given target on the way.
+    triggers.push_back(
+        new TriggerNode(
+            "coa placement away",
+            {
+                NextAction("coa placement move", ACTION_RAID + 1)
+            }
+        )
+    );
     triggers.push_back(
         new TriggerNode(
             "return to stay position",

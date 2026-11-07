@@ -10,6 +10,7 @@
 #include "CureTriggers.h"
 #include "FishingTriggers.h"
 #include "GenericTriggers.h"
+#include "CoaTankAction.h"
 #include "GuildTriggers.h"
 #include "HealthTriggers.h"
 #include "LfgTriggers.h"
@@ -36,6 +37,7 @@ public:
         creators["return"] = &TriggerContext::_return;
         creators["sit"] = &TriggerContext::sit;
         creators["return to stay position"] = &TriggerContext::return_to_stay_position;
+        creators["coa placement away"] = &TriggerContext::coa_placement_away;
         creators["collision"] = &TriggerContext::collision;
 
         creators["timer"] = &TriggerContext::Timer;
@@ -260,6 +262,7 @@ private:
     static Trigger* no_rti(PlayerbotAI* botAI) { return new NoRtiTrigger(botAI); }
     static Trigger* _return(PlayerbotAI* botAI) { return new ReturnTrigger(botAI); }
     static Trigger* return_to_stay_position(PlayerbotAI* ai) { return new ReturnToStayPositionTrigger(ai); }
+    static Trigger* coa_placement_away(PlayerbotAI* ai) { return new CoaPlacementAwayTrigger(ai); }
     static Trigger* sit(PlayerbotAI* botAI) { return new SitTrigger(botAI); }
     static Trigger* far_from_rpg_target(PlayerbotAI* botAI) { return new FarFromRpgTargetTrigger(botAI); }
     static Trigger* near_rpg_target(PlayerbotAI* botAI) { return new NearRpgTargetTrigger(botAI); }

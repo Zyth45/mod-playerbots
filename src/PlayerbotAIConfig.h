@@ -584,6 +584,8 @@ public:
     uint32 randomBotTransmogCosmeticSets;
     // Below this health (percent) the player main tank's enemies are no longer left to the player (0: never).
     uint32 playerMainTankRescueHealth;
+    // A bot tank says in /say each order of the Main Tank bar it carries out (a failure stays in the bar).
+    bool coaTankOrdersSay;
     // Bot gear rolls its random property or suffix like a looted item instead of the best one for the spec:
     // 0 never, 1 random bots out in the world, 2 every bot.
     uint32 gearRollRandomSuffix;

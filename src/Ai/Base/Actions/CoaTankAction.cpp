@@ -16,21 +16,45 @@
 #include "PositionValue.h"
 #include "SpellInfo.h"
 #include "SpellMgr.h"
+#include "Timer.h"
+
+#include <mutex>
+#include <unordered_map>
 
 namespace
 {
 constexpr uint8 NoIcon = 0xFF;
 
+// A bot is a tank by its combat strategy (IsTank) or by its specialization (IsTank by spec), as ".playerbots coa raid"
+// and the raid panel see it: a tank by spec whose strategy said otherwise answered "dps" and the Main Tank bar put two
+// damage dealers before it (test humain 07/11, Pithen). The disagreement is logged (SendStatus).
+bool TankNow(Player* bot)
+{
+    return PlayerbotAI::IsTank(bot) || PlayerbotAI::IsTank(bot, true);
+}
+
 std::string Role(Player* bot)
 {
-    if (PlayerbotAI::IsTank(bot))
+    if (TankNow(bot))
         return "tank";
     return PlayerbotAI::IsHeal(bot) ? "heal" : "dps";
 }
 
 bool CanTank(Player* bot)
 {
-    return PlayerbotAI::IsTank(bot) || CoaCanSwitchRole(bot, CoaRole::Tank);
+    return TankNow(bot) || CoaCanSwitchRole(bot, CoaRole::Tank);
+}
+
+// An order carried out, said in /say (AiPlayerbot.CoaTankOrdersSay); a refused one stays in the bar.
+void SayOrder(PlayerbotAI* botAI, std::string const& text)
+{
+    if (sPlayerbotAIConfig.coaTankOrdersSay && botAI)
+        botAI->Say(text);
+}
+
+std::string NameOf(Unit* target)
+{
+    return target ? target->GetName() : std::string("my target");
 }
 
 bool Busy(Player* bot)
@@ -105,6 +129,10 @@ void CoaTankAction::Reply(std::string const& action, std::string const& result, 
 
 void CoaTankAction::SendStatus(Player* tank)
 {
+    if (PlayerbotAI::IsTank(tank) != PlayerbotAI::IsTank(tank, true))
+        LOG_INFO("playerbots", "coa tank: {} is a tank by {} only (strategy {}, specialization {})", tank->GetName(),
+                 PlayerbotAI::IsTank(tank) ? "strategy" : "specialization", PlayerbotAI::IsTank(tank) ? 1 : 0,
+                 PlayerbotAI::IsTank(tank, true) ? 1 : 0);
     uint8 icon = NoIcon;
     ObjectGuid const pinned = CoaPlayerMainTank::Pinned(tank, &icon);
     Unit* target = pinned ? UnitOnMapOf(tank, pinned) : nullptr;
@@ -171,6 +199,7 @@ bool CoaTankAction::PinTarget(Unit* target, std::string const& action)
 
 void CoaTankAction::ReleaseHold()
 {
+    CoaPlayerMainTank::SetPlacement(bot, false);
     botAI->ChangeStrategy("+follow,-stay", BOT_STATE_NON_COMBAT);
     botAI->ChangeStrategy("-stay", BOT_STATE_COMBAT);
     ResetReturnPosition();
@@ -225,8 +254,16 @@ bool CoaTankAction::Execute(Event event)
             for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
                 if (Player* member = ref->GetSource())
                     if (PlayerbotAI* memberAI = GET_PLAYERBOT_AI(member))
+                    {
                         if (memberAI->GetMaster() == master && CanTank(member))
                             SendStatus(member);
+                        else if (CanTank(member))
+                            // Orders need the player as the bot's master (CoaAltAddon): a tank of the raid with another
+                            // master is not offered to the bar. Logged to tell it from a role mistake.
+                            LOG_INFO("playerbots", "coa tank: status all of {} skips {} (its master: {})",
+                                     master->GetName(), member->GetName(),
+                                     memberAI->GetMaster() ? memberAI->GetMaster()->GetName() : std::string("none"));
+                    }
         return true;
     }
 
@@ -254,6 +291,8 @@ bool CoaTankAction::Execute(Event event)
             ReleaseHold();
         }
         bool const switched = CoaSwitchRole(bot, role);
+        if (switched)
+            SayOrder(botAI, role == CoaRole::Tank ? "Switching to tank spec." : "Switching to damage spec.");
         if (CoaAltAddon::MasterHasAddon(botAI->GetMaster()))
             CoaAltAddon::SendToMaster(botAI, "TK\tspec\t" + std::string(switched ? "ok" : "busy") + "\t0\t" + Role(bot));
         else
@@ -266,10 +305,11 @@ bool CoaTankAction::Execute(Event event)
         CoaPlayerMainTank::Unpin(bot);
         ReleaseHold();
         Reply("clear", "ok");
+        SayOrder(botAI, "Back to assisting you.");
         return true;
     }
 
-    if (!PlayerbotAI::IsTank(bot))
+    if (!TankNow(bot))
     {
         Reply(command, "not_tank");
         return false;
@@ -287,7 +327,9 @@ bool CoaTankAction::Execute(Event event)
         botAI->ChangeStrategy("+stay,-follow", BOT_STATE_NON_COMBAT);
         botAI->ChangeStrategy("+stay", BOT_STATE_COMBAT);
         bot->GetMotionMaster()->MovePoint(0, master->GetPositionX(), master->GetPositionY(), master->GetPositionZ());
+        CoaPlayerMainTank::SetPlacement(bot, true);
         Reply("hold", "ok");
+        SayOrder(botAI, "Holding here.");
         return true;
     }
 
@@ -302,6 +344,7 @@ bool CoaTankAction::Execute(Event event)
         if (held)
             CoaPlayerMainTank::Release(bot, held->GetGUID());
         Reply("swap back", "ok", NoIcon, held);
+        SayOrder(botAI, "Giving you " + NameOf(held) + " back.");
         return true;
     }
 
@@ -322,6 +365,7 @@ bool CoaTankAction::Execute(Event event)
         if (!Taunt(target, "taunt"))
             return false;
         Reply("taunt", "ok", target == own ? icon : NoIcon, target);
+        SayOrder(botAI, "Taunting " + NameOf(target) + "!");
         return true;
     }
 
@@ -332,15 +376,117 @@ bool CoaTankAction::Execute(Event event)
     }
 
     if (command == "target")
-        return PinTarget(target, "target");
+    {
+        PinTarget(target, "target");
+        SayOrder(botAI, "Taking " + NameOf(target) + ".");
+        return true;
+    }
 
     if (command == "swap")
     {
         PinTarget(target, "swap");
-        return Taunt(target, "swap");
+        if (!Taunt(target, "swap"))
+            return false;
+        SayOrder(botAI, "Swapping to " + NameOf(target) + ".");
+        return true;
     }
 
     botAI->TellMaster("Usage: tank main on|off|status, tank target, tank taunt, tank swap [back], tank hold, tank clear, "
                       "tank status [all], tank spec tank|dps");
     return false;
+}
+
+// Placement in combat (RC11, test humain 07/11 : « des fois il se bloque avant de finir son deplacement pour attaquer le
+// mob qui l'attaque »). Above the rotation and the reach (ACTION_RAID + 1, under the emergencies), the walk to the
+// point wins: one tick after another the bot keeps walking, a ready taunt thrown at its given target on the way.
+bool CoaPlacementAwayTrigger::IsActive()
+{
+    if (!CoaPlayerMainTank::InPlacement(bot))
+        return false;
+    PositionInfo const stay = AI_VALUE(PositionMap&, "position")["stay"];
+    return stay.isSet() && stay.mapId == bot->GetMapId() &&
+           CoaPlacementMustWalk(true, bot->IsInCombat(), bot->GetDistance(stay.x, stay.y, stay.z));
+}
+
+bool CoaPlacementMoveAction::isUseful()
+{
+    PositionInfo const stay = AI_VALUE(PositionMap&, "position")["stay"];
+    return stay.isSet() && stay.mapId == bot->GetMapId() && CoaPlayerMainTank::InPlacement(bot) &&
+           bot->GetDistance(stay.x, stay.y, stay.z) < sPlayerbotAIConfig.reactDistance;
+}
+
+bool CoaPlacementMoveAction::Execute(Event event)
+{
+    // The given target follows the bot to the point: taunted again whenever it turns on someone else.
+    if (ObjectGuid const pinned = CoaPlayerMainTank::Pinned(bot))
+        if (Unit* target = UnitOnMapOf(bot, pinned); target && target->IsAlive() && bot->IsValidAttackTarget(target))
+            if (uint32 const spellId = TauntSpell(bot, target))
+                if (SpellInfo const* info = sSpellMgr->GetSpellInfo(spellId))
+                    if (CoaPlacementTaunt(target->GetVictim() == bot, !bot->HasSpellCooldown(spellId) && !info->CalcCastTime(),
+                                          bot->IsWithinDistInMap(target, info->GetMaxRange(false, bot))))
+                        botAI->CastSpell(spellId, target);
+    return MoveToPositionAction::Execute(event);
+}
+
+namespace
+{
+std::mutex MainTankCheckLock;
+std::unordered_map<ObjectGuid, uint32> MainTankCheckAt;
+
+bool CarriesMainTankFlag(Player* bot)
+{
+    Group* group = bot->GetGroup();
+    if (!group || group->isLFGGroup() || group->isBGGroup() || group->isBFGroup())
+        return false;
+    for (Group::MemberSlot const& slot : group->GetMemberSlots())
+        if (slot.guid == bot->GetGUID())
+            return slot.flags & MEMBER_FLAG_MAINTANK;
+    return false;
+}
+}  // namespace
+
+void CoaTankOrderTick(PlayerbotAI* botAI)
+{
+    Player* bot = botAI ? botAI->GetBot() : nullptr;
+    if (!bot || !bot->IsInWorld())
+        return;
+
+    std::string name;
+    bool dead = false;
+    if (CoaPlayerMainTank::TakeEnded(bot, name, dead))
+    {
+        if (CoaPlayerMainTank::InPlacement(bot))
+        {
+            CoaPlayerMainTank::SetPlacement(bot, false);
+            botAI->ChangeStrategy("+follow,-stay", BOT_STATE_NON_COMBAT);
+            botAI->ChangeStrategy("-stay", BOT_STATE_COMBAT);
+            PositionMap& positions = botAI->GetAiObjectContext()->GetValue<PositionMap&>("position")->Get();
+            for (char const* key : { "stay", "return" })
+            {
+                PositionInfo pos = positions[key];
+                pos.Reset();
+                positions[key] = pos;
+            }
+        }
+        if (name.empty())
+            name = "My target";
+        SayOrder(botAI, dead ? name + " down, back to assisting you." : "Lost " + name + ", back to assisting you.");
+        if (CoaAltAddon::MasterHasAddon(botAI->GetMaster()))
+            CoaAltAddon::SendToMaster(botAI, "TK	clear	ok	0	-");
+    }
+
+    // A main tank flag left on a bot that turned damage dealer (a regear, "talents spec") is handed over, checked every
+    // 5 seconds by the bot that carries it; the change itself runs in the world thread (CoaQueueMainTankSync).
+    if (!bot->GetGroup())
+        return;
+    uint32 const now = getMSTime();
+    {
+        std::lock_guard<std::mutex> guard(MainTankCheckLock);
+        uint32& at = MainTankCheckAt[bot->GetGUID()];
+        if (at && getMSTimeDiff(at, now) < 5000)
+            return;
+        at = now ? now : 1;
+    }
+    if (CarriesMainTankFlag(bot) && !PlayerbotAI::IsTank(bot, true))
+        CoaQueueMainTankSync(bot);
 }

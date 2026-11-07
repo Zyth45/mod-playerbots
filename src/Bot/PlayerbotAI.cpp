@@ -55,6 +55,7 @@
 #include "PlayerbotTextMgr.h"
 #include "PlayerbotWorldThreadProcessor.h"
 #include "CoaPlayerMainTank.h"
+#include "CoaTankAction.h"
 #include "Playerbots.h"
 #include "PositionValue.h"
 #include "RBAC.h"
@@ -556,6 +557,8 @@ void PlayerbotAI::UpdateAI(uint32 elapsed, bool minimal)
 
     // Update the bot's group status (moved to helper function)
     UpdateAIGroupMaster();
+    // The end of a Main Tank bar order and a stale main tank flag, before the engine runs (RC11).
+    CoaTankOrderTick(this);
 
     // Update internal AI
     UpdateAIInternal(elapsed, minimal);

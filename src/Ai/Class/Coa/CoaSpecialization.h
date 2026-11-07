@@ -176,6 +176,11 @@ void CoaAnnounceJoin(Player* bot, Player* master);
 // `tanks` tanks and `heals` healers (from the size when 0, see CoaRaidRoles: 2 and 4 for 25), the rest damage dealers,
 // the classes taken in turn. Members already there count. The outcome is told in `message`.
 bool RecruitCoaRaid(Player* master, uint32 size, uint32 tanks, uint32 heals, std::string& message);
+// The main tank flag follows the roles (CoaMainTankFlagHolder): a bot holder no longer a tank hands it to the first
+// living tank, or nobody; with assignIfNone a group without it gets one. Raid bots' group roles follow their role.
+// World thread only: CoaQueueMainTankSync queues it from a bot's map update. Not for LFG or battleground groups.
+void CoaSyncMainTankFlag(Group* group, bool assignIfNone);
+bool CoaQueueMainTankSync(Player* bot);
 
 // The free random bot best placed to play `role` for `master` (same faction, on its map, already of
 // the role, nearest level), of that class when classId is not 0, none of those in `skip`. chosenFits

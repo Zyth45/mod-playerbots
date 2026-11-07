@@ -8,6 +8,8 @@
 #define _PLAYERBOT_COATANKACTION_H
 
 #include "ChatShortcutActions.h"
+#include "PositionAction.h"
+#include "Trigger.h"
 
 class Unit;
 
@@ -29,5 +31,26 @@ private:
     bool PinTarget(Unit* target, std::string const& action);
     void ReleaseHold();
 };
+
+// Placement in combat (RC11): a bot tank holding a point ("tank hold") and away from it walks back before anything
+// else, a taunt on its given target thrown on the way; at the point, "stay" keeps it from reaching for its target.
+class CoaPlacementAwayTrigger : public Trigger
+{
+public:
+    CoaPlacementAwayTrigger(PlayerbotAI* botAI) : Trigger(botAI, "coa placement away", 1) {}
+    bool IsActive() override;
+};
+
+class CoaPlacementMoveAction : public MoveToPositionAction
+{
+public:
+    CoaPlacementMoveAction(PlayerbotAI* botAI) : MoveToPositionAction(botAI, "coa placement move", "stay") {}
+    bool Execute(Event event) override;
+    bool isUseful() override;
+};
+
+// Run by the bot's own update before its engine: the end of a given target (dead or gone) ends the order like
+// "tank clear", said and told to the bar; a main tank flag left on a bot that is no longer a tank is handed over.
+void CoaTankOrderTick(PlayerbotAI* botAI);
 
 #endif

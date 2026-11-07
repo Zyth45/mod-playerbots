@@ -5,6 +5,9 @@
  */
 
 #include "CoaSpecialization.h"
+#include "CoaMainTankRules.h"
+#include "PlayerbotOperations.h"
+#include "PlayerbotWorldThreadProcessor.h"
 #include "CoaLevelBuildData.h"
 #include "CoaSpecLookup.h"
 #include "CoaWildcard.h"
@@ -1075,6 +1078,8 @@ bool CoaSwitchRole(Player* bot, CoaRole role)
         DropThreatStances(bot);
     if (PlayerbotAI* botAI = GET_PLAYERBOT_AI(bot))
         botAI->ResetStrategies();
+    // A main tank turned damage dealer hands the flag over; the raid panel shows the new role.
+    CoaQueueMainTankSync(bot);
     return FitsRole(bot, role);
 }
 
@@ -1199,6 +1204,57 @@ void CoaAnnounceJoin(Player* bot, Player* master)
     ChatHandler(master->GetSession()).SendSysMessage(JoinsAsText(bot, GetCoaRole(bot)));
 }
 
+void CoaSyncMainTankFlag(Group* group, bool assignIfNone)
+{
+    if (!group || group->isLFGGroup() || group->isBGGroup() || group->isBFGroup())
+        return;
+    std::vector<ObjectGuid> guids;
+    std::vector<CoaMainTankSeat> seats;
+    for (Group::MemberSlot const& slot : group->GetMemberSlots())
+    {
+        Player* member = ObjectAccessor::FindConnectedPlayer(slot.guid);
+        bool const bot = member && GET_PLAYERBOT_AI(member);
+        guids.push_back(slot.guid);
+        seats.push_back({ bot, member && RoleOfMember(member) == CoaRole::Tank, member && member->IsAlive(),
+                          (slot.flags & MEMBER_FLAG_MAINTANK) != 0 });
+        // The raid panel shows the role each bot plays now (a raid of the builder: its bots' group roles).
+        if (bot && group->isRaidGroup())
+        {
+            CoaRole const role = RoleOfMember(member);
+            uint8 const roles = role == CoaRole::Tank   ? lfg::PLAYER_ROLE_TANK
+                                : role == CoaRole::Heal ? lfg::PLAYER_ROLE_HEALER
+                                                        : lfg::PLAYER_ROLE_DAMAGE;
+            if (slot.roles != roles)
+                group->SetLfgRoles(slot.guid, roles);
+        }
+    }
+    int const holder = CoaMainTankFlagHolder(seats, assignIfNone);
+    for (size_t i = 0; i < seats.size(); ++i)
+    {
+        bool const want = int(i) == holder;
+        if (seats[i].flagged != want)
+        {
+            group->SetGroupMemberFlag(guids[i], want, MEMBER_FLAG_MAINTANK);
+            LOG_INFO("playerbots", "coa: main tank flag {} {} (group {})", want ? "to" : "off",
+                     guids[i].ToString(), group->GetGUID().ToString());
+        }
+    }
+}
+
+bool CoaQueueMainTankSync(Player* bot)
+{
+    if (!bot || !bot->GetGroup())
+        return false;
+    // Group flags and roles are sent to every member, some on other maps: world thread only (the map thread crash of
+    // 06/11). The bot is looked up again there, still in a group.
+    auto op = std::make_unique<WorldThreadCallOperation>(bot->GetGUID(), "CoaMainTankSync", [](Player* player)
+    {
+        CoaSyncMainTankFlag(player->GetGroup(), false);
+        return true;
+    });
+    return PlayerbotWorldThreadProcessor::instance().QueueOperation(std::move(op));
+}
+
 bool RecruitCoaRaid(Player* master, uint32 size, uint32 tanks, uint32 heals, std::string& message)
 {
     size = std::clamp<uint32>(size ? size : 25, 6, MAXRAIDSIZE);
@@ -1305,31 +1361,11 @@ bool RecruitCoaRaid(Player* master, uint32 size, uint32 tanks, uint32 heals, std
         }
     }
 
-    // The raid panel counts tanks and healers from the group roles: each bot shows the one it plays.
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
-        if (Player* member = ref->GetSource())
-            if (GET_PLAYERBOT_AI(member))
-            {
-                CoaRole const role = RoleOfMember(member);
-                group->SetLfgRoles(member->GetGUID(), role == CoaRole::Tank   ? lfg::PLAYER_ROLE_TANK
-                                                      : role == CoaRole::Heal ? lfg::PLAYER_ROLE_HEALER
-                                                                              : lfg::PLAYER_ROLE_DAMAGE);
-            }
-
-    // Without a main tank set, the first living tank in member order (newest first) was main tank, another one
-    // from one fight to the next: the off-tank's ogre went to Maulgar (ladiabale, Gruul 2.4). One tank is set
-    // once; a dead main tank hands over to the next living tank (PlayerbotAI::GetMainTankGuid).
-    bool mainTankSet = false;
-    for (Group::MemberSlot const& slot : group->GetMemberSlots())
-        if (slot.flags & MEMBER_FLAG_MAINTANK)
-            mainTankSet = true;
-    if (!mainTankSet)
-        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
-            if (Player* member = ref->GetSource(); member && RoleOfMember(member) == CoaRole::Tank)
-            {
-                group->SetGroupMemberFlag(member->GetGUID(), true, MEMBER_FLAG_MAINTANK);
-                break;
-            }
+    // The raid panel counts tanks and healers from the group roles, and one tank carries the main tank flag: without
+    // it, the first living tank in member order (newest first) was main tank, another one from one fight to the next
+    // (the off-tank's ogre went to Maulgar, ladiabale, Gruul 2.4). A dead main tank hands over to the next living tank
+    // (PlayerbotAI::GetMainTankGuid); a main tank that is no longer a tank hands the flag over (CoaSyncMainTankFlag).
+    CoaSyncMainTankFlag(group, true);
 
     LOG_INFO("playerbots", "coa: {} built a raid of {}: {} tanks, {} healers, {} damage dealers recruited",
              master->GetName(), size, got[uint8(CoaRole::Tank)], got[uint8(CoaRole::Heal)], got[uint8(CoaRole::Dps)]);
