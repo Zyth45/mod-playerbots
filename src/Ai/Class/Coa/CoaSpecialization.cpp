@@ -1349,12 +1349,12 @@ uint32 CoaRegroupRaid(Player* leader)
         // thread, a bot only) when the bot is out of every map or the teleport is over 10 seconds old.
         if (bot->IsBeingTeleported())
         {
-            bool const far = bot->IsBeingTeleportedFar();
-            time_t const since = time(nullptr) - (far ? bot->GetSemaphoreTeleportFar() : bot->GetSemaphoreTeleportNear());
+            bool const farTeleport = bot->IsBeingTeleportedFar();
+            time_t const since = time(nullptr) - (farTeleport ? bot->GetSemaphoreTeleportFar() : bot->GetSemaphoreTeleportNear());
             if (!bot->IsInWorld() || since > StuckTeleportSeconds)
             {
                 LOG_WARN("playerbots", "coa regroup: {} stuck in a {} teleport for {} s (in world {}): finished",
-                         bot->GetName(), far ? "far" : "near", uint32(since), bot->IsInWorld() ? 1 : 0);
+                         bot->GetName(), farTeleport ? "far" : "near", uint32(since), bot->IsInWorld() ? 1 : 0);
                 botAI->HandleTeleportAck();
             }
             if (bot->IsBeingTeleported())
