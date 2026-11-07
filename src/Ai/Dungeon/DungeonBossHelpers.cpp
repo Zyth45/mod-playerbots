@@ -7,7 +7,9 @@
 #include "DungeonBossHelpers.h"
 
 #include "AiObjectContext.h"
+#include "Group.h"
 #include "Map.h"
+#include "PathGenerator.h"
 #include "Playerbots.h"
 #include "ReachTargetActions.h"
 #include "Spell.h"
@@ -16,6 +18,9 @@
 
 #include <algorithm>
 #include <cstring>
+#include <limits>
+#include <mutex>
+#include <unordered_map>
 
 namespace DungeonBoss
 {
@@ -117,6 +122,18 @@ namespace DungeonBoss
         return along > -halfWidth && along < length + halfWidth && std::fabs(aside) < halfWidth;
     }
 
+    std::vector<Position> RingAround(float x, float y, float z, std::initializer_list<float> radii, uint32 directions)
+    {
+        std::vector<Position> spots;
+        for (float radius : radii)
+            for (uint32 i = 0; i < directions; ++i)
+            {
+                float const angle = 2.0f * float(M_PI) * i / directions;
+                spots.emplace_back(x + std::cos(angle) * radius, y + std::sin(angle) * radius, z);
+            }
+        return spots;
+    }
+
     bool MovesIntoDanger(Action* action)
     {
         if (dynamic_cast<DungeonBossMovementAction*>(action) || dynamic_cast<AvoidAoeAction*>(action) ||
@@ -163,6 +180,88 @@ bool DungeonBossMovementAction::MoveOutOfCone(Unit* boss, FrontalCone const& con
     float const angle = RelativeAngle(boss, bot) >= 0.0f ? side : -side;
     float const distance = std::max(bot->GetExactDist2d(boss), boss->GetCombatReach() + 2.0f);
     return MoveAround(boss, angle, distance);
+}
+
+namespace
+{
+    struct ReservedSpot
+    {
+        float x = 0.0f;
+        float y = 0.0f;
+        uint32 until = 0;
+    };
+
+    std::mutex reservedLock;
+    std::unordered_map<ObjectGuid, ReservedSpot> reservedSpots;
+
+    constexpr float SPOT_CROWD_RADIUS = 4.0f;
+    constexpr float SPOT_CROWD_PENALTY = 8.0f;
+    constexpr float SPOT_MAX_CLIMB = 5.0f;
+    constexpr uint32 SPOT_RESERVATION_MS = 5000;
+
+    float PathLength(Movement::PointsArray const& points)
+    {
+        float length = 0.0f;
+        for (size_t i = 1; i < points.size(); ++i)
+            length += std::sqrt((points[i] - points[i - 1]).squaredLength());
+        return length;
+    }
+}
+
+bool DungeonBossMovementAction::MoveToReachableSpot(std::vector<Position> const& candidates,
+                                                    std::function<bool(float, float)> const& safe)
+{
+    uint32 const now = getMSTime();
+    std::vector<std::pair<float, float>> others;
+    {
+        std::lock_guard<std::mutex> guard(reservedLock);
+        for (auto const& [guid, spot] : reservedSpots)
+            if (guid != bot->GetGUID() && spot.until > now)
+                others.emplace_back(spot.x, spot.y);
+    }
+    if (Group* group = bot->GetGroup())
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+            if (Player* member = ref->GetSource())
+                if (member != bot && member->IsAlive() && member->GetMap() == bot->GetMap())
+                    others.emplace_back(member->GetPositionX(), member->GetPositionY());
+
+    float bestScore = std::numeric_limits<float>::max();
+    G3D::Vector3 best;
+    for (Position const& candidate : candidates)
+    {
+        float z = bot->GetPositionZ();
+        bot->UpdateAllowedPositionZ(candidate.GetPositionX(), candidate.GetPositionY(), z);
+        if (std::fabs(z - bot->GetPositionZ()) > SPOT_MAX_CLIMB)
+            continue;
+
+        PathGenerator path(bot);
+        path.CalculatePath(candidate.GetPositionX(), candidate.GetPositionY(), z, false);
+        if (path.GetPathType() != PATHFIND_NORMAL || path.GetPath().empty())
+            continue;
+        G3D::Vector3 const end = path.GetPath().back();
+        if (!safe(end.x, end.y))
+            continue;
+
+        uint32 crowd = 0;
+        for (auto const& [x, y] : others)
+            if (std::hypot(x - end.x, y - end.y) < SPOT_CROWD_RADIUS)
+                ++crowd;
+        float const score = PathLength(path.GetPath()) + crowd * SPOT_CROWD_PENALTY;
+        if (score < bestScore)
+        {
+            bestScore = score;
+            best = end;
+        }
+    }
+
+    if (bestScore == std::numeric_limits<float>::max())
+        return false;
+
+    {
+        std::lock_guard<std::mutex> guard(reservedLock);
+        reservedSpots[bot->GetGUID()] = { best.x, best.y, now + SPOT_RESERVATION_MS };
+    }
+    return MoveTo(bot->GetMapId(), best.x, best.y, best.z, false, false, false, false, MovementPriority::MOVEMENT_COMBAT);
 }
 
 bool DungeonBossMovementAction::KeepAway(Unit* unit, float radius)

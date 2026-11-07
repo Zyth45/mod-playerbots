@@ -21,6 +21,7 @@
 #include "StratTriggerContext.h"
 #include "UldaTriggerContext.h"
 #include "VaultsTriggerContext.h"
+#include "DMTriggerContext.h"
 #include "WCTriggerContext.h"
 
 #endif

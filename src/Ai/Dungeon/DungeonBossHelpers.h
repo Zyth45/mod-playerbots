@@ -10,7 +10,10 @@
 #include "MovementActions.h"
 
 #include <cmath>
+#include <functional>
+#include <initializer_list>
 #include <span>
+#include <vector>
 
 class Action;
 class AiObjectContext;
@@ -68,6 +71,9 @@ namespace DungeonBoss
     // Whether the action walks the bot somewhere other than out of danger: following, formation, reaching melee
     // or spell range. A strategy's own escape moves, "avoid aoe" and "coa boss dodge" are not counted.
     bool MovesIntoDanger(Action* action);
+
+    // Spots in `directions` evenly spaced directions around (x, y) at each of the radii.
+    std::vector<Position> RingAround(float x, float y, float z, std::initializer_list<float> radii, uint32 directions);
 }
 
 class DungeonBossMovementAction : public MovementAction
@@ -82,6 +88,10 @@ protected:
     bool KeepAway(Unit* unit, float radius);
     // Straight out to the nearer side of the strip of InPath, keeping the bot's place along it.
     bool MoveOutOfPath(Unit* source, float angle, float halfWidth, float step);
+    // To the shortest of the candidates that the navmesh reaches in full, whose end `safe` accepts, away from the
+    // group and from the spots other bots ran to; false when none qualifies. Walls and props rule spots out by
+    // themselves, where a straight step would end against them.
+    bool MoveToReachableSpot(std::vector<Position> const& candidates, std::function<bool(float, float)> const& safe);
     bool MoveToSpot(float x, float y);
 };
 
