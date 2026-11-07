@@ -5,6 +5,7 @@
  */
 
 #include "LootObjectStack.h"
+#include "CoaLootRules.h"
 #include "CoaMissionMgr.h"
 #include "GameObjectAI.h"
 #include "LootMgr.h"
@@ -413,8 +414,10 @@ bool LootObject::IsLootPossible(Player* bot)
 
     // Loot already rolled that holds nothing this bot may take: a worldforged pickup it has spent is
     // still there for everyone else, and the bot opened it again and again for ever
-    // (jealous-sound/azerothcore-wotlk-coa#5519).
-    if (go && !go->loot.empty() && !go->loot.gold)
+    // (jealous-sound/azerothcore-wotlk-coa#5519). Not a chest that rolls its loot again for the next opener: what it
+    // holds is the last opener's, and an alt right behind its player never took its own worldforged pickup.
+    if (go && !go->loot.empty() && !go->loot.gold &&
+        CoaHeldLootIsWhatOpenerGets(go->getLootState() == GO_READY, go->GetGOInfo()->GetLootId()))
     {
         bool takeable = false;
         for (LootItem const& item : go->loot.items)
