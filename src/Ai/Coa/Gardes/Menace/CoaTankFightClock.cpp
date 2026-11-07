@@ -59,7 +59,9 @@ void CoaTankFightClock::NoteEnterCombat(Player const* player)
 
 void CoaTankFightClock::NoteHit(Player const* player)
 {
-    if (!CoaGroupTank::GuardScope(player) || !player->IsInCombat())
+    // Only a player who can lead a fight has a clock: tested before the shared lock, which every hit of a grouped
+    // player in an instance otherwise took.
+    if (!CoaGroupTank::GuardScope(player) || !player->IsInCombat() || !CanLead(player))
         return;
     uint64 const key = player->GetGUID().GetRawValue();
     {
