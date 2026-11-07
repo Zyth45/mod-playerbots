@@ -457,6 +457,29 @@ void CoaTankOrderTick(PlayerbotAI* botAI)
     if (!bot || !bot->IsInWorld())
         return;
 
+    // The given target's end, in and out of combat (RC11d): the "tank target" value is only read while the bot has
+    // attackers, so a given target that was the last enemy ended its order only at the next pull. Same rule as
+    // TankTargetValue::PinnedOrAssist; once ended, the pin is gone and nothing is said again.
+    uint8 icon = NoIcon;
+    if (ObjectGuid const pinned = CoaPlayerMainTank::Pinned(bot, &icon))
+    {
+        Unit* target = ObjectAccessor::GetUnit(*bot, pinned);
+        Creature* creature = target ? target->ToCreature() : nullptr;
+        CoaPinEnd const end = CoaPinnedTargetEnd(target != nullptr, target && target->IsAlive(),
+                                                 target && target->IsInWorld() && target->GetMap() == bot->GetMap(),
+                                                 creature && creature->IsInEvadeMode(),
+                                                 target && bot->IsValidAttackTarget(target));
+        if (end != CoaPinEnd::Keep)
+        {
+            CoaPlayerMainTank::MarkEnded(bot, target ? target->GetName() : std::string(), end == CoaPinEnd::Dead);
+            CoaPlayerMainTank::Unpin(bot);
+            if (CoaAltAddon::MasterHasAddon(botAI->GetMaster()))
+                CoaAltAddon::SendToMaster(botAI, "TK\ttarget\tdead\t" +
+                                                     std::to_string(icon == NoIcon ? 0 : uint32(icon) + 1) + "\t" +
+                                                     (target ? target->GetName() : std::string("-")));
+        }
+    }
+
     std::string name;
     bool dead = false;
     if (CoaPlayerMainTank::TakeEnded(bot, name, dead))
