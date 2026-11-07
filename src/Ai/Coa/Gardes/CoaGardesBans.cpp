@@ -27,19 +27,13 @@
 // strategies that carry every guard for every bot.
 namespace
 {
-    bool InGroupInstance(Player* bot)
-    {
-        Map* map = bot->GetMap();
-        return map && map->IsDungeon();
-    }
-
     bool EscapeLeapBanned(Player* bot, std::string const& name, bool combatEngine)
     {
         if (!CoaEscapeLeap::IsBanned(name) || !CoaGroupTank::ModuleGuardActs(bot, CoaGardesGate::ESCAPE_LEAP_BAN))
             return false;
         CoaEscapeLeap::Gate g;
         g.hasTank = CoaGardesUnits::Tank(bot) != nullptr;
-        g.inInstance = InGroupInstance(bot);
+        g.inInstance = true;  // GuardScope, checked by the multiplier first
         g.combatEngine = combatEngine;
         g.raidStandDown = combatEngine && CoaGroupTank::InDungeonClearRun(bot) && CoaGardesRunHooks::IsRaidStandDown(bot);
         return CoaEscapeLeap::Bans(true, g);
@@ -185,7 +179,8 @@ namespace
 
 float CoaGardesCombatMultiplier::GetValue(Action* action)
 {
-    if (!action || !bot || !botAI)
+    // Instances only (2.9.4): no ban outside a group on a dungeon or raid map.
+    if (!action || !botAI || !CoaGroupTank::GuardScope(bot))
         return 1.0f;
     std::string const& name = action->getName();
     if (EscapeLeapBanned(bot, name, true))
@@ -199,7 +194,7 @@ float CoaGardesCombatMultiplier::GetValue(Action* action)
 
 float CoaGardesNonCombatMultiplier::GetValue(Action* action)
 {
-    if (!action || !bot || !botAI)
+    if (!action || !botAI || !CoaGroupTank::GuardScope(bot))
         return 1.0f;
     if (EscapeLeapBanned(bot, action->getName(), false))
         return 0.0f;

@@ -250,8 +250,8 @@ namespace
 
 bool CoaLyceumCloseUpTrigger::IsActive()
 {
-    // Map first: everywhere outside Blackrock Depths this costs one integer compare.
-    if (!bot || bot->isDead() || bot->GetMapId() != B::MAP_ID)
+    // Instances only (2.9.4), then the map: everywhere outside Blackrock Depths this costs one integer compare.
+    if (!CoaGroupTank::GuardScope(bot) || bot->isDead() || bot->GetMapId() != B::MAP_ID)
         return false;
     if (!CoaGroupTank::ModuleGuardActs(bot, CoaGardesGate::LYCEUM_CLOSE_UP) || CoaGardesUnits::Controlled(bot))
         return false;
@@ -260,7 +260,7 @@ bool CoaLyceumCloseUpTrigger::IsActive()
 
 bool CoaLyceumCloseUpAction::Execute(Event /*event*/)
 {
-    if (!bot)
+    if (!CoaGroupTank::GuardScope(bot))
         return false;
     CloseUpView const v = ProbeLyceum(bot);
     if (!v.verdict.close)
@@ -285,7 +285,7 @@ bool CoaLyceumCloseUpAction::Execute(Event /*event*/)
 
 bool CoaIronHallSafeSpotTrigger::IsActive()
 {
-    if (!bot || bot->isDead() || bot->GetMapId() != B::MAP_ID)
+    if (!CoaGroupTank::GuardScope(bot) || bot->isDead() || bot->GetMapId() != B::MAP_ID)
         return false;
     if (!CoaGroupTank::ModuleGuardActs(bot, CoaGardesGate::IRON_HALL) || CoaGardesUnits::Controlled(bot))
         return false;
@@ -294,7 +294,7 @@ bool CoaIronHallSafeSpotTrigger::IsActive()
 
 bool CoaIronHallSafeSpotAction::Execute(Event /*event*/)
 {
-    if (!bot)
+    if (!CoaGroupTank::GuardScope(bot))
         return false;
     HopView const v = ProbeIronHall(bot);
     if (!v.travel)

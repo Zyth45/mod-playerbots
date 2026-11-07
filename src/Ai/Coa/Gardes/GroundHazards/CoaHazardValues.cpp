@@ -6,6 +6,8 @@
 
 #include "CoaHazardValues.h"
 
+#include "CoaGroupTank.h"
+
 #include "CellImpl.h"
 #include "CoaHazardRegistry.h"
 #include "DynamicObject.h"
@@ -76,7 +78,7 @@ CoaGroundHazardsValue::CoaGroundHazardsValue(PlayerbotAI* botAI)
 GuidVector CoaGroundHazardsValue::Calculate()
 {
     GuidVector results;
-    if (!bot || !CoaHazardRegistry::HasGroundHazards(bot->GetMapId()))
+    if (!CoaGroupTank::GuardScope(bot) || !CoaHazardRegistry::HasGroundHazards(bot->GetMapId()))
         return results;
 
     std::list<WorldObject*> found;
@@ -108,7 +110,7 @@ CoaTrapHazardsValue::CoaTrapHazardsValue(PlayerbotAI* botAI)
 GuidVector CoaTrapHazardsValue::Calculate()
 {
     GuidVector results;
-    if (!bot)
+    if (!CoaGroupTank::GuardScope(bot))
         return results;
 
     std::vector<uint32> const entries = CoaHazardRegistry::TrapEntries(bot->GetMapId());

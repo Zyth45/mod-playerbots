@@ -99,7 +99,8 @@ CoaHealSettings const& CoaHealSettings::Get()
 
 ObjectGuid CoaHealTargetValue::Calculate()
 {
-    if (!bot || !bot->IsInWorld() || !bot->FindMap())
+    // Instances only (2.9.4): nothing outside a group on a dungeon or raid map.
+    if (!CoaGroupTank::GuardScope(bot) || !bot->IsInWorld())
         return ObjectGuid::Empty;
     Group* group = bot->GetGroup();
     if (!group)
@@ -142,6 +143,9 @@ Unit* CoaPartyMemberToHealValue::Calculate()
 {
     // The stock answer first: what any healer heals, and what this one heals when no escort runs.
     Unit* stock = PartyMemberToHeal::Calculate();
+    // Instances only (2.9.4): the stock value everywhere else.
+    if (!CoaGroupTank::GuardScope(bot))
+        return stock;
 
     Unit* escortee = CoaHealEscort::Escortee(bot);
     if (!escortee)
@@ -160,7 +164,7 @@ Unit* CoaPartyMemberToHealValue::Calculate()
 
 bool CoaHealRepositionTrigger::IsActive()
 {
-    if (!bot || !bot->IsAlive() || !bot->IsInWorld())
+    if (!CoaGroupTank::GuardScope(bot) || !bot->IsAlive() || !bot->IsInWorld())
         return false;
     CoaHealSettings const& settings = CoaHealSettings::Get();
     // The cheap gates first: this runs every tick.
@@ -255,6 +259,8 @@ bool CoaHealRepositionAction::PathedCloseOn(Unit* target, float stopShort, float
 
 bool CoaHealRepositionAction::Execute(Event /*event*/)
 {
+    if (!CoaGroupTank::GuardScope(bot))
+        return false;
     // Re-read: the target may have healed up or died between the trigger and here.
     Unit* target = ResolveSameMap(bot, AI_VALUE(ObjectGuid, "coa heal target"));
     Map* map = bot->FindMap();
@@ -296,7 +302,7 @@ bool CoaHealRepositionAction::Execute(Event /*event*/)
 
 bool CoaTopOffPartyTrigger::IsActive()
 {
-    if (!bot || !bot->IsAlive() || !bot->IsInWorld() || bot->IsInCombat() || !bot->GetGroup() || !bot->FindMap())
+    if (!CoaGroupTank::GuardScope(bot) || !bot->IsAlive() || !bot->IsInWorld() || bot->IsInCombat())
         return false;
     CoaHealSettings const& settings = CoaHealSettings::Get();
     if (!settings.topOffParty || !PlayerbotAI::IsHeal(bot))

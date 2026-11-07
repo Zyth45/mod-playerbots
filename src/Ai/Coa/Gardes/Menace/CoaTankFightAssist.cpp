@@ -93,14 +93,14 @@ void CoaTankFightAssistState::GiveUp(ObjectGuid guid, uint32 now, uint32 forMs)
 bool CoaTankFightAssistTrigger::IsActive()
 {
     // Healers place themselves on their heal target (heal reposition), never on the pack.
-    if (!bot || !bot->IsAlive() || PlayerbotAI::IsHeal(bot))
+    if (!CoaGroupTank::GuardScope(bot) || !bot->IsAlive() || PlayerbotAI::IsHeal(bot))
         return false;
     return CoaThreatLead::IsTankFightAssistWanted(bot);
 }
 
 bool CoaTankFightAssistCombatTrigger::IsActive()
 {
-    if (!bot || !bot->IsAlive() || !bot->IsInCombat() || PlayerbotAI::IsHeal(bot))
+    if (!CoaGroupTank::GuardScope(bot) || !bot->IsAlive() || !bot->IsInCombat() || PlayerbotAI::IsHeal(bot))
         return false;
     if (!CoaThreatLead::IsTankFightAssistWanted(bot))
         return false;
@@ -173,6 +173,8 @@ Unit* CoaTankFightAssistAction::PickFightTarget(Player* tank, CoaTankFightAssist
 
 bool CoaTankFightAssistAction::Execute(Event /*event*/)
 {
+    if (!CoaGroupTank::GuardScope(bot))
+        return false;
     Player* tank = CoaGroupTank::Reference(bot);
     if (!tank || tank == bot)
         return false;

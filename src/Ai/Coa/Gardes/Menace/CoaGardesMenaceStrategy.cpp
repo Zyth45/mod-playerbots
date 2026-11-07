@@ -7,6 +7,7 @@
 #include "CoaGardesMenaceStrategy.h"
 
 #include "AttackAction.h"
+#include "CoaGroupTank.h"
 #include "CoaThreatLead.h"
 #include "GenericSpellActions.h"
 #include "Playerbots.h"
@@ -56,7 +57,8 @@ namespace
 
 float CoaGardesMenaceMultiplier::GetValue(Action* action)
 {
-    if (!action || !botAI || !bot)
+    // Instances only (2.9.4): stock everywhere else, before any value read.
+    if (!action || !botAI || !CoaGroupTank::GuardScope(bot))
         return 1.0f;
     std::string const& name = action->getName();
 

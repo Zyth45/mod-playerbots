@@ -93,7 +93,8 @@ namespace
 
 bool CoaHazardVacateTrigger::IsActive()
 {
-    if (!bot || bot->isDead())
+    // Instances only (2.9.4), before any setting or hazard read.
+    if (!CoaGroupTank::GuardScope(bot) || bot->isDead())
         return false;
 
     // Cheap map early-out before anything touches game state. HasAnyHazard, not HasEmitters: Scholomance registers
@@ -113,6 +114,8 @@ bool CoaHazardVacateTrigger::IsActive()
 
 bool CoaHazardVacateAction::Execute(Event /*event*/)
 {
+    if (!CoaGroupTank::GuardScope(bot))
+        return false;
     // One sample of the live hazard world answers every question below: nothing here can move an emitter.
     CoaHazard::LiveSet const live = CoaHazard::Sample(bot);
 

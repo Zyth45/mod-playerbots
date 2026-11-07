@@ -6,6 +6,7 @@
 
 #include "CoaTankFightClock.h"
 
+#include "CoaGroupTank.h"
 #include "CoaPlayerMainTank.h"
 #include "CoaThreatLeadMath.h"
 #include "Group.h"
@@ -48,7 +49,8 @@ bool CoaTankFightClock::CanLead(Player const* player)
 
 void CoaTankFightClock::NoteEnterCombat(Player const* player)
 {
-    if (!CanLead(player))
+    // Instances only (2.9.4): no lock taken for a fight outside a group or off a dungeon/raid map.
+    if (!CoaGroupTank::GuardScope(player) || !CanLead(player))
         return;
     uint32 const now = getMSTime();
     std::unique_lock<std::shared_mutex> guard(Lock);
@@ -57,7 +59,7 @@ void CoaTankFightClock::NoteEnterCombat(Player const* player)
 
 void CoaTankFightClock::NoteHit(Player const* player)
 {
-    if (!player || !player->IsInCombat())
+    if (!CoaGroupTank::GuardScope(player) || !player->IsInCombat())
         return;
     uint64 const key = player->GetGUID().GetRawValue();
     {
@@ -159,6 +161,8 @@ namespace
         {
             if (!damage || !attacker || !victim || victim->IsPlayer())
                 return;
+            // Every player's hit on a creature, realm-wide: leave before any lock unless the attacker is in a group
+            // on a dungeon or raid map (NoteHit checks it first).
             if (Player* player = attacker->ToPlayer())
                 CoaTankFightClock::NoteHit(player);
         }

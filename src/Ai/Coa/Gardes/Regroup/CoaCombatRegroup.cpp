@@ -131,7 +131,7 @@ namespace
 bool CoaCombatRegroupTrigger::IsActive()
 {
     // Every early-out stands the latch down: a latch left set would skip the debounce on the next fight's first tick.
-    if (!bot || !botAI || !CoaGroupTank::ModuleGuardActs(bot, CoaGardesGate::COMBAT_REGROUP))
+    if (!botAI || !CoaGroupTank::GuardScope(bot) || !CoaGroupTank::ModuleGuardActs(bot, CoaGardesGate::COMBAT_REGROUP))
     {
         CoaRegroupDecision::StandDown(latch);
         return false;
@@ -236,6 +236,8 @@ bool CoaCombatRegroupAction::FindStandoffPoint(Position const& center, float rin
 
 bool CoaCombatRegroupAction::Execute(Event /*event*/)
 {
+    if (!CoaGroupTank::GuardScope(bot))
+        return false;
     Player* tank = CoaGardesUnits::Tank(bot);
     if (!tank || tank == bot)
         return false;

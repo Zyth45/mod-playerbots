@@ -30,7 +30,8 @@ namespace
 Unit* CoaDpsTargetValue::Calculate()
 {
     Unit* const stock = DpsTargetValue::Calculate();
-    if (!BarredPick(bot, stock))
+    // Instances only (2.9.4): the stock pick everywhere else.
+    if (!CoaGroupTank::GuardScope(bot) || !BarredPick(bot, stock))
         return stock;
 
     // The raid icon handed us a creature we may not kill: the same picker with the icon disarmed lands on the adds,
@@ -42,7 +43,7 @@ Unit* CoaDpsTargetValue::Calculate()
 Unit* CoaDpsAoeTargetValue::Calculate()
 {
     Unit* const stock = DpsAoeTargetValue::Calculate();
-    if (!BarredPick(bot, stock))
+    if (!CoaGroupTank::GuardScope(bot) || !BarredPick(bot, stock))
         return stock;
 
     Unit* const legal = unmarked.Calculate();
@@ -62,7 +63,7 @@ void CoaTargetExclusionStrategy::AppendTargetExclusions(GuidSet& exclusions, Tar
     // DPS, DEBUFF and AoE pools always; the TANK pool for `alsoTank` rows. The AoE type carries no role, so it is
     // answered from the pool the bot reads for a single target: a tank keeps counting what she may hold.
     Player* const self = botAI ? botAI->GetBot() : nullptr;
-    if (!self)
+    if (!CoaGroupTank::GuardScope(self))
         return;
 
     bool const forAoe = type == TargetValueExclusionType::Aoe;

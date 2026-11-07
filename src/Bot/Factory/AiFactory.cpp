@@ -495,8 +495,10 @@ void AiFactory::AddDefaultCombatStrategies(Player* player, PlayerbotAI* const fa
 
     if (PlayerbotAI::IsHeal(player, true))
     {
-        // Healer placement and heal target guards that came from Dungeon Clear (CoaGardesSoins), for every healer.
-        engine->addStrategy("coa gardes soins", false);
+        // Healer placement and heal target guards that came from Dungeon Clear (CoaGardesSoins), for every healer
+        // outside battlegrounds and arenas (the guards themselves act in dungeons and raids only).
+        if (!player->InBattleground())
+            engine->addStrategy("coa gardes soins", false);
         if (sPlayerbotAIConfig.autoSaveMana)
             engine->addStrategy("save mana", false);
         if (!sPlayerbotAIConfig.IsRestrictedHealerDPSMap(player->GetMapId()))
@@ -698,7 +700,7 @@ void AiFactory::AddDefaultNonCombatStrategies(Player* player, PlayerbotAI* const
 
     if (sPlayerbotAIConfig.autoSaveMana && PlayerbotAI::IsHeal(player, true))
         nonCombatEngine->addStrategy("save mana", false);
-    if (PlayerbotAI::IsHeal(player, true))
+    if (PlayerbotAI::IsHeal(player, true) && !player->InBattleground())
         nonCombatEngine->addStrategy("coa gardes soins", false);
 
     if ((sRandomPlayerbotMgr.IsRandomBot(player)) && !player->InBattleground())

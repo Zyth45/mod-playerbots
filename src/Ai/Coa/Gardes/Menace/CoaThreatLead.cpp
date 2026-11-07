@@ -17,12 +17,11 @@
 
 namespace
 {
-    // The guards stand down in PvP, without a living bot, and where Dungeon Clear still runs the guard itself.
+    // The guards act in instances only (outside a group or off a dungeon/raid map they stand down, PvP included),
+    // with a living bot, and not where Dungeon Clear still runs the guard itself.
     bool GuardApplies(Player* bot, char const* guard)
     {
-        if (!bot || !bot->IsAlive() || !bot->IsInWorld())
-            return false;
-        if (bot->InBattleground() || bot->InArena())
+        if (!CoaGroupTank::GuardScope(bot) || !bot->IsAlive() || !bot->IsInWorld())
             return false;
         return CoaGroupTank::ModuleGuardActs(bot, guard);
     }
