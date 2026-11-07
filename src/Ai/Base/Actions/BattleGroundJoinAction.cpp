@@ -16,6 +16,8 @@
 #include "GroupMgr.h"
 #include "LFGMgr.h"
 #include "PlayerbotAI.h"
+#include "PlayerbotOperations.h"
+#include "PlayerbotWorldThreadProcessor.h"
 #include "Playerbots.h"
 #include "PositionValue.h"
 #include "RandomPlayerbotFactory.h"
@@ -126,6 +128,19 @@ bool BGJoinAction::gatherArenaTeam(ArenaType type)
     if (arenateam->GetMembersSize() < ((uint32)arenateam->GetType()))
         return false;
 
+    // The group is formed in the world thread (ArenaGroupFormationOperation, below): this bot leads it, full and of
+    // the team's members only, on a later try.
+    if (Group* formed = bot->GetGroup(); formed && formed->IsLeader(bot->GetGUID()) &&
+                                         formed->GetMembersCount() >= (uint32)arenateam->GetType())
+    {
+        bool teamOnly = true;
+        for (GroupReference* ref = formed->GetFirstMember(); ref && teamOnly; ref = ref->next())
+            if (Player* member = ref->GetSource())
+                teamOnly = arenateam->IsMember(member->GetGUID());
+        if (teamOnly)
+            return true;
+    }
+
     GuidVector members;
 
     // search for arena team members and make them online
@@ -168,10 +183,6 @@ bool BGJoinAction::gatherArenaTeam(ArenaType type)
             if (member->InBattlegroundQueue())
                 continue;
 
-            if (member->GetGroup())
-                member->GetGroup()->RemoveMember(member->GetGUID());
-
-            memberBotAI->Reset();
         }
 
         if (member)
@@ -185,70 +196,18 @@ bool BGJoinAction::gatherArenaTeam(ArenaType type)
         return false;
     }
 
-    Group* group = new Group();
-
-    // disband leaders group
-    if (bot->GetGroup())
-        bot->GetGroup()->Disband(true);
-
-    if (!group->Create(bot))
-    {
-        LOG_INFO("playerbots", "Team #{} <{}>: Can't create group for arena queue", arenateam->GetId(),
-                 arenateam->GetName());
-        return false;
-    }
-    else
-        sGroupMgr->AddGroup(group);
-
-    LOG_INFO("playerbots", "Bot {} <{}>: Leader of <{}>", bot->GetGUID().ToString().c_str(), bot->GetName(),
+    // Taking the members out of their groups, making the group and bringing them here changed players of other maps
+    // and groups from this bot's map thread (Map::SendObjectUpdates crash, 06/11): it is done in the world thread, and
+    // the bot joins the queue on a later try, once it leads the formed group (above).
+    std::vector<ObjectGuid> memberGuids;
+    for (ObjectGuid const& guid : members)
+        if (guid != bot->GetGUID())
+            memberGuids.push_back(guid);
+    auto op = std::make_unique<ArenaGroupFormationOperation>(bot->GetGUID(), memberGuids, (uint32)arenateam->GetType(),
+                                                             arenateam->GetId(), arenateam->GetName());
+    PlayerbotWorldThreadProcessor::instance().QueueOperation(std::move(op));
+    LOG_INFO("playerbots", "Team #{} <{}>: group formation queued for the world thread", arenateam->GetId(),
              arenateam->GetName());
-
-    for (auto i = begin(members); i != end(members); ++i)
-    {
-        if (*i == bot->GetGUID())
-            continue;
-
-        // if (count >= (int)arenateam->GetType())
-        // break;
-
-        if (group->GetMembersCount() >= (uint32)arenateam->GetType())
-            break;
-
-        Player* member = ObjectAccessor::FindConnectedPlayer(*i);
-        if (!member)
-            continue;
-
-        if (member->GetLevel() < RandomPlayerbotFactory::ArenaTeamMinLevel())
-            continue;
-
-        if (!group->AddMember(member))
-            continue;
-
-        PlayerbotAI* memberBotAI = GET_PLAYERBOT_AI(member);
-        if (!memberBotAI)
-            continue;
-
-        memberBotAI->Reset();
-        member->RemoveAurasWithInterruptFlags(AURA_INTERRUPT_FLAG_TELEPORTED | AURA_INTERRUPT_FLAG_CHANGE_MAP);
-        member->TeleportTo(bot->GetMapId(), bot->GetPositionX(), bot->GetPositionY(), bot->GetPositionZ(), 0);
-
-        LOG_INFO("playerbots", "Bot {} <{}>: Member of <{}>", member->GetGUID().ToString().c_str(),
-                 member->GetName().c_str(), arenateam->GetName().c_str());
-    }
-
-    if (group && group->GetMembersCount() >= (uint32)arenateam->GetType())
-    {
-        LOG_INFO("playerbots", "Team #{} <{}> Group is ready for match", arenateam->GetId(),
-                 arenateam->GetName().c_str());
-        return true;
-    }
-    else
-    {
-        LOG_INFO("playerbots", "Team #{} <{}> Group is not ready for match (not enough members)", arenateam->GetId(),
-                 arenateam->GetName().c_str());
-        group->Disband();
-    }
-
     return false;
 }
 
@@ -924,13 +883,14 @@ bool BGStatusAction::LeaveBG(PlayerbotAI* botAI)
              bot->GetTeamId() == TEAM_ALLIANCE ? "A" : "H", bot->GetLevel(), bot->GetName(),
              isArena ? "Arena" : "BG");
 
-    WorldPacket packet(CMSG_LEAVE_BATTLEFIELD);
-    packet << uint8(0);
-    packet << uint8(0);  // BattlegroundTypeId-1 ?
-    packet << uint32(0);
-    packet << uint16(0);
+    // A world thread opcode (PROCESS_THREADUNSAFE), queued for the world thread instead of run from the bot's map thread (Map::SendObjectUpdates crash, 06/11).
+    WorldPacket* packet = new WorldPacket(CMSG_LEAVE_BATTLEFIELD);
+    *packet << uint8(0);
+    *packet << uint8(0);  // BattlegroundTypeId-1 ?
+    *packet << uint32(0);
+    *packet << uint16(0);
 
-    bot->GetSession()->HandleBattlefieldLeaveOpcode(packet);
+    bot->GetSession()->QueuePacket(packet);
 
     botAI->ResetStrategies(!isRandomBot);
     botAI->GetAiObjectContext()->GetValue<uint32>("bg type")->Set(0);

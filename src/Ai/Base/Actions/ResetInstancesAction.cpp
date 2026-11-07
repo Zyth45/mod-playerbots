@@ -10,9 +10,8 @@
 
 bool ResetInstancesAction::Execute(Event /*event*/)
 {
-    WorldPacket packet(CMSG_RESET_INSTANCES, 0);
-    WorldPackets::Instance::ResetInstances resetInstance(std::move(packet));
-    bot->GetSession()->HandleResetInstancesOpcode(resetInstance);
+    // A world thread opcode (PROCESS_THREADUNSAFE), queued for the world thread instead of run from the bot's map thread (Map::SendObjectUpdates crash, 06/11).
+    bot->GetSession()->QueuePacket(new WorldPacket(CMSG_RESET_INSTANCES, 0));
 
     return true;
 }

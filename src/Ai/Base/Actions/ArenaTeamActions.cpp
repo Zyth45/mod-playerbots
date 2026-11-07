@@ -55,8 +55,8 @@ bool ArenaTeamAcceptAction::Execute(Event event)
 
     if (accept)
     {
-        WorldPacket data(CMSG_ARENA_TEAM_ACCEPT);
-        bot->GetSession()->HandleArenaTeamAcceptOpcode(data);
+        // A world thread opcode (PROCESS_THREADUNSAFE), queued for the world thread instead of run from the bot's map thread (Map::SendObjectUpdates crash, 06/11).
+        bot->GetSession()->QueuePacket(new WorldPacket(CMSG_ARENA_TEAM_ACCEPT));
         std::string text = PlayerbotTextMgr::instance().GetBotTextOrDefault(
             "arena_team_thanks_for_invite", "Thanks for the invite!", {});
         bot->Say(text, LANG_UNIVERSAL);
@@ -66,8 +66,7 @@ bool ArenaTeamAcceptAction::Execute(Event event)
     }
     else
     {
-        WorldPacket data(CMSG_ARENA_TEAM_DECLINE);
-        bot->GetSession()->HandleArenaTeamDeclineOpcode(data);
+        bot->GetSession()->QueuePacket(new WorldPacket(CMSG_ARENA_TEAM_DECLINE));
         LOG_INFO("playerbots", "Bot {} <{}> declines Arena Team invite", bot->GetGUID().ToString().c_str(),
                  bot->GetName().c_str());
         return false;

@@ -16,9 +16,10 @@ bool AcceptBgInvitationAction::Execute(Event /*event*/)
     uint16 unk = 0x1F90;                 // 0x1F90 constant?*/
     uint8 action = 1;
 
-    WorldPacket packet(CMSG_BATTLEFIELD_PORT, 20);
-    packet << type << unk2 << (uint32)bgTypeId_ << unk << action;
-    bot->GetSession()->HandleBattleFieldPortOpcode(packet);
+    // A world thread opcode (PROCESS_THREADUNSAFE), queued for the world thread instead of run from the bot's map thread (Map::SendObjectUpdates crash, 06/11).
+    WorldPacket* packet = new WorldPacket(CMSG_BATTLEFIELD_PORT, 20);
+    *packet << type << unk2 << (uint32)bgTypeId_ << unk << action;
+    bot->GetSession()->QueuePacket(packet);
 
     botAI->ResetStrategies();
 
