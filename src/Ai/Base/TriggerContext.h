@@ -112,6 +112,7 @@ public:
         creators["enemy out of melee"] = &TriggerContext::EnemyOutOfMelee;
         creators["enemy out of spell"] = &TriggerContext::EnemyOutOfSpell;
         creators["target out of sight"] = &TriggerContext::target_out_of_sight;
+        creators["group out of sight"] = &TriggerContext::group_out_of_sight;
         creators["enemy too close for spell"] = &TriggerContext::enemy_too_close_for_spell;
         creators["enemy too close for shoot"] = &TriggerContext::enemy_too_close_for_shoot;
         creators["enemy too close for auto shot"] = &TriggerContext::enemy_too_close_for_auto_shot;
@@ -357,6 +358,7 @@ private:
     static Trigger* EnemyOutOfMelee(PlayerbotAI* botAI) { return new EnemyOutOfMeleeTrigger(botAI); }
     static Trigger* EnemyOutOfSpell(PlayerbotAI* botAI) { return new EnemyOutOfSpellRangeTrigger(botAI); }
     static Trigger* target_out_of_sight(PlayerbotAI* botAI) { return new TargetOutOfSightTrigger(botAI); }
+    static Trigger* group_out_of_sight(PlayerbotAI* botAI) { return new GroupOutOfSightTrigger(botAI); }
     static Trigger* enemy_too_close_for_spell(PlayerbotAI* botAI) { return new EnemyTooCloseForSpellTrigger(botAI); }
     static Trigger* enemy_too_close_for_auto_shot(PlayerbotAI* botAI)
     {

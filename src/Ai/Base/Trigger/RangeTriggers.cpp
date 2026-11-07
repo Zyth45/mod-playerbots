@@ -240,6 +240,28 @@ bool TargetOutOfSightTrigger::IsActive()
     return !bot->IsWithinLOSInMap(target);
 }
 
+bool GroupOutOfSightTrigger::IsActive()
+{
+    if (!sPlayerbotAIConfig.regainLineOfSight || !bot->IsAlive() || !bot->GetGroup())
+        return false;
+
+    // A bot pushed into a wall sees neither its target nor anything else, so it drops the target and stands idle while
+    // the group fights. The tank it can no longer see is the one sign that is left.
+    Unit* tank = AI_VALUE(Unit*, "main tank");
+    if (!tank || tank == bot || !tank->IsAlive() || !tank->IsInCombat() || tank->GetMapId() != bot->GetMapId() ||
+        bot->GetExactDist(tank) > sPlayerbotAIConfig.sightDistance || bot->IsWithinLOSInMap(tank))
+    {
+        lostSightAt = 0;
+        return false;
+    }
+
+    uint32 const now = getMSTime();
+    if (!lostSightAt)
+        lostSightAt = now;
+
+    return getMSTimeDiff(lostSightAt, now) >= REGAIN_GROUP_SIGHT_DELAY_MS;
+}
+
 bool FarFromMasterTrigger::IsActive()
 {
     return ServerFacade::instance().IsDistanceGreaterThan(AI_VALUE2(float, "distance", "group leader"), distance);

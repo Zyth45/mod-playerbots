@@ -27,6 +27,8 @@ void CombatStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
             }
         )
     );
+    // Out of sight of the whole fight, usually pushed into a wall: back to where the group can see the tank.
+    triggers.push_back(new TriggerNode("group out of sight", { NextAction("regain group sight", ACTION_MOVE + 1) }));
     // drop target relevance 99 (lower than Worldpacket triggers)
     triggers.push_back(
         new TriggerNode(

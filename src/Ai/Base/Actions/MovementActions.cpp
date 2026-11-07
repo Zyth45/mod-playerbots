@@ -247,23 +247,30 @@ bool CoaSegmentCrossesGround(std::vector<CoaGround> const& zones, float x0, floa
 
 bool MovementAction::IsBodyPullRisk(float x, float y, float z)
 {
-    if (!sPlayerbotAIConfig.coaBodyPullGuard || bot->IsInCombat() || !bot->GetMap()->IsDungeon())
+    if (!sPlayerbotAIConfig.coaBodyPullGuard || !bot->GetMap()->IsDungeon() || PlayerbotAI::IsTank(bot))
         return false;
 
-    Player* master = botAI->GetMaster();
-    if (master && master->IsInCombat())
-        return false;
+    // In a fight the healers and damage dealers keep out of every pack that is not part of it yet; only the tank
+    // decides what joins. The margin is the aggro distance alone, so a target beside a pack can still be reached.
+    bool const fighting = bot->IsInCombat();
+    if (!fighting)
+    {
+        Player* master = botAI->GetMaster();
+        if (master && master->IsInCombat())
+            return false;
 
-    // A real player leads the group and picks the way: within a dungeon room nearly every step of the followers came
-    // within an idle pack's aggro distance + 3 yd, so they stood behind; once the player fought, the guard lifted and
-    // they ran to him through the packs, pulling half of Shadowfang Keep (15/10).
-    if (IsRealPlayer(master))
-        return false;
+        // A real player leads the group and picks the way: within a dungeon room nearly every step of the followers
+        // came within an idle pack's aggro distance + 3 yd, so they stood behind; once the player fought, the guard
+        // lifted and they ran to him through the packs, pulling half of Shadowfang Keep (15/10).
+        if (IsRealPlayer(master))
+            return false;
 
-    // The tank walks to the packs it means to pull: refusing those steps left a dungeon clear tank standing off
-    // its route until the run timed out (Scholomance 0/11 after 8 min), and a tank lagging behind its group.
-    if (PlayerbotAI::IsTank(bot) || botAI->HasStrategy("dc", BOT_STATE_NON_COMBAT))
-        return false;
+        // The tank walks to the packs it means to pull: refusing those steps left a dungeon clear tank standing off
+        // its route until the run timed out (Scholomance 0/11 after 8 min), and a tank lagging behind its group.
+        if (botAI->HasStrategy("dc", BOT_STATE_NON_COMBAT))
+            return false;
+    }
+    float const margin = fighting ? 0.0f : 3.0f;
 
     Unit* intendedTarget = AI_VALUE(Unit*, "current target");
     for (ObjectGuid const& guid : AI_VALUE(GuidVector, "possible targets no los"))
@@ -273,7 +280,7 @@ bool MovementAction::IsBodyPullRisk(float x, float y, float z)
             creature->HasReactState(REACT_PASSIVE) || !creature->IsHostileTo(bot))
             continue;
 
-        if (creature->GetExactDist(x, y, z) < creature->GetAttackDistance(bot) + 3.0f)
+        if (creature->GetExactDist(x, y, z) < creature->GetAttackDistance(bot) + margin)
             return true;
     }
 
@@ -296,7 +303,9 @@ bool MovementAction::MoveTo(uint32 mapId, float x, float y, float z, bool /*idle
     {
         return false;
     }
-    if (priority <= MovementPriority::MOVEMENT_NORMAL && IsBodyPullRisk(x, y, z))
+    if ((priority <= MovementPriority::MOVEMENT_NORMAL ||
+         (priority == MovementPriority::MOVEMENT_COMBAT && bot->IsInCombat())) &&
+        IsBodyPullRisk(x, y, z))
     {
         return false;
     }

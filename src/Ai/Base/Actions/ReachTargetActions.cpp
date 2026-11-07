@@ -9,6 +9,7 @@
 #include "Formations.h"
 #include "Group.h"
 #include "GroupReference.h"
+#include "PathGenerator.h"
 #include "PlayerbotAIConfig.h"
 #include "Playerbots.h"
 #include "ServerFacade.h"
@@ -268,6 +269,72 @@ bool ReachLineOfSightAction::isUseful()
 }
 
 std::string const ReachLineOfSightAction::GetTargetName() { return "current target"; }
+
+bool RegainGroupSightAction::isUseful()
+{
+    if (botAI->HasStrategy("stay", botAI->GetState()))
+        return false;
+
+    Unit* tank = AI_VALUE(Unit*, "main tank");
+    return tank && tank != bot && tank->IsAlive() && !bot->IsWithinLOSInMap(tank);
+}
+
+Player* RegainGroupSightAction::FindMemberInSightOf(Unit* tank)
+{
+    Player* best = nullptr;
+    int bestRank = 3;
+    float bestDistance = sPlayerbotAIConfig.sightDistance;
+    float const range = botAI->GetRange("heal");
+
+    for (GroupReference* ref = bot->GetGroup()->GetFirstMember(); ref; ref = ref->next())
+    {
+        Player* member = ref->GetSource();
+        if (!member || member == bot || !member->IsAlive() || member->IsCharmed() ||
+            member->GetMapId() != bot->GetMapId() || !member->IsWithinLOSInMap(tank) ||
+            member->GetExactDist(tank) > range)
+            continue;
+
+        // The healer and the ranged stand where the group means to stand; the tank itself is in the melee.
+        int rank = 1;
+        if (botAI->IsHeal(member))
+            rank = 0;
+        else if (member == tank)
+            rank = 2;
+
+        float const distance = bot->GetExactDist(member);
+        if (rank < bestRank || (rank == bestRank && distance < bestDistance))
+        {
+            best = member;
+            bestRank = rank;
+            bestDistance = distance;
+        }
+    }
+
+    return best;
+}
+
+bool RegainGroupSightAction::Execute(Event /*event*/)
+{
+    Unit* tank = AI_VALUE(Unit*, "main tank");
+    if (!tank || !bot->GetGroup() || !IsMovingAllowed())
+        return false;
+
+    Player* member = FindMemberInSightOf(tank);
+    if (!member)
+        return false;
+
+    // A bot standing inside the geometry finds no path at all; it is never ported out, it waits for the fight or
+    // for its master to move it.
+    PathGenerator path(bot);
+    path.CalculatePath(member->GetPositionX(), member->GetPositionY(), member->GetPositionZ(), false);
+    PathType const type = path.GetPathType();
+    if (type != PATHFIND_NORMAL && type != PATHFIND_INCOMPLETE)
+        return false;
+
+    if (bot->IsNonMeleeSpellCast(false))
+        bot->InterruptNonMeleeSpells(false);
+    return MoveNear(member, GROUP_SIGHT_SPOT_DISTANCE, MovementPriority::MOVEMENT_COMBAT);
+}
 
 ReachPartyMemberToHealAction::ReachPartyMemberToHealAction(PlayerbotAI* botAI)
     : ReachTargetAction(botAI, "reach party member to heal", botAI->GetRange("heal"))

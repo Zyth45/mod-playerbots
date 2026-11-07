@@ -13,6 +13,8 @@ void NonCombatStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
     triggers.push_back(new TriggerNode("timer", { NextAction("guild bank deposit", 1.0f) }));
     triggers.push_back(new TriggerNode("timer", { NextAction("coa enchanter", 1.0f) }));
     triggers.push_back(new TriggerNode("timer", { NextAction("self found equip", 1.0f) }));
+    // A bot in a wall has dropped its target and left the combat engine while the group fights on.
+    triggers.push_back(new TriggerNode("group out of sight", { NextAction("regain group sight", ACTION_MOVE + 1) }));
 }
 
 void CollisionStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)

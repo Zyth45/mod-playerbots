@@ -74,6 +74,18 @@ private:
     Player* FindGroupMemberInSightOf(Unit* target);
 };
 
+class RegainGroupSightAction : public MovementAction
+{
+public:
+    RegainGroupSightAction(PlayerbotAI* botAI) : MovementAction(botAI, "regain group sight") {}
+
+    bool Execute(Event event) override;
+    bool isUseful() override;
+
+private:
+    Player* FindMemberInSightOf(Unit* tank);
+};
+
 class ReachPartyMemberToHealAction : public ReachTargetAction
 {
 public:

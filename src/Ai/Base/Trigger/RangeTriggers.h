@@ -108,12 +108,26 @@ public:
     std::string const GetTargetName() override { return "party member to heal"; }
 };
 
+// A moment out of sight is normal while the tank turns a corner; only a lasting loss needs a new position.
+constexpr uint32 REGAIN_GROUP_SIGHT_DELAY_MS = 2000;
+
 class TargetOutOfSightTrigger : public Trigger
 {
 public:
     TargetOutOfSightTrigger(PlayerbotAI* botAI) : Trigger(botAI, "target out of sight", 2) {}
 
     bool IsActive() override;
+};
+
+class GroupOutOfSightTrigger : public Trigger
+{
+public:
+    GroupOutOfSightTrigger(PlayerbotAI* botAI) : Trigger(botAI, "group out of sight", 1) {}
+
+    bool IsActive() override;
+
+private:
+    uint32 lostSightAt = 0;
 };
 
 class FarFromMasterTrigger : public Trigger
