@@ -954,16 +954,6 @@ void PlayerbotAI::HandleCommand(uint32 type, std::string const& text, Player& fr
     if (filtered.empty())
         return;
 
-    if (filtered.substr(0, 6) == "debug ")
-    {
-        std::string response = HandleRemoteCommand(filtered.substr(6));
-        WorldPacket data;
-        ChatHandler::BuildChatPacket(data, CHAT_MSG_ADDON, LANG_ADDON, bot->GetGUID(), {}, response, CHAT_TAG_NONE,
-                                     bot->GetName());
-        ServerFacade::instance().SendPacket(&fromPlayer, &data);
-        return;
-    }
-
     if (!IsAllowedCommand(filtered) &&
         !GetSecurity()->CheckLevelFor(PlayerbotSecurityLevel::PLAYERBOT_SECURITY_ALLOW_ALL, type != CHAT_MSG_WHISPER,
                                       &fromPlayer))
@@ -971,6 +961,18 @@ void PlayerbotAI::HandleCommand(uint32 type, std::string const& text, Player& fr
         if (filtered == "summon")
             LOG_WARN("playerbots", "coa summon: {} refuses the summon of {} (its master: {})", bot->GetName(),
                      fromPlayer.GetName(), master ? master->GetName() : std::string("none"));
+        return;
+    }
+
+    // "debug" answers with the bot's AI state: it goes through the same security gate as every other command
+    // (a player at INVITE level read it before).
+    if (filtered.substr(0, 6) == "debug ")
+    {
+        std::string response = HandleRemoteCommand(filtered.substr(6));
+        WorldPacket data;
+        ChatHandler::BuildChatPacket(data, CHAT_MSG_ADDON, LANG_ADDON, bot->GetGUID(), {}, response, CHAT_TAG_NONE,
+                                     bot->GetName());
+        ServerFacade::instance().SendPacket(&fromPlayer, &data);
         return;
     }
 
@@ -1308,6 +1310,12 @@ void PlayerbotAI::HandleCommand(uint32 type, std::string const text, Player* fro
     if (filtered.empty())
         return;
 
+    if (!IsAllowedCommand(filtered) &&
+        (!GetSecurity()->CheckLevelFor(PLAYERBOT_SECURITY_ALLOW_ALL, type != CHAT_MSG_WHISPER, fromPlayer)))
+        return;
+
+    // "debug" answers with the bot's AI state: it goes through the same security gate as every other command
+    // (a player at INVITE level read it before).
     if (filtered.substr(0, 6) == "debug ")
     {
         std::string const response = HandleRemoteCommand(filtered.substr(6));
@@ -1317,9 +1325,6 @@ void PlayerbotAI::HandleCommand(uint32 type, std::string const text, Player* fro
         fromPlayer->SendDirectMessage(&data);
         return;
     }
-    if (!IsAllowedCommand(filtered) &&
-        (!GetSecurity()->CheckLevelFor(PLAYERBOT_SECURITY_ALLOW_ALL, type != CHAT_MSG_WHISPER, fromPlayer)))
-        return;
 
     OnMasterCommand(filtered, fromPlayer);
 
