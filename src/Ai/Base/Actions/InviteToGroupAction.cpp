@@ -48,13 +48,20 @@ bool InviteToGroupAction::Invite(Player* inviter, Player* player)
             }
     }
 
-    WorldPacket p;
-    uint32 roles_mask = 0;
-    p << player->GetName();
-    p << roles_mask;
-    inviter->GetSession()->HandleGroupInviteOpcode(p);
-
-    return true;
+    // CMSG_GROUP_INVITE is a world thread opcode (PROCESS_THREADUNSAFE): run from a bot's map thread, it changed a
+    // player of another map (Map::SendObjectUpdates crash, 06/11). It runs in the world thread, before an
+    // acceptance queued after it.
+    std::string const name = player->GetName();
+    auto op = std::make_unique<WorldThreadCallOperation>(inviter->GetGUID(), "GroupInviteOpcode", [name](Player* from)
+    {
+        WorldPacket p;
+        uint32 roles_mask = 0;
+        p << name;
+        p << roles_mask;
+        from->GetSession()->HandleGroupInviteOpcode(p);
+        return true;
+    });
+    return PlayerbotWorldThreadProcessor::instance().QueueOperation(std::move(op));
 }
 
 bool InviteNearbyToGroupAction::Execute(Event /*event*/)

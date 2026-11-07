@@ -26,6 +26,34 @@
 
 #include <functional>
 
+// A step of a bot's AI that changes other players or groups, run in the world thread: map threads update the maps at
+// the same time, and a bot changing an object of another map from its own map's thread raced that map's update list
+// (Map::SendObjectUpdates crash, 06/11). The world thread never runs during map updates.
+class WorldThreadCallOperation : public PlayerbotOperation
+{
+public:
+    WorldThreadCallOperation(ObjectGuid playerGuid, std::string name, std::function<bool(Player*)> call)
+        : m_playerGuid(playerGuid), m_name(std::move(name)), m_call(std::move(call))
+    {
+    }
+
+    bool Execute() override
+    {
+        Player* player = ObjectAccessor::FindPlayer(m_playerGuid);
+        return player && m_call(player);
+    }
+
+    ObjectGuid GetBotGuid() const override { return m_playerGuid; }
+    uint32 GetPriority() const override { return 50; }
+    std::string GetName() const override { return m_name; }
+    bool IsValid() const override { return ObjectAccessor::FindPlayer(m_playerGuid) != nullptr; }
+
+private:
+    ObjectGuid m_playerGuid;
+    std::string m_name;
+    std::function<bool(Player*)> m_call;
+};
+
 // Group invite operation
 class GroupInviteOperation : public PlayerbotOperation
 {
@@ -339,9 +367,10 @@ public:
                 continue;
             }
 
-            if (member->GetLevel() < 70)
+            // The arena level of the realm (60 on CoA), as BGJoinAction checks it.
+            if (member->GetLevel() < RandomPlayerbotFactory::ArenaTeamMinLevel())
             {
-                LOG_DEBUG("playerbots", "ArenaGroupFormationOperation: Member {} is below level 70, skipping",
+                LOG_DEBUG("playerbots", "ArenaGroupFormationOperation: Member {} is below the arena level, skipping",
                          member->GetName());
                 continue;
             }
