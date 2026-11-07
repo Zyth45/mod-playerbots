@@ -1266,23 +1266,25 @@ static AreaTriggerTeleport const* LeaderDungeonDoor(Player* leader)
     return leader->GetMap()->IsDungeon() ? sObjectMgr->GetGoBackTrigger(leader->GetMapId()) : nullptr;
 }
 
-CoaBringResult CoaBringBotToLeader(Player* bot, Player* leader, char const* what)
+CoaBringResult CoaBringBotToLeader(Player* bot, Player* leader, char const* what, bool forceFar)
 {
     // A bot already waiting at the door of the leader's dungeon is left there: a dungeon that refused it once refuses it
     // again (a 5-player one for a raid), and the next summon from a raid instance brings it in (RC11e).
     AreaTriggerTeleport const* door = LeaderDungeonDoor(leader);
-    if (door && bot->GetMapId() == door->target_mapId &&
+    if (!forceFar && door && bot->IsInWorld() && bot->GetMapId() == door->target_mapId &&
         bot->GetExactDist(door->target_X, door->target_Y, door->target_Z) <= RegroupDistance)
         return CoaBringResult::AtDoor;
-    bool const otherInstance = CoaInOtherInstance(bot, leader);
+    bool const otherInstance = forceFar || CoaInOtherInstance(bot, leader);
     DropOtherCopyBinds(bot, leader);
-    bot->GetMotionMaster()->Clear();
+    if (bot->IsInWorld())
+        bot->GetMotionMaster()->Clear();
     if (bot->TeleportTo(leader->GetMapId(), leader->GetPositionX(), leader->GetPositionY(), leader->GetPositionZ(),
                         leader->GetOrientation(), 0, nullptr, otherInstance))
         return CoaBringResult::Sent;
     // The leader's instance does not take it (a raid group in a 5-player dungeon, the instance full): the bot goes to the
     // dungeon's door outside instead (test humain 07/11, Blackrock Depths on the way to Molten Core).
-    if (door && bot->TeleportTo(door->target_mapId, door->target_X, door->target_Y, door->target_Z, door->target_Orientation))
+    if (door && bot->TeleportTo(door->target_mapId, door->target_X, door->target_Y, door->target_Z, door->target_Orientation,
+                                0, nullptr, forceFar))
     {
         LOG_WARN("playerbots", "coa regroup: {} ({}) to the entrance of map {} (map {}): the instance refused it",
                  bot->GetName(), what, leader->GetMapId(), door->target_mapId);
@@ -1351,6 +1353,19 @@ uint32 CoaRegroupRaid(Player* leader)
         {
             bool const farTeleport = bot->IsBeingTeleportedFar();
             time_t const since = time(nullptr) - (farTeleport ? bot->GetSemaphoreTeleportFar() : bot->GetSemaphoreTeleportNear());
+            // A near teleport with the bot out of every map (test humain 07/11, RC11e: 4 bots, 31 then 39 s) is never
+            // acknowledged: HandleTeleportAck's near branch needs the bot in the world. It is replaced by a far teleport
+            // to the leader (Player::TeleportTo's far branch takes a bot out of the world, as after any map change; the
+            // worldport acknowledgement then puts it in the leader's map), world thread, a bot only (RC11f).
+            if (!farTeleport && !bot->IsInWorld() && since > StuckTeleportSeconds)
+            {
+                LOG_WARN("playerbots", "coa regroup: {} stuck in a near teleport out of the world for {} s: far teleport "
+                         "instead", bot->GetName(), uint32(since));
+                CoaBringResult const result = CoaBringBotToLeader(bot, leader, "stuck near teleport", true);
+                if (result == CoaBringResult::Sent || result == CoaBringResult::ToDoor)
+                    ++sent;
+                continue;
+            }
             if (!bot->IsInWorld() || since > StuckTeleportSeconds)
             {
                 LOG_WARN("playerbots", "coa regroup: {} stuck in a {} teleport for {} s (in world {}): finished",

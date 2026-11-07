@@ -195,7 +195,7 @@ enum class CoaBringResult
     AtDoor,
     Refused
 };
-CoaBringResult CoaBringBotToLeader(Player* bot, Player* leader, char const* what);
+CoaBringResult CoaBringBotToLeader(Player* bot, Player* leader, char const* what, bool forceFar = false);
 // The raid check after ".playerbots coa raid" or bots logged in again: CoaRegroupRaid 5 and 15 seconds later.
 void CoaScheduleRegroup(ObjectGuid group, ObjectGuid leader);
 void CoaRegroupUpdate();
