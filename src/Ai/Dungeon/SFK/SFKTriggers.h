@@ -20,6 +20,7 @@ enum ShadowfangKeepIDs
     NPC_BLEAK_WORG                 = 3861,
     NPC_SLAVERING_WORG             = 3862,
     NPC_LUPINE_HORROR              = 3863,
+    NPC_LUPINE_DELUSION            = 5097,
 
     // Arugal's only area spell: a five yard stun around himself.
     SPELL_THUNDERSHOCK             = 7803

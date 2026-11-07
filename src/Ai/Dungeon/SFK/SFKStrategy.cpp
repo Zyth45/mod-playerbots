@@ -17,7 +17,7 @@ void VanillaDungeonSFKStrategy::InitTriggers(std::vector<TriggerNode*> &triggers
 
     // Wolf Master Nandos
     // His pack and his summons live for four minutes and do not leave with him, so they go first.
-    // Lupine Delusions are left alone: they vanish on the first hit they take.
+    // A Lupine Delusion hitting one of us goes right after the Horrors: it vanishes on the first hit it takes.
     triggers.push_back(new TriggerNode("nandos pack",
             { NextAction("attack nandos pack", ACTION_RAID + 1) }));
 

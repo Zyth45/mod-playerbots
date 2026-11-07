@@ -16,16 +16,25 @@ namespace NandosPack
         if (!boss)
             return nullptr;
 
-        // The Horror first: it summons Lupine Delusions while it lives. The Bleak Worg next, whose
+        // The Horror first: it summons Lupine Delusions while it lives. A Delusion that is hitting
+        // one of us next: it vanishes on the first hit it takes, but only when somebody hits it, and
+        // left alone it beats on a healer for as long as it lives. The Bleak Worg after that, whose
         // Wavering Will slows the attacks and casts of whoever it hits.
         GuidVector targets = AI_VALUE(GuidVector, "possible targets no los");
-        for (uint32 entry : { NPC_LUPINE_HORROR, NPC_BLEAK_WORG, NPC_SLAVERING_WORG })
+        for (uint32 entry : { NPC_LUPINE_HORROR, NPC_LUPINE_DELUSION, NPC_BLEAK_WORG, NPC_SLAVERING_WORG })
         {
             for (auto& guid : targets)
             {
                 Unit* unit = botAI->GetUnit(guid);
                 if (!unit || unit->GetEntry() != entry || !unit->IsAlive() || !unit->isTargetableForAttack())
                     continue;
+
+                if (entry == NPC_LUPINE_DELUSION)
+                {
+                    Unit* victim = unit->GetVictim();
+                    if (!victim || !victim->IsPlayer() || !bot->IsInSameGroupWith(victim->ToPlayer()))
+                        continue;
+                }
 
                 if (unit->GetExactDist(boss) <= SFK_NANDOS_PACK_RANGE)
                     return unit;
