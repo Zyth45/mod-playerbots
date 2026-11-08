@@ -396,8 +396,9 @@ void RandomPlayerbotMgr::UpdateAIInternal(uint32 /*elapsed*/, bool /*minimal*/)
     GetBots();
     CoaTrimBotsForPlayers(maxAllowedBotCount);
     // Copied deliberately: ProcessBot() erases from currentBots while this is
-    // being iterated below, so the loops must run over a snapshot.
-    std::unordered_set<uint32> availableBots = currentBots;
+    // being iterated below, so the loops must run over a snapshot. A vector in
+    // the same order: one allocation per tick instead of one per bot (2000 at the bench target).
+    std::vector<uint32> const availableBots(currentBots.begin(), currentBots.end());
     uint32 availableBotCount = availableBots.size();
     uint32 onlineBotCount = playerBots.size();
 
