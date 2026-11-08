@@ -172,6 +172,7 @@ public:
         {
             uint32 const minLevel = className.empty() ? 60 : std::max(1, std::atoi(className.c_str()));
             uint32 done = 0, skipped = 0;
+            // A copy on purpose: re-gearing a bot in the loop goes through the factory, which may touch the bot map.
             for (auto const& [guid, bot] : sRandomPlayerbotMgr.GetAllBots())
             {
                 if (!bot || !bot->IsInWorld() || bot->GetLevel() < minLevel)
@@ -377,7 +378,7 @@ public:
         in >> first;
 
         std::vector<Player*> bots;
-        for (auto const& [guid, bot] : sRandomPlayerbotMgr.GetAllBots())
+        for (auto const& [guid, bot] : sRandomPlayerbotMgr.GetAllBotsRef())  // read only: the list is acted on after
             if (bot && bot->IsInWorld())
                 bots.push_back(bot);
 

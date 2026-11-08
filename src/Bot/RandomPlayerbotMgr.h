@@ -184,7 +184,11 @@ public:
     void CoaReleaseOrphanGroups();
     Player* GetRandomPlayer();
     std::vector<Player*> GetPlayers() { return players; };
+    // A copy of the bot map: for a caller that logs bots in or out (or may) while it loops.
     PlayerBotMap GetAllBots() { return playerBots; };
+    // The bot map in place, no copy (2000 nodes allocated per call otherwise): for a caller that only reads it.
+    // World thread only, and nothing in the loop may log a bot in or out.
+    PlayerBotMap const& GetAllBotsRef() const { return playerBots; }
     void InitArenaTeams();
     void PrintStats();
     double GetBuyMultiplier(Player* bot);

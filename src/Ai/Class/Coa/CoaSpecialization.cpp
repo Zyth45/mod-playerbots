@@ -834,7 +834,7 @@ Player* FindCoaRecruit(Player* master, CoaRole role, uint8 classId, std::set<Obj
     chosenFits = false;
     uint32 chosenLevelGap = 0;
     float chosenDistance = 0.0f;
-    for (auto const& [guid, bot] : sRandomPlayerbotMgr.GetAllBots())
+    for (auto const& [guid, bot] : sRandomPlayerbotMgr.GetAllBotsRef())  // read only: picks one, acts after the loop
     {
         if (!bot || bot == master || !bot->IsInWorld() || bot->IsBeingTeleported() ||
             !(IsCoaBot(bot) || IsStockClass(bot->getClass())) || !bot->IsAlive() ||

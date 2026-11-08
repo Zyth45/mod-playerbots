@@ -262,7 +262,7 @@ void RandomPlayerbotMgr::LogPlayerLocation()
 
         if (sPlayerbotAIConfig.randomBotAutologin)
         {
-            for (auto i : GetAllBots())
+            for (auto const& i : GetAllBotsRef())  // read only: writes the location log
             {
                 Player* bot = i.second;
                 if (!bot)
