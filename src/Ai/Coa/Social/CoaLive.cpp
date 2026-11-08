@@ -12,6 +12,7 @@
 #include "ChatHelper.h"
 #include "Chat.h"
 #include "CoaLiveRules.h"
+#include "CoaMarketPrices.h"
 #include "Creature.h"
 #include "DBCStores.h"
 #include "DatabaseEnv.h"
@@ -424,9 +425,15 @@ void LookAround(Player* bot, PlayerbotAI* botAI)
 constexpr uint32 CHANNEL_TICK_MS = 20000;  // the channel timers look at the world this often
 uint64 nextChannelTick = 0;
 
-// The price of one item: the lowest buyout per unit on the bot's auction house, else the vendor price x 3 (spec).
+// The price of one item: the market's usual price (CoA Economy), else the lowest buyout per unit on the bot's auction
+// house, else the vendor price x 3 (spec).
 uint64 PriceOf(Player* bot, ItemTemplate const* proto)
 {
+    // The usual price the market paid, learned from real sales by CoA Economy (when it is on and knows the item).
+    if (CoaEconomy::MarketPrices* market = CoaEconomy::MarketPrices::instance(); market && market->IsEnabled())
+        if (CoaEconomy::MarketBand const* band = market->GetBand(proto->ItemId); band && band->Usual)
+            return band->Usual;
+
     uint64 best = 0;
     if (AuctionHouseObject* house = sAuctionMgr->GetAuctionsMap(bot->GetFaction()))
             for (auto const& [id, auction] : house->GetAuctions())
