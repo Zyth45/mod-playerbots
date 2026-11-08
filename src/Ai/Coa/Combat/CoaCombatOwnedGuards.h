@@ -31,5 +31,6 @@
 #define COA_COMBAT_OWNS_BREATH_GUARD 1  // B2: module world tick; Dungeon Clear's party gate calls CoaBreathGuard::AnyMemberUnderWater
 #define COA_COMBAT_OWNS_STUCK_COMBAT_BREAKER 1  // B3: CoaStuckCombat::SetRunAllows (bot-tank rung, chess); DC keeps its run watchdog
 #define COA_COMBAT_OWNS_COMBAT_PURGE 1  // B4: no hook; module world tick; A6's purgeBarred may read CoaCombatPurge::IsBarred
+#define COA_COMBAT_OWNS_HAKKAR_AVATAR 1  // B5: strategy vanilla-st (map 109); Dungeon Clear keeps the arrival and WaitForSpawn
 
 #endif

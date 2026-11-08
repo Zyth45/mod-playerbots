@@ -2112,7 +2112,7 @@ void PlayerbotAI::ApplyInstanceStrategies(uint32 mapId, bool tellMaster)
         "aq20", "aq40", "blacktemple", "bwl", "coa-other-side", "coa-vaults", "gruulslair", "hyjal", "icc", "karazhan", "magtheridon", "moltencore", "naxx",
         "onyxia", "rs", "ssc", "sunwell", "tbc-ac", "tbc-mech", "tbc-mgt", "tbc-seth", "tbc-ub", "tempestkeep", "ulduar",
         "vanilla-bfd", "vanilla-brd", "vanilla-brs", "vanilla-dm", "vanilla-mara", "vanilla-rfc", "vanilla-rfd", "vanilla-rfk",
-        "vanilla-scholo", "vanilla-sfk", "vanilla-sm", "vanilla-strat", "vanilla-ulda", "vanilla-wc", "voa", "wotlk-an",
+        "vanilla-scholo", "vanilla-sfk", "vanilla-sm", "vanilla-st", "vanilla-strat", "vanilla-ulda", "vanilla-wc", "voa", "wotlk-an",
         "wotlk-cos", "wotlk-dtk", "wotlk-eoe",
         "wotlk-fos", "wotlk-gd", "wotlk-hol", "wotlk-hos", "wotlk-nex", "wotlk-occ", "wotlk-ok", "wotlk-os",
         "wotlk-pos", "wotlk-toc", "wotlk-uk", "wotlk-up", "wotlk-vh", "zulaman", "zulgurub"
@@ -2141,6 +2141,9 @@ void PlayerbotAI::ApplyInstanceStrategies(uint32 mapId, bool tellMaster)
             break;
         case 70:
             strategyName = "vanilla-ulda";  // Uldaman
+            break;
+        case 109:
+            strategyName = "vanilla-st";  // Sunken Temple
             break;
         case 129:
             strategyName = "vanilla-rfd";  // Razorfen Downs

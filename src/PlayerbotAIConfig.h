@@ -707,6 +707,8 @@ public:
     // DungeonClear.UnreachableCombatPurgeSecs when the player has it, else 60 s; 0 = off).
     bool coaCombatCombatPurgeEnable = false;
     uint32 coaCombatCombatPurgeWindowMs = 60000;
+    // B5 Sunken Temple, Avatar of Hakkar (vanilla-st) outside a Dungeon Clear run (always on inside one).
+    bool coaCombatSunkenTempleEnable = false;
     // ---- end of CoA Combat ----
 
 private:

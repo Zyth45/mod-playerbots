@@ -4281,3 +4281,11 @@ AiPlayerbot.CoaCombat.StuckCombat.TimeoutSeconds = 15
 #                  1 - (Enabled)
 
 AiPlayerbot.CoaCombat.CombatPurge.Enable = 0
+# AiPlayerbot.CoaCombat.SunkenTemple.Enable
+#     Description: Sunken Temple, Avatar of Hakkar, outside a Dungeon Clear run: the bots peel a channelling Hakkari
+#                  Suppressor, loot Hakkari Blood from the Bloodkeepers and douse the four Eternal Flames. Always on
+#                  inside a Dungeon Clear run.
+#     Default:     0 - (Disabled)
+#                  1 - (Enabled)
+
+AiPlayerbot.CoaCombat.SunkenTemple.Enable = 0

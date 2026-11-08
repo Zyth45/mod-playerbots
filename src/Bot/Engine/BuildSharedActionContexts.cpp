@@ -7,6 +7,7 @@
 #include "ActionContext.h"
 #include "AiObjectContext.h"
 #include "CoaCombatContext.h"
+#include "STContexts.h"
 #include "CoaGardesContext.h"
 #include "Aq20ActionContext.h"
 #include "Aq40ActionContext.h"
@@ -79,6 +80,7 @@ void AiObjectContext::BuildSharedActionContexts(SharedNamedObjectContextList<Act
     actionContexts.Add(new VanillaDungeonRFDActionContext());
     actionContexts.Add(new VanillaDungeonBRSActionContext());
     actionContexts.Add(new VanillaDungeonBRDActionContext());
+    actionContexts.Add(new VanillaDungeonSTActionContext());
     actionContexts.Add(new VanillaDungeonScholoActionContext());
     actionContexts.Add(new VanillaDungeonStratActionContext());
     actionContexts.Add(new VanillaDungeonMaraActionContext());
