@@ -26,4 +26,7 @@
 #define COA_COMBAT_OWNS_TOP_OFF_PARTY 1  // A11: no hook
 #define COA_COMBAT_OWNS_BOSS_STAND_DOWN 1  // A12: CoaBossStandDown::SetRosterBossProvider; DC reads CoaBossStandDown::IsActive
 
+// Category B: guards Dungeon Clear ran alone, now in the module. Dungeon Clear calls or reads the module's instead.
+#define COA_COMBAT_OWNS_BEAR_FORM_BEFORE_PULL 1  // B1: Dungeon Clear's pull calls CoaTankForm::EnsureBearForm
+
 #endif
