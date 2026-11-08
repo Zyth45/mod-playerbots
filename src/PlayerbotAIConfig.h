@@ -697,7 +697,8 @@ public:
     // ---- end of CoA Economy ----
 
     // ---- CoA Combat (LoadCoaCombatConfig, CoaCombatConfig.cpp) ----
-    // No member yet.
+    // B2 breath guard outside a Dungeon Clear run (always on inside one).
+    bool coaCombatBreathGuardEnable = false;
     // ---- end of CoA Combat ----
 
 private:

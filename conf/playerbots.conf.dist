@@ -4382,4 +4382,11 @@ AiPlayerbot.CoaEconomy.LaunchCurve.LaunchPremiumPercent = 150
 #  CoA Combat — owned by the CoA Combat session
 # CoA Combat
 #
-# No setting yet.
+# AiPlayerbot.CoaCombat.BreathGuard.Enable
+#     Description: Breath guard outside a Dungeon Clear run. A grouped bot in a dungeon, out of combat, under water
+#                  for 90 s (half its breath) is brought back up beside its group's tank. Always on inside a
+#                  Dungeon Clear run.
+#     Default:     0 - (Disabled)
+#                  1 - (Enabled)
+
+AiPlayerbot.CoaCombat.BreathGuard.Enable = 0
