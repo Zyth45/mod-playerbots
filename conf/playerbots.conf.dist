@@ -4922,3 +4922,13 @@ AiPlayerbot.CoaCombat.MoltenCore.Enable = 0
 #                  1 - (Enabled)
 
 AiPlayerbot.CoaCombat.BlackwingLair.Enable = 0
+
+#
+# AiPlayerbot.CoaCombat.ZulGurub.Enable
+#     Description: The CoA Combat fixes to the bots' Zul'Gurub strategy: Mandokir's CoA gaze, Hakkar's CoA heart and
+#                  the poison pools during Blood Siphon, kill orders on Thekal's zealots and Jin'do's totems, the
+#                  prey of Gri'lek runs. The stock strategy is unchanged when this is 0.
+#     Default:     0 - (Disabled)
+#                  1 - (Enabled)
+
+AiPlayerbot.CoaCombat.ZulGurub.Enable = 0

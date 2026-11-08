@@ -174,7 +174,11 @@ bool MovementAction::MoveToLOS(WorldObject* target, bool ranged)
 
 bool CoaHakkarSiphon(Player* bot)
 {
-    return bot->GetMap()->IsRaid() && bot->FindNearestCreature(9780022, 200.0f) != nullptr;
+    if (!bot->GetMap()->IsRaid())
+        return false;
+    // CoA Combat (ZG, HK1): the CoA script summons the heart as 92005; 9780022 is the SQL's unused entry.
+    return bot->FindNearestCreature(9780022, 200.0f) != nullptr ||
+           (sPlayerbotAIConfig.coaCombatZulGurubEnable && bot->FindNearestCreature(92005, 200.0f) != nullptr);
 }
 
 std::vector<CoaGround> CoaHostileGround(Player* bot)

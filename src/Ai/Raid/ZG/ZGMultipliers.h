@@ -26,6 +26,16 @@ protected:
     virtual float GetValueInEncounter(Action* action) = 0;
 };
 
+// CoA Combat (EM1): Gri'lek's prey does not walk back to him to strike in melee.
+class GrilekPreyMultiplier : public ZulGurubEncounterMultiplier
+{
+public:
+    GrilekPreyMultiplier(PlayerbotAI* botAI) : ZulGurubEncounterMultiplier(botAI, "grilek prey multiplier") {}
+
+protected:
+    float GetValueInEncounter(Action* action) override;
+};
+
 class HakkarKeepPoisonousBloodMultiplier : public ZulGurubEncounterMultiplier
 {
 public:

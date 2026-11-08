@@ -6,6 +6,7 @@
 
 #include "ZGMultipliers.h"
 #include "AttackAction.h"
+#include "ReachTargetActions.h"
 #include "GenericSpellActions.h"
 #include "Playerbots.h"
 #include "TotemsShamanStrategy.h"
@@ -54,4 +55,11 @@ float BloodlordMandokirCauseNoThreatUnderGazeMultiplier::GetValueInEncounter(Act
     bool const causesThreat = dynamic_cast<CastSpellAction*>(action) || dynamic_cast<AttackAction*>(action) ||
                               dynamic_cast<UseItemAction*>(action) || dynamic_cast<UseTrinketAction*>(action);
     return causesThreat && IsGazedByMandokir(bot) ? 0.0f : 1.0f;
+}
+
+float GrilekPreyMultiplier::GetValueInEncounter(Action* action)
+{
+    if (!ZgCoaFixesOn() || !bot->HasAura(SPELL_GRILEK_PURSUIT))
+        return 1.0f;
+    return dynamic_cast<ReachMeleeAction*>(action) || dynamic_cast<MeleeAction*>(action) ? 0.0f : 1.0f;
 }

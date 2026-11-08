@@ -21,6 +21,10 @@ public:
         creators["hakkar mark"] = &RaidZulGurubActionContext::hakkar_mark;
         creators["hakkar avoid blood scythe"] = &RaidZulGurubActionContext::hakkar_avoid_blood_scythe;
         creators["hakkar move from blood pool"] = &RaidZulGurubActionContext::hakkar_move_from_blood_pool;
+        creators["hakkar move to siphon pool"] = &RaidZulGurubActionContext::hakkar_move_to_siphon_pool;
+        creators["thekal mark"] = &RaidZulGurubActionContext::thekal_mark;
+        creators["jindo mark"] = &RaidZulGurubActionContext::jindo_mark;
+        creators["grilek prey run"] = &RaidZulGurubActionContext::grilek_prey_run;
 
         // High Priest Venoxis
         creators["venoxis avoid venom spit"] = &RaidZulGurubActionContext::venoxis_avoid_venom_spit;
@@ -35,11 +39,32 @@ private:
     // The Heart of Hakkar first (it only exists during Blood Siphon), then the Sons of Hakkar, then him.
     static Action* hakkar_mark(PlayerbotAI* botAI)
     {
-        return new RaidKillOrderMarkAction(
-            botAI, "hakkar mark", "hakkar",
-            { static_cast<uint32>(ZulGurubHelpers::ZulGurubNpcs::NPC_COA_HEART_OF_HAKKAR),
-              static_cast<uint32>(ZulGurubHelpers::ZulGurubNpcs::NPC_SON_OF_HAKKAR) });
+        // CoA Combat (HK1): the heart the CoA script summons (92005) first, with the fixes on.
+        std::vector<uint32> order;
+        if (ZulGurubHelpers::ZgCoaFixesOn())
+            order.push_back(ZulGurubHelpers::NPC_COA_HEART_OF_HAKKAR_SCRIPT);
+        order.push_back(static_cast<uint32>(ZulGurubHelpers::ZulGurubNpcs::NPC_COA_HEART_OF_HAKKAR));
+        order.push_back(static_cast<uint32>(ZulGurubHelpers::ZulGurubNpcs::NPC_SON_OF_HAKKAR));
+        return new RaidKillOrderMarkAction(botAI, "hakkar mark", "hakkar", order);
     }
+    static Action* hakkar_move_to_siphon_pool(PlayerbotAI* botAI) { return new HakkarMoveToSiphonPoolAction(botAI); }
+    // CoA Combat (TK1): Lor'Khan (he heals), then Zath, then Thekal.
+    static Action* thekal_mark(PlayerbotAI* botAI)
+    {
+        return new RaidKillOrderMarkAction(
+            botAI, "thekal mark", "high priest thekal",
+            { static_cast<uint32>(ZulGurubHelpers::ZulGurubNpcs::NPC_ZEALOT_LORKHAN),
+              static_cast<uint32>(ZulGurubHelpers::ZulGurubNpcs::NPC_ZEALOT_ZATH) });
+    }
+    // CoA Combat (JD1): Brain Wash Totems, then Healing Wards, then the Shades, then Jin'do.
+    static Action* jindo_mark(PlayerbotAI* botAI)
+    {
+        return new RaidKillOrderMarkAction(
+            botAI, "jindo mark", "jin'do the hexxer",
+            { ZulGurubHelpers::NPC_BRAIN_WASH_TOTEM, ZulGurubHelpers::NPC_POWERFUL_HEALING_WARD,
+              ZulGurubHelpers::NPC_SHADE_OF_JINDO });
+    }
+    static Action* grilek_prey_run(PlayerbotAI* botAI) { return new GrilekPreyRunAction(botAI); }
     static Action* hakkar_avoid_blood_scythe(PlayerbotAI* botAI) { return new HakkarAvoidBloodScytheAction(botAI); }
     static Action* hakkar_move_from_blood_pool(PlayerbotAI* botAI)
     {

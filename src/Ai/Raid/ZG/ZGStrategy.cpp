@@ -28,6 +28,12 @@ void RaidZulGurubStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
     triggers.push_back(new TriggerNode("hakkar mark", { NextAction("hakkar mark", ACTION_RAID) }));
     triggers.push_back(new TriggerNode("hakkar blood scythe", { NextAction("hakkar avoid blood scythe", ACTION_RAID + 1) }));
     triggers.push_back(new TriggerNode("hakkar blood pool", { NextAction("hakkar move from blood pool", ACTION_RAID + 1) }));
+    // CoA Combat (lot 7, docs/ZG-ETAT-3.0.md): the poison pool during Blood Siphon (HK2), kill orders on Thekal's
+    // zealots (TK1) and Jin'do's totems (JD1), Gri'lek's prey (EM1).
+    triggers.push_back(new TriggerNode("hakkar siphon pool", { NextAction("hakkar move to siphon pool", ACTION_RAID + 2) }));
+    triggers.push_back(new TriggerNode("thekal mark", { NextAction("thekal mark", ACTION_RAID) }));
+    triggers.push_back(new TriggerNode("jindo mark", { NextAction("jindo mark", ACTION_RAID) }));
+    triggers.push_back(new TriggerNode("grilek pursuit", { NextAction("grilek prey run", ACTION_RAID + 2) }));
 
     // High Priest Venoxis: his threat list is wiped when he turns into a snake; a tank takes him back at once,
     // and everyone else keeps out of Venom Spit's cone meanwhile.
@@ -43,6 +49,7 @@ void RaidZulGurubStrategy::InitMultipliers(std::vector<Multiplier*>& multipliers
 {
     multipliers.push_back(new HakkarKeepPoisonousBloodMultiplier(botAI));
     multipliers.push_back(new BloodlordMandokirCauseNoThreatUnderGazeMultiplier(botAI));
+    multipliers.push_back(new GrilekPreyMultiplier(botAI));
 }
 
 void RaidZulGurubStrategy::AppendTargetExclusions(GuidSet& exclusions, TargetValueExclusionType type)
@@ -65,6 +72,9 @@ void RaidZulGurubStrategy::AppendTargetExclusions(GuidSet& exclusions, TargetVal
     }
 
     // Thekal's first phase: a low member of the trio is left alone while another is still high.
+    // CoA Combat (TK1): on CoA nobody of the trio comes back; a zealot left at 15 % keeps healing Thekal.
+    if (ZgCoaFixesOn())
+        return;
     std::vector<Unit*> trio;
     for (ObjectGuid const guid : AI_VALUE(GuidVector, "attackers"))
     {
