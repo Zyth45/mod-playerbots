@@ -146,6 +146,14 @@ ObjectGuid ChooseTradeNpc(PlayerbotAI* botAI, std::vector<ObjectGuid> const& tar
     return nearest ? nearest->GetGUID() : ObjectGuid();
 }
 
+bool HasTradeNpcInReach(PlayerbotAI* botAI)
+{
+    if (!WantsTrade(botAI))
+        return false;
+    AiObjectContext* context = botAI->GetAiObjectContext();
+    return !ChooseTradeNpc(botAI, AI_VALUE(GuidVector, "possible new rpg targets")).IsEmpty();
+}
+
 bool TradeAtNpc(PlayerbotAI* botAI, WorldObject* npc)
 {
     if (!botAI || !npc)

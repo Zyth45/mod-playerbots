@@ -256,8 +256,7 @@ bool NewRpgStatusUpdateAction::Execute(Event /*event*/)
                 return true;
             }
             // CoA Economy: business with a vendor or an auctioneer in reach: go there first
-            if (CoaEconomy::RpgTrade::WantsTrade(botAI) &&
-                !CoaEconomy::RpgTrade::ChooseTradeNpc(botAI, AI_VALUE(GuidVector, "possible new rpg targets")).IsEmpty())
+            if (CoaEconomy::RpgTrade::HasTradeNpcInReach(botAI))
             {
                 info.ChangeToWanderNpc();
                 return true;

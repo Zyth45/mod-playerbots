@@ -27,6 +27,9 @@ namespace CoaEconomy::RpgTrade
     // Among the bot's possible rpg targets, the nearest NPC it has business with (0 distanceLimit = any).
     ObjectGuid ChooseTradeNpc(PlayerbotAI* botAI, std::vector<ObjectGuid> const& targets, float distanceLimit = 0.0f);
 
+    // WantsTrade and such an NPC among the bot's possible rpg targets (for the idle step of the new rpg).
+    bool HasTradeNpcInReach(PlayerbotAI* botAI);
+
     // At an NPC in interaction range: sells to a vendor what the bot does not need, repairs at an armorer when its
     // gear is worn, and queues an auction house visit at an auctioneer. True when it did something.
     bool TradeAtNpc(PlayerbotAI* botAI, WorldObject* npc);
