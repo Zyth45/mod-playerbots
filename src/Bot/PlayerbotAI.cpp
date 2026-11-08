@@ -5489,6 +5489,10 @@ bool PlayerbotAI::AllowActive(ActivityType activityType)
     if (bot->InBattlegroundQueue())
         return true;
 
+    // a dungeon finder proposal is pending: the bot must answer before it expires
+    if (sLFGMgr->GetState(bot->GetGUID()) == lfg::LFG_STATE_PROPOSAL)
+        return true;
+
     // bot is gathering on a mission — far from any player, it still has to walk and gather
     if (sCoaMissionMgr.IsOnMission(bot))
         return true;
