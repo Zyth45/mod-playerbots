@@ -2060,16 +2060,18 @@ bool RandomPlayerbotMgr::ProcessBot(Player* bot)
     {
         uint32 const progress = bot->GetLevel() * 1000000 + bot->GetUInt32Value(PLAYER_XP) + 1;
         uint32 const now = uint32(time(nullptr));
-        if (GetEventValue(botId, "coaXp") != progress)
+        // In memory: two database writes a pass for every low level bot were too many at 2000 bots.
+        auto& [mark, since] = coaXpTrack[botId];
+        if (mark != progress)
         {
-            SetEventValue(botId, "coaXp", progress, 30 * DAY);
-            SetEventValue(botId, "coaXpAt", now, 30 * DAY);
+            mark = progress;
+            since = now;
         }
-        else if (now - GetEventValue(botId, "coaXpAt") >= 10 * MINUTE)
+        else if (now - since >= 10 * MINUTE)
         {
             LOG_INFO("playerbots", "coa: {} (level {}) earned no experience for 10 minutes, new grinding spot",
                      bot->GetName(), bot->GetLevel());
-            SetEventValue(botId, "coaXpAt", now, 30 * DAY);
+            since = now;
             RandomTeleportGrindForLevel(bot);
             return true;
         }
@@ -3370,6 +3372,7 @@ void RandomPlayerbotMgr::HandleCommand(uint32 type, std::string const text, Play
 
 void RandomPlayerbotMgr::OnPlayerLogout(Player* player)
 {
+    coaXpTrack.erase(player->GetGUID().GetCounter());
     DisablePlayerBot(player->GetGUID());
 
     for (PlayerBotMap::const_iterator it = GetPlayerBotsBegin(); it != GetPlayerBotsEnd(); ++it)

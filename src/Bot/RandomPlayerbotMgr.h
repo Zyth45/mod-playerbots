@@ -325,6 +325,9 @@ private:
     time_t DelayLoginBotsTimer;
     time_t printStatsTimer;
     std::unordered_map<ObjectGuid::LowType, time_t> coaOrphanGroups;  // group -> since when it has been orphaned
+    // Low level bots: their last experience mark and since when (ProcessBot), in memory only: after a restart the
+    // check just starts over. World thread; a bot's entry goes when it logs out.
+    std::unordered_map<uint32, std::pair<uint32, uint32>> coaXpTrack;  // bot -> (progress, since)
     time_t coaOrphanCheckAt = 0;
     uint32 AddRandomBots();
     void CoaTrimBotsForPlayers(uint32 target);
