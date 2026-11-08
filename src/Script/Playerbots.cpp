@@ -667,6 +667,9 @@ void AddSC_coa_player_main_tank();
 void AddSC_coa_gardes_menace();
 void AddSC_coa_economy_ahbot();
 
+// CoA World (L3, the world moves): invasions.
+void AddSC_coa_world_invasions();
+
 void AddPlayerbotsScripts()
 {
     new PlayerbotsBattlefieldScript();
@@ -699,4 +702,7 @@ void AddPlayerbotsScripts()
     AddSC_coa_gardes_menace();
     AddSC_coa_lfg();
     AddSC_coa_economy_ahbot();
+
+    // CoA World (L3, the world moves)
+    AddSC_coa_world_invasions();
 }

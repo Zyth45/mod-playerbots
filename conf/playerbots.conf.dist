@@ -2550,6 +2550,125 @@ AiPlayerbot.CoaLfgAnnounceMinutes = 10
 
 AiPlayerbot.CoaLfgAnnounceText =
 
+#
+# CoA World (L3, "the world moves")
+#
+#    AiPlayerbot.CoaWorld.Invasions.Enable
+#        Description: Live invasions, each announced 10 minutes before to the players of its level
+#                     band, in waves, with a boss to kill and a reward for everyone there:
+#                     - the Scourge marching on the gates of Stormwind or Orgrimmar (from level 20),
+#                     - a Legion portal outside Gadgetzan, Everlook, Cenarion Hold, Nethergarde Keep
+#                       or Light's Hope Chapel (from level 45),
+#                     - the Qiraji swarm storming the Kaldorei line at the Scarab Wall (from level 55).
+#                     The creatures take the level of the players online, and random bots of that
+#                     level come to defend with them. GMs: .coaworld invasion list|start|stop <scourge|legion|aq>.
+#                     Everyone: .coaworld invasion next.
+#        Default:     0 - off
+#                     1 - on
+
+AiPlayerbot.CoaWorld.Invasions.Enable = 0
+
+#    AiPlayerbot.CoaWorld.Invasions.MinRealPlayers
+#        Description: Real players of the band who must be online for an invasion to be announced.
+#        Default:     1
+
+AiPlayerbot.CoaWorld.Invasions.MinRealPlayers = 1
+
+#    AiPlayerbot.CoaWorld.Invasions.RetryMinutes
+#        Description: How often a due invasion checks again while too few players are online.
+#        Default:     5
+
+AiPlayerbot.CoaWorld.Invasions.RetryMinutes = 5
+
+#    AiPlayerbot.CoaWorld.Invasions.WarningMinutes
+#        Description: Notice before an invasion starts, in minutes. 0 starts it at once.
+#        Default:     10
+
+AiPlayerbot.CoaWorld.Invasions.WarningMinutes = 10
+
+#    AiPlayerbot.CoaWorld.Invasions.DurationMinutes
+#        Description: How long the players have to kill the boss before the invasion withdraws.
+#        Default:     30
+
+AiPlayerbot.CoaWorld.Invasions.DurationMinutes = 30
+
+#    AiPlayerbot.CoaWorld.Invasions.HealthPct
+#        Description: Health of the invaders, in percent of their normal value (10 to 1000).
+#        Default:     100
+
+AiPlayerbot.CoaWorld.Invasions.HealthPct = 100
+
+#    AiPlayerbot.CoaWorld.Invasions.RewardSilverPerLevel
+#        Description: Money for everyone near the fight when the boss falls, in silver per level
+#                     of the character (25: 15 gold at level 60). Bots get it too.
+#        Default:     25
+
+AiPlayerbot.CoaWorld.Invasions.RewardSilverPerLevel = 25
+
+#    AiPlayerbot.CoaWorld.Invasions.RewardReputation
+#        Description: Reputation for the real players there: Argent Dawn (Scourge, Legion) or
+#                     Cenarion Circle (Ahn'Qiraj). The Scourge also gives 5 Necrotic Runes.
+#        Default:     150
+
+AiPlayerbot.CoaWorld.Invasions.RewardReputation = 150
+
+#    AiPlayerbot.CoaWorld.Invasions.RewardRange
+#        Description: Yards from the fight within which a character counts as there.
+#        Default:     120
+
+AiPlayerbot.CoaWorld.Invasions.RewardRange = 120
+
+#    AiPlayerbot.CoaWorld.Invasions.BotsPct
+#    AiPlayerbot.CoaWorld.Invasions.BotsMax
+#        Description: Random bots borrowed to defend: this percent of the random bots online, at
+#                     most BotsMax, for all running invasions together. 0 sends none.
+#        Default:     10, 120
+
+AiPlayerbot.CoaWorld.Invasions.BotsPct = 10
+AiPlayerbot.CoaWorld.Invasions.BotsMax = 120
+
+#    AiPlayerbot.CoaWorld.Invasions.BotsLevelRange
+#        Description: Bots within so many levels of the invasion's level are sent.
+#        Default:     5
+
+AiPlayerbot.CoaWorld.Invasions.BotsLevelRange = 5
+
+#    AiPlayerbot.CoaWorld.Invasions.BotsNearRadius
+#        Description: Bots closer than this (yards, same continent) walk to the fight.
+#        Default:     500
+
+AiPlayerbot.CoaWorld.Invasions.BotsNearRadius = 500
+
+#    AiPlayerbot.CoaWorld.Invasions.BotsTeleport
+#    AiPlayerbot.CoaWorld.Invasions.BotsReturnHome
+#        Description: 1 - bots from farther away are brought behind the defenders' line (never in
+#                     sight of a real player), and taken back where they were afterwards.
+#        Default:     1, 1
+
+AiPlayerbot.CoaWorld.Invasions.BotsTeleport = 1
+AiPlayerbot.CoaWorld.Invasions.BotsReturnHome = 1
+
+#    AiPlayerbot.CoaWorld.Invasions.<Scourge|Legion|AhnQiraj>.Enable
+#    AiPlayerbot.CoaWorld.Invasions.<Scourge|Legion|AhnQiraj>.IntervalMin
+#    AiPlayerbot.CoaWorld.Invasions.<Scourge|Legion|AhnQiraj>.IntervalMax
+#    AiPlayerbot.CoaWorld.Invasions.<Scourge|Legion|AhnQiraj>.MinLevel
+#        Description: Each invasion on its own: 0 never runs it; minutes between one and the
+#                     next chance, picked at random; lowest level of the players it is for.
+#        Default:     1, 120, 240, and 20 (Scourge), 45 (Legion), 55 (AhnQiraj)
+
+AiPlayerbot.CoaWorld.Invasions.Scourge.Enable = 1
+AiPlayerbot.CoaWorld.Invasions.Scourge.IntervalMin = 120
+AiPlayerbot.CoaWorld.Invasions.Scourge.IntervalMax = 240
+AiPlayerbot.CoaWorld.Invasions.Scourge.MinLevel = 20
+AiPlayerbot.CoaWorld.Invasions.Legion.Enable = 1
+AiPlayerbot.CoaWorld.Invasions.Legion.IntervalMin = 120
+AiPlayerbot.CoaWorld.Invasions.Legion.IntervalMax = 240
+AiPlayerbot.CoaWorld.Invasions.Legion.MinLevel = 45
+AiPlayerbot.CoaWorld.Invasions.AhnQiraj.Enable = 1
+AiPlayerbot.CoaWorld.Invasions.AhnQiraj.IntervalMin = 120
+AiPlayerbot.CoaWorld.Invasions.AhnQiraj.IntervalMax = 240
+AiPlayerbot.CoaWorld.Invasions.AhnQiraj.MinLevel = 55
+
 # Quality a looted item must reach to be written to the "playerbots.loot" logger:
 # 3 rare (blue), 4 epic, 5 legendary. Nothing is written unless worldserver.conf
 # points that logger at an appender, and only bots are ever logged.
