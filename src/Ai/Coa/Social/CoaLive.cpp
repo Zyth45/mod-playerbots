@@ -55,6 +55,8 @@ constexpr float HEAR_RANGE = 30.0f;      // a real player this close hears the b
 constexpr uint32 GREET_PLAYER_CD_S = 3600;  // a bot greets the same player once an hour
 constexpr size_t QUEUE_MAX = 4096;
 
+std::mutex liveLock;
+
 struct Pending
 {
     uint64 dueMs = 0;
@@ -87,7 +89,6 @@ void ForgetOffer(Player* bot)
     offers.erase(bot->GetGUID().GetRawValue());
 }
 
-std::mutex liveLock;
 std::shared_ptr<Bank const> bank;
 Pacer pacer;
 std::unordered_map<uint64, Ring> botRings;
@@ -393,18 +394,19 @@ void LookAround(Player* bot, PlayerbotAI* botAI)
         bot->InArena() || botAI->HasGameClientMaster())
         return;
 
-    std::list<Player*> const near = RealPlayersNear(bot, HEAR_RANGE);
-    if (near.empty())
+    std::list<Player*> const nearby = RealPlayersNear(bot, HEAR_RANGE);
+    if (nearby.empty())
         return;
 
     float const greetRange = static_cast<float>(sPlayerbotAIConfig.coaLiveGreetRange);
-    for (Player* player : near)
+    for (Player* player : nearby)
     {
         if (player->GetTeamId() != bot->GetTeamId() || !bot->IsWithinDist(player, greetRange))
             continue;
         // Only one bot greets a player at a time (the scope is the player).
-        if (React(bot, "greet_pass", player, "p" + std::to_string(player->GetGUID().GetCounter()), nullptr,
-                  GREET_PLAYER_CD_S))
+        ReactOptions opt;
+        opt.perSubjectCdS = GREET_PLAYER_CD_S;
+        if (React(bot, "greet_pass", player, "p" + std::to_string(player->GetGUID().GetCounter()), opt))
             return;
     }
 
@@ -426,8 +428,7 @@ uint64 nextChannelTick = 0;
 uint64 PriceOf(Player* bot, ItemTemplate const* proto)
 {
     uint64 best = 0;
-    if (AuctionHouseEntry const* ahEntry = AuctionHouseMgr::GetAuctionHouseEntryFromFactionTemplate(bot->GetFaction()))
-        if (AuctionHouseObject* house = sAuctionMgr->GetAuctionsMap(ahEntry))
+    if (AuctionHouseObject* house = sAuctionMgr->GetAuctionsMap(bot->GetFaction()))
             for (auto const& [id, auction] : house->GetAuctions())
                 if (auction && auction->item_template == proto->ItemId && auction->buyout && auction->itemCount)
                 {
@@ -474,8 +475,7 @@ bool WtsValues(Player* bot, std::map<std::string, std::string>& extra, Offer& of
 // Something on the bot's auction house that a bot of its level would want: a real listing, its real price.
 bool WtbValues(Player* bot, std::map<std::string, std::string>& extra, Offer& offer)
 {
-    AuctionHouseEntry const* ahEntry = AuctionHouseMgr::GetAuctionHouseEntryFromFactionTemplate(bot->GetFaction());
-    AuctionHouseObject* house = ahEntry ? sAuctionMgr->GetAuctionsMap(ahEntry) : nullptr;
+    AuctionHouseObject* house = sAuctionMgr->GetAuctionsMap(bot->GetFaction());
     if (!house || house->GetAuctions().empty())
         return false;
     std::vector<AuctionEntry*> fit;
@@ -880,7 +880,9 @@ public:
         Creature* creature = enemy->ToCreature();
         if (!creature || !(creature->IsDungeonBoss() || creature->isWorldBoss()) || !GroupHasRealPlayer(player))
             return;
-        React(player, "boss_pull", nullptr, "g" + std::to_string(player->GetGroup()->GetGUID().GetCounter()), creature);
+        ReactOptions opt;
+        opt.boss = creature;
+        React(player, "boss_pull", nullptr, "g" + std::to_string(player->GetGroup()->GetGUID().GetCounter()), opt);
     }
 };
 
@@ -1006,7 +1008,9 @@ bool OnWhisper(Player* from, Player* to, std::string const& msg)
     else if (intent == "where")
         situation = "wh_where_unknown";  // %place is not looked up yet
 
-    React(to, situation, from, "w" + std::to_string(to->GetGUID().GetCounter()), nullptr, 0, invite);
+    ReactOptions opt;
+    opt.invite = invite;
+    React(to, situation, from, "w" + std::to_string(to->GetGUID().GetCounter()), opt);
     return true;
 }
 
