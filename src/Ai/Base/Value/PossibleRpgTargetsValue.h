@@ -26,6 +26,9 @@ protected:
     bool AcceptUnit(Unit* unit) override;
 };
 
+// New-rpg scans are read every tick; NPCs and quest objects do not move, and consumers re-check the GUID.
+constexpr uint32 NEW_RPG_SCAN_INTERVAL_SECONDS = 2;
+
 class PossibleNewRpgTargetsValue : public NearestUnitsValue
 {
 public:
@@ -44,7 +47,8 @@ class PossibleNewRpgGameObjectsValue : public ObjectGuidListCalculatedValue
 {
 public:
     PossibleNewRpgGameObjectsValue(PlayerbotAI* botAI, float range = 150.0f, bool ignoreLos = true)
-        : ObjectGuidListCalculatedValue(botAI, "possible new rpg game objects"), range(range), ignoreLos(ignoreLos)
+        : ObjectGuidListCalculatedValue(botAI, "possible new rpg game objects", NEW_RPG_SCAN_INTERVAL_SECONDS),
+          range(range), ignoreLos(ignoreLos)
     {
     }
 
