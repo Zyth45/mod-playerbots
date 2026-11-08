@@ -9,6 +9,7 @@
 #include "CoaEscapeLeapStrategy.h"
 #include "CoaStuckCombat.h"
 #include "CoaStuckCombatStrategy.h"
+#include "CoaPursuitStrategy.h"
 #include "CoaTelegraph.h"
 
 CoaCombatStrategyContext::CoaCombatStrategyContext() : NamedObjectContext<Strategy>(false, true)
@@ -18,6 +19,7 @@ CoaCombatStrategyContext::CoaCombatStrategyContext() : NamedObjectContext<Strate
     creators["coa combat stuck combat"] = [](PlayerbotAI* ai) -> Strategy* { return new CoaStuckCombatStrategy(ai, true); };
     creators["coa combat stuck combat nc"] = [](PlayerbotAI* ai) -> Strategy* { return new CoaStuckCombatStrategy(ai, false); };
     creators["coa combat telegraph"] = [](PlayerbotAI* ai) -> Strategy* { return new CoaTelegraphStrategy(ai); };
+    creators["coa combat pursuit stop"] = [](PlayerbotAI* ai) -> Strategy* { return new CoaPursuitStrategy(ai); };
 }
 
 CoaCombatTriggerContext::CoaCombatTriggerContext() : NamedObjectContext<Trigger>(false, true)
