@@ -4047,3 +4047,20 @@ AiPlayerbot.CoaEconomy.Filter.Bloodforged = 1
 AiPlayerbot.CoaEconomy.Filter.AllowBloodforged = 0
 AiPlayerbot.CoaEconomy.Filter.Worldforged = 1
 AiPlayerbot.CoaEconomy.Filter.ScaledEntries = 1
+
+# Auction house bot, buyer that acts like people (needs the house buyer on: AuctionHouseBot.Buyer.Enabled).
+# Read again by ".reload config" and ".ahbot reload".
+#    Enable                  1 = on, 0 = off (default).
+#    DelayMinSeconds         A new auction is noticed after a random delay between these two (default 60
+#    DelayMaxSeconds         and 900 s), x2 from 1 gold, x4 from 10 gold, x8 from 100 gold.
+#    BaseChancePercent       Chance to take an acceptable deal at its limit price (default 35); a better deal
+#                            raises it: base x (price wanted / price asked)^2.
+#    RivalPercent            When a player already bids, chance to outbid them rather than buy out (default 25).
+#    ArbitrageMarginPercent  The buyer pays at most this share of the lowest price the house asks for the same
+#                            item (default 90), so buying from the house to sell back to it never pays.
+AiPlayerbot.CoaEconomy.Buyer.Enable = 0
+AiPlayerbot.CoaEconomy.Buyer.DelayMinSeconds = 60
+AiPlayerbot.CoaEconomy.Buyer.DelayMaxSeconds = 900
+AiPlayerbot.CoaEconomy.Buyer.BaseChancePercent = 35
+AiPlayerbot.CoaEconomy.Buyer.RivalPercent = 25
+AiPlayerbot.CoaEconomy.Buyer.ArbitrageMarginPercent = 90

@@ -125,3 +125,7 @@ Authorship is assigned for each commit within the git history, which is stored i
 ## Code under another license
 
 * The combat guards in `src/Ai/Coa/Gardes/` and the reference headers in `tests/dc294/` come from Dungeon Clear by Jared Wright and contributors, under AGPL-3.0-or-later (see `LICENSE-GARDES` and the full text in `LICENSE-AGPL3`).
+
+## Code taken from other projects
+
+* The auction house bot in `src/Ai/Coa/Economy/AuctionHouse/CoaAuctionHouseBot.cpp/.h` comes from mod-ah-bot-plus by Nathan Handley (after the AzerothCore mod-ah-bot, TrinityCore and MaNGOS), under GPL-2.0-or-later; their copyright notices are kept in the files.

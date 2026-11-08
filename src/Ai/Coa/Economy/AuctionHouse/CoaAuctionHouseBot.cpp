@@ -433,13 +433,13 @@ void AuctionHouseBot::CalculateItemValue(ItemTemplate const* itemProto, uint64& 
         {
             outBuyoutPrice = it->second;
             if (CompleteItemValueOverrideDoApplyBuyoutVariations == true)
-                outBuyoutPrice = urand(outBuyoutPrice * (1.0f - BuyoutVariationReducePercent), outBuyoutPrice * (1.0f + BuyoutVariationAddPercent));
+                outBuyoutPrice = PriceRoll(outBuyoutPrice * (1.0f - BuyoutVariationReducePercent), outBuyoutPrice * (1.0f + BuyoutVariationAddPercent));
 
             if (CompleteItemValueOverrideDoApplyBidVariations == true)
             {
                 float sellVarianceBidPriceTopPercent = 1.0f - BidVariationHighReducePercent;
                 float sellVarianceBidPriceBottomPercent = 1.0f - BidVariationLowReducePercent;
-                outBidPrice = urand(sellVarianceBidPriceBottomPercent * outBuyoutPrice, sellVarianceBidPriceTopPercent * outBuyoutPrice);
+                outBidPrice = PriceRoll(sellVarianceBidPriceBottomPercent * outBuyoutPrice, sellVarianceBidPriceTopPercent * outBuyoutPrice);
             }
             else
                 outBidPrice = outBuyoutPrice;
@@ -528,9 +528,9 @@ void AuctionHouseBot::CalculateItemValue(ItemTemplate const* itemProto, uint64& 
 
     // Set the minimum price
     if (outBuyoutPrice < PriceMinimumCenterBase)
-        outBuyoutPrice = urand(PriceMinimumCenterBase * (1.0f - BuyoutVariationReducePercent), PriceMinimumCenterBase * (1.0f + BuyoutVariationAddPercent));
+        outBuyoutPrice = PriceRoll(PriceMinimumCenterBase * (1.0f - BuyoutVariationReducePercent), PriceMinimumCenterBase * (1.0f + BuyoutVariationAddPercent));
     else
-        outBuyoutPrice = urand(outBuyoutPrice * (1.0f - BuyoutVariationReducePercent), outBuyoutPrice * (1.0f + BuyoutVariationAddPercent));
+        outBuyoutPrice = PriceRoll(outBuyoutPrice * (1.0f - BuyoutVariationReducePercent), outBuyoutPrice * (1.0f + BuyoutVariationAddPercent));
 
     // Ensure no multipliers are zero or negative
     if (classPriceMultiplier <= 0.0f)
@@ -582,13 +582,13 @@ void AuctionHouseBot::CalculateItemValue(ItemTemplate const* itemProto, uint64& 
     if (BuyoutBelowVendorVariationAddPercentEnabled == true && outBuyoutPrice < itemProto->SellPrice)
     {
         float minLowPriceAddVariancePercent = 1.0f + BuyoutBelowVendorVariationAddPercent;
-        outBuyoutPrice = urand(itemProto->SellPrice, minLowPriceAddVariancePercent * itemProto->SellPrice);
+        outBuyoutPrice = PriceRoll(itemProto->SellPrice, minLowPriceAddVariancePercent * itemProto->SellPrice);
     }
 
     // Calculate a bid price based on a variance against buyout price
     float sellVarianceBidPriceTopPercent = 1.0f - BidVariationHighReducePercent;
     float sellVarianceBidPriceBottomPercent = 1.0f - BidVariationLowReducePercent;
-    outBidPrice = urand(sellVarianceBidPriceBottomPercent * outBuyoutPrice, sellVarianceBidPriceTopPercent * outBuyoutPrice);
+    outBidPrice = PriceRoll(sellVarianceBidPriceBottomPercent * outBuyoutPrice, sellVarianceBidPriceTopPercent * outBuyoutPrice);
 
     // Catch any zeros
     if (outBuyoutPrice == 0)
@@ -1896,6 +1896,9 @@ void AuctionHouseBot::AddNewAuctionBuyerBotBid(std::vector<Player*> AHBPlayers, 
         possibleBids.push_back(tmpdata);
     } while (result->NextRow());
 
+    if (HumanBuyer.Enabled)
+        FilterHumanBuyerCandidates(config->GetAHID(), possibleBids, auctionHouse);
+
     int randBuyingBotBuyCandidatesPerBuyCycle = urand(BuyingBotBuyCandidatesPerBuyCycleMin, BuyingBotBuyCandidatesPerBuyCycleMax);
     for (int count = 1; count <= randBuyingBotBuyCandidatesPerBuyCycle; ++count)
     {
@@ -1967,6 +1970,14 @@ void AuctionHouseBot::AddNewAuctionBuyerBotBid(std::vector<Player*> AHBPlayers, 
         uint64 discardBidPrice = 0;
         CalculateItemValue(prototype, discardBidPrice, willingToSpendPerItemPrice);
         willingToSpendPerItemPrice = (uint64)((float)willingToSpendPerItemPrice * BuyingBotAcceptablePriceModifier);
+
+        // No arbitrage: the house never pays more than a share of the lowest price it asks itself,
+        // so buying from the house to sell back to it can never pay
+        if (HumanBuyer.Enabled)
+        {
+            uint64 const houseFloor = GetHouseLowestBuyoutPerItem(prototype) * HumanBuyer.ArbitrageMarginPercent / 100;
+            willingToSpendPerItemPrice = std::min(willingToSpendPerItemPrice, houseFloor);
+        }
         uint64 willingToPayForStackPrice = willingToSpendPerItemPrice * pItem->GetCount();
 
         // Determine if it's a bid, buyout, or skip
@@ -1993,6 +2004,30 @@ void AuctionHouseBot::AddNewAuctionBuyerBotBid(std::vector<Player*> AHBPlayers, 
                     calcBidAmount = willingToPayForStackPrice;
                 else
                     calcBidAmount = auction->bid + auction->GetAuctionOutBid();
+            }
+        }
+
+        bool rivalBid = false;
+        if (HumanBuyer.Enabled && (doBuyout || doBid))
+        {
+            // A rival bidder: when a player already bids, sometimes outbid them instead of buying out
+            if (doBuyout && auction->bid != 0 && urand(1, 100) <= HumanBuyer.RivalPercent &&
+                auction->bid + auction->GetAuctionOutBid() < willingToPayForStackPrice)
+            {
+                doBuyout = false;
+                doBid = true;
+                rivalBid = true;
+                calcBidAmount = auction->bid + auction->GetAuctionOutBid();
+            }
+
+            // People jump on bargains and hesitate near their limit: chance = base x (wanted / asked)^2
+            uint64 const asked = doBuyout ? uint64(auction->buyout) : calcBidAmount;
+            double const ratio = asked > 0 ? double(willingToPayForStackPrice) / double(asked) : 1.0;
+            double const chance = std::min(1.0, HumanBuyer.BaseChancePercent / 100.0 * ratio * ratio);
+            if (rand_norm() >= chance)
+            {
+                doBuyout = false;
+                doBid = false;
             }
         }
 
@@ -2060,7 +2095,7 @@ void AuctionHouseBot::AddNewAuctionBuyerBotBid(std::vector<Player*> AHBPlayers, 
         Player* AHBplayer = AHBPlayers[urand(0, AHBPlayers.size() - 1)];
 
         // With InstantBids, an acceptable bid wins the auction at once: the seller is paid the bid now, not at expiry
-        bool const settleNow = doBuyout || (doBid && BuyingBotInstantBids);
+        bool const settleNow = doBuyout || (doBid && BuyingBotInstantBids && !rivalBid);
 
         if (doBid && !settleNow)
         {
@@ -2102,6 +2137,59 @@ void AuctionHouseBot::AddNewAuctionBuyerBotBid(std::vector<Player*> AHBPlayers, 
             CharacterDatabase.CommitTransaction(trans);
         }
     }
+}
+
+uint64 AuctionHouseBot::GetHouseLowestBuyoutPerItem(ItemTemplate const* itemProto)
+{
+    uint64 bid = 0;
+    uint64 buyout = 0;
+    PriceRollLowest = true;
+    CalculateItemValue(itemProto, bid, buyout);
+    PriceRollLowest = false;
+    return buyout;
+}
+
+void AuctionHouseBot::LoadHumanBuyerSettings()
+{
+    HumanBuyer.Enabled = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.Buyer.Enable", false, false);
+    HumanBuyer.DelayMinSeconds = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaEconomy.Buyer.DelayMinSeconds", 60);
+    HumanBuyer.DelayMaxSeconds = std::max(HumanBuyer.DelayMinSeconds,
+        sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaEconomy.Buyer.DelayMaxSeconds", 900));
+    HumanBuyer.BaseChancePercent = std::min<uint32>(100, sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaEconomy.Buyer.BaseChancePercent", 35));
+    HumanBuyer.RivalPercent = std::min<uint32>(100, sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaEconomy.Buyer.RivalPercent", 25));
+    HumanBuyer.ArbitrageMarginPercent = std::min<uint32>(100, sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaEconomy.Buyer.ArbitrageMarginPercent", 90));
+    if (!HumanBuyer.Enabled)
+        HumanBuyerEligibleAt.clear();
+}
+
+// Keeps only the auctions the buyer has "noticed": each new auction gets a random delay, longer for
+// dearer goods (x1 under 1 gold, x2 under 10, x4 under 100, x8 above). Auctions gone are forgotten.
+void AuctionHouseBot::FilterHumanBuyerCandidates(uint32 houseId, std::vector<uint32>& possibleBids, AuctionHouseObject* auctionHouse)
+{
+    uint32 const now = uint32(GameTime::GetGameTime().count());
+    std::unordered_map<uint32, uint32>& known = HumanBuyerEligibleAt[houseId];
+    std::unordered_map<uint32, uint32> stillListed;
+    std::vector<uint32> eligible;
+    for (uint32 auctionId : possibleBids)
+    {
+        uint32 eligibleAt;
+        auto found = known.find(auctionId);
+        if (found != known.end())
+            eligibleAt = found->second;
+        else
+        {
+            uint64 price = 0;
+            if (AuctionEntry* auction = auctionHouse ? auctionHouse->GetAuction(auctionId) : nullptr)
+                price = auction->buyout ? auction->buyout : auction->startbid;
+            uint32 const factor = price < 10000 ? 1 : price < 100000 ? 2 : price < 1000000 ? 4 : 8;
+            eligibleAt = now + urand(HumanBuyer.DelayMinSeconds, HumanBuyer.DelayMaxSeconds) * factor;
+        }
+        stillListed[auctionId] = eligibleAt;
+        if (now >= eligibleAt)
+            eligible.push_back(auctionId);
+    }
+    known.swap(stillListed);
+    possibleBids.swap(eligible);
 }
 
 void AuctionHouseBot::Update()
@@ -2596,6 +2684,8 @@ void AuctionHouseBot::InitializeConfiguration()
     }
     NeutralConfig.SetMinItems(sConfigMgr->GetOption<uint32>("AuctionHouseBot.Neutral.MinItems", 15000));
     NeutralConfig.SetMaxItems(sConfigMgr->GetOption<uint32>("AuctionHouseBot.Neutral.MaxItems", 15000));
+
+    LoadHumanBuyerSettings();
 }
 
 void AuctionHouseBot::EmptyAuctionHouses()
