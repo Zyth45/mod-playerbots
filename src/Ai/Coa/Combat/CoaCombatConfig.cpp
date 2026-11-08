@@ -6,10 +6,11 @@
 
 // CoA Combat: the session's settings kept in PlayerbotAIConfig. Called by PlayerbotAIConfig::Initialize();
 // a new setting of the session goes here (its member in the "CoA Combat" block of PlayerbotAIConfig.h).
-// None yet.
 
+#include "Config.h"
 #include "PlayerbotAIConfig.h"
 
 void PlayerbotAIConfig::LoadCoaCombatConfig()
 {
+    coaCombatBreathGuardEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaCombat.BreathGuard.Enable", false);
 }
