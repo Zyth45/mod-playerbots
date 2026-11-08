@@ -3109,6 +3109,30 @@ AiPlayerbot.CoaLive.TypingMsPerCharMin = 60
 AiPlayerbot.CoaLive.TypingMsPerCharMax = 90
 AiPlayerbot.CoaLive.GreetRange = 15
 
+#    AiPlayerbot.CoaLive.Sessions.Enable
+#        Description: Random bots come and go like players. How many are online follows the hour
+#                     of the day (HourCurve, in % of the bot count, plus WeekendBonus on Saturday
+#                     and Sunday): a quiet night, a busy evening, and less CPU when few play.
+#                     Each bot stays for a session of a believable length (many 15-60 min, some
+#                     evenings of 1-2.5 h, a few long ones up to 8 h), then logs out and comes
+#                     back later, so the guild sees "X has come online" and /who keeps changing.
+#                     Bots in a group, a dungeon, a battleground or a queue never leave mid-way.
+#                     Replaces AiPlayerbot.EnablePeriodicOnlineOffline while on.
+#                     Read again by ".reload config".
+#        Default:     0 - off
+#                     1 - on
+#    AiPlayerbot.CoaLive.Sessions.HourCurve     24 percentages, midnight to 23:00, server clock
+#                                               ("" = 55,45,35,28,22,20,22,28,35,42,50,55,62,65,65,68,72,80,88,95,100,100,90,72).
+#    AiPlayerbot.CoaLive.Sessions.WeekendBonus  % added on Saturday and Sunday (default 10).
+#    AiPlayerbot.CoaLive.Sessions.MinPercent    Never fewer bots than this % of the count (default 20).
+#    AiPlayerbot.CoaLive.Sessions.HourShift     Hours added to the server clock for the curve (default 0).
+
+AiPlayerbot.CoaLive.Sessions.Enable = 0
+AiPlayerbot.CoaLive.Sessions.HourCurve = ""
+AiPlayerbot.CoaLive.Sessions.WeekendBonus = 10
+AiPlayerbot.CoaLive.Sessions.MinPercent = 20
+AiPlayerbot.CoaLive.Sessions.HourShift = 0
+
 # Bots' minimum and maximum level when teleporting in and out of a zone, according to the new RPG strategy
 # Format: AiPlayerbot.ZoneBracket.zoneID = minLevel,maxLevel
 #
