@@ -46,12 +46,12 @@ public:
     // A chest that is neither consumed on loot nor on a restock timer rolls fresh loot for every opener:
     // a bot opens it once, unless it still needs a quest item from it.
     static void RememberOpened(Player* bot, GameObject const* go);
+    static bool NeedsQuestItemFrom(Player* bot, GameObject const* go);
 
 private:
     static bool IsNeededForQuest(Player* bot, uint32 itemId);
     static bool IsRerolledChest(GameObject const* go);
     static bool HasOpened(Player* bot, GameObject const* go);
-    static bool NeedsQuestItemFrom(Player* bot, GameObject const* go);
 };
 
 class LootTarget
