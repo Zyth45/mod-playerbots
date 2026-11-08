@@ -98,4 +98,9 @@ namespace CoaWorld
 // For RandomPlayerbotMgr::ProcessBot: a bot held offline by a CoA World event (see HoldBot).
 bool CoaWorldIsBotHeld(uint32 lowGuid);
 
+// For RandomPlayerbotMgr::RandomTeleport: a bot moving to a new home in sight of a real player casts its
+// hearthstone (the real 10 s spell, to the home just set) instead of not moving. True if it does.
+// With AiPlayerbot.CoaWorld.Travel.Enable or .Hearthstone off: a plain bool, false.
+bool CoaWorldHearthInstead(Player* bot);
+
 #endif
