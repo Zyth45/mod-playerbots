@@ -11,6 +11,7 @@ void AddSC_coa_economy_ahbot();  // AuctionHouse/CoaAuctionHouseBotHooks.cpp
 void AddSC_coa_economy_market(); // Market/CoaMarketPrices.cpp
 void AddSC_coa_economy_launch(); // Launch/CoaLaunchCurve.cpp
 void AddSC_coa_economy_bot_auctions(); // Rpg/CoaBotAuctions.cpp
+void AddSC_coa_economy_artisans(); // Craft/CoaArtisans.cpp
 
 void AddCoaEconomyScripts()
 {
@@ -18,4 +19,5 @@ void AddCoaEconomyScripts()
     AddSC_coa_economy_market();
     AddSC_coa_economy_launch();
     AddSC_coa_economy_bot_auctions();
+    AddSC_coa_economy_artisans();
 }

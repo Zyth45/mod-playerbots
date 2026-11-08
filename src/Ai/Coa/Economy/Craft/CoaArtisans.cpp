@@ -1,0 +1,205 @@
+/*
+ * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
+ * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
+ * or (at your option) any later version.
+ */
+
+#include "CoaArtisans.h"
+
+#include "CoaAuctionHouseBot.h"
+#include "CoaMarketPrices.h"
+#include "Config.h"
+#include "DBCStores.h"
+#include "Item.h"
+#include "ObjectMgr.h"
+#include "Player.h"
+#include "Random.h"
+#include "ScriptMgr.h"
+#include "SharedDefines.h"
+#include "SpellInfo.h"
+#include "SpellMgr.h"
+
+#include <algorithm>
+
+namespace CoaEconomy::Artisans
+{
+
+namespace
+{
+    bool enabled = false;
+    uint32 minProfitPercent = 20;
+
+    bool IsProfessionSpell(uint32 spellId)
+    {
+        SkillLineAbilityMapBounds const bounds = sSpellMgr->GetSkillLineAbilityMapBounds(spellId);
+        for (auto it = bounds.first; it != bounds.second; ++it)
+        {
+            SkillLineEntry const* skill = sSkillLineStore.LookupEntry(it->second->SkillLine);
+            if (skill && (skill->categoryId == SKILL_CATEGORY_PROFESSION || skill->categoryId == SKILL_CATEGORY_SECONDARY))
+                return true;
+        }
+        return false;
+    }
+
+    // A product worth selling to someone else: exists, not bound on pickup, not a quest item, has a value.
+    bool IsTradable(ItemTemplate const* proto)
+    {
+        return proto && proto->Bonding != BIND_WHEN_PICKED_UP && proto->Bonding != BIND_QUEST_ITEM &&
+               proto->Class != ITEM_CLASS_QUEST && (proto->SellPrice > 0 || proto->BuyPrice > 0);
+    }
+}
+
+bool IsEnabled()
+{
+    return enabled;
+}
+
+void LoadSettings()
+{
+    enabled = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.Artisans.Enable", false, false);
+    minProfitPercent = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaEconomy.Artisans.MinProfitPercent", 20);
+}
+
+uint64 MarketPrice(uint32 itemId)
+{
+    ItemTemplate const* proto = sObjectMgr->GetItemTemplate(itemId);
+    if (!proto)
+        return 0;
+    if (MarketBand const* band = sCoaMarketPrices->GetBand(itemId))
+        if (band->Usual)
+            return band->Usual;
+    if (uint64 house = auctionbot->GetReferencePricePerItem(proto))
+        return house;
+    // A vendor sells it: what it costs there; otherwise four times what a vendor pays for it.
+    if (proto->BuyPrice)
+        return proto->BuyPrice;
+    return std::max<uint64>(1, uint64(proto->SellPrice) * 4);
+}
+
+std::vector<Recipe> KnownRecipes(Player* bot)
+{
+    std::vector<Recipe> recipes;
+    if (!enabled || !bot)
+        return recipes;
+
+    for (auto const& [spellId, playerSpell] : bot->GetSpellMap())
+    {
+        if (!playerSpell || playerSpell->State == PLAYERSPELL_REMOVED || !playerSpell->Active)
+            continue;
+        SpellInfo const* spell = sSpellMgr->GetSpellInfo(spellId);
+        if (!spell)
+            continue;
+
+        uint32 itemId = 0;
+        uint32 count = 1;
+        for (SpellEffectInfo const& effect : spell->Effects)
+            if (effect.Effect == SPELL_EFFECT_CREATE_ITEM && effect.ItemType)
+            {
+                itemId = effect.ItemType;
+                count = uint32(std::max(1, effect.CalcValue()));
+                break;
+            }
+        if (!itemId || !IsTradable(sObjectMgr->GetItemTemplate(itemId)) || !IsProfessionSpell(spellId))
+            continue;
+
+        Recipe recipe;
+        recipe.spell = spell;
+        recipe.itemId = itemId;
+        recipe.count = count;
+        bool reagentsKnown = true;
+        for (uint8 i = 0; i < MAX_SPELL_REAGENTS; ++i)
+        {
+            if (spell->Reagent[i] <= 0 || !spell->ReagentCount[i])
+                continue;
+            uint64 const price = MarketPrice(uint32(spell->Reagent[i]));
+            if (!price)
+            {
+                reagentsKnown = false;
+                break;
+            }
+            recipe.materialCost += price * spell->ReagentCount[i];
+        }
+        if (!reagentsKnown)
+            continue;
+        recipe.productValue = MarketPrice(itemId) * count;
+        recipes.push_back(recipe);
+    }
+    return recipes;
+}
+
+bool PickProfitable(Player* bot, Recipe& out)
+{
+    std::vector<Recipe> profitable;
+    for (Recipe const& recipe : KnownRecipes(bot))
+        if (recipe.productValue * 100 >= recipe.materialCost * (100 + minProfitPercent) && recipe.productValue > recipe.materialCost)
+            profitable.push_back(recipe);
+    if (profitable.empty())
+        return false;
+
+    // The best margins, then one of the first three at random.
+    std::sort(profitable.begin(), profitable.end(), [](Recipe const& a, Recipe const& b)
+    {
+        return a.productValue - a.materialCost > b.productValue - b.materialCost;
+    });
+    out = profitable[urand(0, uint32(std::min<std::size_t>(3, profitable.size())) - 1)];
+    return true;
+}
+
+Item* Craft(Player* bot, Recipe const& recipe)
+{
+    if (!enabled || !bot || !recipe.spell)
+        return nullptr;
+
+    ItemPosCountVec dest;
+    if (bot->CanStoreNewItem(NULL_BAG, NULL_SLOT, dest, recipe.itemId, recipe.count) != EQUIP_ERR_OK)
+        return nullptr;
+
+    // What the missing reagents cost, bought at market price.
+    uint64 toPay = 0;
+    for (uint8 i = 0; i < MAX_SPELL_REAGENTS; ++i)
+    {
+        if (recipe.spell->Reagent[i] <= 0 || !recipe.spell->ReagentCount[i])
+            continue;
+        uint32 const reagent = uint32(recipe.spell->Reagent[i]);
+        uint32 const need = recipe.spell->ReagentCount[i];
+        uint32 const held = std::min(need, bot->GetItemCount(reagent));
+        toPay += MarketPrice(reagent) * (need - held);
+    }
+    if (toPay > bot->GetMoney())
+        return nullptr;
+
+    for (uint8 i = 0; i < MAX_SPELL_REAGENTS; ++i)
+    {
+        if (recipe.spell->Reagent[i] <= 0 || !recipe.spell->ReagentCount[i])
+            continue;
+        uint32 const reagent = uint32(recipe.spell->Reagent[i]);
+        uint32 const held = std::min<uint32>(recipe.spell->ReagentCount[i], bot->GetItemCount(reagent));
+        if (held)
+            bot->DestroyItemCount(reagent, held, true);
+    }
+    if (toPay)
+        bot->ModifyMoney(-int32(std::min<uint64>(toPay, uint64(INT32_MAX))));
+
+    return bot->StoreNewItem(dest, recipe.itemId, true, Item::GenerateItemRandomPropertyId(recipe.itemId));
+}
+
+} // namespace CoaEconomy::Artisans
+
+namespace
+{
+    class CoaArtisansWorld : public WorldScript
+    {
+    public:
+        CoaArtisansWorld() : WorldScript("CoaArtisansWorld", {WORLDHOOK_ON_AFTER_CONFIG_LOAD}) { }
+        void OnAfterConfigLoad(bool /*reload*/) override { CoaEconomy::Artisans::LoadSettings(); }
+    };
+}
+
+void AddSC_coa_economy_artisans()
+{
+    // Off by default; read at start-up (restart to change it). MinProfitPercent is read again on reload.
+    if (!sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.Artisans.Enable", false, false))
+        return;
+    CoaEconomy::Artisans::LoadSettings();
+    new CoaArtisansWorld();
+}

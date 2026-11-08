@@ -7,6 +7,7 @@
 #include "CoaBotAuctions.h"
 
 #include "AuctionHouseMgr.h"
+#include "CoaArtisans.h"
 #include "CoaAuctionHouseBot.h"
 #include "CoaGearScore.h"
 #include "CoaMarketPrices.h"
@@ -157,11 +158,15 @@ namespace
     }
 
     // Lists up to ListPerVisit items the bot's item usage marks for the auction house, through the core's packet.
-    uint32 ListLoot(Player* bot, PlayerbotAI* botAI, ObjectGuid auctioneer, Traits const& traits)
+    uint32 ListLoot(Player* bot, PlayerbotAI* botAI, ObjectGuid auctioneer, Traits const& traits, Item* crafted)
     {
         std::vector<Item*> loot;
+        if (crafted)
+            loot.push_back(crafted);
         ForEachBagItem(bot, [&](Item* item)
         {
+            if (item == crafted)
+                return;
             if (loot.size() >= settings.listPerVisit || item->IsSoulBound() || item->IsInTrade())
                 return;
             if (botAI->GetAiObjectContext()->GetValue<ItemUsage>("item usage", item->GetEntry())->Get() == ITEM_USAGE_AH)
@@ -267,7 +272,14 @@ namespace
 
         Traits const traits = TraitsFor(bot->GetGUID());
         CollectAuctionMail(bot);
-        ListLoot(bot, botAI, visit.auctioneer, traits);
+
+        // An artisan makes a piece worth more than its materials and puts it up with its loot (lot 4).
+        Item* crafted = nullptr;
+        Artisans::Recipe recipe;
+        if (Artisans::IsEnabled() && Artisans::PickProfitable(bot, recipe))
+            crafted = Artisans::Craft(bot, recipe);
+
+        ListLoot(bot, botAI, visit.auctioneer, traits, crafted);
         BuyOne(bot, visit.auctioneer, npc, traits);
     }
 
