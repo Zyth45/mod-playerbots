@@ -5,6 +5,7 @@
  */
 
 #include "PetsAction.h"
+#include "CoaPet.h"
 #include "CharmInfo.h"
 #include "Creature.h"
 #include "CreatureAI.h"
@@ -52,6 +53,10 @@ bool PetsAction::Execute(Event event)
     std::string param = event.getParam();
     if (param.empty() && !defaultCmd.empty())
         param = defaultCmd;
+
+    // CoA Live: the Pets tab of the SquidBots addon (pet list | set | use | dismiss | auto), alts only (CoaPet).
+    if (CoaPet::Handle(botAI, event.getOwner() ? event.getOwner() : botAI->GetMaster(), param))
+        return true;
 
     if (param.empty())
     {
