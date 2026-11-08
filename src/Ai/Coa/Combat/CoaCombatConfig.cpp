@@ -27,4 +27,5 @@ void PlayerbotAIConfig::LoadCoaCombatConfig()
     coaCombatSunkenTempleEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaCombat.SunkenTemple.Enable", false);
     coaCombatTelegraphEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaCombat.Telegraph.Enable", false);
     coaCombatPursuitStopEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaCombat.PursuitStop.Enable", false);
+    coaCombatOffTankEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaCombat.OffTank.Enable", false);
 }

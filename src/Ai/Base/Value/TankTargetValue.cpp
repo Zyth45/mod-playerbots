@@ -5,6 +5,7 @@
  */
 
 #include "TankTargetValue.h"
+#include "CoaOffTank.h"
 #include "AiObjectContext.h"
 #include "AttackersValue.h"
 #include "CoaAltAddon.h"
@@ -86,6 +87,15 @@ public:
         // packs, 7 to 17 times a dungeon (headless runs, 11/10): it comes last (AiPlayerbot.CoaSmartTank).
         if (sPlayerbotAIConfig.coaSmartTank && IsFleeing(new_unit) != IsFleeing(old_unit))
             return IsFleeing(old_unit);
+        // CoA Combat, off-tank: what another tank holds comes after every other mob (AiPlayerbot.CoaCombat.OffTank).
+        if (CoaOffTank::IsOffTank(bot))
+        {
+            bool decided = false;
+            bool const before = CoaOffTank::RanksBefore(CoaOffTank::HeldByOtherTank(bot, new_unit),
+                                                        CoaOffTank::HeldByOtherTank(bot, old_unit), decided);
+            if (decided)
+                return before;
+        }
         // if group has multiple tanks, explicit main tank just focus on the current target
         Unit* currentTarget = botAI->GetAiObjectContext()->GetValue<Unit*>("current target")->Get();
         if (currentTarget && botAI->IsExplicitMainTank(bot) && botAI->GetGroupTankNum(bot) > 1)

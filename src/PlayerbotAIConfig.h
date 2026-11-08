@@ -713,6 +713,8 @@ public:
     bool coaCombatTelegraphEnable = false;
     // Pursuit stop: no chase of a fleeing mob beyond 20 yd from the tank. New everywhere, Dungeon Clear runs too.
     bool coaCombatPursuitStopEnable = false;
+    // Off-tank: a second tank takes the loose adds and never taunts what another tank holds.
+    bool coaCombatOffTankEnable = false;
     // ---- end of CoA Combat ----
 
 private:

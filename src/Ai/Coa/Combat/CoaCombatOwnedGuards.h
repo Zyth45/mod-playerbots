@@ -37,5 +37,6 @@
 // New guards born in the module (nothing to drop in Dungeon Clear).
 #define COA_COMBAT_HAS_TELEGRAPH_DODGE 1  // Targorr: CoaTelegraphRule::TELEGRAPHS, AiPlayerbot.CoaCombat.Telegraph.Enable
 #define COA_COMBAT_HAS_PURSUIT_STOP 1  // Shadowfang Keep point c: CoaPursuitRule, AiPlayerbot.CoaCombat.PursuitStop.Enable
+#define COA_COMBAT_HAS_OFF_TANK 1  // automatic off-tank: CoaOffTank, AiPlayerbot.CoaCombat.OffTank.Enable
 
 #endif
