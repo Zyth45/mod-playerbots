@@ -105,8 +105,9 @@ bool DueForCheck(Player* bot)
 
 void SendList(PlayerbotAI* botAI, std::vector<CoaKnownCompanion> const& known, CoaLootPetChoice const& choice)
 {
-    for (CoaKnownCompanion const& companion : known)
+    for (CoaKnownCompanion const& companion : CoaListedCompanions(known, choice.favourite))
         CoaAltAddon::SendToMaster(botAI, CoaLootPetLine(companion, CoaAltAddon::Field(CompanionName(companion))));
+    CoaAltAddon::SendToMaster(botAI, CoaLootPetAppLine(Ascension::CompanionLooting::HasLootAppearance(botAI->GetBot())));
     CoaAltAddon::SendToMaster(botAI, CoaLootPetFavLine(choice));
     CoaAltAddon::SendToMaster(botAI, CoaLootPetEndLine());
 }
@@ -127,11 +128,12 @@ std::string StatusText(Player* bot, std::vector<CoaKnownCompanion> const& known,
     return text;
 }
 
-std::string ListText(std::vector<CoaKnownCompanion> const& known)
+std::string ListText(std::vector<CoaKnownCompanion> const& all, std::uint32_t favourite)
 {
+    std::vector<CoaKnownCompanion> const known = CoaListedCompanions(all, favourite);
     if (known.empty())
-        return "I know no companion.";
-    std::string text = "My companions:";
+        return "I know no companion that loots by itself.";
+    std::string text = "My looting companions:";
     for (size_t i = 0; i < known.size() && i < TEXT_LIST_MAX; ++i)
         text += (i ? ", " : " ") + CompanionName(known[i]) + " (" + std::to_string(known[i].spellId) +
                 (known[i].selfLoots ? ", loots" : "") + ")";
@@ -171,7 +173,7 @@ bool CoaLootPetAction::Execute(Event event)
             if (addon)
                 SendList(botAI, known, choice);
             else
-                botAI->TellMaster(ListText(known));
+                botAI->TellMaster(ListText(known, choice.favourite));
             return true;
         case CoaLootPetVerb::Off:
             choice.off = true;

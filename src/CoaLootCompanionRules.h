@@ -54,6 +54,18 @@ inline CoaKnownCompanion const* CoaFindCompanion(std::vector<CoaKnownCompanion> 
     return nullptr;
 }
 
+// The list shown to the master: only the companions that loot by themselves, and the favourite (with the
+// Loot-Transfigurator appearance any companion loots, so the favourite is the one that does), never every known pet.
+inline std::vector<CoaKnownCompanion> CoaListedCompanions(std::vector<CoaKnownCompanion> const& known,
+                                                          std::uint32_t favourite)
+{
+    std::vector<CoaKnownCompanion> listed;
+    for (CoaKnownCompanion const& companion : known)
+        if (companion.selfLoots || (favourite && companion.spellId == favourite))
+            listed.push_back(companion);
+    return listed;
+}
+
 // Whether this companion loots for the alt here.
 inline bool CoaCompanionLootsHere(CoaKnownCompanion const& companion, bool lootAppearance, bool inRaid)
 {
@@ -163,12 +175,18 @@ inline std::string CoaLootPetField(std::string text)
 // The lines to the SquidBots addon (prefix SQBA), in this order: one LP pet line per known companion, the LP fav
 // line, the end line "LP\t-", so that no companion tells from no answer.
 //   LP<TAB>pet<TAB><spell id><TAB><creature entry><TAB><name><TAB><1 loots by itself, else 0>
+//   LP<TAB>app<TAB><1 Loot-Transfigurator appearance active (any companion loots), else 0>
 //   LP<TAB>fav<TAB><favourite spell id, 0 for none><TAB><1 brings a companion out, 0 off>
 //   LP<TAB>-
 inline std::string CoaLootPetLine(CoaKnownCompanion const& companion, std::string const& name)
 {
     return "LP\tpet\t" + std::to_string(companion.spellId) + "\t" + std::to_string(companion.creatureEntry) + "\t" +
            CoaLootPetField(name) + "\t" + (companion.selfLoots ? "1" : "0");
+}
+
+inline std::string CoaLootPetAppLine(bool lootAppearance)
+{
+    return std::string("LP\tapp\t") + (lootAppearance ? "1" : "0");
 }
 
 inline std::string CoaLootPetFavLine(CoaLootPetChoice const& choice)

@@ -108,5 +108,14 @@ int main()
     assert(CoaLootPetFavLine(fav) == "LP\tfav\t90100\t1");
     assert(CoaLootPetFavLine(off) == "LP\tfav\t0\t0");
     assert(CoaLootPetEndLine() == "LP\t-");
+    assert(CoaLootPetAppLine(true) == "LP\tapp\t1");
+    assert(CoaLootPetAppLine(false) == "LP\tapp\t0");
+
+    // Only the looting companions are listed, plus the favourite; never every known pet.
+    std::vector<CoaKnownCompanion> const many = {kitten, lootbot, {10674, 7386, false}, {10675, 7387, false}};
+    assert(CoaListedCompanions(many, 0).size() == 1 && CoaListedCompanions(many, 0)[0].spellId == 90100);
+    std::vector<CoaKnownCompanion> const withFav = CoaListedCompanions(many, 10673);
+    assert(withFav.size() == 2 && withFav[0].spellId == 10673 && withFav[1].spellId == 90100);
+    assert(CoaListedCompanions({kitten}, 0).empty());
     return 0;
 }
