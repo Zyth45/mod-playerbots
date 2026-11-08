@@ -3100,6 +3100,22 @@ AiPlayerbot.CityDuels.OrgrimmarSpot = ""
 AiPlayerbot.CityDuels.StormwindSpot = ""
 
 ####################################################################################################
+#  CoA data files — shared by the CoA sessions (one copy only, kept by the Builder)
+#
+#    AiPlayerbot.CoaDataDir
+#        Description: Folder for the JSON files the CoA Dashboard reads (world.json, economy.json, ...).
+#                     Empty = <LogsDir>/squidbot.
+#        Default:     ""
+#
+#    AiPlayerbot.CoaDataFiles
+#        Description: Master switch for those files. 0 = none is written, whatever each feature says.
+#                     Each file also has its own option (for example AiPlayerbot.CoaLive.DataFile.Enable).
+#        Default:     1
+
+AiPlayerbot.CoaDataDir = ""
+AiPlayerbot.CoaDataFiles = 1
+
+####################################################################################################
 #  CoA Live — owned by the CoA SquidBot session
 # CoA Live (3.0): a server that feels inhabited
 #
