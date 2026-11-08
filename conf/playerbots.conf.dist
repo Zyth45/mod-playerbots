@@ -3161,6 +3161,19 @@ AiPlayerbot.CoaLive.Sessions.WeekendBonus = 10
 AiPlayerbot.CoaLive.Sessions.MinPercent = 20
 AiPlayerbot.CoaLive.Sessions.HourShift = 0
 
+#    AiPlayerbot.CoaLive.Social.Enable
+#        Description: Social bots (needs AiPlayerbot.CoaLive.Enable = 1). A free random bot passing a
+#                     real player of its faction, within 30 yards, may raise them when they lie dead
+#                     (not released), help in a fight they are losing (a heal, or it attacks their
+#                     enemy), cast one of its buffs on them, or ask them to group when they are alone
+#                     and close in level (rarely: once in 30 minutes per player, all bots together).
+#                     Bots also thank a real player who buffs them. Never in a battleground or arena.
+#                     Read again by ".reload config".
+#        Default:     0 - off
+#                     1 - on
+
+AiPlayerbot.CoaLive.Social.Enable = 0
+
 # Bots' minimum and maximum level when teleporting in and out of a zone, according to the new RPG strategy
 # Format: AiPlayerbot.ZoneBracket.zoneID = minLevel,maxLevel
 #

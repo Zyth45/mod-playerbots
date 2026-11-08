@@ -5,6 +5,7 @@
  */
 
 #include "CoaAiObjectContext.h"
+#include "CoaSocial.h"
 #include "CoaPlayerMainTank.h"
 #include "CoaTinkerModule.h"
 
@@ -5735,4 +5736,29 @@ void CoaAiObjectContext::BuildSharedTriggerContexts(SharedNamedObjectContextList
 void CoaAiObjectContext::BuildSharedValueContexts(SharedNamedObjectContextList<UntypedValue>& valueContexts)
 {
     AiObjectContext::BuildSharedValueContexts(valueContexts);
+}
+
+// CoA Live, L2 social bots (CoaSocial.h): one ally spell of the bot's class on any friendly unit, from code outside
+// the strategies (a random bot buffing, healing or raising a real player it passes). The same checks as the
+// group's buff, heal and resurrect actions; the first spell that passes is cast.
+bool CoaCastOnAlly(PlayerbotAI* botAI, Unit* target, CoaAllyCast what)
+{
+    Player* bot = botAI ? botAI->GetBot() : nullptr;
+    if (!bot || !target || !bot->IsAlive() || bot->IsMounted() || bot->IsNonMeleeSpellCast(true))
+        return false;
+
+    uint16 const wanted = what == CoaAllyCast::Buff ? KIND_BUFF : what == CoaAllyCast::Heal ? KIND_HEAL : KIND_RESURRECT;
+    std::vector<Usable> const spells = KnownAbilities(bot, [wanted, what](uint16 kind)
+        { return (kind & wanted) && (what == CoaAllyCast::Resurrect || (kind & KIND_ALLY_CAST)) &&
+                 !(kind & (KIND_HOSTILE | KIND_DAMAGE | KIND_TAUNT | KIND_CONTROL | KIND_STANCE)); });
+
+    for (Usable const& spell : spells)
+    {
+        // A buff the player already wears, or a rival one of the same family from someone: not again.
+        if (what == CoaAllyCast::Buff && (target->HasAura(spell.info->Id) || WearsRivalBuffFrom(target, bot, spell.info)))
+            continue;
+        if (StrictCheck(bot, spell.info, target) == SPELL_CAST_OK && botAI->CastSpell(spell.info->Id, target))
+            return true;
+    }
+    return false;
 }
