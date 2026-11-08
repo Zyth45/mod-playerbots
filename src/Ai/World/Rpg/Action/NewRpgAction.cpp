@@ -5,6 +5,7 @@
  */
 
 #include "NewRpgAction.h"
+#include "CoaCityLife.h"
 #include "CoaRpgTrade.h"
 #include "AreaDefines.h"
 #include "BroadcastHelper.h"
@@ -467,8 +468,11 @@ bool NewRpgWanderNpcAction::Execute(Event /*event*/)
     auto& data = *dataPtr;
     if (!data.npcOrGo)
     {
+        // CoA Live City Life: on a city visit, now and then a station (inn, bank, auction house, forge, dummy).
+        ObjectGuid npcOrGo = CoaCityLife::ChooseStation(botAI);
+        if (npcOrGo.IsEmpty())
+            npcOrGo = ChooseNpcOrGameObjectToInteract();
         // No npc can be found, switch to IDLE
-        ObjectGuid npcOrGo = ChooseNpcOrGameObjectToInteract();
         if (npcOrGo.IsEmpty())
         {
             info.ChangeToIdle();
@@ -489,13 +493,15 @@ bool NewRpgWanderNpcAction::Execute(Event /*event*/)
                 InteractWithNpcOrGameObjectForQuest(data.npcOrGo);
             // CoA Economy: sell, repair or use the auction house, as people do between two quests
             CoaEconomy::RpgTrade::TradeAtNpc(botAI, object);
+            CoaCityLife::OnReach(botAI, object);
             return true;
         }
 
-        if (data.lastReach && GetMSTimeDiffToNow(data.lastReach) < npcStayTime)
+        if (data.lastReach && GetMSTimeDiffToNow(data.lastReach) < CoaCityLife::WhileStaying(botAI, object, npcStayTime))
             return false;
 
         // has reached the npc for more than `npcStayTime`, select the next target
+        CoaCityLife::Leave(botAI);
         data.npcOrGo = ObjectGuid();
         data.lastReach = 0;
     }

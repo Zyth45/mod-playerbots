@@ -1,0 +1,204 @@
+/*
+ * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
+ * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
+ * or (at your option) any later version.
+ */
+
+#include "CoaCityLife.h"
+
+#include "CellImpl.h"
+#include "CoaCityLifeRules.h"
+#include "Creature.h"
+#include "DBCStores.h"
+#include "GameObject.h"
+#include "GameTime.h"
+#include "GridNotifiers.h"
+#include "GridNotifiersImpl.h"
+#include "Player.h"
+#include "PlayerbotAI.h"
+#include "PlayerbotAIConfig.h"
+#include "RandomPlayerbotMgr.h"
+
+#include <list>
+#include <mutex>
+#include <unordered_map>
+
+using namespace CoaCityLife;
+
+namespace
+{
+constexpr float SEARCH_RANGE = 120.0f;  // a capital's district
+
+struct Holding
+{
+    ObjectGuid station;
+    Station kind = Station::None;
+    uint32 stayMs = 0;
+    uint64 lastEmoteMs = 0;
+    uint64 sinceMs = 0;  // a bot that never got there (another activity, a fight) frees it after HOLD_MS
+};
+constexpr uint64 HOLD_MS = 15 * MINUTE * IN_MILLISECONDS;
+
+std::mutex cityLock;
+std::unordered_map<uint64, Holding> holding;  // bot -> its station (map threads)
+
+std::function<uint32_t(uint32_t, uint32_t)> const between = [](uint32_t lo, uint32_t hi) { return urand(lo, hi); };
+
+bool Enabled() { return sPlayerbotAIConfig.coaLiveCityEnable; }
+
+bool InCapital(Player* bot)
+{
+    AreaTableEntry const* zone = sAreaTableStore.LookupEntry(bot->GetZoneId());
+    return zone && (zone->flags & AREA_FLAG_CAPITAL);
+}
+
+struct StationCreatureCheck
+{
+    WorldObject const* origin;
+    bool operator()(Creature* c) const
+    {
+        return c->IsAlive() && origin->IsWithinDistInMap(c, SEARCH_RANGE) &&
+               StationOfCreature(c->GetNpcFlags(), c->GetName()) != Station::None;
+    }
+};
+
+struct StationObjectCheck
+{
+    WorldObject const* origin;
+    bool operator()(GameObject* go) const
+    {
+        return go->GetGoType() == GAMEOBJECT_TYPE_SPELL_FOCUS && origin->IsWithinDistInMap(go, SEARCH_RANGE) &&
+               StationOfFocus(go->GetGOInfo()->spellFocus.focusId) != Station::None;
+    }
+};
+
+uint32 BotsAt(ObjectGuid station, uint64 nowMs)
+{
+    uint32 n = 0;
+    for (auto const& [bot, h] : holding)
+        if (h.station == station && nowMs < h.sinceMs + HOLD_MS)
+            ++n;
+    return n;
+}
+
+Station KindOf(WorldObject* object)
+{
+    if (Creature* c = object->ToCreature())
+        return StationOfCreature(c->GetNpcFlags(), c->GetName());
+    if (GameObject* go = object->ToGameObject())
+        return go->GetGoType() == GAMEOBJECT_TYPE_SPELL_FOCUS ? StationOfFocus(go->GetGOInfo()->spellFocus.focusId)
+                                                               : Station::None;
+    return Station::None;
+}
+}  // namespace
+
+namespace CoaCityLife
+{
+ObjectGuid ChooseStation(PlayerbotAI* botAI)
+{
+    if (!Enabled() || !botAI)
+        return ObjectGuid::Empty;
+    Player* bot = botAI->GetBot();
+    // A random bot of no player, on a city visit, now and then.
+    if (!bot || !sRandomPlayerbotMgr.IsRandomBot(bot) || botAI->HasGameClientMaster() || !botAI->rpgInfo.cityStayMs ||
+        !InCapital(bot) || urand(1, 100) > CHANCE_PCT)
+        return ObjectGuid::Empty;
+
+    std::list<Creature*> creatures;
+    StationCreatureCheck creatureCheck{bot};
+    Acore::CreatureListSearcher<StationCreatureCheck> creatureSearcher(bot, creatures, creatureCheck);
+    Cell::VisitObjects(bot, creatureSearcher, SEARCH_RANGE);
+    std::list<GameObject*> objects;
+    StationObjectCheck objectCheck{bot};
+    Acore::GameObjectListSearcher<StationObjectCheck> objectSearcher(bot, objects, objectCheck);
+    Cell::VisitObjects(bot, objectSearcher, SEARCH_RANGE);
+
+    uint64 const nowMs = GameTime::GetGameTimeMS().count();
+    std::lock_guard<std::mutex> guard(cityLock);
+    if (holding.size() > 4096)
+        for (auto it = holding.begin(); it != holding.end();)
+            it = nowMs >= it->second.sinceMs + HOLD_MS ? holding.erase(it) : std::next(it);
+    std::vector<Candidate> candidates;
+    std::unordered_map<uint64, ObjectGuid> guids;
+    for (Creature* c : creatures)
+    {
+        candidates.push_back({StationOfCreature(c->GetNpcFlags(), c->GetName()), c->GetGUID().GetRawValue(),
+                              BotsAt(c->GetGUID(), nowMs)});
+        guids[c->GetGUID().GetRawValue()] = c->GetGUID();
+    }
+    for (GameObject* go : objects)
+    {
+        candidates.push_back({StationOfFocus(go->GetGOInfo()->spellFocus.focusId), go->GetGUID().GetRawValue(),
+                              BotsAt(go->GetGUID(), nowMs)});
+        guids[go->GetGUID().GetRawValue()] = go->GetGUID();
+    }
+    uint64 const picked = Pick(candidates, between);
+    if (!picked)
+        return ObjectGuid::Empty;
+    // Held from now, so that the next bot sees it fuller.
+    Holding& h = holding[bot->GetGUID().GetRawValue()];
+    h = Holding();
+    h.station = guids[picked];
+    h.sinceMs = nowMs;
+    return h.station;
+}
+
+void OnReach(PlayerbotAI* botAI, WorldObject* object)
+{
+    if (!Enabled() || !botAI || !object)
+        return;
+    Player* bot = botAI->GetBot();
+    Station kind = Station::None;
+    {
+        std::lock_guard<std::mutex> guard(cityLock);
+        auto it = holding.find(bot->GetGUID().GetRawValue());
+        if (it == holding.end() || it->second.station != object->GetGUID())
+            return;
+        kind = it->second.kind = KindOf(object);
+        it->second.stayMs = StayMs(kind, between);
+        it->second.lastEmoteMs = GameTime::GetGameTimeMS().count();
+    }
+    bot->SetFacingToObject(object);
+    if (PoseOf(kind).sit)
+        bot->SetStandState(UNIT_STAND_STATE_SIT);
+}
+
+uint32 WhileStaying(PlayerbotAI* botAI, WorldObject* object, uint32 defaultMs)
+{
+    if (!Enabled() || !botAI || !object)
+        return defaultMs;
+    Player* bot = botAI->GetBot();
+    uint64 const now = GameTime::GetGameTimeMS().count();
+    Pose pose;
+    uint32 stay = 0;
+    {
+        std::lock_guard<std::mutex> guard(cityLock);
+        auto it = holding.find(bot->GetGUID().GetRawValue());
+        if (it == holding.end() || it->second.station != object->GetGUID() || !it->second.stayMs)
+            return defaultMs;
+        pose = PoseOf(it->second.kind);
+        stay = it->second.stayMs;
+        if (!pose.emote || now < it->second.lastEmoteMs + pose.everyMs)
+            pose.emote = 0;
+        else
+            it->second.lastEmoteMs = now;
+    }
+    if (pose.emote && !bot->IsInCombat())
+        bot->HandleEmoteCommand(pose.emote);
+    return stay;
+}
+
+void Leave(PlayerbotAI* botAI)
+{
+    if (!botAI)
+        return;
+    Player* bot = botAI->GetBot();
+    bool held = false;
+    {
+        std::lock_guard<std::mutex> guard(cityLock);
+        held = holding.erase(bot->GetGUID().GetRawValue()) > 0;
+    }
+    if (held && bot->IsSitState())
+        bot->SetStandState(UNIT_STAND_STATE_STAND);
+}
+}  // namespace CoaCityLife

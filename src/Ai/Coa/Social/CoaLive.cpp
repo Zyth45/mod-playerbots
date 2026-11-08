@@ -871,6 +871,24 @@ void PlayGuildEvents()
 
 void Load()
 {
+    // Off: nothing read at all, as before 3.0 (a database without the CoA Live tables starts the same).
+    if (!sPlayerbotAIConfig.coaLiveEnable)
+    {
+        std::lock_guard<std::mutex> guard(liveLock);
+        bank = nullptr;
+        botRings.clear();
+        channelRings.clear();
+        return;
+    }
+    // On but the tables are missing (the 3.0 SQL not applied): no bank, said once, nothing else breaks.
+    if (!PlayerbotsDatabase.Query("SHOW TABLES LIKE 'playerbots_coa_live_rules'"))
+    {
+        LOG_ERROR("server.loading", ">> CoA Live: the bank tables are missing (data/sql/playerbots/custom not applied): "
+                                    "the bots stay quiet.");
+        std::lock_guard<std::mutex> guard(liveLock);
+        bank = nullptr;
+        return;
+    }
     auto loaded = std::make_shared<Bank>();
     if (QueryResult r = PlayerbotsDatabase.Query(
             "SELECT situation, chance_pct, delay_min_ms, delay_max_ms, bot_cd_s, scope_cd_s, scope_per_10min, "

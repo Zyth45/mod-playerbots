@@ -40,6 +40,7 @@ void PlayerbotAIConfig::LoadCoaLiveConfig()
     coaLiveGreetRange = std::min<uint32>(40, sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaLive.GreetRange", 15));
     coaLiveSessionsEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaLive.Sessions.Enable", false);
     coaLiveSocialEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaLive.Social.Enable", false);
+    coaLiveCityEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaLive.City.Enable", false);
     {
         std::string const curve = sConfigMgr->GetOption<std::string>("AiPlayerbot.CoaLive.Sessions.HourCurve", "");
         CoaSessions::Curve parsed;
