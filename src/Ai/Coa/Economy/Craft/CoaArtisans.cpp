@@ -7,6 +7,8 @@
 #include "CoaArtisans.h"
 
 #include "CoaAuctionHouseBot.h"
+#include "CoaEconomyData.h"
+#include "CoaEconomyRules.h"
 #include "CoaMarketPrices.h"
 #include "Config.h"
 #include "DBCStores.h"
@@ -149,7 +151,7 @@ bool PickProfitable(Player* bot, Recipe& out)
 {
     std::vector<Recipe> profitable;
     for (Recipe const& recipe : KnownRecipes(bot))
-        if (recipe.productValue * 100 >= recipe.materialCost * (100 + minProfitPercent) && recipe.productValue > recipe.materialCost)
+        if (CoaEconomyRules::IsProfitable(recipe.productValue, recipe.materialCost, minProfitPercent))
             profitable.push_back(recipe);
     if (profitable.empty())
         return false;
@@ -198,7 +200,10 @@ Item* Craft(Player* bot, Recipe const& recipe)
     if (toPay)
         bot->ModifyMoney(-int32(std::min<uint64>(toPay, uint64(INT32_MAX))));
 
-    return bot->StoreNewItem(dest, recipe.itemId, true, Item::GenerateItemRandomPropertyId(recipe.itemId));
+    Item* item = bot->StoreNewItem(dest, recipe.itemId, true, Item::GenerateItemRandomPropertyId(recipe.itemId));
+    if (item)
+        Data::RecordCraft(recipe.skillId, recipe.itemId, recipe.count, int64(recipe.productValue) - int64(recipe.materialCost));
+    return item;
 }
 
 } // namespace CoaEconomy::Artisans

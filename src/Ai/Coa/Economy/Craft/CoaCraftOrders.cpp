@@ -9,6 +9,8 @@
 #include "ChatHelper.h"
 #include "CoaArtisans.h"
 #include "CoaBotAuctions.h"
+#include "CoaEconomyData.h"
+#include "CoaEconomyRules.h"
 #include "CoaLive.h"
 #include "Config.h"
 #include "GameTime.h"
@@ -58,9 +60,8 @@ namespace
     // patient bot asks a little more, an impatient one a little less.
     uint32 Quote(Player* bot, Artisans::Recipe const& recipe)
     {
-        uint64 const floor = recipe.materialCost * (100 + feePercent) / 100;
-        double const mood = 0.95 + 0.15 * BotAuctions::TraitsFor(bot->GetGUID()).patience;
-        uint64 const price = uint64(double(std::max(recipe.productValue, floor)) * mood);
+        uint64 const price = CoaEconomyRules::CraftQuote(recipe.productValue, recipe.materialCost, feePercent,
+            BotAuctions::TraitsFor(bot->GetGUID()).patience);
         return uint32(std::clamp<uint64>(price, 1, MAX_MONEY_AMOUNT));
     }
 
@@ -94,24 +95,36 @@ namespace
 
         // Not a recipe it knows, or a buyer of the other faction (the mail cannot cross).
         if (!known || from->GetTeamId() != bot->GetTeamId())
+        {
+            Data::RecordOrder(from->GetName(), bot->GetName(), itemId, 0, "refused");
             return CoaLive::SayLine(bot, "wh_craft_cannot", slots, from->GetGUID()), true;
+        }
 
         uint32 const now = uint32(GameTime::GetGameTime().count());
         uint32& last = lastOrder[bot->GetGUID().GetCounter()];
         if (last && now < last + orderCooldownSeconds)
+        {
+            Data::RecordOrder(from->GetName(), bot->GetName(), itemId, 0, "busy");
             return CoaLive::SayLine(bot, "wh_craft_busy", slots, from->GetGUID()), true;
+        }
 
         uint32 const price = Quote(bot, recipe);
         Item* crafted = Artisans::Craft(bot, recipe);
         if (!crafted)
+        {
+            Data::RecordOrder(from->GetName(), bot->GetName(), itemId, price, "busy");
             return CoaLive::SayLine(bot, "wh_craft_busy", slots, from->GetGUID()), true;
+        }
         last = now;
 
         slots["price"] = ChatHelper::formatMoney(price);
         slots["profession"] = Artisans::ProfessionName(bot, recipe.skillId);
         CoaLive::SayLine(bot, "wh_craft_quote", slots, from->GetGUID());
         if (CoaLive::MailCod(bot, from, crafted->GetGUID(), price))
+        {
+            Data::RecordOrder(from->GetName(), bot->GetName(), itemId, price, "mailed");
             CoaLive::SayLine(bot, "wh_craft_cod", slots, from->GetGUID());
+        }
         return true;
     }
 

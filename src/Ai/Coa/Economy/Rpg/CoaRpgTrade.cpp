@@ -7,6 +7,7 @@
 #include "CoaRpgTrade.h"
 
 #include "CoaBotAuctions.h"
+#include "CoaEconomyRules.h"
 #include "CoaMissionMgr.h"
 #include "Creature.h"
 #include "Event.h"
@@ -26,9 +27,6 @@ namespace CoaEconomy::RpgTrade
 
 namespace
 {
-    // Bags this full: everything sellable goes to the vendor, auction loot included, to make room.
-    constexpr uint8 BagsNearlyFull = 95;
-
     Creature* AsNpc(WorldObject* object, uint32 npcFlag)
     {
         Creature* creature = object ? object->ToCreature() : nullptr;
@@ -73,8 +71,8 @@ namespace
 
     bool WantsVendor(PlayerbotAI* botAI)
     {
-        return sPlayerbotAIConfig.coaEconomyRpgSellEnable && BagUsed(botAI) >= sPlayerbotAIConfig.coaEconomyRpgSellBagPercent &&
-               botAI->GetAiObjectContext()->GetValue<bool>("can sell")->Get();
+        return CoaEconomyRules::WantsVendor(sPlayerbotAIConfig.coaEconomyRpgSellEnable, BagUsed(botAI),
+            sPlayerbotAIConfig.coaEconomyRpgSellBagPercent, botAI->GetAiObjectContext()->GetValue<bool>("can sell")->Get());
     }
 
     bool WantsAuctioneer(PlayerbotAI* botAI)
@@ -90,7 +88,8 @@ namespace
         // A bot on a gathering mission keeps what it gathers for its owner (as SellAction).
         if (sCoaMissionMgr.IsOnMission(bot))
             return 0;
-        bool const auctionLootToo = !BotAuctions::IsEnabled() || BagUsed(botAI) >= BagsNearlyFull;
+        bool const botAuctions = BotAuctions::IsEnabled();
+        uint8 const bagUsed = BagUsed(botAI);
         std::vector<Item*> toSell;
         ForEachBagItem(bot, [&](Item* item)
         {
@@ -98,7 +97,7 @@ namespace
             if (!proto || !proto->SellPrice || item->IsInTrade())
                 return;
             ItemUsage const usage = UsageOf(botAI, item);
-            if (usage == ITEM_USAGE_VENDOR || (auctionLootToo && usage == ITEM_USAGE_AH))
+            if (CoaEconomyRules::SellsAtVendor(usage == ITEM_USAGE_VENDOR, usage == ITEM_USAGE_AH, botAuctions, bagUsed))
                 toSell.push_back(item);
         });
 

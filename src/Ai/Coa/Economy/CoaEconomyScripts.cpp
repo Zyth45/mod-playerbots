@@ -13,6 +13,7 @@ void AddSC_coa_economy_launch(); // Launch/CoaLaunchCurve.cpp
 void AddSC_coa_economy_bot_auctions(); // Rpg/CoaBotAuctions.cpp
 void AddSC_coa_economy_artisans(); // Craft/CoaArtisans.cpp
 void AddSC_coa_economy_craft_orders(); // Craft/CoaCraftOrders.cpp
+void AddSC_coa_economy_data(); // Data/CoaEconomyData.cpp
 
 void AddCoaEconomyScripts()
 {
@@ -22,4 +23,5 @@ void AddCoaEconomyScripts()
     AddSC_coa_economy_bot_auctions();
     AddSC_coa_economy_artisans();
     AddSC_coa_economy_craft_orders();
+    AddSC_coa_economy_data();
 }

@@ -4724,6 +4724,14 @@ AiPlayerbot.CoaEconomy.CraftOrders.FeePercent = 15
 AiPlayerbot.CoaEconomy.CraftOrders.OrderCooldownMinutes = 5
 AiPlayerbot.CoaEconomy.CraftOrders.TradeOfferPercent = 50
 
+# economy.json for the SquidBots dashboard (format: CoA Dashboard's LIAISON-3.0): auctions per category, price bands,
+# gold in circulation and held by bots, best sales, crafts and craft orders of the last 24 h. Built every 60 s, only
+# while the dashboard watches the economy (squidbot/watch.json), and written off the world thread; nothing is built
+# while nobody looks. Written to AiPlayerbot.CoaDataDir (empty = <LogsDir>/squidbot); AiPlayerbot.CoaDataFiles = 0
+# turns it off too. Sales and price bands need Market, crafts need Artisans, orders need CraftOrders.
+#    Enable  1 = on, 0 = off (default). Read at start-up (restart to change it).
+AiPlayerbot.CoaEconomy.DataFile.Enable = 0
+
 ###################################################################################################
 #  CoA Combat — owned by the CoA Combat session
 # CoA Combat

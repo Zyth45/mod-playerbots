@@ -129,4 +129,5 @@ Authorship is assigned for each commit within the git history, which is stored i
 
 ## Code taken from other projects
 
-* The auction house bot in `src/Ai/Coa/Economy/AuctionHouse/CoaAuctionHouseBot.cpp/.h` comes from mod-ah-bot-plus by Nathan Handley (after the AzerothCore mod-ah-bot, TrinityCore and MaNGOS), under GPL-2.0-or-later; their copyright notices are kept in the files.
+* The auction house bot in `src/Ai/Coa/Economy/AuctionHouse/CoaAuctionHouseBot.cpp/.h` and its settings file `conf/mod_ahbot.conf.dist` come from mod-ah-bot-plus by Nathan Handley (after the AzerothCore mod-ah-bot, TrinityCore and MaNGOS), under GPL-2.0-or-later; their copyright notices are kept in the source files.
+* Ideas of the CoA economy (`src/Ai/Coa/Economy/`), rewritten, no code copied: the no-arbitrage rule, real-sales-only learning and rarity premium after stuhby; the purchase chance and rival bidder after felworld; the learned price band and bots trading at the auction house after aspollon; the deprecated-item filter after danieldfischer and Ithen.
