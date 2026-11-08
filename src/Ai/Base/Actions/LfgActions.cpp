@@ -5,6 +5,7 @@
  */
 
 #include "LfgActions.h"
+#include "CoaLfgRules.h"
 #include "AiFactory.h"
 #include "ItemVisitors.h"
 #include "LFGMgr.h"
@@ -261,72 +262,79 @@ bool LfgAcceptAction::Execute(Event event)
 {
     uint32 id = AI_VALUE(uint32, "lfg proposal");
 
-    // Try accept if already stored
-    if (id)
-    {
-        if (bot->IsInCombat() || bot->isDead())
-        {
-            WorldPacket* packet = new WorldPacket(CMSG_LFG_PROPOSAL_RESULT);
-            *packet << id << false;
-            bot->GetSession()->QueuePacket(packet);
-            return true;
-        }
-
-        botAI->GetAiObjectContext()->GetValue<uint32>("lfg proposal")->Set(0);
-        bot->ClearUnitState(UNIT_STATE_ALL_STATE);
-
-        WorldPacket* packet = new WorldPacket(CMSG_LFG_PROPOSAL_RESULT);
-        *packet << id << true;
-        bot->GetSession()->QueuePacket(packet);
-
-        if (RandomPlayerbotMgr::instance().IsRandomBot(bot) && !bot->GetGroup())
-        {
-            RandomPlayerbotMgr::instance().Refresh(bot);
-            botAI->ResetStrategies();
-        }
-
-        botAI->Reset();
-        return true;
-    }
-
-    // If we get the proposal packet, accept immediately
     if (!event.getPacket().empty())
     {
         WorldPacket p(event.getPacket());
         uint32 dungeonId;
         uint8 state;
-        p >> dungeonId >> state >> id;
+        uint32 packetId;
+        p >> dungeonId >> state >> packetId;
 
-        if (id)
+        // The proposal ended (failed or done): forget it.
+        if (state != lfg::LFG_PROPOSAL_INITIATING)
         {
-            if (bot->IsInCombat() || bot->isDead())
-            {
-                WorldPacket* packet = new WorldPacket(CMSG_LFG_PROPOSAL_RESULT);
-                *packet << id << false;
-                bot->GetSession()->QueuePacket(packet);
-                return true;
-            }
-
-            botAI->GetAiObjectContext()->GetValue<uint32>("lfg proposal")->Set(0);
-            bot->ClearUnitState(UNIT_STATE_ALL_STATE);
-
-            WorldPacket* packet = new WorldPacket(CMSG_LFG_PROPOSAL_RESULT);
-            *packet << id << true;
-            bot->GetSession()->QueuePacket(packet);
-
-            if (RandomPlayerbotMgr::instance().IsRandomBot(bot) && !bot->GetGroup())
-            {
-                RandomPlayerbotMgr::instance().Refresh(bot);
-                botAI->ResetStrategies();
-            }
-
-            botAI->Reset();
-            return true;
+            if (packetId && (packetId == id || packetId == pendingProposalId))
+                ForgetProposal();
+            return false;
         }
+        if (packetId)
+            id = packetId;
     }
 
-    return false;
+    if (!id)
+        return false;
+
+    uint32 const now = getMSTime();
+    if (id != pendingProposalId)
+    {
+        pendingProposalId = id;
+        pendingSinceMs = now;
+    }
+    uint32 const waited = getMSTimeDiff(pendingSinceMs, now);
+    uint32 const proposalMs = uint32(lfg::LFG_TIME_PROPOSAL) * IN_MILLISECONDS;
+    if (CoaLfgProposalExpired(waited, proposalMs))
+    {
+        ForgetProposal();
+        return false;
+    }
+
+    // Never decline: a decline cancels the dungeon for the whole group.
+    CoaLfgProposalAnswer const answer =
+        CoaLfgProposalDecision(IsRealPlayer(bot) || IsSelfBot(bot), bot->InBattleground() || bot->InArena(),
+                               bot->IsInCombat(), bot->isDead(), waited, proposalMs);
+    if (answer != CoaLfgProposalAnswer::Accept)
+    {
+        // Kept so that "lfg proposal active" brings the bot back here.
+        botAI->GetAiObjectContext()->GetValue<uint32>("lfg proposal")->Set(id);
+        return false;
+    }
+
+    ForgetProposal();
+    // Accepted at the deadline while still fighting or dead: leave its unit states alone.
+    if (!bot->IsInCombat() && bot->IsAlive())
+        bot->ClearUnitState(UNIT_STATE_ALL_STATE);
+
+    WorldPacket* packet = new WorldPacket(CMSG_LFG_PROPOSAL_RESULT);
+    *packet << id << true;
+    bot->GetSession()->QueuePacket(packet);
+
+    if (RandomPlayerbotMgr::instance().IsRandomBot(bot) && !bot->GetGroup())
+    {
+        RandomPlayerbotMgr::instance().Refresh(bot);
+        botAI->ResetStrategies();
+    }
+
+    botAI->Reset();
+    return true;
 }
+
+void LfgAcceptAction::ForgetProposal()
+{
+    botAI->GetAiObjectContext()->GetValue<uint32>("lfg proposal")->Set(0);
+    pendingProposalId = 0;
+    pendingSinceMs = 0;
+}
+
 
 bool LfgLeaveAction::Execute(Event /*event*/)
 {

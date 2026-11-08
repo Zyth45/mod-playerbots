@@ -1185,7 +1185,8 @@ void PlayerbotAI::Reset(bool full)
     aiObjectContext->GetValue<ObjectGuid>("pull strategy target")->Set(ObjectGuid::Empty);
     aiObjectContext->GetValue<GuidPosition>("rpg target")->Set(GuidPosition());
     aiObjectContext->GetValue<LootObject>("loot target")->Set(LootObject());
-    aiObjectContext->GetValue<uint32>("lfg proposal")->Set(0);
+    // "lfg proposal" is kept: a bot waiting to accept (in combat, dead, teleported to a graveyard) must still answer.
+    // LfgAcceptAction forgets it once the proposal ends or expires.
     bot->SetTarget();
 
     LastSpellCast& lastSpell = aiObjectContext->GetValue<LastSpellCast&>("last spell cast")->Get();
