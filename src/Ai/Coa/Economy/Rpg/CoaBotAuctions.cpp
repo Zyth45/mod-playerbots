@@ -13,6 +13,7 @@
 #include "CoaEconomyRules.h"
 #include "CoaGearScore.h"
 #include "CoaMarketPrices.h"
+#include "CoaSellable.h"
 #include "Config.h"
 #include "Creature.h"
 #include "DatabaseEnv.h"
@@ -172,9 +173,14 @@ namespace
                 return;
             if (loot.size() >= settings.listPerVisit || item->IsSoulBound() || item->IsInTrade())
                 return;
+            // Never its ammunition, the consumables it uses, a vendor good or an item CoA does not have.
+            if (!Sellable::BotMayList(item->GetTemplate(), false))
+                return;
             if (botAI->GetAiObjectContext()->GetValue<ItemUsage>("item usage", item->GetEntry())->Get() == ITEM_USAGE_AH)
                 loot.push_back(item);
         });
+        if (crafted && !Sellable::BotMayList(crafted->GetTemplate(), true))
+            loot.erase(loot.begin());
 
         // An impatient bot undercuts more: 85 % to 105 % of the reference price.
         for (Item* item : loot)

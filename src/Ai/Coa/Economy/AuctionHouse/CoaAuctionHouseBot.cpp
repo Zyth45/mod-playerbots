@@ -117,6 +117,12 @@ namespace
 namespace CoaEconomy
 {
 
+// The same original-world sources, for the bots' own trade (Market/CoaSellable.cpp).
+char const* OriginalWorldSourcesQuery()
+{
+    return VanillaSourcesQuery;
+}
+
 // CoA Economy (lot 2): only goods a CoA player could really sell. Off unless
 // AiPlayerbot.CoaEconomy.Filter.Enable = 1; each rule then has its own key (on by default).
 //   Deprecated   ITEM_FLAG_DEPRECATED items (cannot be equipped or used).
@@ -954,6 +960,10 @@ void AuctionHouseBot::PopulateItemCandidatesAndProportions()
             ++laterExpansionItems;
             continue;
         }
+
+        // Ammunition is of no use on CoA (user, 08/11): never in the house, whatever the filter keys.
+        if (CoaEconomyRules::IsAmmo(itr->second.Class))
+            continue;
 
         if (coaFilter.enabled && !coaFilter.Keeps(itr->second))
             continue;
@@ -1966,6 +1976,10 @@ void AuctionHouseBot::AddNewAuctionBuyerBotBid(std::vector<Player*> AHBPlayers, 
                 LOG_ERROR("module", "AHBuyer: Item template {} for auction {} does not exist, skipping", auction->item_template, auction->Id);
             continue;
         }
+
+        // Ammunition is of no use on CoA: the house never buys it either.
+        if (CoaEconomyRules::IsAmmo(prototype->Class))
+            continue;
 
         // Only buy what the seller bot itself could list, if configured
         if (BuyingBotOnlyBuyListableItems && !IsItemListableBySeller(prototype))
