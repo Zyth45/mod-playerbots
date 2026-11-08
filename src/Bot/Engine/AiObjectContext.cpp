@@ -126,7 +126,7 @@ Trigger* AiObjectContext::GetTrigger(std::string const name) { return triggerCon
 
 Action* AiObjectContext::GetAction(std::string const name) { return actionContexts.GetContextObject(name, botAI); }
 
-UntypedValue* AiObjectContext::GetUntypedValue(std::string const name)
+UntypedValue* AiObjectContext::GetUntypedValue(std::string const& name)
 {
     return valueContexts.GetContextObject(name, botAI);
 }
