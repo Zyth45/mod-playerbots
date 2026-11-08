@@ -61,7 +61,15 @@ int main()
         assert(got.size() == 1 && got[0].classId == CoaLfgFirstClass + i && got[0].role == CoaLfgRoleDps);
     }
 
-    // The class wait, per account.
+    // Up to two bots answer a class request.
+    static_assert(CoaLfgClassOffers == 2);
+
+    // The wait line names the class (the addon greys only that class).
+    assert(CoaLfgClassWaitText("Tinker", 42) == "You can ask for a Tinker again in 42 s: your request is answered by role.");
+    assert(CoaLfgClassWaitText("Knight of Xoroth", 300) ==
+           "You can ask for a Knight of Xoroth again in 300 s: your request is answered by role.");
+
+    // The class wait (kept per account and class by the caller).
     assert(CoaLfgClassAskAllowed(0, 1000, 300));
     assert(!CoaLfgClassAskAllowed(1000, 1299, 300));
     assert(CoaLfgClassAskAllowed(1000, 1300, 300));

@@ -173,10 +173,21 @@ inline std::vector<CoaLfgAsk> CoaLfgAsks(CoaLfgRequest const& request, bool requ
     return request.asks;
 }
 
-// Whether an account may ask for a class now (AiPlayerbot.CoaLfgClassCooldown, 0: no wait); lastAsked 0: never.
+// A class request is answered by up to two bots of that class, the best fitting free ones, so the player can pick.
+constexpr std::uint32_t CoaLfgClassOffers = 2;
+
+// Whether an account may ask for this class now (AiPlayerbot.CoaLfgClassCooldown, per account and class, 0: no wait);
+// lastAsked 0: never.
 inline bool CoaLfgClassAskAllowed(std::time_t lastAsked, std::time_t now, std::uint32_t cooldownSeconds)
 {
     return !cooldownSeconds || !lastAsked || now - lastAsked >= std::time_t(cooldownSeconds);
+}
+
+// The wait line, matched by the SquidBots addon ("^You can ask for a (.+) again in (%d+) s"): keep it as is.
+inline std::string CoaLfgClassWaitText(std::string const& className, std::uint32_t seconds)
+{
+    return "You can ask for a " + className + " again in " + std::to_string(seconds) +
+           " s: your request is answered by role.";
 }
 
 #endif

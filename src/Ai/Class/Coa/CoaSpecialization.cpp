@@ -1717,7 +1717,7 @@ struct CoaLfgSettings
     uint32 levelRange = 2;
     uint32 offerSeconds = 2 * MINUTE;
     uint32 cooldownSeconds = 30;
-    uint32 classCooldownSeconds = 300;
+    uint32 classCooldownSeconds = 60;
     uint32 announceSeconds = 10 * MINUTE;
     std::string announce;
 };
@@ -1732,7 +1732,7 @@ std::mutex LfgLock;
 CoaLfgSettings LfgSettings;
 std::unordered_map<ObjectGuid, CoaLfgOffer> LfgOffers;  // by bot
 std::map<std::pair<ObjectGuid, uint8>, time_t> LfgAsked;  // by player and role: when it last asked
-std::map<uint32, time_t> LfgClassAsked;                   // by account: when it last got a class offer
+std::map<std::pair<uint32, uint8>, time_t> LfgClassAsked;  // by account and class: when it last got an offer
 
 std::string LowerCase(std::string text)
 {
@@ -1766,7 +1766,7 @@ void LoadLfgSettings()
     settings.levelRange = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaLfgLevelRange", 2);
     settings.offerSeconds = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaLfgOfferMinutes", 2) * MINUTE;
     settings.cooldownSeconds = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaLfgCooldown", 15);
-    settings.classCooldownSeconds = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaLfgClassCooldown", 300);
+    settings.classCooldownSeconds = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaLfgClassCooldown", 60);
     settings.announceSeconds = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaLfgAnnounceMinutes", 10) * MINUTE;
     settings.announce = sConfigMgr->GetOption<std::string>("AiPlayerbot.CoaLfgAnnounceText", "");
 
@@ -1894,22 +1894,23 @@ void CoaLfgHeard(Player* player, std::string const& message, Channel* channel)
     std::vector<CoaRole> wanted;
     {
         std::lock_guard<std::mutex> guard(LfgLock);
-        // A class request waits AiPlayerbot.CoaLfgClassCooldown per account; meanwhile its role is asked instead.
-        if (!classAsks.empty())
+        // A class request waits AiPlayerbot.CoaLfgClassCooldown per account and class; meanwhile its role is asked.
+        std::vector<CoaLfgAsk> allowed;
+        for (CoaLfgAsk const& ask : classAsks)
         {
-            auto const asked = LfgClassAsked.find(account);
+            auto const asked = LfgClassAsked.find({ account, ask.classId });
             time_t const last = asked == LfgClassAsked.end() ? 0 : asked->second;
-            if (!CoaLfgClassAskAllowed(last, now, settings.classCooldownSeconds))
+            if (CoaLfgClassAskAllowed(last, now, settings.classCooldownSeconds))
             {
-                // Matched by the SquidBots addon ("^You can ask for a class again in (%d+) s"): keep it as is.
-                chat.PSendSysMessage("You can ask for a class again in {} s: your request is answered by role.",
-                                     uint32(time_t(settings.classCooldownSeconds) - (now - last)));
-                for (CoaLfgAsk const& ask : classAsks)
-                    if (ask.role != CoaLfgAnyRole)
-                        addRole(roles, CoaRole(ask.role));
-                classAsks.clear();
+                allowed.push_back(ask);
+                continue;
             }
+            chat.SendSysMessage(CoaLfgClassWaitText(ClassName(ask.classId),
+                                                    uint32(time_t(settings.classCooldownSeconds) - (now - last))));
+            if (ask.role != CoaLfgAnyRole)
+                addRole(roles, CoaRole(ask.role));
         }
+        classAsks = allowed;
 
         // The wait is per role: asking for a tank and then for a healer works, asking twice for the
         // same role in a row does not.
@@ -1950,7 +1951,7 @@ void CoaLfgHeard(Player* player, std::string const& message, Channel* channel)
 
     auto offer = [&](CoaRole role, uint8 classId) -> uint32
     {
-        uint32 const count = settings.offers[uint8(role)];
+        uint32 const count = classId ? CoaLfgClassOffers : settings.offers[uint8(role)];
         std::set<uint8> classes;
         uint32 offered = 0;
         for (uint32 attempt = 0; offered < count && attempt < count * 4; ++attempt)
@@ -2003,7 +2004,7 @@ void CoaLfgHeard(Player* player, std::string const& message, Channel* channel)
         if (offered)
         {
             std::lock_guard<std::mutex> guard(LfgLock);
-            LfgClassAsked[account] = now;
+            LfgClassAsked[{ account, ask.classId }] = now;
             continue;
         }
         if (ask.role == CoaLfgAnyRole)

@@ -252,9 +252,12 @@ void CoaLootCompanionTick(PlayerbotAI* botAI)
         return;
 
     SpellInfo const* info = sSpellMgr->GetSpellInfo(chosen);
-    if (!info || (info->CalcCastTime(bot) && bot->isMoving()) || bot->HasSpellCooldown(chosen))
+    if (!info)
         return;
-    bot->CastSpell(bot, chosen, false);
+    // Triggered: an alt following its master is nearly always moving, and a cast-time summon never got through.
+    SpellCastResult const result = bot->CastSpell(bot, chosen, true);
+    LOG_DEBUG("playerbots", "coa loot pet: {} summons {} ({}): result {}", bot->GetName(), companion->creatureEntry,
+              chosen, uint32(result));
 }
 
 bool CoaLeavesCorpseToCompanion(Player* bot, Creature* corpse, bool skinning)

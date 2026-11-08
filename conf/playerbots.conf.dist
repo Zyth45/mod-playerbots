@@ -1962,8 +1962,8 @@ AiPlayerbot.AltDisenchant = 1
 # herbs, ore, chests and the corpses farther off stay the alt's.
 # Whisper to an alt: "loot pet" (status), "loot pet list", "loot pet <spell id or link>" (favourite),
 # "loot pet off" (this alt brings out none), "loot pet auto" (no favourite, back on). Kept per alt.
-# Default: 0 (disabled: the alts loot as before)
-AiPlayerbot.AltLootCompanion = 0
+# Default: 1 (enabled; 0: the alts loot as before)
+AiPlayerbot.AltLootCompanion = 1
 
 # Totems put away after the fight: a bot of any class (Shaman, Witch Doctor, Cultist, Hero builds, random bots
 # and alts) with totems out recalls them (Totemic Recall when it knows it, else they are dismissed) once it and its
@@ -2523,13 +2523,14 @@ AiPlayerbot.CoaLfgOfferMinutes = 2
 AiPlayerbot.CoaLfgCooldown = 15
 
 #    AiPlayerbot.CoaLfgClassCooldown
-#        Description: Seconds before the same account can ask again for a CoA class by its full name
-#                     ("lfg bot tinker heal", "lfm bot witch doctor"). Meanwhile the request is answered by
-#                     role. A class with no free bot for the role falls back to the role too.
-#        Default:     300 - 5 minutes
-#                     0   - no wait
+#        Description: Seconds before the same account can ask again for the same CoA class by its full
+#                     name ("lfg bot tinker heal", "lfm bot witch doctor"); other classes stay available. Up
+#                     to two bots of that class answer. Meanwhile the request is answered by role. A class
+#                     with no free bot for the role falls back to the role too.
+#        Default:     60 - one minute
+#                     0  - no wait
 
-AiPlayerbot.CoaLfgClassCooldown = 300
+AiPlayerbot.CoaLfgClassCooldown = 60
 
 #    AiPlayerbot.CoaLfgAnnounceMinutes
 #        Description: Every so many minutes, a message to the whole realm on how to ask the bots.
