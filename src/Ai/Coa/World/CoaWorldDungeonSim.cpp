@@ -142,8 +142,6 @@ namespace
         uint32 Owner() const { return BOT_OWNER_DUNGEON_SIM_BASE + id; }
     };
 
-    // Bots away inside a dungeon (offline), until when. Read by RandomPlayerbotMgr::ProcessBot.
-    std::unordered_map<uint32, time_t> g_held;
 
     bool IsHumanPlayer(Player* player)
     {
@@ -214,7 +212,7 @@ namespace
             {
                 ReleaseBots(run.Owner(), true);
                 for (ObjectGuid const& guid : run.members)
-                    g_held.erase(guid.GetCounter());
+                    ReleaseHold(guid.GetCounter());
             }
             _runs.clear();
         }
@@ -256,7 +254,7 @@ namespace
             std::vector<Player*> free;
             for (auto const& [guid, bot] : sRandomPlayerbotMgr.GetAllBots())
                 if (bot && bot->GetTeamId() == team && IsFreeBot(bot) && !OnCooldown(bot, now) &&
-                    !g_held.count(bot->GetGUID().GetCounter()))
+                    !IsHeld(bot->GetGUID().GetCounter()))
                     free.push_back(bot);
             if (free.size() < 5)
                 return false;
@@ -403,8 +401,8 @@ namespace
                         return true;
                     // Out again: RandomPlayerbotMgr logs them back in at the door.
                     for (ObjectGuid const& guid : run.members)
-                        g_held.erase(guid.GetCounter());
-                    run.phase = Phase::Returning;
+                        ReleaseHold(guid.GetCounter());
+                            run.phase = Phase::Returning;
                     run.until = now + RETURN_WAIT_SECONDS;
                     return true;
                 case Phase::Returning:
@@ -458,8 +456,8 @@ namespace
                 // way (unseen, checked above) is put there first.
                 if (bot->GetMapId() != run.entrance.GetMapId() || bot->GetExactDist(&run.entrance) >= AT_ENTRANCE)
                     bot->TeleportTo(run.entrance);
-                g_held[guid.GetCounter()] = now + minutes * MINUTE;
-                sRandomPlayerbotMgr.LogoutPlayerBot(guid);
+                HoldBot(guid.GetCounter(), now + minutes * MINUTE);
+                    sRandomPlayerbotMgr.LogoutPlayerBot(guid);
             }
 
             // The bosses of this run: all of a small dungeon, some of a big one.
@@ -637,14 +635,6 @@ namespace
         }
         return nullptr;
     }
-}
-
-bool CoaWorldIsBotHeld(uint32 lowGuid)
-{
-    if (g_held.empty())
-        return false;
-    auto itr = g_held.find(lowGuid);
-    return itr != g_held.end() && itr->second > time(nullptr);
 }
 
 class CoaWorldDungeonSimWorldScript : public WorldScript

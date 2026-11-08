@@ -37,6 +37,10 @@ namespace CoaWorld
 
         std::unordered_map<uint32, std::vector<Borrowed>> g_borrowed;
 
+        // World thread only (events' OnUpdate and RandomPlayerbotMgr::UpdateAIInternal).
+        std::unordered_map<uint32, time_t> g_held;
+        bool g_anyHeld = false;
+
         bool IsBorrowed(ObjectGuid guid)
         {
             for (auto const& [owner, bots] : g_borrowed)
@@ -112,6 +116,12 @@ namespace CoaWorld
         }
     }
 
+    // Same auras as the core's rulesets (AscensionRulesets.cpp) and EnemyPlayerValue's check.
+    bool HasPvpRuleset(Player* player)
+    {
+        return player && (player->HasAura(1004019) || (player->HasAura(1004119) && !player->HasAura(9931032)));
+    }
+
     uint32 OnlineRandomBots()
     {
         uint32 online = 0;
@@ -144,6 +154,8 @@ namespace CoaWorld
             if (bot->GetLevel() < request.minLevel || bot->GetLevel() > request.maxLevel)
                 continue;
             if (request.team != TEAM_NEUTRAL && bot->GetTeamId() != request.team)
+                continue;
+            if (request.filter && !request.filter(bot))
                 continue;
             float dist = bot->GetMapId() == request.mapId ? bot->GetExactDist(&request.goal) : 1e9f;
             candidates.push_back({ bot, dist });
@@ -237,6 +249,42 @@ namespace CoaWorld
             g_borrowed.erase(itr);
     }
 
+    std::vector<ObjectGuid> BorrowedBots(uint32 owner)
+    {
+        std::vector<ObjectGuid> out;
+        auto itr = g_borrowed.find(owner);
+        if (itr != g_borrowed.end())
+            for (Borrowed const& b : itr->second)
+                out.push_back(b.guid);
+        return out;
+    }
+
+    void HoldBot(uint32 lowGuid, time_t until)
+    {
+        g_held[lowGuid] = until;
+        g_anyHeld = true;
+    }
+
+    void ReleaseHold(uint32 lowGuid)
+    {
+        g_held.erase(lowGuid);
+        g_anyHeld = !g_held.empty();
+    }
+
+    bool IsHeld(uint32 lowGuid)
+    {
+        if (!g_anyHeld)
+            return false;
+        auto itr = g_held.find(lowGuid);
+        if (itr == g_held.end())
+            return false;
+        if (itr->second > time(nullptr))
+            return true;
+        g_held.erase(itr);
+        g_anyHeld = !g_held.empty();
+        return false;
+    }
+
     uint32 BorrowedCount(uint32 owner)
     {
         auto itr = g_borrowed.find(owner);
@@ -250,4 +298,11 @@ namespace CoaWorld
             n += bots.size();
         return n;
     }
+}
+
+// Called for every random bot on every cycle of RandomPlayerbotMgr (world thread): with nobody held,
+// a plain bool and nothing else.
+bool CoaWorldIsBotHeld(uint32 lowGuid)
+{
+    return CoaWorld::IsHeld(lowGuid);
 }
