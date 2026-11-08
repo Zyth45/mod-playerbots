@@ -169,6 +169,27 @@ float StatsWeightCalculator::CalculateEnchant(uint32 enchantId)
     return weight_;
 }
 
+float StatsWeightCalculator::CalculateSpell(uint32 spellId)
+{
+    if (!spellId)
+        return 0.0f;
+
+    Reset();
+
+    collector_->CollectSpellStats(spellId);
+
+    if (enable_overflow_penalty_)
+        ApplyOverflowPenalty(player_);
+
+    GenerateWeights(player_);
+    for (uint32 i = 0; i < STATS_TYPE_MAX; i++)
+    {
+        weight_ += stats_weights_[i] * collector_->stats[i];
+    }
+
+    return weight_;
+}
+
 void StatsWeightCalculator::CalculateRandomProperty(int32 randomPropertyId, uint32 itemId)
 {
     if (randomPropertyId > 0)

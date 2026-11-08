@@ -4509,3 +4509,11 @@ AiPlayerbot.CoaCombat.PursuitStop.Enable = 0
 #                  1 - (Enabled)
 
 AiPlayerbot.CoaCombat.OffTank.Enable = 0
+# AiPlayerbot.CoaCombat.GearScore.Enable
+#     Description: Item set bonuses and raid tokens count in the bots' choice of gear. A set piece is worth the set
+#                  bonus it unlocks with the pieces already worn (and swapping it out costs that bonus); a raid token
+#                  is rolled Need only when one of the pieces it gives the bot's class is an upgrade.
+#     Default:     0 - (Disabled)
+#                  1 - (Enabled)
+
+AiPlayerbot.CoaCombat.GearScore.Enable = 0
