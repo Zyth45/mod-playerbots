@@ -633,7 +633,8 @@ void Fish(Player* bot, PlayerbotAI* botAI)
     view.alive = bot->IsAlive();
     view.inCombat = bot->IsInCombat();
     view.inGroup = bot->GetGroup() != nullptr;
-    view.inInstanceOrCity = bot->GetMap()->Instanceable() || InCapital(bot) || bot->InBattleground();
+    // A capital's shore too (the canals of Stormwind): where the players are.
+    view.inInstanceOrCity = bot->GetMap()->Instanceable() || bot->InBattleground();
     NewRpgStatus const status = info.GetStatus();
     view.idleStatus = status == RPG_IDLE || status == RPG_REST || status == RPG_WANDER_RANDOM;
     view.knowsFishing = bot->HasSkill(SKILL_FISHING);
@@ -642,7 +643,7 @@ void Fish(Player* bot, PlayerbotAI* botAI)
 
     // Water close by: the costly look, last.
     WorldPosition water = FindWaterRadial(bot, bot->GetPositionX(), bot->GetPositionY(), bot->GetPositionZ(),
-                                                bot->GetMap(), bot->GetPhaseMask(), 10.0f, 40.0f, 10.0f);
+                                                bot->GetMap(), bot->GetPhaseMask(), 10.0f, 60.0f, 10.0f);
     if (!water.IsValid())
         return;
 
@@ -951,7 +952,9 @@ void ChannelTimers(uint64 nowMs)
         if (it == botsByZone.end() || it->second.empty())
             continue;
         ReactOptions opt;
-        opt.populationFactor = PopulationFactor(real);
+        // A realm with one player is the usual case: the bots of the zone count too (ten for one player), or the
+        // channels of a solo realm stayed at a third of their pace (a Trade line every 13 minutes).
+        opt.populationFactor = PopulationFactor(real + uint32(it->second.size()) / 10);
         std::string const scope = "z" + std::to_string(zone);
 
         React(pick(it->second), "general_chat", nullptr, scope, opt);
