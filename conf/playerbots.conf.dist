@@ -2515,6 +2515,15 @@ AiPlayerbot.CoaLfgOfferMinutes = 2
 
 AiPlayerbot.CoaLfgCooldown = 15
 
+#    AiPlayerbot.CoaLfgClassCooldown
+#        Description: Seconds before the same account can ask again for a CoA class by its full name
+#                     ("lfg bot tinker heal", "lfm bot witch doctor"). Meanwhile the request is answered by
+#                     role. A class with no free bot for the role falls back to the role too.
+#        Default:     300 - 5 minutes
+#                     0   - no wait
+
+AiPlayerbot.CoaLfgClassCooldown = 300
+
 #    AiPlayerbot.CoaLfgAnnounceMinutes
 #        Description: Every so many minutes, a message to the whole realm on how to ask the bots.
 #        Default:     10
