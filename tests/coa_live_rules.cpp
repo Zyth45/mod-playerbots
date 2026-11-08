@@ -141,6 +141,15 @@ int main()
     assert(Classify(NormalizeWhisper("t'es un bot ?"), ib.IntentsOf(2)) == "bot");
     assert(Classify(NormalizeWhisper("hello"), ib.IntentsOf(3)) == "hello");  // no locale 3: English
 
+    // Off, no whisper is ever taken: the 2.9.5 path (commands, free chat replies) stays exactly as it was.
+    for (int mask = 0; mask < 8; ++mask)
+        assert(!TakesWhisper(false, mask & 1, mask & 2, mask & 4));
+    // On, only a real player's whisper to a random bot, never its master's, never a bot's.
+    assert(TakesWhisper(true, true, true, false));
+    assert(!TakesWhisper(true, true, true, true));
+    assert(!TakesWhisper(true, false, true, false));
+    assert(!TakesWhisper(true, true, false, false));
+
     // Pace: the bot's cooldown, the scope's cooldown and the cap per 10 minutes of a channel.
     Pacer pacer;
     Rule g{100, 0, 0, 600, 20, 3, true};

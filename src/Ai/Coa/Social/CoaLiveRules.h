@@ -327,6 +327,14 @@ inline uint32_t TypingMs(Rule const& rule, size_t length, uint32_t msPerChar, Rn
 
 // ---------------------------------------------------------------- whispers
 
+// Whether CoA Live takes a whisper. Off (AiPlayerbot.CoaLive.Enable = 0), never: every whisper goes exactly where
+// it went before 3.0 (the commands, then the old free chat replies). On, only a real player's whisper to a random
+// bot that is not its own master's.
+inline bool TakesWhisper(bool enabled, bool fromRealPlayer, bool toRandomBot, bool fromIsMaster)
+{
+    return enabled && fromRealPlayer && toRandomBot && !fromIsMaster;
+}
+
 struct Intent
 {
     uint32_t priority = 0;

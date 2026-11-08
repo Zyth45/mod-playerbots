@@ -487,19 +487,23 @@ void OnBotUpdate(Player* bot, PlayerbotAI* botAI, uint32 diff)
 
 bool AnswersWhispers(PlayerbotAI* botAI, ObjectGuid from)
 {
+    // Off: decided before anything is looked up, so the old path is untouched.
     if (!Enabled() || !botAI)
         return false;
-    Player* bot = botAI->GetBot();
     Player* master = botAI->GetMaster();
-    return IsRandom(bot) && !(master && master->GetGUID() == from);
+    return TakesWhisper(true, IsRealPlayer(ObjectAccessor::FindConnectedPlayer(from)), IsRandom(botAI->GetBot()),
+                        master && master->GetGUID() == from);
 }
 
 bool OnWhisper(Player* from, Player* to, std::string const& msg)
 {
-    if (!Enabled() || !from || !to || !IsRealPlayer(from))
+    if (!Enabled() || !from || !to)
         return false;
     PlayerbotAI* botAI = GET_PLAYERBOT_AI(to);
-    if (!botAI || !AnswersWhispers(botAI, from->GetGUID()))
+    if (!botAI)
+        return false;
+    Player* master = botAI->GetMaster();
+    if (!TakesWhisper(Enabled(), IsRealPlayer(from), IsRandom(to), master && master->GetGUID() == from->GetGUID()))
         return false;
 
     std::shared_ptr<Bank const> current;
