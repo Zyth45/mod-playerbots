@@ -7,14 +7,19 @@
 
 #include "CoaSurnameRules.h"
 
+#include "ArenaTeam.h"
+#include "ArenaTeamMgr.h"
 #include "CharacterCache.h"
 #include "DatabaseEnv.h"
+#include "Guild.h"
+#include "GuildMgr.h"
 #include "Log.h"
 #include "ObjectGuid.h"
 #include "ObjectMgr.h"
 #include "PlayerbotAIConfig.h"
 #include "SharedDefines.h"
 
+#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
@@ -48,45 +53,52 @@ void ApplyCoaBotSurnames()
     if (accounts.empty())
         return;
 
-    struct Row { uint32 guid; uint32 account; std::string name; };
-    std::vector<Row> rows;
-    std::unordered_set<std::string> names;
+    std::vector<CoaNameRow> rows;
     if (QueryResult result = CharacterDatabase.Query("SELECT guid, account, name FROM characters"))
         do
         {
             Field* fields = result->Fetch();
-            rows.push_back({ fields[0].Get<uint32>(), fields[1].Get<uint32>(), fields[2].Get<std::string>() });
-            names.insert(rows.back().name);
+            rows.push_back({ fields[0].Get<uint32>(), fields[2].Get<std::string>(),
+                             accounts.count(fields[1].Get<uint32>()) != 0 });
         } while (result->NextRow());
 
-    uint32 renamed = 0, skipped = 0;
+    // Mode 2 gives names nobody chose: the realm checks them as it checks a player's (reserved, profanity...).
+    uint32 skipped = 0;
+    std::vector<CoaRename> const renames = CoaPlanBotRenames(
+        rows, mode, list,
+        [mode](std::string const& name)
+        { return mode != COA_SURNAME_FAMILY || ObjectMgr::CheckPlayerName(name, false) == CHAR_NAME_SUCCESS; },
+        &skipped);
+
+    // Friends, ignore lists, mail, guilds and arena teams hold the guid: only the names change. The name cache is
+    // what /w, /invite, .summon and the name queries read; guild rosters and arena teams were loaded before this
+    // and keep a copy of the name, set here too (a guild also takes it again when the bot logs in).
+    std::unordered_map<uint32, std::string> newNames;
     CharacterDatabaseTransaction trans = CharacterDatabase.BeginTransaction();
-    for (Row const& row : rows)
+    for (CoaRename const& rename : renames)
     {
-        if (!accounts.count(row.account))
-            continue;
+        ObjectGuid const guid = ObjectGuid::Create<HighGuid::Player>(static_cast<ObjectGuid::LowType>(rename.guid));
+        sCharacterCache->UpdateCharacterData(guid, rename.to);
+        if (ObjectGuid::LowType const guildId = sCharacterCache->GetCharacterGuildIdByGuid(guid))
+            if (Guild* guild = sGuildMgr->GetGuildById(guildId))
+                if (Guild::Member* member = guild->GetMember(guid))
+                    member->SetStats(rename.to, member->GetLevel(), member->GetClass(), member->GetGender(),
+                                     member->GetZoneId(), member->GetAccountId());
+        newNames[static_cast<uint32>(rename.guid)] = rename.to;
 
-        std::string renamedTo = CoaWantedBotName(row.name, mode, row.guid, list);
-        if (renamedTo == row.name)
-            continue;
-
-        // A player may hold the name already, or the realm refuses it: that bot keeps its own.
-        if (names.count(renamedTo) ||
-            (mode == COA_SURNAME_FAMILY && ObjectMgr::CheckPlayerName(renamedTo, false) != CHAR_NAME_SUCCESS))
-        {
-            ++skipped;
-            continue;
-        }
-
-        names.erase(row.name);
-        names.insert(renamedTo);
-        sCharacterCache->UpdateCharacterData(ObjectGuid::Create<HighGuid::Player>(row.guid), renamedTo);
-        CharacterDatabase.EscapeString(renamedTo);
-        trans->Append("UPDATE characters SET name = '{}' WHERE guid = {}", renamedTo, row.guid);
-        ++renamed;
+        std::string escaped = rename.to;
+        CharacterDatabase.EscapeString(escaped);
+        trans->Append("UPDATE characters SET name = '{}' WHERE guid = {}", escaped, rename.guid);
     }
     CharacterDatabase.CommitTransaction(trans);
 
+    if (!newNames.empty())
+        for (auto const& entry : sArenaTeamMgr->GetArenaTeams())
+            for (ArenaTeamMember& member : entry.second->GetMembers())
+                if (auto it = newNames.find(member.Guid.GetCounter()); it != newNames.end())
+                    member.Name = it->second;
+
+    uint32 const renamed = static_cast<uint32>(renames.size());
     static char const* const modes[] = { "no surname", "the surname \"Bot\"", "a family name" };
     if (renamed || skipped)
         LOG_INFO("server.loading", ">> Gave {} to {} random bots ({} kept their name: taken or refused)",
