@@ -17,12 +17,17 @@
  *    once a day at most receives a small gift by mail from one (potions and bandages of their level).
  *    Crafting on order for guildmates goes with CoA Economie's work.
  *
- * Lines are English for now; they move to IA MIND's phrase bank with the other CoA World lines.
+ * Lines come from IA MIND's bank (zz_coa_live_3_0_04: guild_ding, guild_gift, guild_recruit, guild_motd), with
+ * English text as fallback. With CoaLive on, the congratulations, the rare loot and the hello at login are
+ * CoaLive's own (guild_levelup, guild_self_loot, guild_loot, guild_login): they are not said twice here.
  * Level-ups and loot come from map threads and are queued; the world thread speaks.
  * Config: AiPlayerbot.CoaWorld.Guilds.*, off by default.
  */
 
 #include "CoaWorldGuilds.h"
+
+#include "CoaLive.h"
+#include "CoaWorldBots.h"
 
 #include "Chat.h"
 #include "Config.h"
@@ -59,6 +64,7 @@ namespace
         uint32 recruitMinutes = 45;
         bool help = true;
         uint32 giftHours = 24;
+        bool coaLive = false;  // AiPlayerbot.CoaLive.Enable: CoaLive says the guild reactions
     };
 
     Settings settings;
@@ -164,6 +170,14 @@ namespace
             return found.empty() ? nullptr : found[urand(0, found.size() - 1)];
         }
 
+        static bool HumanOnlineInGuild(uint32 guildId)
+        {
+            for (auto const& [guid, player] : ObjectAccessor::GetPlayers())
+                if (player && player->IsInWorld() && player->GetGuildId() == guildId && !GET_PLAYERBOT_AI(player))
+                    return true;
+            return false;
+        }
+
         void Say(Player* speaker, std::string text, time_t at)
         {
             if (speaker && speaker->GetGuildId())
@@ -188,15 +202,27 @@ namespace
                 {
                     case Event::LEVEL:
                     {
+                        if (!HumanOnlineInGuild(player->GetGuildId()))
+                            break;
+                        if (BotLine(player, "guild_ding", { { "level", std::to_string(e.value) } }))
+                        {
+                            if (!settings.coaLive)
+                                if (Player* other = OnlineGuildBot(player->GetGuildId(), player->GetGUID()))
+                                    Say(other, Acore::StringFormat("gz {}", player->GetName()), now + urand(6, 15));
+                            break;
+                        }
                         static char const* const ding[] = { "ding {}", "{}, finally", "ding! {} now", "and {}. slowly getting there" };
                         static char const* const gz[] = { "gz", "grats!", "gz {}", "nice, gz" };
                         Say(player, Acore::StringFormat(Pick(ding), e.value), now + urand(1, 4));
-                        if (Player* other = OnlineGuildBot(player->GetGuildId(), player->GetGUID()))
-                            Say(other, Acore::StringFormat(Pick(gz), player->GetName()), now + urand(6, 15));
+                        if (!settings.coaLive)
+                            if (Player* other = OnlineGuildBot(player->GetGuildId(), player->GetGUID()))
+                                Say(other, Acore::StringFormat(Pick(gz), player->GetName()), now + urand(6, 15));
                         break;
                     }
                     case Event::LOOT:
                     {
+                        if (settings.coaLive || !HumanOnlineInGuild(player->GetGuildId()))
+                            break;
                         ItemTemplate const* proto = sObjectMgr->GetItemTemplate(e.value);
                         if (!proto)
                             break;
@@ -243,7 +269,7 @@ namespace
                 return;
 
             static char const* const hi[] = { "hi {}", "hey {}!", "o/ {}", "wb {}" };
-            if (roll_chance_i(60))
+            if (!settings.coaLive && roll_chance_i(60))
                 Say(bot, Acore::StringFormat(Pick(hi), player->GetName()), now + urand(4, 12));
 
             if (!settings.help)
@@ -270,7 +296,8 @@ namespace
             }
             draft.SendMailTo(trans, MailReceiver(player), MailSender(bot), MAIL_CHECK_MASK_NONE, urand(5, 30) * MINUTE);
             CharacterDatabase.CommitTransaction(trans);
-            Say(bot, Acore::StringFormat("{}, sent you a few potions", player->GetName()), now + urand(20, 40));
+            if (!BotLine(bot, "guild_gift", { { "player", player->GetName() } }))
+                Say(bot, Acore::StringFormat("{}, sent you a few potions", player->GetName()), now + urand(20, 40));
         }
 
         // Once a day at most, the leader of a bot guild writes a new message of the day.
@@ -296,7 +323,8 @@ namespace
                 if (last && now - last < DAY)
                     continue;
                 last = now;
-                guild->HandleSetMOTD(bot->GetSession(), Pick(motds));
+                std::string motd = CoaLive::SystemLine(bot, "guild_motd", {});
+                guild->HandleSetMOTD(bot->GetSession(), motd.empty() ? std::string(Pick(motds)) : motd);
             }
         }
 
@@ -323,6 +351,8 @@ namespace
                 "friendly guild <{}> recruiting, we help with quests and crafting",
                 "<{}> recruiting! raids later, dungeons now. /w for invite",
             };
+            if (BotLine(bot, "guild_recruit", { { "guild", guild->GetName() } }))
+                return;
             if (PlayerbotAI* botAI = GET_PLAYERBOT_AI(bot))
                 botAI->SayToChannel(Acore::StringFormat(Pick(calls), guild->GetName()), GENERAL);
         }
@@ -345,6 +375,7 @@ namespace
         settings.recruitMinutes = sConfigMgr->GetOption<uint32>(key("RecruitMinutes"), 45, false);
         settings.help = sConfigMgr->GetOption<bool>(key("Help"), true, false);
         settings.giftHours = std::max<uint32>(1, sConfigMgr->GetOption<uint32>(key("GiftHours"), 24, false));
+        settings.coaLive = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaLive.Enable", false, false);
     }
 }
 
