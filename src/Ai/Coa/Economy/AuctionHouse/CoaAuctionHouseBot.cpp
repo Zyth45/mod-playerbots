@@ -21,6 +21,8 @@
 #include "ObjectMgr.h"
 #include "AuctionHouseMgr.h"
 #include "CoaAuctionHouseBot.h"
+#include "CoaMarketPrices.h"
+#include "CoaLaunchCurve.h"
 #include "AuctionHouseSearcher.h"
 #include "AccountMgr.h"
 #include "Config.h"
@@ -573,6 +575,13 @@ void AuctionHouseBot::CalculateItemValue(ItemTemplate const* itemProto, uint64& 
     // Only apply item level multiplier if set, and no advanced pricing has been enabled
     if (itemLevelPriceMultplier > 0.0f && itemProto->ItemLevel > 0 && advancedPricingMultiplier == 1.0f)
         outBuyoutPrice *= itemProto->ItemLevel * itemLevelPriceMultplier;
+
+    // CoA Economy: rarity premium from the drop rates, and the launch premium of a new realm. Both only
+    // scale the formula, never the learned market price, and both grow with it (no-arbitrage cap holds).
+    outBuyoutPrice = uint64(double(outBuyoutPrice) * GetRarityPriceFactor(itemProto->ItemId) * sCoaLaunchCurve->PriceFactor());
+
+    // CoA Economy: move toward what real sales paid for this item (AiPlayerbot.CoaEconomy.Market.*)
+    outBuyoutPrice = sCoaMarketPrices->Blend(itemProto->ItemId, outBuyoutPrice);
 
     // Avoid price overflows
     if (outBuyoutPrice > MaxBuyoutPriceInCopper)
@@ -1246,6 +1255,14 @@ void AuctionHouseBot::AddNewAuctions(std::vector<Player*> AHBPlayers, FactionSpe
     uint32 minItems = config->GetMinItems();
     uint32 maxItems = config->GetMaxItems();
 
+    // CoA Economy: a new realm's house starts small and grows with the population (LaunchCurve)
+    if (sCoaLaunchCurve->IsEnabled())
+    {
+        float const stock = sCoaLaunchCurve->StockFactor();
+        minItems = uint32(minItems * stock);
+        maxItems = std::max<uint32>(maxItems ? 1 : 0, uint32(maxItems * stock));
+    }
+
     if (maxItems == 0)
         return;
 
@@ -1352,6 +1369,13 @@ void AuctionHouseBot::AddNewAuctions(std::vector<Player*> AHBPlayers, FactionSpe
                         batchCount++;
                         continue;
                     }
+                }
+
+                // CoA Economy: only what the realm's population could have reached (LaunchCurve)
+                if (!sCoaLaunchCurve->AllowsListing(*prototype))
+                {
+                    batchCount++;
+                    continue;
                 }
 
                 if (ItemListProportionMultipliedItemIDs.find(itemID) != ItemListProportionMultipliedItemIDs.end() &&
@@ -2139,6 +2163,27 @@ void AuctionHouseBot::AddNewAuctionBuyerBotBid(std::vector<Player*> AHBPlayers, 
     }
 }
 
+void AuctionHouseBot::LoadRaritySettings()
+{
+    RarityEnabled = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.Rarity.Enable", false, false);
+    RarityPremium = std::max(0.0, sConfigMgr->GetOption<double>("AiPlayerbot.CoaEconomy.Rarity.PremiumPercent", 100.0) / 100.0);
+    RarityCommonRate = std::max(0.000001, sConfigMgr->GetOption<double>("AiPlayerbot.CoaEconomy.Rarity.CommonDropPercent", 5.0));
+    RarityRareRate = std::clamp(sConfigMgr->GetOption<double>("AiPlayerbot.CoaEconomy.Rarity.RareDropPercent", 0.01), 0.0000001, RarityCommonRate * 0.999);
+}
+
+// 1 for an item dropping at CommonDropPercent or more, up to 1 + PremiumPercent for RareDropPercent or less,
+// on a log scale in between. Only items with a known drop rate (UseDropRates lists) get a premium.
+double AuctionHouseBot::GetRarityPriceFactor(uint32 itemId) const
+{
+    if (!RarityEnabled)
+        return 1.0;
+    auto found = CachedItemDropRates.find(itemId);
+    if (found == CachedItemDropRates.end() || found->second <= 0.0)
+        return 1.0;
+    double const share = std::log(RarityCommonRate / found->second) / std::log(RarityCommonRate / RarityRareRate);
+    return 1.0 + RarityPremium * std::clamp(share, 0.0, 1.0);
+}
+
 uint64 AuctionHouseBot::GetHouseLowestBuyoutPerItem(ItemTemplate const* itemProto)
 {
     uint64 bid = 0;
@@ -2686,6 +2731,7 @@ void AuctionHouseBot::InitializeConfiguration()
     NeutralConfig.SetMaxItems(sConfigMgr->GetOption<uint32>("AuctionHouseBot.Neutral.MaxItems", 15000));
 
     LoadHumanBuyerSettings();
+    LoadRaritySettings();
 }
 
 void AuctionHouseBot::EmptyAuctionHouses()

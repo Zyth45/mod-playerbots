@@ -361,6 +361,14 @@ private:
     uint32 PriceRoll(uint32 low, uint32 high) const { return PriceRollLowest ? low : urand(low, high); }
     uint64 GetHouseLowestBuyoutPerItem(ItemTemplate const* itemProto);
     void LoadHumanBuyerSettings();
+
+    // CoA Economy (lot 2): rarity premium from the drop rates (AiPlayerbot.CoaEconomy.Rarity.*, off by default).
+    bool RarityEnabled = false;
+    double RarityPremium = 1.0;
+    double RarityCommonRate = 5.0;
+    double RarityRareRate = 0.01;
+    void LoadRaritySettings();
+    double GetRarityPriceFactor(uint32 itemId) const;
     void FilterHumanBuyerCandidates(uint32 houseId, std::vector<uint32>& possibleBids, AuctionHouseObject* auctionHouse);
 
     AuctionHouseBot();
