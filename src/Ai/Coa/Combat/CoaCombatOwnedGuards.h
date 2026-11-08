@@ -38,5 +38,6 @@
 #define COA_COMBAT_HAS_TELEGRAPH_DODGE 1  // Targorr: CoaTelegraphRule::TELEGRAPHS, AiPlayerbot.CoaCombat.Telegraph.Enable
 #define COA_COMBAT_HAS_PURSUIT_STOP 1  // Shadowfang Keep point c: CoaPursuitRule, AiPlayerbot.CoaCombat.PursuitStop.Enable
 #define COA_COMBAT_HAS_OFF_TANK 1  // automatic off-tank: CoaOffTank, AiPlayerbot.CoaCombat.OffTank.Enable
+#define COA_COMBAT_HAS_GEAR_SCORE 1  // set bonuses and raid tokens: CoaGearScore (stable API for CoA Economie)
 
 #endif

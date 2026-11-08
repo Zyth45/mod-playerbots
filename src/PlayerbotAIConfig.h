@@ -715,6 +715,8 @@ public:
     bool coaCombatPursuitStopEnable = false;
     // Off-tank: a second tank takes the loose adds and never taunts what another tank holds.
     bool coaCombatOffTankEnable = false;
+    // Gear score: item set bonuses and raid tokens count in the choice of gear (CoaGearScore).
+    bool coaCombatGearScoreEnable = false;
     // ---- end of CoA Combat ----
 
 private:

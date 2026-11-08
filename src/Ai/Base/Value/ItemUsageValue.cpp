@@ -18,6 +18,7 @@
 #include "RandomItemMgr.h"
 #include "ServerFacade.h"
 #include "StatsWeightCalculator.h"
+#include "CoaGearScore.h"
 
 #include <algorithm>
 #include <string_view>
@@ -423,11 +424,19 @@ ItemUsage ItemUsageValue::QueryItemUsageForEquip(ItemTemplate const* itemProto, 
 
         ItemTemplate const* oldItemProto = oldItem->GetTemplate();
         float oldScore = calculator.CalculateItem(oldItemProto->ItemId, oldItem->GetInt32Value(ITEM_FIELD_RANDOM_PROPERTIES_ID));
+        // CoA Combat, gear score: each side gets the set bonuses it unlocks in this slot (AiPlayerbot.CoaCombat.GearScore).
+        float slotItemScore = itemScore;
+        if (sPlayerbotAIConfig.coaCombatGearScoreEnable)
+        {
+            int32 const slotIndex = int32((dest + i) & 0xFF);
+            slotItemScore += CoaGearScore::SetBonusMarginal(bot, itemProto, slotIndex);
+            oldScore += CoaGearScore::SetBonusMarginal(bot, oldItemProto, slotIndex);
+        }
         if (oldItem)
         {
             // uint32 oldStatWeight = sRandomItemMgr.GetLiveStatWeight(bot, oldItemProto->ItemId);
-            if (itemScore || oldScore)
-                shouldEquipInSlot = itemScore > oldScore * sPlayerbotAIConfig.equipUpgradeThreshold;
+            if (slotItemScore || oldScore)
+                shouldEquipInSlot = slotItemScore > oldScore * sPlayerbotAIConfig.equipUpgradeThreshold;
         }
 
         // Bigger quiver
@@ -452,7 +461,7 @@ ItemUsage ItemUsageValue::QueryItemUsageForEquip(ItemTemplate const* itemProto, 
 
         // Compare items based on item level, quality or itemId.
         bool isBetter = false;
-        if (itemScore > oldScore)
+        if (slotItemScore > oldScore)
             isBetter = true;
         // else if (newItemPower == oldScore && itemProto->Quality > oldItemProto->Quality)
         //     isBetter = true;

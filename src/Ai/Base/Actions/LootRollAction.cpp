@@ -5,6 +5,7 @@
  */
 
 #include "LootRollAction.h"
+#include "CoaGearScore.h"
 #include "Event.h"
 #include "Group.h"
 #include "ItemUsageValue.h"
@@ -76,7 +77,19 @@ bool LootRollAction::Execute(Event /*event*/)
         ItemUsage usage = AI_VALUE2(ItemUsage, "item usage", itemUsageParam);
 
         // Armor Tokens are classed as MISC JUNK (Class 15, Subclass 0), luckily no other items I found have class bits and epic quality.
-        if (proto->Class == ITEM_CLASS_MISC && proto->SubClass == ITEM_SUBCLASS_JUNK && proto->Quality == ITEM_QUALITY_EPIC)
+        // CoA Combat, gear score: a raid token is a need only when one of the pieces it gives this class is an upgrade
+        // (AiPlayerbot.CoaCombat.GearScore), not on every token the class may use.
+        if (sPlayerbotAIConfig.coaCombatGearScoreEnable && CoaGearScore::IsToken(itemId))
+        {
+            vote = GREED;
+            for (uint32 reward : CoaGearScore::TokenRewardsFor(bot, itemId))
+                if (CoaGearScore::UpgradeGain(bot, reward) > 0.0f)
+                {
+                    vote = NEED;
+                    break;
+                }
+        }
+        else if (proto->Class == ITEM_CLASS_MISC && proto->SubClass == ITEM_SUBCLASS_JUNK && proto->Quality == ITEM_QUALITY_EPIC)
         {
             if (CanBotUseToken(proto, bot))
                 vote = NEED; // Eligible for "Need"

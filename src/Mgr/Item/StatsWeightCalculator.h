@@ -31,6 +31,8 @@ public:
     void Reset();
     float CalculateItem(uint32 itemId, int32 randomPropertyId = 0, int32 slot = -1);
     float CalculateEnchant(uint32 enchantId);
+    // CoA Combat: the weight of one spell's stats (an item set bonus), no item-level blend.
+    float CalculateSpell(uint32 spellId);
     int32 PickBestRandomPropertyId(uint32 itemId);
 
     void SetOverflowPenalty(bool apply) { enable_overflow_penalty_ = apply; }
