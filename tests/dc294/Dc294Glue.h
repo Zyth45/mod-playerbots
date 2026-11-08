@@ -15,7 +15,6 @@
 #ifndef DC294_GLUE_H
 #define DC294_GLUE_H
 
-#include "Dc294EscapeLeap.h"
 #include "Dc294LyceumCloseUpDecision.h"
 #include "Dc294Math.h"
 #include "Dc294RegroupDecision.h"
@@ -109,16 +108,6 @@ namespace Dc294Glue
             return false;
         }
     };
-
-    // Multiplier/DungeonClearMultiplier.cpp: the escape leap ban, non-combat (line 387) and combat (lines 589-591).
-    inline bool EscapeLeapNonCombat(char const* name, bool partyTank)
-    {
-        return DcEscapeLeap::IsBanned(name) && partyTank;
-    }
-    inline bool EscapeLeapCombat(char const* name, bool partyTank, bool bossStandDown)
-    {
-        return DcEscapeLeap::IsBanned(name) && partyTank && !bossStandDown;
-    }
 
     // Multiplier/DungeonClearMultiplier.cpp, LyceumChaseLeavesThePack (lines 226-241), and
     // Action/DcLyceumCloseUpAction.cpp Probe (gate), both @ 0590afb. `isDcLeader`: DcLeaderSignal::IsDungeonClearLeader.

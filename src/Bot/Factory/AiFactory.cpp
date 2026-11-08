@@ -310,9 +310,11 @@ void AiFactory::AddDefaultCombatStrategies(Player* player, PlayerbotAI* const fa
         engine->addStrategiesNoInit("racials", "chat", "default", "cast time", "potions", "duel", "boost", nullptr);
         // Threat lead and assist on the tank's fight, which came from Dungeon Clear (CoaGardesMenaceStrategy).
         engine->addStrategy("coa gardes menace", false);
-        // Regroup, escape leap, room boss, Lyceum, Iron Hall, ground hazards and target exclusion guards (Dungeon Clear
+        // Regroup, room boss, Lyceum, Iron Hall, ground hazards and target exclusion guards (Dungeon Clear
         // session's port).
         engine->addStrategiesNoInit("coa gardes combat", "coa ground hazards", "coa target exclusion", nullptr);
+        // CoA Combat guards (src/Ai/Coa/Combat).
+        engine->addStrategy("coa combat escape leap", false);
     }
 
     // CoA: a grouped bot steps out of ground effects too, not only one a real player leads: in headless dungeon runs
@@ -696,6 +698,8 @@ void AiFactory::AddDefaultNonCombatStrategies(Player* player, PlayerbotAI* const
                                             "gather", "duel", "pvp", "buff", "mount", "emote", nullptr);
         nonCombatEngine->addStrategy("coa gardes menace nc", false);
         nonCombatEngine->addStrategiesNoInit("coa gardes noncombat", "coa ground hazards", nullptr);
+        // CoA Combat guards (src/Ai/Coa/Combat).
+        nonCombatEngine->addStrategy("coa combat escape leap nc", false);
     }
 
     if (sPlayerbotAIConfig.autoSaveMana && PlayerbotAI::IsHeal(player, true))
