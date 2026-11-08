@@ -57,6 +57,7 @@
 #include "WorldPacket.h"
 #include "WorldSession.h"
 
+#include <cctype>
 #include <cstdlib>
 #include <list>
 #include <memory>
@@ -1607,12 +1608,38 @@ public:
         return commandTable;
     }
 
-    static Player* Bot(ChatHandler* handler, std::string const& name)
+    // "Kegarink Bot", Kegarink Bot or kegarink bot: quotes dropped, the name as written first, then each word with
+    // a capital (normalizePlayerName lowers the surname: "Kegarink bot" is nobody).
+    static std::string Unquoted(std::string text)
     {
-        std::string normalized = name;
-        if (!normalizePlayerName(normalized))
-            return nullptr;
-        Player* bot = ObjectAccessor::FindPlayerByName(normalized, true);
+        text = Acore::String::Trim(text);
+        if (text.size() >= 2 && text.front() == '"' && text.back() == '"')
+            text = Acore::String::Trim(text.substr(1, text.size() - 2));
+        return text;
+    }
+
+    static Player* Bot(ChatHandler* handler, std::string const& written)
+    {
+        std::string const name = Unquoted(written);
+        Player* bot = name.empty() ? nullptr : ObjectAccessor::FindPlayerByName(name, true);
+        if (!bot && !name.empty())
+        {
+            std::string capitals = name;
+            bool start = true;
+            for (char& c : capitals)
+            {
+                if (c == ' ')
+                    start = true;
+                else if (start)
+                {
+                    c = char(std::toupper(static_cast<unsigned char>(c)));
+                    start = false;
+                }
+                else
+                    c = char(std::tolower(static_cast<unsigned char>(c)));
+            }
+            bot = ObjectAccessor::FindPlayerByName(capitals, true);
+        }
         if (!bot || !sRandomPlayerbotMgr.IsRandomBot(bot))
         {
             handler->PSendSysMessage("No random bot named {} online.", name);
@@ -1651,7 +1678,7 @@ public:
             handler->SendSysMessage("Usage: .bot soul set <name> <lazy|quester|wanderer|trader|pvp>");
             return true;
         }
-        std::string const name = Acore::String::Trim(text.substr(0, space));
+        std::string const name = Unquoted(text.substr(0, space));
         std::string const kind = Acore::String::Trim(text.substr(space + 1));
         uint8 archetype = CoaSoul::ARCHETYPE_COUNT;
         for (uint8 a = 0; a < CoaSoul::ARCHETYPE_COUNT; ++a)
