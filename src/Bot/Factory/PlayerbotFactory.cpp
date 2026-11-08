@@ -16,6 +16,7 @@
 #include "Config.h"
 #include "CoaWildcard.h"
 #include "CoaReborn.h"
+#include "CoaRefreshRules.h"
 #include "DBCStores.h"
 #include "DBCStructure.h"
 #include "GuildMgr.h"
@@ -1132,7 +1133,7 @@ void PlayerbotFactory::Refresh()
     //     InitEquipment(true);
     // }
     InitAttunementQuests();
-    if (!SelfFound())
+    if (CoaRefreshClearsInventory(SelfFound(), sPlayerbotAIConfig.refreshClearsInventory))
         ClearInventory();
     InitAmmo();
     InitFood();
@@ -4787,10 +4788,9 @@ void PlayerbotFactory::InitPotions()
 
         FindPotionVisitor visitor(bot, effect);
         IterateItems(&visitor);
-        if (!visitor.GetResult().empty())
-            continue;
-
-        uint32 itemId = sRandomItemMgr.GetRandomPotion(level, effect);
+        // Kept bags (AiPlayerbot.RefreshClearsInventory = 0): top up the potion already held instead of adding another.
+        uint32 itemId = visitor.GetResult().empty() ? sRandomItemMgr.GetRandomPotion(level, effect)
+                                                    : visitor.GetResult().front()->GetEntry();
         if (!itemId)
         {
             // LOG_INFO("playerbots", "No potions (type {}) available for bot {} ({} level)", effect,
@@ -4803,7 +4803,10 @@ void PlayerbotFactory::InitPotions()
             continue;
 
         uint32 maxCount = proto->GetMaxStackSize();
-        if (Item* newItem = StoreNewItemInInventorySlot(bot, itemId, urand(maxCount / 2, maxCount)))
+        uint32 count = CoaRefreshMissingCount(urand(maxCount / 2, maxCount), bot->GetItemCount(itemId));
+        if (!count)
+            continue;
+        if (Item* newItem = StoreNewItemInInventorySlot(bot, itemId, count))
             newItem->AddToUpdateQueueOf(bot);
     }
 }
@@ -4893,6 +4896,12 @@ void PlayerbotFactory::InitFood()
     {
         uint32 category = categories[i];
         std::vector<uint32>& ids = items[category];
+        // Food of this category already held: kept bags (AiPlayerbot.RefreshClearsInventory = 0) are only topped
+        // up to two stacks, never piled up at each refresh.
+        uint32 have = 0;
+        for (uint32 id : ids)
+            have += bot->GetItemCount(id);
+        uint32 target = 0;
         int tries = 0;
         for (int j = 0; j < 2; j++)
         {
@@ -4915,7 +4924,12 @@ void PlayerbotFactory::InitFood()
                 j--;
                 continue;
             }
-            StoreItem(itemId, proto->GetMaxStackSize());
+            target += proto->GetMaxStackSize();
+            uint32 count = CoaRefreshMissingCount(target, have);
+            if (!count)
+                continue;
+            StoreItem(itemId, count);
+            have += count;
         }
     }
 }

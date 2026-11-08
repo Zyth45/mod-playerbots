@@ -2970,6 +2970,13 @@ AiPlayerbot.MaxRandomBotReviveTime = 300
 AiPlayerbot.MinRandomBotTeleportInterval = 600
 AiPlayerbot.MaxRandomBotTeleportInterval = 2400
 
+# Whether a random bot's bags are emptied at each random teleport (the refresh, every 600 to 2400 seconds above).
+# Self-found bots always keep their bags. Food and potions are only topped up, so kept bags never pile them up.
+#    0 - keep the bags: meant for when bots sell their loot at vendors
+#    1 - empty the bags at each refresh
+# Default: 1 (enabled)
+AiPlayerbot.RefreshClearsInventory = 1
+
 # Number of seconds bots flagged as permanent stay in the world (31,104,000 ≈ 1 year)
 # Default: 31104000
 AiPlayerbot.PermanentlyInWorldTime = 31104000
