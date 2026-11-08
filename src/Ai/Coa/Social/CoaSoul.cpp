@@ -29,6 +29,7 @@ constexpr uint64 FLUSH_MS = 60 * IN_MILLISECONDS;
 std::shared_mutex soulLock;
 std::unordered_map<uint32, Soul> souls;  // bot guid (low) -> soul
 std::vector<uint32> unsaved;             // drawn, not yet in the table
+std::vector<uint32> changed;             // set by ".bot soul set", to replace in the table
 Weights weights = DefaultWeights();
 bool tableExists = false;
 uint64 nextFlush = 0;
@@ -124,8 +125,6 @@ void Flush(uint64 nowMs)
     std::string values;
     {
         std::unique_lock<std::shared_mutex> guard(soulLock);
-        if (unsaved.empty())
-            return;
         uint32 const now = uint32(GameTime::GetGameTime().count());
         size_t n = 0;
         while (!unsaved.empty() && n < 500)
@@ -141,9 +140,44 @@ void Flush(uint64 nowMs)
                                                               s.aggression, s.seed, now, now);
         }
     }
+    std::string replaced;
+    {
+        std::unique_lock<std::shared_mutex> guard(soulLock);
+        uint32 const now = uint32(GameTime::GetGameTime().count());
+        for (uint32 guid : changed)
+            if (auto it = souls.find(guid); it != souls.end())
+                replaced += (replaced.empty() ? "" : ",") +
+                            Acore::StringFormat("({},{},{},{},{},{},{},{},0,1,'',{},{})", guid, it->second.archetype,
+                                                it->second.pace, it->second.sociability, it->second.curiosity,
+                                                it->second.greed, it->second.aggression, it->second.seed, now, now);
+        changed.clear();
+    }
+    if (!replaced.empty())
+        PlayerbotsDatabase.Execute("REPLACE INTO playerbots_coa_soul (bot_guid, archetype, pace, sociability, "
+                                   "curiosity, greed, aggression, seed, source, version, persona, created_at, "
+                                   "updated_at) VALUES " + replaced);
     if (!values.empty())
         PlayerbotsDatabase.Execute("INSERT IGNORE INTO playerbots_coa_soul (bot_guid, archetype, pace, sociability, "
                                    "curiosity, greed, aggression, seed, source, version, persona, created_at, "
                                    "updated_at) VALUES " + values);
+}
+
+void SetArchetype(Player* bot, uint8 archetype)
+{
+    if (!bot || archetype >= ARCHETYPE_COUNT)
+        return;
+    uint32 const guid = bot->GetGUID().GetCounter();
+    Soul s = Get(bot);
+    auto const p = Profile(archetype);
+    s.archetype = archetype;
+    s.pace = p[0];
+    s.sociability = p[1];
+    s.curiosity = p[2];
+    s.greed = p[3];
+    s.aggression = p[4];
+    std::unique_lock<std::shared_mutex> guard(soulLock);
+    souls[guid] = s;
+    if (tableExists)
+        changed.push_back(guid);
 }
 }  // namespace CoaSoul

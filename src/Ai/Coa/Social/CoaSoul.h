@@ -26,6 +26,8 @@ uint32 RpgWeight(Player* bot, uint32 status, int32 configured);
 void Load();
 // World thread, now and then: the new souls into the table, in one asynchronous statement.
 void Flush(uint64 nowMs);
+// ".bot soul set" (benches): the bot takes this archetype, with the traits of its profile; kept in the table.
+void SetArchetype(Player* bot, uint8 archetype);
 }  // namespace CoaSoul
 
 #endif

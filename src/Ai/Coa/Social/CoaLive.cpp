@@ -15,7 +15,10 @@
 #include "CoaFreshStartRules.h"
 #include "CoaImmersionRules.h"
 #include "CoaLiveRules.h"
+#include "Chat.h"
+#include "ChatCommand.h"
 #include "CoaSoul.h"
+#include "StringFormat.h"
 #include "CoaPet.h"
 #include "CoaWorldFile.h"
 #include "FishingAction.h"
@@ -1577,8 +1580,97 @@ void OnResurrectAccepted(Player* bot, ObjectGuid by)
 }
 }  // namespace CoaLive
 
+
+using Acore::ChatCommands::ChatCommandTable;
+using Acore::ChatCommands::Console;
+
+class CoaSoulCommandScript : public CommandScript
+{
+public:
+    CoaSoulCommandScript() : CommandScript("CoaSoulCommandScript") {}
+
+    ChatCommandTable GetCommands() const override
+    {
+        static ChatCommandTable soulTable = {
+            {"set", HandleSoulSet, SEC_GAMEMASTER, Console::Yes},
+            {"", HandleSoul, SEC_GAMEMASTER, Console::Yes},
+        };
+        static ChatCommandTable botTable = {
+            {"soul", soulTable},
+        };
+        static ChatCommandTable commandTable = {
+            {"bot", botTable},
+        };
+        return commandTable;
+    }
+
+    static Player* Bot(ChatHandler* handler, std::string const& name)
+    {
+        std::string normalized = name;
+        if (!normalizePlayerName(normalized))
+            return nullptr;
+        Player* bot = ObjectAccessor::FindPlayerByName(normalized, true);
+        if (!bot || !sRandomPlayerbotMgr.IsRandomBot(bot))
+        {
+            handler->PSendSysMessage("No random bot named {} online.", name);
+            return nullptr;
+        }
+        return bot;
+    }
+
+    // .bot soul <name>: the soul of a random bot (drawn even when the souls are off, to see what it would be).
+    static bool HandleSoul(ChatHandler* handler, char const* args)
+    {
+        std::string const name = args ? Acore::String::Trim(std::string(args)) : "";
+        if (name.empty())
+        {
+            handler->SendSysMessage("Usage: .bot soul <name> | .bot soul set <name> <lazy|quester|wanderer|trader|pvp>");
+            return true;
+        }
+        Player* bot = Bot(handler, name);
+        if (!bot)
+            return true;
+        CoaSoul::Soul const s = CoaSoul::Get(bot);
+        handler->PSendSysMessage("{}: {} (pace {}, sociability {}, curiosity {}, greed {}, aggression {}){}",
+                                 bot->GetName(), CoaSoul::ArchetypeName(s.archetype), s.pace, s.sociability,
+                                 s.curiosity, s.greed, s.aggression,
+                                 CoaSoul::Enabled() ? "" : " - souls are off (AiPlayerbot.CoaSoul.Enable = 0)");
+        return true;
+    }
+
+    // .bot soul set <name> <archetype>: for the benches.
+    static bool HandleSoulSet(ChatHandler* handler, char const* args)
+    {
+        std::string const text = args ? std::string(args) : "";
+        size_t const space = text.find_last_of(' ');
+        if (space == std::string::npos)
+        {
+            handler->SendSysMessage("Usage: .bot soul set <name> <lazy|quester|wanderer|trader|pvp>");
+            return true;
+        }
+        std::string const name = Acore::String::Trim(text.substr(0, space));
+        std::string const kind = Acore::String::Trim(text.substr(space + 1));
+        uint8 archetype = CoaSoul::ARCHETYPE_COUNT;
+        for (uint8 a = 0; a < CoaSoul::ARCHETYPE_COUNT; ++a)
+            if (kind == CoaSoul::ArchetypeName(a))
+                archetype = a;
+        if (archetype == CoaSoul::ARCHETYPE_COUNT)
+        {
+            handler->SendSysMessage("Archetype: lazy, quester, wanderer, trader or pvp.");
+            return true;
+        }
+        Player* bot = Bot(handler, name);
+        if (!bot)
+            return true;
+        CoaSoul::SetArchetype(bot, archetype);
+        handler->PSendSysMessage("{} is now {}.", bot->GetName(), kind);
+        return true;
+    }
+};
+
 void AddSC_coa_live()
 {
+    new CoaSoulCommandScript();
     new CoaLivePlayerScript();
     new CoaLiveWorldScript();
     new CoaLiveUnitScript();
