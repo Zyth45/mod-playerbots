@@ -99,6 +99,24 @@ namespace BlackwingLairHelpers
     bool HasCurableBroodAfflictionBronze(Unit const* unit);
     // The Hourglass Sand spell that cures the affliction the unit carries.
     uint32 GetHourglassSandSpell(Unit const* unit);
+
+    // ---- CoA Combat (lot 7, docs/BWL-ETAT-3.0.md), off unless AiPlayerbot.CoaCombat.BlackwingLair.Enable is 1 ----
+    bool BwlCoaFixesOn();
+
+    // F1 / E1: Firemaw's Scorched (2110813..16) stacks on his tank without end; Ebonroc heals himself from what he
+    // deals to the tank under Shadow of Ebonroc (2110837..40). The boss changes tank when its tank is "marked".
+    constexpr uint32 SCORCHED_SWAP_STACKS = 8;
+    // The drake's tank should hand it over (Firemaw: 8 Scorched; Ebonroc: Shadow of Ebonroc).
+    bool IsDrakeTankMarked(Unit const* tank, bool firemaw);
+    // A tank that may take the drake (Firemaw: fewer than half the swap stacks; Ebonroc: no Shadow of Ebonroc).
+    bool CanTakeDrake(Unit const* tank, bool firemaw);
+
+    // C2: Chromaggus' Red affliction (2111012, a disease: 3 % of max health a second) on a raid member who is not
+    // blessed with red (2111007: a cured red comes back within a second).
+    bool HasCurableRedAffliction(Unit const* unit);
+
+    // N1: a Dominion clone (9780021) within `range` of the unit; every hit on the clone lands on its owner.
+    bool IsDominionCloneNear(Unit const* unit, float range);
 }
 
 #endif

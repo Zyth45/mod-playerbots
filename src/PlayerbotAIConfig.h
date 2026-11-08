@@ -737,6 +737,8 @@ public:
     uint32 coaCombatLootNeedWaitMs = 20000;
     // Lot 7: the session's Molten Core fixes (kill orders, burn phases, dodges; docs/MC-ETAT-3.0.md).
     bool coaCombatMoltenCoreEnable = false;
+    // Lot 7: the session's Blackwing Lair fixes (drake tank swaps, Chromaggus, Dominion; docs/BWL-ETAT-3.0.md).
+    bool coaCombatBlackwingLairEnable = false;
     // ---- end of CoA Combat ----
 
 private:

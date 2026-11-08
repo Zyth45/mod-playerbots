@@ -134,7 +134,9 @@ float GolemaggMultiplier::GetValue(Action* action)
             return 0.0f;
 
         // Backed-off melee stay out until their whole Magma Splash stack expires (30s after the last application).
-        bool backedOff = GetAuraStacks(bot, MAGMA_SPLASH_AURAS) >= MAGMA_SPLASH_BACK_OFF_STACKS;
+        uint32 const splashStacks = GetAuraStacks(bot, MAGMA_SPLASH_AURAS) +
+                                    (McCoaFixesOn() ? GetAuraStacks(bot, MAGMA_SPLASH_COA_AURAS) : 0);
+        bool backedOff = splashStacks >= MAGMA_SPLASH_BACK_OFF_STACKS;
         bool engagesBoss = !dynamic_cast<McGolemaggBackOffAction*>(action) &&
                            (dynamic_cast<AttackAction*>(action) || dynamic_cast<MeleeAction*>(action) ||
                             dynamic_cast<CastReachTargetSpellAction*>(action));
@@ -244,4 +246,14 @@ float RagnarosSonsNoAoeMultiplier::GetValue(Action* action)
     if (!McCoaFixesOn() || bot->GetMapId() != 409 || !IsDpsBotWithAoeAction(bot, action))
         return 1.0f;
     return FindSonOfFlameToKill(bot) ? 0.0f : 1.0f;
+}
+
+float GarrFireswornEruptionMultiplier::GetValue(Action* action)
+{
+    if (!McCoaFixesOn() || bot->GetMapId() != 409 || PlayerbotAI::IsTank(bot) || !PlayerbotAI::IsMelee(bot))
+        return 1.0f;
+    if (!dynamic_cast<ReachMeleeAction*>(action) && !dynamic_cast<MeleeAction*>(action))
+        return 1.0f;
+    // The margin keeps a bot that just stepped out from walking straight back in.
+    return FindDyingFireswornNear(bot, FIRESWORN_ERUPTION_YARDS + 4.0f) ? 0.0f : 1.0f;
 }

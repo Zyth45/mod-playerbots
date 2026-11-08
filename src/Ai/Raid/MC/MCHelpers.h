@@ -136,6 +136,20 @@ constexpr uint32 LIVING_BOMB_AURAS[] = {SPELL_LIVING_BOMB, SPELL_LIVING_BOMB_COA
 // Stacking debuff from striking Golemagg in melee
 constexpr uint32 MAGMA_SPLASH_AURAS[] = {SPELL_MAGMA_SPLASH, SPELL_MAGMA_SPLASH_DIFF_2_3};
 
+// CoA Combat (O2): CoA's own Magma Splash, a magic DoT that stacks to 100 (SpellDifficulty D0..D3). Counted with the
+// stock stacks only when AiPlayerbot.CoaCombat.MoltenCore.Enable is 1.
+constexpr uint32 MAGMA_SPLASH_COA_AURAS[] = {2105802, 2105803, 2105804, 2105805};
+
+// CoA Combat (A3): Magma Strike, the 2 yd fire patch Ragnaros and his Sons throw on the ground (4 s, D0..D3 of both
+// missiles). The Lava Burst geysers are not dodged on purpose: their trap (21158) hits everyone within 100 yd.
+constexpr uint32 RAGNAROS_MAGMA_STRIKE_AURAS[] = {2108657, 2108658, 2108659, 2108660,
+                                                  2108726, 2108727, 2108728, 2108729};
+
+// CoA Combat (R1): Garr's Firesworn erupt when they die, 12 yd around them (CoA cut the 100 yd radius down to 12).
+constexpr uint32 NPC_GARR_FIRESWORN = 12099;
+constexpr float FIRESWORN_ERUPTION_YARDS = 12.0f;
+constexpr float FIRESWORN_DYING_PCT = 10.0f;
+
 constexpr uint32 MAGMA_SPLASH_BACK_OFF_STACKS = 20;
 constexpr float MAGMA_SPLASH_BACK_OFF_DISTANCE = 12.0f;
 
@@ -344,6 +358,41 @@ inline Creature* FindSonOfFlameToKill(Unit* from)
         if (best)
             return best;
     }
+    return nullptr;
+}
+
+// CoA Combat (R1): every living Firesworn of Garr within 100 yd (all four difficulty entries).
+inline std::vector<Creature*> FindFiresworn(Unit* from)
+{
+    std::vector<Creature*> found;
+    for (uint32 variant : {NPC_GARR_FIRESWORN, NPC_GARR_FIRESWORN + MC_ENTRY_OFFSET_HEROIC,
+                           NPC_GARR_FIRESWORN + MC_ENTRY_OFFSET_MYTHIC, NPC_GARR_FIRESWORN + MC_ENTRY_OFFSET_ASCENDED})
+    {
+        std::list<Creature*> adds;
+        from->GetCreatureListWithEntryInGrid(adds, variant, 100.0f);
+        for (Creature* add : adds)
+            if (add && add->IsAlive())
+                found.push_back(add);
+    }
+    return found;
+}
+
+// The Firesworn to kill now: the lowest in health, so they die one at a time.
+inline Creature* FindFireswornToKill(Unit* from)
+{
+    Creature* best = nullptr;
+    for (Creature* add : FindFiresworn(from))
+        if (!best || add->GetHealth() < best->GetHealth())
+            best = add;
+    return best;
+}
+
+// A Firesworn about to die (FIRESWORN_DYING_PCT) within `range` of `bot`: its Eruption will hit there.
+inline Creature* FindDyingFireswornNear(Unit* bot, float range)
+{
+    for (Creature* add : FindFiresworn(bot))
+        if (add->GetHealthPct() <= FIRESWORN_DYING_PCT && bot->GetDistance2d(add) < range)
+            return add;
     return nullptr;
 }
 }  // namespace MoltenCoreHelpers

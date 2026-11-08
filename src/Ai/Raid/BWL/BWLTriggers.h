@@ -87,6 +87,36 @@ public:
 
 // Nefarian
 
+// CoA Combat (F1 / E1): the drake's tank is marked (Firemaw: 8 Scorched; Ebonroc: Shadow of Ebonroc). The first other
+// tank in group order that may take it taunts it.
+class BwlDrakeTankSwapTrigger : public Trigger
+{
+public:
+    BwlDrakeTankSwapTrigger(PlayerbotAI* botAI, std::string const name, std::string const bossName, bool firemaw)
+        : Trigger(botAI, name), bossName(bossName), firemaw(firemaw) {}
+    bool IsActive() override;
+
+private:
+    std::string const bossName;
+    bool const firemaw;
+};
+
+// CoA Combat (C1): Chromaggus' breath is a 25 yd cone in front of him; everyone he does not target stands behind.
+class BwlChromaggusPositioningTrigger : public Trigger
+{
+public:
+    BwlChromaggusPositioningTrigger(PlayerbotAI* botAI) : Trigger(botAI, "bwl chromaggus positioning") {}
+    bool IsActive() override;
+};
+
+// CoA Combat (C2): a healer that can cure diseases sees a raid member with an unblessed Red affliction.
+class BwlChromaggusRedAfflictionTrigger : public Trigger
+{
+public:
+    BwlChromaggusRedAfflictionTrigger(PlayerbotAI* botAI) : Trigger(botAI, "bwl chromaggus red affliction") {}
+    bool IsActive() override;
+};
+
 class BwlNefarianPositioningTrigger : public Trigger
 {
 public:

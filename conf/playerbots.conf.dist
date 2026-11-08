@@ -4877,3 +4877,13 @@ AiPlayerbot.CoaCombat.LootNeedWaitSeconds = 20
 #                  1 - (Enabled)
 
 AiPlayerbot.CoaCombat.MoltenCore.Enable = 0
+
+#
+# AiPlayerbot.CoaCombat.BlackwingLair.Enable
+#     Description: The CoA Combat fixes to the bots' Blackwing Lair strategy: tank swaps on Firemaw (Scorched) and
+#                  Ebonroc (Shadow of Ebonroc), the raid behind Chromaggus and the Red affliction cured first, no
+#                  area spells near Nefarian's Dominion clones. The stock strategy is unchanged when this is 0.
+#     Default:     0 - (Disabled)
+#                  1 - (Enabled)
+
+AiPlayerbot.CoaCombat.BlackwingLair.Enable = 0

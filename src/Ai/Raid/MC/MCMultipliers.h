@@ -53,6 +53,13 @@ public:
     ShazzrahSaveInterruptMultiplier(PlayerbotAI* botAI) : Multiplier(botAI, "mc shazzrah save interrupt") {}
     float GetValue(Action* action) override;
 };
+// CoA Combat (R1): a melee damage dealer does not walk back into the Eruption of a Firesworn about to die.
+class GarrFireswornEruptionMultiplier : public Multiplier
+{
+public:
+    GarrFireswornEruptionMultiplier(PlayerbotAI* botAI) : Multiplier(botAI, "garr firesworn eruption multiplier") {}
+    float GetValue(Action* action) override;
+};
 class ShazzrahReflectionMultiplier : public Multiplier
 {
 public:

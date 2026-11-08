@@ -31,4 +31,5 @@ void PlayerbotAIConfig::LoadCoaCombatConfig()
     coaCombatGearScoreEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaCombat.GearScore.Enable", false);
     coaCombatLootNeedWaitMs = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaCombat.LootNeedWaitSeconds", 20) * 1000;
     coaCombatMoltenCoreEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaCombat.MoltenCore.Enable", false);
+    coaCombatBlackwingLairEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaCombat.BlackwingLair.Enable", false);
 }

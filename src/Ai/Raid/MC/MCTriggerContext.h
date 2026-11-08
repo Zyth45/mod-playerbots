@@ -49,6 +49,9 @@ public:
         creators["mc baron geddon burn"] = &RaidMcTriggerContext::baron_geddon_burn;
         creators["mc golemagg cave in"] = &RaidMcTriggerContext::golemagg_cave_in;
         creators["mc ragnaros sons mark"] = &RaidMcTriggerContext::ragnaros_sons_mark;
+        creators["mc ragnaros magma strike"] = &RaidMcTriggerContext::ragnaros_magma_strike;
+        creators["mc garr firesworn mark"] = &RaidMcTriggerContext::garr_firesworn_mark;
+        creators["mc garr firesworn eruption"] = &RaidMcTriggerContext::garr_firesworn_eruption;
         creators["mc sulfuron mark"] = &RaidMcTriggerContext::sulfuron_mark;
         creators["mc gehennas rain of fire"] = &RaidMcTriggerContext::gehennas_rain_of_fire;
         creators["mc gehennas flame orb cast"] = &RaidMcTriggerContext::gehennas_flame_orb_cast;
@@ -89,6 +92,9 @@ private:
     static Trigger* gehennas_mark(PlayerbotAI* botAI) { return new RaidKillOrderMarkTrigger(botAI, "mc gehennas mark", "gehennas"); }
     static Trigger* ragnaros_sons_mark(PlayerbotAI* botAI) { return new McRagnarosSonsTrigger(botAI); }
     static Trigger* golemagg_cave_in(PlayerbotAI* botAI) { return new McGolemaggCaveInTrigger(botAI); }
+    static Trigger* ragnaros_magma_strike(PlayerbotAI* botAI) { return new McRagnarosMagmaStrikeTrigger(botAI); }
+    static Trigger* garr_firesworn_mark(PlayerbotAI* botAI) { return new McGarrFireswornMarkTrigger(botAI); }
+    static Trigger* garr_firesworn_eruption(PlayerbotAI* botAI) { return new McGarrFireswornEruptionTrigger(botAI); }
     static Trigger* baron_geddon_burn(PlayerbotAI* botAI) { return new McBaronGeddonBurnTrigger(botAI); }
     static Trigger* lucifron_mark(PlayerbotAI* botAI) { return new McCoaKillOrderTrigger(botAI, "mc lucifron mark", "lucifron"); }
     static Trigger* sulfuron_mark(PlayerbotAI* botAI) { return new McCoaKillOrderTrigger(botAI, "mc sulfuron mark", "sulfuron harbinger"); }

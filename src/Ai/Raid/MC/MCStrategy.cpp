@@ -63,6 +63,13 @@ void RaidMcStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
     triggers.push_back(
         new TriggerNode("mc garr fire resistance",
                         { NextAction("mc garr fire resistance", ACTION_RAID) }));
+    // CoA Combat: the Firesworn one at a time, the melee out of the dying one's Eruption (docs/MC-ETAT-3.0.md, R1).
+    triggers.push_back(
+        new TriggerNode("mc garr firesworn mark",
+                        { NextAction("mc garr firesworn mark", ACTION_RAID) }));
+    triggers.push_back(
+        new TriggerNode("mc garr firesworn eruption",
+                        { NextAction("mc garr move from firesworn", ACTION_RAID + 1) }));
 
     // Baron Geddon
     triggers.push_back(
@@ -148,6 +155,10 @@ void RaidMcStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
     triggers.push_back(
         new TriggerNode("mc ragnaros sons mark",
                         { NextAction("mc ragnaros sons mark", ACTION_RAID + 1) }));
+    // CoA Combat: out of the Magma Strike patches (A3).
+    triggers.push_back(
+        new TriggerNode("mc ragnaros magma strike",
+                        { NextAction("mc move from ground effect", ACTION_RAID + 1) }));
 
 
     // Trash
@@ -170,6 +181,7 @@ void RaidMcStrategy::InitMultipliers(std::vector<Multiplier*>& multipliers)
     multipliers.push_back(new ShazzrahReflectionMultiplier(botAI));
     multipliers.push_back(new ShazzrahSaveInterruptMultiplier(botAI));
     multipliers.push_back(new RagnarosSonsNoAoeMultiplier(botAI));
+    multipliers.push_back(new GarrFireswornEruptionMultiplier(botAI));
 }
 
 void RaidMcStrategy::AppendTargetExclusions(GuidSet& exclusions, TargetValueExclusionType type)
