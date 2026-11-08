@@ -376,6 +376,7 @@ namespace
                 _arrivedWait.erase(guid);
                 if (PlayerbotAI* botAI = GET_PLAYERBOT_AI(bot))
                     botAI->rpgInfo.ChangeToIdle();
+                BotLine(bot, "travel_arrive", {});
             }
             _arrived = still;
         }
@@ -412,6 +413,7 @@ namespace
             std::vector<ObjectGuid> bots = BorrowedBots(route.Owner(from));
             for (size_t i = before; i < bots.size(); ++i)
                 route.waiting[from].push_back({ bots[i], 0 });
+            BorrowedSay(route.Owner(from), before, "travel_wait", { { "place", route.def->name } }, 1);
         }
 
         bool _initialized = false;
