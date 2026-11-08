@@ -2026,7 +2026,7 @@ PlayerbotAI* PlayerbotsMgr::GetPlayerbotAI(Player* player)
     if (itr != _playerbotsAIMap.end())
     {
         if (itr->second->IsBotAI())
-            return dynamic_cast<PlayerbotAI*>(itr->second);
+            return static_cast<PlayerbotAI*>(itr->second); // map only holds PlayerbotAI
     }
 
     return nullptr;
@@ -2042,7 +2042,7 @@ PlayerbotMgr* PlayerbotsMgr::GetPlayerbotMgr(Player* player)
     if (itr != _playerbotsMgrMap.end())
     {
         if (!itr->second->IsBotAI())
-            return dynamic_cast<PlayerbotMgr*>(itr->second);
+            return static_cast<PlayerbotMgr*>(itr->second); // map only holds PlayerbotMgr
     }
 
     return nullptr;
