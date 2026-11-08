@@ -17,5 +17,6 @@
 #define COA_COMBAT_OWNS_ROOM_BOSS_CHASE 1  // A2: CoaGardesRunHooks::SetRoomClearBoss
 #define COA_COMBAT_OWNS_LYCEUM_CLOSE_UP 1  // A3: no hook
 #define COA_COMBAT_OWNS_IRON_HALL 1  // A4: no hook; ordered under "brd ironhand gout" (62 > 57)
+#define COA_COMBAT_OWNS_GROUND_HAZARDS 1  // A5: no hook; nested under the MC dodges
 
 #endif
