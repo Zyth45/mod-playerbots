@@ -273,6 +273,12 @@ bool NewRpgStatusUpdateAction::Execute(Event /*event*/)
                 info.ChangeToWanderRandom();
                 return true;
             }
+            // Could not get there in time: pick something else rather than walking forever.
+            if (info.HasStatusPersisted(statusGoGrindDuration))
+            {
+                info.ChangeToIdle();
+                return true;
+            }
             break;
         }
         case RPG_GO_CAMP:
@@ -289,6 +295,11 @@ bool NewRpgStatusUpdateAction::Execute(Event /*event*/)
             if (bot->GetExactDist(originalPos) < 10.0f)
             {
                 info.ChangeToWanderNpc();
+                return true;
+            }
+            if (info.HasStatusPersisted(statusGoCampDuration))
+            {
+                info.ChangeToIdle();
                 return true;
             }
             break;
@@ -350,6 +361,14 @@ bool NewRpgStatusUpdateAction::Execute(Event /*event*/)
             if (data.inFlight && !bot->IsInFlight())
             {
                 // flight arrival
+                info.ChangeToIdle();
+                return true;
+            }
+            // Never cut a flight short: the cap is for a bot that cannot reach its flight master.
+            if (!bot->IsInFlight() && info.HasStatusPersisted(statusTravelFlightDuration))
+            {
+                LOG_DEBUG("playerbots", "[New RPG] {} gave up travelling to flight master {}", bot->GetName(),
+                          data.flightMasterEntry);
                 info.ChangeToIdle();
                 return true;
             }

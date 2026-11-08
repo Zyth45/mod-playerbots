@@ -68,6 +68,10 @@ protected:
     const int32 statusDoQuestDuration = 30 * MINUTE  * IN_MILLISECONDS ;
     const int32 statusOutDoorPvPDuration = HOUR * IN_MILLISECONDS ;
     const int32 statusGoCityDuration = 15 * MINUTE * IN_MILLISECONDS ;
+    // These left their status only on arrival: a bot that never got there stayed in it forever.
+    const int32 statusGoGrindDuration = 10 * MINUTE * IN_MILLISECONDS;
+    const int32 statusGoCampDuration = 10 * MINUTE * IN_MILLISECONDS;
+    const int32 statusTravelFlightDuration = 15 * MINUTE * IN_MILLISECONDS;
 };
 
 class NewRpgGoGrindAction : public NewRpgBaseAction
