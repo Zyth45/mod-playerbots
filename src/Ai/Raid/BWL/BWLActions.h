@@ -95,6 +95,16 @@ public:
     bool Execute(Event event) override;
 };
 
+// CoA Combat (G2): the Combustion carrier steps away from the closest raid member before it explodes.
+class BwlFlamegorCombustionMoveAwayAction : public MovementAction
+{
+public:
+    BwlFlamegorCombustionMoveAwayAction(PlayerbotAI* botAI) : MovementAction(botAI, "bwl flamegor combustion move away")
+    {
+    }
+    bool Execute(Event event) override;
+};
+
 // Trash
 
 class BwlDeathTalonWyrmguardTankMoveAwayAction : public MovementAction

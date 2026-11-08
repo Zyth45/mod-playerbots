@@ -60,6 +60,11 @@ void RaidBwlStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
         NextAction("bwl chromaggus rear flank", ACTION_MOVE + 4) }));
     triggers.push_back(new TriggerNode("bwl chromaggus red affliction", {
         NextAction("bwl chromaggus cure red", ACTION_RAID + 1) }));
+    // CoA Combat (C4, P1-a, G2): out of the ground patches; the Combustion carrier alone.
+    triggers.push_back(new TriggerNode("bwl ground effect", {
+        NextAction("bwl move from ground effect", ACTION_RAID + 1) }));
+    triggers.push_back(new TriggerNode("bwl flamegor combustion", {
+        NextAction("bwl flamegor combustion move away", ACTION_RAID + 1) }));
 
     triggers.push_back(new TriggerNode("bwl affliction bronze", {
         NextAction("bwl use hourglass sand", ACTION_RAID) }));

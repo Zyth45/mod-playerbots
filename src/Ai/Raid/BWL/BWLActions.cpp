@@ -271,7 +271,7 @@ bool BwlBroodlordRangedMoveAwayAction::Execute(Event /*event*/)
 {
     if (Unit* boss = AI_VALUE2(Unit*, "find target", "broodlord lashlayer"))
     {
-        float distToTravel = BROODLORD_SAFE_DISTANCE - bot->GetDistance2d(boss);
+        float distToTravel = BroodlordSafeDistance() - bot->GetDistance2d(boss);
         if (distToTravel > 0.0f)
             return MoveAway(boss, distToTravel);
     }
@@ -425,4 +425,12 @@ bool BwlChromaggusCureRedAction::Execute(Event /*event*/)
         if (botAI->CanCastSpell(spell, target))
             return botAI->CastSpell(spell, target);
     return false;
+}
+
+bool BwlFlamegorCombustionMoveAwayAction::Execute(Event /*event*/)
+{
+    Player* nearest = NearestRaidMemberWithin(bot, COMBUSTION_CLEAR_YARDS);
+    if (!nearest)
+        return false;
+    return MoveAway(nearest, COMBUSTION_CLEAR_YARDS + 2.0f - bot->GetDistance2d(nearest));
 }

@@ -45,6 +45,8 @@ public:
         creators["bwl ebonroc tank swap"] = &RaidBwlActionContext::bwl_ebonroc_tank_swap;
         creators["bwl chromaggus rear flank"] = &RaidBwlActionContext::bwl_chromaggus_rear_flank;
         creators["bwl chromaggus cure red"] = &RaidBwlActionContext::bwl_chromaggus_cure_red;
+        creators["bwl move from ground effect"] = &RaidBwlActionContext::bwl_move_from_ground_effect;
+        creators["bwl flamegor combustion move away"] = &RaidBwlActionContext::bwl_flamegor_combustion_move_away;
 
         creators["bwl death talon wyrmguard tank move away"] = &RaidBwlActionContext::bwl_death_talon_wyrmguard_tank_move_away;
         creators["bwl death talon wyrmguard ranged move away"] = &RaidBwlActionContext::bwl_death_talon_wyrmguard_ranged_move_away;
@@ -82,6 +84,14 @@ private:
     }
     static Action* bwl_chromaggus_rear_flank(PlayerbotAI* ai) { return new BossRearFlankAction(ai, "chromaggus"); }
     static Action* bwl_chromaggus_cure_red(PlayerbotAI* ai) { return new BwlChromaggusCureRedAction(ai); }
+    static Action* bwl_move_from_ground_effect(PlayerbotAI* ai)
+    {
+        return new RaidMoveFromGroundEffectAction(ai, "bwl move from ground effect");
+    }
+    static Action* bwl_flamegor_combustion_move_away(PlayerbotAI* ai)
+    {
+        return new BwlFlamegorCombustionMoveAwayAction(ai);
+    }
     static Action* bwl_death_talon_wyrmguard_tank_move_away(PlayerbotAI* ai) { return new BwlDeathTalonWyrmguardTankMoveAwayAction(ai); }
     static Action* bwl_death_talon_wyrmguard_ranged_move_away(PlayerbotAI* ai) { return new BwlDeathTalonWyrmguardRangedMoveAwayAction(ai); }
 };

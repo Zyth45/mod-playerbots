@@ -43,6 +43,8 @@ public:
         creators["bwl ebonroc tank swap"] = &RaidBwlTriggerContext::bwl_ebonroc_tank_swap;
         creators["bwl chromaggus positioning"] = &RaidBwlTriggerContext::bwl_chromaggus_positioning;
         creators["bwl chromaggus red affliction"] = &RaidBwlTriggerContext::bwl_chromaggus_red_affliction;
+        creators["bwl ground effect"] = &RaidBwlTriggerContext::bwl_ground_effect;
+        creators["bwl flamegor combustion"] = &RaidBwlTriggerContext::bwl_flamegor_combustion;
         creators["bwl nefarian wild magic"] = &RaidBwlTriggerContext::bwl_nefarian_wild_magic;
 
         creators["bwl death talon wyrmguard tank"] = &RaidBwlTriggerContext::bwl_death_talon_wyrmguard_tank;
@@ -78,6 +80,8 @@ private:
     }
     static Trigger* bwl_chromaggus_positioning(PlayerbotAI* ai) { return new BwlChromaggusPositioningTrigger(ai); }
     static Trigger* bwl_chromaggus_red_affliction(PlayerbotAI* ai) { return new BwlChromaggusRedAfflictionTrigger(ai); }
+    static Trigger* bwl_ground_effect(PlayerbotAI* ai) { return new BwlGroundEffectTrigger(ai); }
+    static Trigger* bwl_flamegor_combustion(PlayerbotAI* ai) { return new BwlFlamegorCombustionTrigger(ai); }
     static Trigger* bwl_death_talon_wyrmguard_tank(PlayerbotAI* ai) { return new BwlDeathTalonWyrmguardTankTrigger(ai); }
     static Trigger* bwl_death_talon_wyrmguard_ranged(PlayerbotAI* ai) { return new BwlDeathTalonWyrmguardRangedTrigger(ai); }
 };

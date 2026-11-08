@@ -117,6 +117,22 @@ public:
     bool IsActive() override;
 };
 
+// CoA Combat (C4 / P1-a): standing in a Chromaggus patch or in Nefarius' Burning Ground.
+class BwlGroundEffectTrigger : public Trigger
+{
+public:
+    BwlGroundEffectTrigger(PlayerbotAI* botAI) : Trigger(botAI, "bwl ground effect") {}
+    bool IsActive() override;
+};
+
+// CoA Combat (G2): the bot carries Flamegor's Combustion with a raid member within its blast.
+class BwlFlamegorCombustionTrigger : public Trigger
+{
+public:
+    BwlFlamegorCombustionTrigger(PlayerbotAI* botAI) : Trigger(botAI, "bwl flamegor combustion") {}
+    bool IsActive() override;
+};
+
 class BwlNefarianPositioningTrigger : public Trigger
 {
 public:

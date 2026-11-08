@@ -214,3 +214,28 @@ bool BlackwingLairHelpers::IsDominionCloneNear(Unit const* unit, float range)
             return true;
     return false;
 }
+
+float BlackwingLairHelpers::BroodlordSafeDistance()
+{
+    return BwlCoaFixesOn() ? 23.0f : BROODLORD_SAFE_DISTANCE;
+}
+
+bool BlackwingLairHelpers::IsInBwlGroundEffect(Unit const* unit)
+{
+    // Chromaggus: Incinerate rings 2111151..54 (5 yd), acid pools 2111160..63 (3 yd), Freezing Fog 2111165..68 (4 yd);
+    // Nefarius: Burning Ground 2111248..51 (4 yd). All persistent area auras on whoever stands inside.
+    static constexpr uint32 GROUND_AURAS[] = {2111151, 2111152, 2111153, 2111154, 2111160, 2111161, 2111162, 2111163,
+                                              2111165, 2111166, 2111167, 2111168, 2111248, 2111249, 2111250, 2111251};
+    for (uint32 spellId : GROUND_AURAS)
+        if (unit->HasAura(spellId))
+            return true;
+    return false;
+}
+
+bool BlackwingLairHelpers::HasCombustion(Unit const* unit)
+{
+    for (uint32 spellId : {2110858u, 2110859u, 2110860u, 2110861u})
+        if (unit->HasAura(spellId))
+            return true;
+    return false;
+}
