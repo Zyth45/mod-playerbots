@@ -255,9 +255,9 @@ bool NewRpgStatusUpdateAction::Execute(Event /*event*/)
                 LeaveCity();
                 return true;
             }
-            // CoA Economy: bags filling up and a vendor in reach: go and sell first
-            if (CoaEconomy::RpgTrade::WantsVendor(botAI) &&
-                !CoaEconomy::RpgTrade::ChooseVendor(botAI, AI_VALUE(GuidVector, "possible new rpg targets")).IsEmpty())
+            // CoA Economy: business with a vendor or an auctioneer in reach: go there first
+            if (CoaEconomy::RpgTrade::WantsTrade(botAI) &&
+                !CoaEconomy::RpgTrade::ChooseTradeNpc(botAI, AI_VALUE(GuidVector, "possible new rpg targets")).IsEmpty())
             {
                 info.ChangeToWanderNpc();
                 return true;
@@ -488,7 +488,7 @@ bool NewRpgWanderNpcAction::Execute(Event /*event*/)
             data.lastReach = getMSTime();
             if (bot->CanInteractWithQuestGiver(object))
                 InteractWithNpcOrGameObjectForQuest(data.npcOrGo);
-            // CoA Economy: sell loot and repair at a vendor, as people do between two quests
+            // CoA Economy: sell, repair or use the auction house, as people do between two quests
             CoaEconomy::RpgTrade::TradeAtNpc(botAI, object);
             return true;
         }

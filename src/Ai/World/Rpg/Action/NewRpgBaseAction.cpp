@@ -776,12 +776,12 @@ ObjectGuid NewRpgBaseAction::ChooseNpcOrGameObjectToInteract(bool questgiverOnly
     if (questgiverOnly)
         return ObjectGuid();
 
-    // CoA Economy: bags filling up, a vendor before a random NPC
-    if (CoaEconomy::RpgTrade::WantsVendor(botAI))
+    // CoA Economy: a vendor or an auctioneer the bot has business with, before a random NPC
+    if (CoaEconomy::RpgTrade::WantsTrade(botAI))
     {
-        ObjectGuid const vendor = CoaEconomy::RpgTrade::ChooseVendor(botAI, possibleTargets, distanceLimit);
-        if (!vendor.IsEmpty())
-            return vendor;
+        ObjectGuid const tradeNpc = CoaEconomy::RpgTrade::ChooseTradeNpc(botAI, possibleTargets, distanceLimit);
+        if (!tradeNpc.IsEmpty())
+            return tradeNpc;
     }
 
     if (possibleTargets.empty())

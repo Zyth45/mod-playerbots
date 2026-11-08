@@ -389,6 +389,9 @@ public:
     bool EnsureAutoCharacter();
     void InitializeConfiguration();
     void EmptyAuctionHouses();
+    // CoA Economy: the house's lowest asking price for one item (0 while the house bot is off). SquidBots that
+    // sell at the auction house price from it, so the house and the bots share one price model.
+    uint64 GetReferencePricePerItem(ItemTemplate const* itemProto);
     uint32 GetRandomStackValue(std::string configKeyString, uint32 defaultValue);
     uint32 GetRandomStackIncrementValue(std::string configKeyString, uint32 defaultValue);
     void SetCyclesBetweenBuyOrSell();

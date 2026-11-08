@@ -14,20 +14,21 @@
 class PlayerbotAI;
 class WorldObject;
 
-// CoA Economy (lot 3): the "new rpg" random bots stop at vendors to sell their loot and repair, as people
-// do between two quests (AiPlayerbot.CoaEconomy.RpgSell.*, off by default). The new rpg had no such step
-// (RpgSellAction only exists in the old rpg). Small hooks in NewRpgAction.cpp / NewRpgBaseAction.cpp call
-// these functions; everything else lives here.
+// CoA Economy (lot 3): the "new rpg" random bots stop at vendors to sell their loot and repair, and at
+// auctioneers to sell and buy, as people do between two quests (AiPlayerbot.CoaEconomy.RpgSell.* and
+// BotAuctions.*, off by default). The new rpg had no such step (RpgSellAction only exists in the old rpg).
+// Small hooks in NewRpgAction.cpp / NewRpgBaseAction.cpp call these functions; everything else lives here.
 namespace CoaEconomy::RpgTrade
 {
-    // Bags filled to the threshold and something to sell: the bot looks for a vendor.
-    bool WantsVendor(PlayerbotAI* botAI);
+    // The bot has business with a vendor (bags filling up, something to sell) or an auctioneer (loot worth an
+    // auction, visit not on cooldown).
+    bool WantsTrade(PlayerbotAI* botAI);
 
-    // A vendor among the bot's possible rpg targets, the nearest one within distanceLimit (0 = any).
-    ObjectGuid ChooseVendor(PlayerbotAI* botAI, std::vector<ObjectGuid> const& targets, float distanceLimit = 0.0f);
+    // Among the bot's possible rpg targets, the nearest NPC it has business with (0 distanceLimit = any).
+    ObjectGuid ChooseTradeNpc(PlayerbotAI* botAI, std::vector<ObjectGuid> const& targets, float distanceLimit = 0.0f);
 
-    // At an NPC in interaction range: sells what the bot does not need to a vendor, and repairs at an
-    // armorer when its gear is worn. True when it did something.
+    // At an NPC in interaction range: sells to a vendor what the bot does not need, repairs at an armorer when its
+    // gear is worn, and queues an auction house visit at an auctioneer. True when it did something.
     bool TradeAtNpc(PlayerbotAI* botAI, WorldObject* npc);
 }
 
