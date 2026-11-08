@@ -15,6 +15,7 @@
 #include "CoaFreshStartRules.h"
 #include "CoaImmersionRules.h"
 #include "CoaLiveRules.h"
+#include "CoaPet.h"
 #include "CoaWorldFile.h"
 #include "FishingAction.h"
 #include "NewRpgInfo.h"
@@ -1141,6 +1142,8 @@ public:
     // A bot dings in front of a real player; a real player dings next to random bots or in their group.
     void OnPlayerLevelChanged(Player* player, uint8 oldLevel) override
     {
+        if (player && player->GetLevel() > oldLevel)
+            CoaPet::OnLevelUp(player);  // an alt's class book ("pet auto on"), with or without CoA Live
         if (!Enabled() || !player || player->GetLevel() <= oldLevel)
             return;
 

@@ -27,6 +27,8 @@ public:
 
     // "alt train" / "alt learn": the list or the learning goes to the addon when the owner has it.
     bool RunForAddon(bool learnSpells, uint32 spellId);
+    // Learns what this trainer teaches the bot, whoever is targeted (CoA Pets: an alt's class or craft book).
+    bool LearnFrom(Creature* trainer);
 
 private:
     Creature* GetCreatureTarget();

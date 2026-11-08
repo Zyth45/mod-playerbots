@@ -7,6 +7,7 @@
 #include "PlayerbotAI.h"
 
 #include "CoaLive.h"
+#include "CoaPet.h"
 #include "CurrentTargetValue.h"
 
 #include <set>
@@ -565,6 +566,8 @@ void PlayerbotAI::UpdateAI(uint32 elapsed, bool minimal)
     CoaTankOrderTick(this);
     // The loot pet of an alt (AiPlayerbot.AltLootCompanion).
     CoaLootCompanionTick(this);
+    // The alt's class and craft books, used by themselves ("pet auto on", CoA Pets).
+    CoaPet::Tick(this);
     // Totems put away after the fight (AiPlayerbot.CoaTotemRecall).
     CoaTotemRecallTick(this);
 

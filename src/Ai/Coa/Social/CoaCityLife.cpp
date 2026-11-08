@@ -190,7 +190,8 @@ uint32 WhileStaying(PlayerbotAI* botAI, WorldObject* object, uint32 defaultMs)
 
 void Leave(PlayerbotAI* botAI)
 {
-    if (!botAI)
+    // Off: no lock on every NPC left (Builder). A station held when it was turned off frees itself after HOLD_MS.
+    if (!Enabled() || !botAI)
         return;
     Player* bot = botAI->GetBot();
     bool held = false;

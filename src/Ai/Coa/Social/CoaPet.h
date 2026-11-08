@@ -18,6 +18,12 @@ namespace CoaPet
 {
 // True when the param of "pet" is a Pets verb (it was answered); false leaves it to the hunter pet command.
 bool Handle(PlayerbotAI* botAI, Player* requester, std::string const& param);
+
+// "pet auto on" (the default): after a level up the alt brings out its class book and learns its new spells;
+// when a profession reaches the top of its rank, its Book of Artisans for the next rank. Then the book goes back
+// (the loot pet comes out again by itself). OnLevelUp asks for it; Tick (the alt's update, map thread) does it.
+void OnLevelUp(Player* alt);
+void Tick(PlayerbotAI* botAI);
 }  // namespace CoaPet
 
 #endif
