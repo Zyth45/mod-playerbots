@@ -16,7 +16,6 @@
 #include "Common/CoaGardesRunHooks.h"
 #include "Common/CoaGardesSettings.h"
 #include "Common/CoaGardesUnits.h"
-#include "EscapeLeap/CoaEscapeLeap.h"
 #include "RoomBoss/CoaRoomBossChase.h"
 
 #include "Creature.h"
@@ -31,17 +30,6 @@
 // strategies that carry every guard for every bot.
 namespace
 {
-    bool EscapeLeapBanned(Player* bot, std::string const& name, bool combatEngine)
-    {
-        if (!CoaEscapeLeap::IsBanned(name) || !CoaGroupTank::ModuleGuardActs(bot, CoaGardesGate::ESCAPE_LEAP_BAN))
-            return false;
-        CoaEscapeLeap::Gate g;
-        g.hasTank = CoaGardesUnits::Tank(bot) != nullptr;
-        g.inInstance = true;  // GuardScope, checked by the multiplier first
-        g.combatEngine = combatEngine;
-        g.raidStandDown = combatEngine && CoaGroupTank::InDungeonClearRun(bot) && CoaGardesRunHooks::IsRaidStandDown(bot);
-        return CoaEscapeLeap::Bans(true, g);
-    }
 
     // The Lyceum close-up, chase half: no stock reach / chase toward a target further than LEASH from the tank.
     bool LyceumChaseLeavesThePack(Player* bot, AiObjectContext* context, Action* action)
@@ -179,8 +167,6 @@ float CoaGardesCombatMultiplier::GetValue(Action* action)
     if (!action || !botAI || !CoaGroupTank::GuardScope(bot))
         return 1.0f;
     std::string const& name = action->getName();
-    if (EscapeLeapBanned(bot, name, true))
-        return 0.0f;
     if (LyceumChaseLeavesThePack(bot, context, action))
         return 0.0f;
     if (ChaseWakesSleepingRoomBoss(bot, context, action))
@@ -192,8 +178,6 @@ float CoaGardesNonCombatMultiplier::GetValue(Action* action)
 {
     if (!action || !botAI || !CoaGroupTank::GuardScope(bot))
         return 1.0f;
-    if (EscapeLeapBanned(bot, action->getName(), false))
-        return 0.0f;
     return 1.0f;
 }
 

@@ -26,7 +26,6 @@ class PlayerbotAI;
 // play. Each one asks CoaGroupTank::ModuleGuardActs first, so it stays silent for a run whose Dungeon Clear still does
 // it itself. The tank they read is the group's reference tank (CoaGroupTank).
 //   combat regroup   - Regroup/: a follower that cannot contribute from where it stands walks back to the fight;
-//   escape leap ban  - EscapeLeap/: no Blink / Disengage in a dungeon or raid group;
 //   room boss chase  - RoomBoss/: no chase that ends inside a sleeping room-aggro boss's wake sphere;
 //   lyceum close up  - Brd/: Blackrock Depths' Lyceum, every member fights within 15yd of the tank;
 //   iron hall        - Brd/: Blackrock Depths' Iron Hall, never stop in the statues' fire.
