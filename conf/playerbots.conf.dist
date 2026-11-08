@@ -4485,3 +4485,11 @@ AiPlayerbot.CoaCombat.CombatPurge.Enable = 0
 #                  1 - (Enabled)
 
 AiPlayerbot.CoaCombat.SunkenTemple.Enable = 0
+# AiPlayerbot.CoaCombat.Telegraph.Enable
+#     Description: The bots step out of a ground marker that announces a hit (CoA kits' "Dest Area" markers, for
+#                  example Targorr the Dread's Berserker Leap in the Stockade), melee on the boss included, inside
+#                  and outside a Dungeon Clear run.
+#     Default:     0 - (Disabled)
+#                  1 - (Enabled)
+
+AiPlayerbot.CoaCombat.Telegraph.Enable = 0

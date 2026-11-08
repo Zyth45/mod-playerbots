@@ -34,4 +34,7 @@
 #define COA_COMBAT_OWNS_HAKKAR_AVATAR 1  // B5: strategy vanilla-st (map 109); Dungeon Clear keeps the arrival and WaitForSpawn
 #define COA_COMBAT_OWNS_RAZORGORE_POSSESSION_LOCK 1  // B6: RazorgorePossessionMultiplier in "bwl"; election, orb and camp (B7) stay in Dungeon Clear
 
+// New guards born in the module (nothing to drop in Dungeon Clear).
+#define COA_COMBAT_HAS_TELEGRAPH_DODGE 1  // Targorr: CoaTelegraphRule::TELEGRAPHS, AiPlayerbot.CoaCombat.Telegraph.Enable
+
 #endif

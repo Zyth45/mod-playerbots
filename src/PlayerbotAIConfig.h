@@ -709,6 +709,8 @@ public:
     uint32 coaCombatCombatPurgeWindowMs = 60000;
     // B5 Sunken Temple, Avatar of Hakkar (vanilla-st) outside a Dungeon Clear run (always on inside one).
     bool coaCombatSunkenTempleEnable = false;
+    // Telegraphs (Targorr): leave a listed ground marker that announces a hit. New everywhere, Dungeon Clear runs too.
+    bool coaCombatTelegraphEnable = false;
     // ---- end of CoA Combat ----
 
 private:
