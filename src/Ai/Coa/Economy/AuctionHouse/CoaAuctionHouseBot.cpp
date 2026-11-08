@@ -2166,9 +2166,9 @@ void AuctionHouseBot::AddNewAuctionBuyerBotBid(std::vector<Player*> AHBPlayers, 
 void AuctionHouseBot::LoadRaritySettings()
 {
     RarityEnabled = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.Rarity.Enable", false, false);
-    RarityPremium = std::max(0.0, sConfigMgr->GetOption<double>("AiPlayerbot.CoaEconomy.Rarity.PremiumPercent", 100.0) / 100.0);
-    RarityCommonRate = std::max(0.000001, sConfigMgr->GetOption<double>("AiPlayerbot.CoaEconomy.Rarity.CommonDropPercent", 5.0));
-    RarityRareRate = std::clamp(sConfigMgr->GetOption<double>("AiPlayerbot.CoaEconomy.Rarity.RareDropPercent", 0.01), 0.0000001, RarityCommonRate * 0.999);
+    RarityPremium = std::max(0.0, double(sConfigMgr->GetOption<float>("AiPlayerbot.CoaEconomy.Rarity.PremiumPercent", 100.0f)) / 100.0);
+    RarityCommonRate = std::max(0.000001, double(sConfigMgr->GetOption<float>("AiPlayerbot.CoaEconomy.Rarity.CommonDropPercent", 5.0f)));
+    RarityRareRate = std::clamp(double(sConfigMgr->GetOption<float>("AiPlayerbot.CoaEconomy.Rarity.RareDropPercent", 0.01f)), 0.0000001, RarityCommonRate * 0.999);
 }
 
 // 1 for an item dropping at CommonDropPercent or more, up to 1 + PremiumPercent for RareDropPercent or less,
