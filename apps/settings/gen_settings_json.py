@@ -54,8 +54,9 @@ SETTINGS = [
     ('CrashingBotRaces', 'population', 'Custom races that crash the client',
      'Always excluded from bots, on top of the list above. Default 65, 72, 77, 80, 81 (Test Race, Skyborne, '
      'Darkfallen), per the custom races module author.'),
-    ('CoaBotSurname', 'population', '"Bot" surname',
-     'Random bots carry the surname "Bot", so players tell them from real players at a glance.'),
+    ('CoaBotSurname', 'population', 'Bot surname',
+     'Random bots carry the surname "Bot" (1), so players tell them from real players at a glance, no surname (0), '
+     'or a family name of their own (2).'),
     ('RandomGearQualityLimit', 'population', 'Best gear quality',
      'Highest item quality random bots get: 2 uncommon, 3 rare, 4 epic.'),
     ('RandomGearScoreLimit', 'population', 'Item level cap',

@@ -8,11 +8,12 @@
 
 #include <string>
 
-// The surname random bots carry when AiPlayerbot.CoaBotSurname is on: "Kegarink Bot".
+// The name of a new random bot: "Kegarink Bot" when AiPlayerbot.CoaBotSurname is 1, the first name otherwise
+// (mode 2 gives the family name in ApplyCoaBotSurnames, once the bot has a guid).
 std::string CoaBotName(std::string const& firstName);
 
-// Gives every random bot the surname, or takes it back when the setting is off. Run at startup,
-// once the random bots exist and before any of them logs in.
+// Gives every random bot the surname of AiPlayerbot.CoaBotSurname (none, "Bot" or its family name), whatever it
+// carried before. Run at startup, once the random bots exist and before any of them logs in.
 void ApplyCoaBotSurnames();
 
 #endif
