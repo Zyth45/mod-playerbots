@@ -10,6 +10,7 @@
 #include "CoaEconomyData.h"
 #include "CoaEconomyRules.h"
 #include "CoaMarketPrices.h"
+#include "CoaSellable.h"
 #include "Config.h"
 #include "DBCStores.h"
 #include "Item.h"
@@ -115,7 +116,9 @@ std::vector<Recipe> KnownRecipes(Player* bot)
                 count = uint32(std::max(1, effect.CalcValue()));
                 break;
             }
-        if (!itemId || !IsTradable(sObjectMgr->GetItemTemplate(itemId)))
+        // Nothing CoA does not have (Netherweave bandages), no ammunition, no vendor good.
+        ItemTemplate const* product = sObjectMgr->GetItemTemplate(itemId);
+        if (!itemId || !IsTradable(product) || !Sellable::BotMayList(product, true))
             continue;
         uint32 const skillId = ProfessionOf(spellId);
         if (!skillId)

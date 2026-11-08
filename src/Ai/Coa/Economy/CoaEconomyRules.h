@@ -194,6 +194,30 @@ inline bool SellsAtVendor(bool vendorUsage, bool auctionUsage, bool botAuctionsO
     return vendorUsage || (auctionUsage && (!botAuctionsOn || bagUsedPercent >= 95));
 }
 
+// Ammunition is of no use on CoA: projectiles (item class 6) and quivers or ammo pouches (item class 11) are never
+// listed, bought or offered, by the bots or the house.
+inline bool IsAmmo(std::uint32_t itemClass)
+{
+    return itemClass == 6 || itemClass == 11;
+}
+
+// A Blizzard item of the later expansions (ids 21000 to 56806) asking level 55 or more, or of item level 58 or more,
+// with no source in the original game's world: not on CoA (Netherweave Cloth and its bandages, Fel Iron Ore).
+inline bool IsLaterExpansion(std::uint32_t itemId, std::uint32_t requiredLevel, std::uint32_t itemLevel,
+                             bool originalWorldSource)
+{
+    return itemId >= 21000 && itemId <= 56806 && (requiredLevel >= 55 || itemLevel >= 58) && !originalWorldSource;
+}
+
+// What a bot may put at the auction house: never ammunition, a later expansion item or a vendor good (bought, not
+// earned); a consumable only when its artisan made it, since a bot keeps the food, potions and bandages it uses.
+inline bool BotMayList(std::uint32_t itemClass, bool crafted, bool soldByVendor, bool laterExpansion)
+{
+    if (IsAmmo(itemClass) || laterExpansion || soldByVendor)
+        return false;
+    return itemClass != 0 || crafted;
+}
+
 inline bool WantsVendor(bool rpgSellOn, std::uint32_t bagUsedPercent, std::uint32_t thresholdPercent, bool canSell)
 {
     return rpgSellOn && bagUsedPercent >= thresholdPercent && canSell;

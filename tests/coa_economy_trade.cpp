@@ -19,6 +19,23 @@ int main()
     assert(SellsAtVendor(false, true, true, 95));
     assert(!SellsAtVendor(false, false, false, 100));
 
+    // What a bot may list: no ammunition (Doomshot, quivers), no vendor good, no later expansion item
+    // (Netherweave Bandage 21990: required level 58, item level 64), a consumable only when crafted.
+    assert(IsAmmo(6) && IsAmmo(11) && !IsAmmo(2) && !IsAmmo(0));
+    assert(!BotMayList(6, false, true, false));    // Doomshot, from a vendor
+    assert(!BotMayList(6, true, false, false));    // even crafted ammunition
+    assert(!BotMayList(11, false, false, false));  // a quiver
+    assert(!BotMayList(0, false, false, false));   // a looted potion: the bot keeps it
+    assert(BotMayList(0, true, false, false));     // a potion its artisan made
+    assert(!BotMayList(7, false, true, false));    // a vendor reagent, resold
+    assert(!BotMayList(0, true, false, true));     // Netherweave Bandage, crafted
+    assert(BotMayList(4, false, false, false));    // looted armor
+    assert(BotMayList(7, false, false, false));    // looted cloth
+    assert(IsLaterExpansion(21990, 58, 64, false));
+    assert(!IsLaterExpansion(21990, 58, 64, true));
+    assert(!IsLaterExpansion(20000, 60, 70, false)); // out of the later expansions' id range
+    assert(!IsLaterExpansion(21500, 50, 50, false)); // low requirements: kept
+
     // A bot listing: 85 % (impatient) to 105 % (patient) of the reference, times the stack.
     assert(BotListingPrice(1000, 0.0f, 1) == 850);
     assert(BotListingPrice(1000, 1.0f, 1) == 1050);
