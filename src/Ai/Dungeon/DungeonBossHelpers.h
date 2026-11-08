@@ -88,11 +88,10 @@ protected:
     bool KeepAway(Unit* unit, float radius);
     // Straight out to the nearer side of the strip of InPath, keeping the bot's place along it.
     bool MoveOutOfPath(Unit* source, float angle, float halfWidth, float step);
-    // To the shortest of the candidates that the navmesh reaches in full within `maxPath` yards, whose end (on the
-    // floor) `safe` accepts, away from the group and from the spots other bots ran to; false when none qualifies.
-    // Walls and props rule spots out by themselves, where a straight step would end against them.
-    bool MoveToReachableSpot(std::vector<Position> const& candidates, std::function<bool(float, float, float)> const& safe,
-                             float maxPath = 0.0f);
+    // To the shortest of the candidates that the navmesh reaches in full, whose end `safe` accepts, away from the
+    // group and from the spots other bots ran to; false when none qualifies. Walls and props rule spots out by
+    // themselves, where a straight step would end against them.
+    bool MoveToReachableSpot(std::vector<Position> const& candidates, std::function<bool(float, float)> const& safe);
     bool MoveToSpot(float x, float y);
 };
 
