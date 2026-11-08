@@ -477,3 +477,27 @@ bool McRagnarosSonsMarkAction::Execute(Event /*event*/)
     group->SetTargetIcon(RtiTargetValue::skullIndex, bot->GetGUID(), son->GetGUID());
     return true;
 }
+
+bool McGarrFireswornMarkAction::Execute(Event /*event*/)
+{
+    Group* group = bot->GetGroup();
+    if (!group)
+        return false;
+    ObjectGuid const skull = group->GetTargetIcon(RtiTargetValue::skullIndex);
+    if (Unit* current = skull.IsEmpty() ? nullptr : botAI->GetUnit(skull))
+        if (current->IsAlive() && IsMcEntry(current->GetEntry(), NPC_GARR_FIRESWORN))
+            return false;  // the kill in progress finishes
+    Creature* add = FindFireswornToKill(bot);
+    if (!add)
+        return false;
+    group->SetTargetIcon(RtiTargetValue::skullIndex, bot->GetGUID(), add->GetGUID());
+    return true;
+}
+
+bool McGarrMoveFromFireswornAction::Execute(Event /*event*/)
+{
+    Creature* add = FindDyingFireswornNear(bot, FIRESWORN_ERUPTION_YARDS + 1.0f);
+    if (!add)
+        return false;
+    return MoveAway(add, FIRESWORN_ERUPTION_YARDS + 3.0f - bot->GetDistance2d(add));
+}

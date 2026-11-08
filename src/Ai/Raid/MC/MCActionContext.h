@@ -47,6 +47,8 @@ public:
         creators["mc gehennas mark"] = &RaidMcActionContext::gehennas_mark;
         creators["mc lucifron mark"] = &RaidMcActionContext::lucifron_mark;
         creators["mc ragnaros sons mark"] = &RaidMcActionContext::ragnaros_sons_mark;
+        creators["mc garr firesworn mark"] = &RaidMcActionContext::garr_firesworn_mark;
+        creators["mc garr move from firesworn"] = &RaidMcActionContext::garr_move_from_firesworn;
         creators["mc sulfuron mark"] = &RaidMcActionContext::sulfuron_mark;
         creators["mc magmadar mark"] = &RaidMcActionContext::magmadar_mark;
         creators["mc gehennas clear flame orb spawn"] = &RaidMcActionContext::gehennas_clear_flame_orb_spawn;
@@ -89,6 +91,8 @@ private:
         return new RaidKillOrderMarkAction(botAI, "mc gehennas mark", "gehennas", { MoltenCoreHelpers::NPC_FLAMEWAKER });
     }
     static Action* ragnaros_sons_mark(PlayerbotAI* botAI) { return new McRagnarosSonsMarkAction(botAI); }
+    static Action* garr_firesworn_mark(PlayerbotAI* botAI) { return new McGarrFireswornMarkAction(botAI); }
+    static Action* garr_move_from_firesworn(PlayerbotAI* botAI) { return new McGarrMoveFromFireswornAction(botAI); }
     // CoA Combat: the Shadow first (it gives Lucifron +39 % shadow damage), then the Protectors (Dominate Mind).
     static Action* lucifron_mark(PlayerbotAI* botAI)
     {

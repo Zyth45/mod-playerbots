@@ -126,6 +126,20 @@ public:
     McRagnarosSonsMarkAction(PlayerbotAI* botAI) : Action(botAI, "mc ragnaros sons mark") {}
     bool Execute(Event event) override;
 };
+// CoA Combat (R1): skull the Firesworn to kill now (FindFireswornToKill), sticky while the skulled one lives.
+class McGarrFireswornMarkAction : public Action
+{
+public:
+    McGarrFireswornMarkAction(PlayerbotAI* botAI) : Action(botAI, "mc garr firesworn mark") {}
+    bool Execute(Event event) override;
+};
+// CoA Combat (R1): step out of the Eruption of a Firesworn about to die.
+class McGarrMoveFromFireswornAction : public MovementAction
+{
+public:
+    McGarrMoveFromFireswornAction(PlayerbotAI* botAI) : MovementAction(botAI, "mc garr move from firesworn") {}
+    bool Execute(Event event) override;
+};
 class McCoreHoundMarkAction : public Action
 {
 public:

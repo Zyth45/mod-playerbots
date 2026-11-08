@@ -63,7 +63,9 @@ bool McGolemaggMagmaSplashTrigger::IsActive()
     if (boss->GetHealthPct() <= 10.0f)
         return false;
 
-    if (GetAuraStacks(bot, MAGMA_SPLASH_AURAS) < MAGMA_SPLASH_BACK_OFF_STACKS)
+    uint32 const stacks =
+        GetAuraStacks(bot, MAGMA_SPLASH_AURAS) + (McCoaFixesOn() ? GetAuraStacks(bot, MAGMA_SPLASH_COA_AURAS) : 0);
+    if (stacks < MAGMA_SPLASH_BACK_OFF_STACKS)
         return false;
 
     // Only fire while still inside swing range; once the bot has backed off,
@@ -187,4 +189,21 @@ bool McGolemaggCaveInTrigger::IsActive()
 bool McRagnarosSonsTrigger::IsActive()
 {
     return McCoaFixesOn() && PlayerbotAI::IsMainTank(bot) && FindSonOfFlameToKill(bot);
+}
+
+bool McRagnarosMagmaStrikeTrigger::IsActive()
+{
+    return McCoaFixesOn() && HasAnyAura(bot, RAGNAROS_MAGMA_STRIKE_AURAS);
+}
+
+bool McGarrFireswornMarkTrigger::IsActive()
+{
+    return McCoaFixesOn() && PlayerbotAI::IsMainTank(bot) && FindFireswornToKill(bot);
+}
+
+bool McGarrFireswornEruptionTrigger::IsActive()
+{
+    // Tanks hold their add through the Eruption; the melee damage dealers step out and the ranged finish it.
+    return McCoaFixesOn() && !PlayerbotAI::IsTank(bot) && PlayerbotAI::IsMelee(bot) &&
+           FindDyingFireswornNear(bot, FIRESWORN_ERUPTION_YARDS + 1.0f);
 }

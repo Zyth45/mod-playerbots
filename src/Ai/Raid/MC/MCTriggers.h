@@ -90,6 +90,27 @@ public:
     McRagnarosSonsTrigger(PlayerbotAI* botAI) : Trigger(botAI, "mc ragnaros sons mark") {}
     bool IsActive() override;
 };
+// CoA Combat (A3): standing in a Magma Strike patch of Ragnaros or of a Son of Flame.
+class McRagnarosMagmaStrikeTrigger : public Trigger
+{
+public:
+    McRagnarosMagmaStrikeTrigger(PlayerbotAI* botAI) : Trigger(botAI, "mc ragnaros magma strike") {}
+    bool IsActive() override;
+};
+// CoA Combat (R1): Garr's Firesworn die one at a time, the lowest first; the main tank keeps the skull on it.
+class McGarrFireswornMarkTrigger : public Trigger
+{
+public:
+    McGarrFireswornMarkTrigger(PlayerbotAI* botAI) : Trigger(botAI, "mc garr firesworn mark") {}
+    bool IsActive() override;
+};
+// CoA Combat (R1): a melee damage dealer stands within the Eruption of a Firesworn about to die.
+class McGarrFireswornEruptionTrigger : public Trigger
+{
+public:
+    McGarrFireswornEruptionTrigger(PlayerbotAI* botAI) : Trigger(botAI, "mc garr firesworn eruption") {}
+    bool IsActive() override;
+};
 class McBaronGeddonBurnTrigger : public Trigger
 {
 public:
