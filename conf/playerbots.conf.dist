@@ -3174,6 +3174,54 @@ AiPlayerbot.CoaLive.Sessions.HourShift = 0
 
 AiPlayerbot.CoaLive.Social.Enable = 0
 
+#    AiPlayerbot.CoaLive.City.Enable
+#        Description: City Life. A random bot visiting a capital (AiPlayerbot.RpgStatusProbWeight.GoCity)
+#                     now and then takes a station instead of a plain NPC: it sits at the inn, has a
+#                     word with a banker or an auctioneer, hammers at an anvil or a forge, strikes a
+#                     training dummy, and stays a few minutes (3 bots per station at most), so that
+#                     capitals look full. Works without AiPlayerbot.CoaLive.Enable.
+#                     Read again by ".reload config".
+#        Default:     0 - off
+#                     1 - on
+
+AiPlayerbot.CoaLive.City.Enable = 0
+
+#    AiPlayerbot.CoaLive.Immersion.Enable
+#        Description: Immersion. A random bot idling in the open world with water close by (40 yd)
+#                     now and then goes to the shore and fishes for 4 to 15 minutes (it gets a
+#                     fishing pole if it has none, as random bots always did), then goes on with its
+#                     life. Never in a group, a fight, an instance or a capital. Bots that gather
+#                     (herbs, ore, skins) already do so with the "gather" strategy.
+#                     Works without AiPlayerbot.CoaLive.Enable. Read again by ".reload config".
+#        Default:     0 - off
+#                     1 - on
+
+AiPlayerbot.CoaLive.Immersion.Enable = 0
+
+#    AiPlayerbot.CoaFreshStart.Enable
+#        Description: Launch of a new realm ("New living server" of the launcher, with the Solo
+#                     self-found preset). Every random bot starts at the level it was made at (1), never
+#                     rolled to a higher level, and levels at a pace of its own, always the same: 15 %
+#                     fast (150 % experience), 65 % the mass (100 %), 20 % late (60 %), so the population
+#                     spreads out like players after a launch. Bots already made keep their level.
+#                     Made for a new realm: the server first announcements, the launch auction house and
+#                     the self-found gear come from their own options.
+#        Default:     0 - off
+#                     1 - on
+
+AiPlayerbot.CoaFreshStart.Enable = 0
+
+#    AiPlayerbot.CoaLive.DataFile.Enable
+#        Description: world.json for the CoA Dashboard (Population and Health pages): bots online by
+#                     zone, what they do, surnames, server tick. Written every 10 s, and only while the
+#                     dashboard asks for it (squidbot/watch.json): nothing is built when nobody looks.
+#                     Folder: AiPlayerbot.CoaDataDir ("" = <LogsDir>/squidbot); AiPlayerbot.CoaDataFiles
+#                     = 0 stops every data file.
+#        Default:     0 - off
+#                     1 - on
+
+AiPlayerbot.CoaLive.DataFile.Enable = 0
+
 # Bots' minimum and maximum level when teleporting in and out of a zone, according to the new RPG strategy
 # Format: AiPlayerbot.ZoneBracket.zoneID = minLevel,maxLevel
 #

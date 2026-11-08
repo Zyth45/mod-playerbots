@@ -12,7 +12,12 @@
 #include "ChatHelper.h"
 #include "Chat.h"
 #include "AttackAction.h"
+#include "CoaFreshStartRules.h"
+#include "CoaImmersionRules.h"
 #include "CoaLiveRules.h"
+#include "CoaWorldFile.h"
+#include "FishingAction.h"
+#include "NewRpgInfo.h"
 #include "CoaSocial.h"
 #include "CoaSocialRules.h"
 #include "SpellAuras.h"
@@ -539,6 +544,70 @@ bool Social(Player* bot, PlayerbotAI* botAI, std::list<Player*> const& nearby)
     return false;
 }
 
+
+// ---------------------------------------------------------------- Immersion (L2): fishing on the shore
+
+std::unordered_map<uint64, uint64> fishingUntil;  // bot -> end of its time at the water (map threads, under liveLock)
+
+bool ImmersionEnabled() { return sPlayerbotAIConfig.coaLiveImmersionEnable; }
+
+// The "new rpg" holds the bot (REST, only the clock is reset: it does not sit) while the fishing strategy works.
+void Fish(Player* bot, PlayerbotAI* botAI)
+{
+    uint64 const nowMs = GameTime::GetGameTimeMS().count();
+    uint64 const key = bot->GetGUID().GetRawValue();
+    NewRpgInfo& info = botAI->rpgInfo;
+    uint64 endMs = 0;
+    {
+        std::lock_guard<std::mutex> guard(liveLock);
+        auto it = fishingUntil.find(key);
+        if (it != fishingUntil.end())
+            endMs = it->second;
+    }
+
+    if (endMs)
+    {
+        if (CoaImmersion::MustStop(nowMs, endMs, bot->IsInCombat(), bot->GetGroup() != nullptr,
+                                   info.GetStatus() == RPG_REST))
+        {
+            botAI->ChangeStrategy("-master fishing", BOT_STATE_NON_COMBAT);
+            if (info.GetStatus() == RPG_REST)
+                info.ChangeToIdle();
+            std::lock_guard<std::mutex> guard(liveLock);
+            fishingUntil.erase(key);
+        }
+        else
+            info.ChangeToRest();  // a few more seconds at the water
+        return;
+    }
+
+    CoaImmersion::BotView view;
+    view.randomBot = IsRandom(bot);
+    view.ownedByPlayer = botAI->HasGameClientMaster();
+    view.alive = bot->IsAlive();
+    view.inCombat = bot->IsInCombat();
+    view.inGroup = bot->GetGroup() != nullptr;
+    view.inInstanceOrCity = bot->GetMap()->Instanceable() || InCapital(bot) || bot->InBattleground();
+    NewRpgStatus const status = info.GetStatus();
+    view.idleStatus = status == RPG_IDLE || status == RPG_REST || status == RPG_WANDER_RANDOM;
+    view.knowsFishing = bot->HasSkill(SKILL_FISHING);
+    if (!CoaImmersion::MayStartFishing(view) || urand(1, 1000) > CoaImmersion::START_CHANCE_PER_MILLE)
+        return;
+
+    // Water close by: the costly look, last.
+    WorldPosition water = FindWaterRadial(bot, bot->GetPositionX(), bot->GetPositionY(), bot->GetPositionZ(),
+                                                bot->GetMap(), bot->GetPhaseMask(), 10.0f, 40.0f, 10.0f);
+    if (!water.IsValid())
+        return;
+
+    info.ChangeToRest();
+    botAI->ChangeStrategy("+master fishing", BOT_STATE_NON_COMBAT);
+    std::lock_guard<std::mutex> guard(liveLock);
+    fishingUntil[key] = nowMs + CoaImmersion::FishingMs(rng.between);
+    if (fishingUntil.size() > 20000)
+        fishingUntil.clear();
+}
+
 // The bot looks around: a real player to help or greet, or an inn or a capital to idle in.
 void LookAround(Player* bot, PlayerbotAI* botAI)
 {
@@ -871,6 +940,24 @@ void PlayGuildEvents()
 
 void Load()
 {
+    // Off: nothing read at all, as before 3.0 (a database without the CoA Live tables starts the same).
+    if (!sPlayerbotAIConfig.coaLiveEnable)
+    {
+        std::lock_guard<std::mutex> guard(liveLock);
+        bank = nullptr;
+        botRings.clear();
+        channelRings.clear();
+        return;
+    }
+    // On but the tables are missing (the 3.0 SQL not applied): no bank, said once, nothing else breaks.
+    if (!PlayerbotsDatabase.Query("SHOW TABLES LIKE 'playerbots_coa_live_rules'"))
+    {
+        LOG_ERROR("server.loading", ">> CoA Live: the bank tables are missing (data/sql/playerbots/custom not applied): "
+                                    "the bots stay quiet.");
+        std::lock_guard<std::mutex> guard(liveLock);
+        bank = nullptr;
+        return;
+    }
     auto loaded = std::make_shared<Bank>();
     if (QueryResult r = PlayerbotsDatabase.Query(
             "SELECT situation, chance_pct, delay_min_ms, delay_max_ms, bot_cd_s, scope_cd_s, scope_per_10min, "
@@ -939,7 +1026,7 @@ public:
     CoaLivePlayerScript()
         : PlayerScript("CoaLivePlayerScript",
                        {PLAYERHOOK_ON_LEVEL_CHANGED, PLAYERHOOK_ON_DUEL_END, PLAYERHOOK_ON_PLAYER_ENTER_COMBAT,
-                        PLAYERHOOK_ON_LOGIN, PLAYERHOOK_ON_LOGOUT, PLAYERHOOK_ON_LOOT_ITEM})
+                        PLAYERHOOK_ON_LOGIN, PLAYERHOOK_ON_LOGOUT, PLAYERHOOK_ON_LOOT_ITEM, PLAYERHOOK_ON_GIVE_EXP})
     {
     }
 
@@ -1033,6 +1120,14 @@ public:
                         item->GetEntry()});
     }
 
+    // The launch of a new realm: each random bot levels at a pace of its own (fast, mass, late), always the same.
+    void OnPlayerGiveXP(Player* player, uint32& amount, Unit* /*victim*/, uint8 /*xpSource*/) override
+    {
+        if (!sPlayerbotAIConfig.coaFreshStartEnable || !player || !amount || !IsRandom(player))
+            return;
+        amount = CoaFreshStart::ScaleXp(amount, player->GetGUID().GetCounter());
+    }
+
     // A bot pulls a boss in a group with a real player.
     void OnPlayerEnterCombat(Player* player, Unit* enemy) override
     {
@@ -1080,6 +1175,7 @@ public:
 
     void OnUpdate(uint32 /*diff*/) override
     {
+        CoaWorldFile::Tick(GameTime::GetGameTimeMS().count());  // world.json, only while the dashboard watches
         if (Enabled())
         {
             uint64 const nowMs = GameTime::GetGameTimeMS().count();
@@ -1097,14 +1193,17 @@ void LoadBank() { Load(); }
 
 void OnBotUpdate(Player* bot, PlayerbotAI* botAI, uint32 diff)
 {
-    if (!Enabled() || !bot || !botAI || diff == 0)
+    if ((!Enabled() && !ImmersionEnabled()) || !bot || !botAI || diff == 0)
         return;
     // About every SCAN_MS per bot, spread over the bots, with no state: the bot's turn comes when the clock,
     // shifted by its guid, crosses a multiple of SCAN_MS during this update.
     uint64 const shifted = GameTime::GetGameTimeMS().count() + bot->GetGUID().GetCounter() * 977u;
     if (shifted % SCAN_MS >= std::min<uint64>(diff, SCAN_MS))
         return;
-    LookAround(bot, botAI);
+    if (ImmersionEnabled())
+        Fish(bot, botAI);
+    if (Enabled())
+        LookAround(bot, botAI);
 }
 
 bool AnswersWhispers(PlayerbotAI* botAI, ObjectGuid from)
@@ -1213,6 +1312,14 @@ bool OnWhisper(Player* from, Player* to, std::string const& msg)
 }
 
 bool SessionsEnabled() { return sPlayerbotAIConfig.coaLiveSessionsEnable; }
+
+bool IsFishing(Player* bot)
+{
+    if (!bot)
+        return false;
+    std::lock_guard<std::mutex> guard(liveLock);
+    return fishingUntil.count(bot->GetGUID().GetRawValue()) != 0;
+}
 
 namespace
 {
