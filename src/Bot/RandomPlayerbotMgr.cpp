@@ -2705,7 +2705,9 @@ void RandomPlayerbotMgr::RandomizeFirst(Player* bot)
     }
 
     // Self-found: a new bot stays at the level it was made at, an older one at the level it earned.
-    if (PlayerbotFactory::SelfFoundAt(level) || PlayerbotFactory::IsSelfFoundBot(bot))
+    // CoA Live launch of a new realm (AiPlayerbot.CoaFreshStart.Enable): every bot, whatever the roll (no 60 on day one).
+    if (PlayerbotFactory::SelfFoundAt(level) || PlayerbotFactory::IsSelfFoundBot(bot) ||
+        sPlayerbotAIConfig.coaFreshStartEnable)
         level = bot->GetLevel();
 
     SetValue(bot, "level", level);

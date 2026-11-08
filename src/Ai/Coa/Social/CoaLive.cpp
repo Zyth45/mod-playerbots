@@ -12,6 +12,7 @@
 #include "ChatHelper.h"
 #include "Chat.h"
 #include "AttackAction.h"
+#include "CoaFreshStartRules.h"
 #include "CoaImmersionRules.h"
 #include "CoaLiveRules.h"
 #include "FishingAction.h"
@@ -1024,7 +1025,7 @@ public:
     CoaLivePlayerScript()
         : PlayerScript("CoaLivePlayerScript",
                        {PLAYERHOOK_ON_LEVEL_CHANGED, PLAYERHOOK_ON_DUEL_END, PLAYERHOOK_ON_PLAYER_ENTER_COMBAT,
-                        PLAYERHOOK_ON_LOGIN, PLAYERHOOK_ON_LOGOUT, PLAYERHOOK_ON_LOOT_ITEM})
+                        PLAYERHOOK_ON_LOGIN, PLAYERHOOK_ON_LOGOUT, PLAYERHOOK_ON_LOOT_ITEM, PLAYERHOOK_ON_GIVE_EXP})
     {
     }
 
@@ -1116,6 +1117,14 @@ public:
             return;
         NoteGuildEvent({self ? "guild_self_loot" : "guild_loot", player->GetGuildId(), player->GetGUID(),
                         item->GetEntry()});
+    }
+
+    // The launch of a new realm: each random bot levels at a pace of its own (fast, mass, late), always the same.
+    void OnPlayerGiveXP(Player* player, uint32& amount, Unit* /*victim*/, uint8 /*xpSource*/) override
+    {
+        if (!sPlayerbotAIConfig.coaFreshStartEnable || !player || !amount || !IsRandom(player))
+            return;
+        amount = CoaFreshStart::ScaleXp(amount, player->GetGUID().GetCounter());
     }
 
     // A bot pulls a boss in a group with a real player.
