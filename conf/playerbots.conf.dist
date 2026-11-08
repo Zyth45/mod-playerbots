@@ -4060,3 +4060,18 @@ AiPlayerbot.SummonAtInnkeepersEnabled = 1
 #        of the two may run.
 # Default: 0
 AiPlayerbot.CoaEconomy.AHBot.Enable = 0
+
+# Auction house bot, CoA sellable filter: the bot only lists goods a CoA player could really sell.
+# Read again by ".ahbot reload". Each rule below only counts when Filter.Enable = 1.
+#    Enable            1 = on, 0 = off (default).
+#    Deprecated        Leave out items flagged deprecated (cannot be equipped or used). Default 1.
+#    Bloodforged       Leave out Bloodforged variants. Default 1. While Bloodforged.Enable = 0 they are
+#                      always left out; with it on, AllowBloodforged = 1 lets them in (default 0).
+#    Worldforged       Leave out Worldforged items. Default 1.
+#    ScaledEntries     Leave out the generated scaled copies of items (ids 4400001 to 4912583). Default 1.
+AiPlayerbot.CoaEconomy.Filter.Enable = 0
+AiPlayerbot.CoaEconomy.Filter.Deprecated = 1
+AiPlayerbot.CoaEconomy.Filter.Bloodforged = 1
+AiPlayerbot.CoaEconomy.Filter.AllowBloodforged = 0
+AiPlayerbot.CoaEconomy.Filter.Worldforged = 1
+AiPlayerbot.CoaEconomy.Filter.ScaledEntries = 1

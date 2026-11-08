@@ -34,6 +34,8 @@
 #include "World.h"
 #include "GameTime.h"
 #include "SpellMgr.h"
+#include "AscensionBloodforging.h"
+#include "AscensionItemScalingPolicy.h"
 #include <algorithm>
 #include <cmath>
 
@@ -111,6 +113,65 @@ namespace
 
 namespace CoaEconomy
 {
+
+// CoA Economy (lot 2): only goods a CoA player could really sell. Off unless
+// AiPlayerbot.CoaEconomy.Filter.Enable = 1; each rule then has its own key (on by default).
+//   Deprecated   ITEM_FLAG_DEPRECATED items (cannot be equipped or used).
+//   Bloodforged  Bloodforged variants (core Bloodforging::IsBloodforged): always out while
+//                Bloodforged.Enable = 0; with it on, out unless Filter.AllowBloodforged = 1.
+//   Worldforged  items whose description starts with the Worldforged marker.
+//   ScaledEntries the generated scaled copies (ItemScaling::IsScaledEntry), not base items.
+struct CoaSellableFilter
+{
+    bool enabled = false;
+    bool deprecated = true;
+    bool bloodforged = true;
+    bool worldforged = true;
+    bool scaled = true;
+    uint32 deprecatedOut = 0;
+    uint32 bloodforgedOut = 0;
+    uint32 worldforgedOut = 0;
+    uint32 scaledOut = 0;
+
+    void Load()
+    {
+        enabled = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.Filter.Enable", false, false);
+        if (!enabled)
+            return;
+        deprecated = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.Filter.Deprecated", true);
+        worldforged = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.Filter.Worldforged", true);
+        scaled = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.Filter.ScaledEntries", true);
+        bool const bloodforgedOn = sConfigMgr->GetOption<bool>("Bloodforged.Enable", false, false);
+        bool const allowBloodforged = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.Filter.AllowBloodforged", false);
+        bloodforged = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.Filter.Bloodforged", true) &&
+            (!bloodforgedOn || !allowBloodforged);
+    }
+
+    bool Keeps(ItemTemplate const& proto)
+    {
+        if (scaled && ItemScaling::IsScaledEntry(proto.ItemId))
+        {
+            ++scaledOut;
+            return false;
+        }
+        if (deprecated && (proto.Flags & ITEM_FLAG_DEPRECATED))
+        {
+            ++deprecatedOut;
+            return false;
+        }
+        if (bloodforged && Bloodforging::IsBloodforged(proto))
+        {
+            ++bloodforgedOut;
+            return false;
+        }
+        if (worldforged && ItemScaling::IsWorldforgedDescription(proto.Description))
+        {
+            ++worldforgedOut;
+            return false;
+        }
+        return true;
+    }
+};
 
 AuctionHouseBot::AuctionHouseBot() :
     debug_Out(false),
@@ -867,6 +928,8 @@ void AuctionHouseBot::PopulateItemCandidatesAndProportions()
             LOG_ERROR("module", "AuctionHouseBot: No original-world item sources loaded; later expansions' goods are not filtered");
     }
     uint32 laterExpansionItems = 0;
+    CoaSellableFilter coaFilter;
+    coaFilter.Load();
 
     // Fill candidate item templates
     ItemTemplateContainer const* its = sObjectMgr->GetItemTemplateStore();
@@ -881,6 +944,9 @@ void AuctionHouseBot::PopulateItemCandidatesAndProportions()
             ++laterExpansionItems;
             continue;
         }
+
+        if (coaFilter.enabled && !coaFilter.Keeps(itr->second))
+            continue;
 
         // Never store curBlock zero
         if (itr->second.ItemId == 0)
@@ -1098,6 +1164,9 @@ void AuctionHouseBot::PopulateItemCandidatesAndProportions()
             candidateCount += qualityCandidates.second.size();
     LOG_INFO("module", "AuctionHouseBot: {} eligible item templates (CoA source filter: {}, {} later expansion items left out)",
         candidateCount, coaSourcesOnly, laterExpansionItems);
+    if (coaFilter.enabled)
+        LOG_INFO("module", "AuctionHouseBot: CoA sellable filter left out {} deprecated, {} Bloodforged, {} Worldforged and {} scaled items",
+            coaFilter.deprecatedOut, coaFilter.bloodforgedOut, coaFilter.worldforgedOut, coaFilter.scaledOut);
 
     // Show any debugging information
     if (debug_Out)
