@@ -57,5 +57,9 @@ bool AddGatheringLootAction::AddLoot(ObjectGuid guid)
     if (!loot.IsLootPossible(bot))
         return false;
 
+    // No free slot at all, alts included: the node could not be emptied and would be taken again every cycle.
+    if (AI_VALUE(uint8, "bag space") >= 100)
+        return false;
+
     return AddAllLootAction::AddLoot(guid);
 }

@@ -397,13 +397,14 @@ bool LootObject::IsLootPossible(Player* bot)
         return false;
 
     // A bot without a player master whose bags are over 80 % full gathered a herb, ore or skin, could not
-    // pick it up and gathered it again for ever. Alts that follow a player are not affected.
+    // pick it up and gathered it again for ever. Alts that follow a player stop only once no slot is left.
     bool const gatheringObject = skillId == SKILL_HERBALISM || skillId == SKILL_MINING ||
                                  skillId == SKILL_SKINNING || skillId == SKILL_ENGINEERING;
     if (gatheringObject)
     {
         bool const hasActivePlayerMaster = master && !GET_PLAYERBOT_AI(master);
-        if (!hasActivePlayerMaster && botAI->GetAiObjectContext()->GetValue<uint8>("bag space")->Get() > 80)
+        uint8 const bagSpace = botAI->GetAiObjectContext()->GetValue<uint8>("bag space")->Get();
+        if (bagSpace >= 100 || (!hasActivePlayerMaster && bagSpace > 80))
             return false;
     }
 

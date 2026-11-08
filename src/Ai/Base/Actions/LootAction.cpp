@@ -418,26 +418,12 @@ bool StoreLootAction::Execute(Event event)
         bool const madeRoom = sPlayerbotAIConfig.coaLootMakeRoom && loot_type != LOOT_SKINNING && !IsRealPlayer(botAI->GetMaster()) &&
                               WorthMakingRoom(proto) && MakeRoomFor(proto, itemcount);
 
-        if (!madeRoom && !IsRealPlayer(botAI->GetMaster()) && AI_VALUE(uint8, "bag space") > 80)
+        // Nearly full bags, alts included: take only what the server will store. A refused store left the loot in
+        // the object, which never despawned, and the bot looted it again for ever.
+        if (!madeRoom && AI_VALUE(uint8, "bag space") > 80)
         {
-            uint32 maxStack = proto->GetMaxStackSize();
-            if (maxStack == 1)
-                continue;
-
-            std::vector<Item*> found = parseItems(chat->FormatItem(proto));
-
-            bool hasFreeStack = false;
-
-            for (auto stack : found)
-            {
-                if (stack->GetCount() + itemcount < maxStack)
-                {
-                    hasFreeStack = true;
-                    break;
-                }
-            }
-
-            if (!hasFreeStack)
+            ItemPosCountVec dest;
+            if (bot->CanStoreNewItem(NULL_BAG, NULL_SLOT, dest, itemid, itemcount) != EQUIP_ERR_OK)
                 continue;
         }
 
