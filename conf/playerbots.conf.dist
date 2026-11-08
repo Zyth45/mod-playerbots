@@ -4501,3 +4501,11 @@ AiPlayerbot.CoaCombat.Telegraph.Enable = 0
 #                  1 - (Enabled)
 
 AiPlayerbot.CoaCombat.PursuitStop.Enable = 0
+# AiPlayerbot.CoaCombat.OffTank.Enable
+#     Description: Automatic off-tank. In a group with two tanks, the one that is not the group's main tank picks
+#                  up the loose adds (the one on the most endangered member first) and never taunts what another
+#                  tank holds. The main tank and a lone tank are unchanged.
+#     Default:     0 - (Disabled)
+#                  1 - (Enabled)
+
+AiPlayerbot.CoaCombat.OffTank.Enable = 0
