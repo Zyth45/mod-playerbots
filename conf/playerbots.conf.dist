@@ -2444,8 +2444,11 @@ AiPlayerbot.CoaHealsExcluded = "Nanobot Reconstruction"
 #                     Applied at the next start: turned off, the bots take their own names back.
 #                     Needs a client that shows two-word names (CoA client revision 8 or later).
 #                     To whisper a bot by typing its name: /w "Kegarink Bot" hello
-#        Default:     1 - on
-#                     0 - off
+#        Default:     1 - on, the surname "Bot"
+#                     0 - off, no surname
+#                     2 - a family name, the same for a bot at every start, from
+#                         AiPlayerbot.CoaBotSurnameList ("Kegarink Ashford"); the SquidBots addon
+#                         then knows the bots by AiPlayerbot.CoaBotIdentify, on by itself.
 
 AiPlayerbot.CoaBotSurname = 1
 
@@ -2691,6 +2694,16 @@ AiPlayerbot.CityDuels.StormwindSpot = ""
 #                     1 - on
 
 AiPlayerbot.CoaBotIdentify = 0
+
+#    AiPlayerbot.CoaBotSurnameList
+#        Description: The family names of AiPlayerbot.CoaBotSurname = 2, separated by commas, in
+#                     quotes: "Ashford, Brightwood". Each bot always draws the same one (from its
+#                     guid). A word of 2 to 12 letters only, without a letter three times in a row;
+#                     any other is left out (logged at startup). A bot whose new name is taken
+#                     keeps its own. Applied at the next start.
+#        Default:     "" - the module's 64 neutral names (Stormhand, Ashvale, Brightwood...)
+
+AiPlayerbot.CoaBotSurnameList = ""
 
 # Bots' minimum and maximum level when teleporting in and out of a zone, according to the new RPG strategy
 # Format: AiPlayerbot.ZoneBracket.zoneID = minLevel,maxLevel

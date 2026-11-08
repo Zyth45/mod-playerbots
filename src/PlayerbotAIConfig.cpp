@@ -7,6 +7,7 @@
 #include "PlayerbotAIConfig.h"
 #include "BisListMgr.h"
 #include "CoaBotNames.h"
+#include "CoaSurnameRules.h"
 #include "CoaSpecialization.h"
 #include "Config.h"
 #include "ItemTemplate.h"
@@ -922,7 +923,13 @@ bool PlayerbotAIConfig::Initialize()
     coaArenaPurge = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaArenaPurge", true, false);
     coaBossKnowledge = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaBossKnowledge", true);
     coaRecruitSameFaction = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaRecruitSameFaction", true);
-    coaBotSurname = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaBotSurname", true);
+    {
+        // 0/1 until 3.0, 0/1/2 since: a player's 0 or 1 reads the same. Any other value is the default, 1.
+        int32 const surname = sConfigMgr->GetOption<int32>("AiPlayerbot.CoaBotSurname", COA_SURNAME_BOT);
+        coaBotSurname = CoaSurnameModeOf(surname);
+        if (coaBotSurname != static_cast<uint32>(surname))
+            LOG_ERROR("server.loading", "AiPlayerbot.CoaBotSurname = {} is not 0, 1 or 2: read as 1.", surname);
+    }
     coaThreatHold = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaThreatHold", 90);
     coaTankThreatBonus = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaTankThreatBonus", 0);
     coaAttackLoop = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaAttackLoop", true);
@@ -1038,6 +1045,14 @@ bool PlayerbotAIConfig::Initialize()
 
     // CoA Live (3.0, session CoA SquidBot)
     coaBotIdentify = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaBotIdentify", false);
+    {
+        std::vector<std::string> rejected;
+        coaBotSurnameList =
+            CoaParseSurnameList(sConfigMgr->GetOption<std::string>("AiPlayerbot.CoaBotSurnameList", ""), &rejected);
+        for (std::string const& word : rejected)
+            LOG_ERROR("server.loading", "AiPlayerbot.CoaBotSurnameList: \"{}\" left out (2 to 12 letters, no letter "
+                      "three times in a row).", word);
+    }
 
     RandomPlayerbotFactory::CreateRandomBots();
     if (World::IsStopped())

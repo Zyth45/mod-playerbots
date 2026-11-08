@@ -477,7 +477,7 @@ public:
     bool coaArenaPurge;
     bool coaBossKnowledge;
     bool coaRecruitSameFaction;
-    bool coaBotSurname;
+    uint32 coaBotSurname;  // 0 none, 1 "Bot" (default), 2 a family name (CoaSurnameRules.h)
     uint32 coaThreatHold;
     uint32 coaTankThreatBonus;
     bool coaAttackLoop;
@@ -668,6 +668,7 @@ public:
 
     // CoA Live (3.0, session CoA SquidBot)
     bool coaBotIdentify;  // AiPlayerbot.CoaBotIdentify: bots answer the addon's "WHO?" (CoaBotIdentify)
+    std::vector<std::string> coaBotSurnameList;  // AiPlayerbot.CoaBotSurnameList, never empty (default list)
 
 private:
     PlayerbotAIConfig() = default;

@@ -5,33 +5,26 @@
 
 #include "CoaBotNames.h"
 
+#include "CoaSurnameRules.h"
+
 #include "CharacterCache.h"
 #include "DatabaseEnv.h"
 #include "Log.h"
 #include "ObjectGuid.h"
+#include "ObjectMgr.h"
 #include "PlayerbotAIConfig.h"
+#include "SharedDefines.h"
 
 #include <unordered_set>
 #include <vector>
 
-namespace
-{
-// Conquest of Azeroth names take two words, a first name and a surname (client revision 8): the
-// surname tells a bot from a player at a glance, on its nameplate, in chat and in /who.
-constexpr char const* Surname = " Bot";
-
-bool HasSurname(std::string const& name)
-{
-    std::string const suffix(Surname);
-    return name.size() > suffix.size() && name.compare(name.size() - suffix.size(), suffix.size(), suffix) == 0;
-}
-}  // namespace
-
 std::string CoaBotName(std::string const& firstName)
 {
-    if (!sPlayerbotAIConfig.coaBotSurname || firstName.find(' ') != std::string::npos)
+    // Mode 2 needs the bot's guid, which a new character has not yet: ApplyCoaBotSurnames, run right after the
+    // random bots are created, gives it its family name.
+    if (sPlayerbotAIConfig.coaBotSurname != COA_SURNAME_BOT || firstName.find(' ') != std::string::npos)
         return firstName;
-    return firstName + Surname;
+    return firstName + " Bot";
 }
 
 void ApplyCoaBotSurnames()
@@ -43,7 +36,8 @@ void ApplyCoaBotSurnames()
         return;
     applied = true;
 
-    bool const wanted = sPlayerbotAIConfig.coaBotSurname;
+    uint32 const mode = sPlayerbotAIConfig.coaBotSurname;
+    std::vector<std::string> const& list = sPlayerbotAIConfig.coaBotSurnameList;
 
     std::unordered_set<uint32> accounts;
     if (QueryResult result = LoginDatabase.Query("SELECT id FROM account WHERE username LIKE '{}%'",
@@ -72,13 +66,13 @@ void ApplyCoaBotSurnames()
         if (!accounts.count(row.account))
             continue;
 
-        bool const has = HasSurname(row.name);
-        if (has == wanted || (wanted && row.name.find(' ') != std::string::npos))
+        std::string renamedTo = CoaWantedBotName(row.name, mode, row.guid, list);
+        if (renamedTo == row.name)
             continue;
 
-        std::string renamedTo = wanted ? row.name + Surname : row.name.substr(0, row.name.size() - std::string(Surname).size());
-        // A player may hold the name already: that bot keeps its own.
-        if (names.count(renamedTo))
+        // A player may hold the name already, or the realm refuses it: that bot keeps its own.
+        if (names.count(renamedTo) ||
+            (mode == COA_SURNAME_FAMILY && ObjectMgr::CheckPlayerName(renamedTo, false) != CHAR_NAME_SUCCESS))
         {
             ++skipped;
             continue;
@@ -93,7 +87,8 @@ void ApplyCoaBotSurnames()
     }
     CharacterDatabase.CommitTransaction(trans);
 
+    static char const* const modes[] = { "no surname", "the surname \"Bot\"", "a family name" };
     if (renamed || skipped)
-        LOG_INFO("server.loading", ">> {} the surname \"Bot\" for {} random bots ({} names already taken)",
-                 wanted ? "Gave" : "Took back", renamed, skipped);
+        LOG_INFO("server.loading", ">> Gave {} to {} random bots ({} kept their name: taken or refused)",
+                 modes[mode <= COA_SURNAME_FAMILY ? mode : COA_SURNAME_BOT], renamed, skipped);
 }
