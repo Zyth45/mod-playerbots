@@ -169,3 +169,12 @@ bool McSacrificialChainsTrigger::IsActive()
     Unit* majordomo = AI_VALUE2(Unit*, "find target", "majordomo executus");
     return majordomo && FindSacrificialChains(majordomo, bot) != nullptr;
 }
+
+bool McBaronGeddonBurnTrigger::IsActive()
+{
+    constexpr float BURN_HEALTH_PCT = 10.0f;
+    if (!McCoaFixesOn() || bot->getClass() != CLASS_SHAMAN || !bot->IsInCombat())
+        return false;
+    Unit* geddon = AI_VALUE2(Unit*, "find target", "baron geddon");
+    return geddon && geddon->IsAlive() && geddon->GetHealthPct() <= BURN_HEALTH_PCT;
+}

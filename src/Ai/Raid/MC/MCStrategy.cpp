@@ -74,6 +74,11 @@ void RaidMcStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
     triggers.push_back(
         new TriggerNode("mc baron geddon inferno",
                         { NextAction("mc move from baron geddon", ACTION_RAID) }));
+    // CoA Combat: the last 10 % in one burst, before Armageddon (docs/MC-ETAT-3.0.md, B1).
+    triggers.push_back(
+        new TriggerNode("mc baron geddon burn",
+                        { NextAction("heroism", ACTION_RAID + 3), NextAction("bloodlust", ACTION_RAID + 3) }));
+
 
     // Shazzrah
     triggers.push_back(

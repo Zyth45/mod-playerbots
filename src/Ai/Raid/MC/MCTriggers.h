@@ -71,6 +71,14 @@ public:
     bool IsActive() override;
 };
 
+// CoA Combat (B1): under 4 % Baron Geddon casts Armageddon (2105747, 10 s, not interruptible), then the whole raid
+// dies unless he is dead. From 10 % a shaman pops Heroism / Bloodlust, so the last 10 % go in one burst.
+class McBaronGeddonBurnTrigger : public Trigger
+{
+public:
+    McBaronGeddonBurnTrigger(PlayerbotAI* botAI) : Trigger(botAI, "mc baron geddon burn") {}
+    bool IsActive() override;
+};
 class McGolemaggMarkBossTrigger : public Trigger
 {
 public:
