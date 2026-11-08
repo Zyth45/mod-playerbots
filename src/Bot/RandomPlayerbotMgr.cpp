@@ -416,7 +416,16 @@ void RandomPlayerbotMgr::UpdateAIInternal(uint32 /*elapsed*/, bool /*minimal*/)
     bool realPlayerIsLogged = false;
     if (sPlayerbotAIConfig.disabledWithoutRealPlayer)
     {
-        if (sWorldSessionMgr->GetActiveAndQueuedSessionCount() > 0)
+        // Real players in the world only: a session at character select, or an alt bot, does not count.
+        bool realPlayerInWorld = false;
+        for (Player* player : players)
+            if (player && player->IsInWorld() && (IsRealPlayer(player) || IsSelfBot(player)))
+            {
+                realPlayerInWorld = true;
+                break;
+            }
+
+        if (realPlayerInWorld)
         {
             RealPlayerLastTimeSeen = time(nullptr);
             realPlayerIsLogged = true;
