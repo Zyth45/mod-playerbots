@@ -2792,6 +2792,111 @@ AiPlayerbot.CoaWorld.DungeonSim.XpPct = 100
 
 AiPlayerbot.CoaWorld.DungeonSim.Announce = 1
 
+#    AiPlayerbot.CoaWorld.WorldPvp.Enable
+#        Description: World PvP of the bots, with two parts below.
+#                     Skirmishes: now and then the posts of a contested zone send their fighters at
+#                     each other (Southshore and Tarren Mill, Astranaar and Splintertree Post, Refuge
+#                     Pointe and Hammerfall, the Rebel Camp and Grom'gol): random bots of both sides,
+#                     of the zone's level and under a PvP ruleset (High Risk or War Mode, the only
+#                     characters a bot starts a fight with), meet on the middle ground.
+#                     Capital defence: when real players of the other side are inside a capital,
+#                     random bots of that side and level rally in the city and go for them.
+#                     GMs: .coaworld pvp status|skirmish [1-4]|stop.
+#        Default:     0 - off
+#                     1 - on
+
+AiPlayerbot.CoaWorld.WorldPvp.Enable = 0
+
+#    AiPlayerbot.CoaWorld.WorldPvp.Skirmish.Enable
+#    AiPlayerbot.CoaWorld.WorldPvp.Skirmish.IntervalMin
+#    AiPlayerbot.CoaWorld.WorldPvp.Skirmish.IntervalMax
+#    AiPlayerbot.CoaWorld.WorldPvp.Skirmish.DurationMinutes
+#    AiPlayerbot.CoaWorld.WorldPvp.Skirmish.BotsPerSide
+#        Description: Skirmishes on their own (nothing while WorldPvp.Enable is 0); minutes between
+#                     two, picked at random; how long one lasts; bots sent by each side (at most 40).
+#        Default:     1, 45, 90, 20, 8
+
+AiPlayerbot.CoaWorld.WorldPvp.Skirmish.Enable = 1
+AiPlayerbot.CoaWorld.WorldPvp.Skirmish.IntervalMin = 45
+AiPlayerbot.CoaWorld.WorldPvp.Skirmish.IntervalMax = 90
+AiPlayerbot.CoaWorld.WorldPvp.Skirmish.DurationMinutes = 20
+AiPlayerbot.CoaWorld.WorldPvp.Skirmish.BotsPerSide = 8
+
+#    AiPlayerbot.CoaWorld.WorldPvp.CapitalDefence.Enable
+#    AiPlayerbot.CoaWorld.WorldPvp.CapitalDefence.MinAttackers
+#    AiPlayerbot.CoaWorld.WorldPvp.CapitalDefence.DefendersPerAttacker
+#    AiPlayerbot.CoaWorld.WorldPvp.CapitalDefence.MaxDefenders
+#    AiPlayerbot.CoaWorld.WorldPvp.CapitalDefence.CooldownMinutes
+#        Description: The defence on its own (nothing while WorldPvp.Enable is 0); real players of the
+#                     other side inside a capital before it rallies; defenders for each of them, at
+#                     most MaxDefenders (200 at most); minutes before the same city rallies again once
+#                     it has stood down (two minutes clear of attackers).
+#                     Defenders fight attackers under a PvP ruleset; others are left to the guards.
+#        Default:     1, 3, 4, 40, 10
+
+AiPlayerbot.CoaWorld.WorldPvp.CapitalDefence.Enable = 1
+AiPlayerbot.CoaWorld.WorldPvp.CapitalDefence.MinAttackers = 3
+AiPlayerbot.CoaWorld.WorldPvp.CapitalDefence.DefendersPerAttacker = 4
+AiPlayerbot.CoaWorld.WorldPvp.CapitalDefence.MaxDefenders = 40
+AiPlayerbot.CoaWorld.WorldPvp.CapitalDefence.CooldownMinutes = 10
+
+#    AiPlayerbot.CoaWorld.WorldPvp.BotsLevelRange
+#        Description: Defenders within so many levels of the attackers.
+#        Default:     5
+
+AiPlayerbot.CoaWorld.WorldPvp.BotsLevelRange = 5
+
+#    AiPlayerbot.CoaWorld.Recovery.Enable
+#        Description: Random bots that got stuck find their way again. Standing still while on their
+#                     way somewhere, going round in circles, or dying over and over: the first time
+#                     the bot drops what it was doing; again within ten minutes, or after the deaths,
+#                     it uses its hearthstone (the real 10 s cast) and rests at home a while.
+#                     GMs: .coaworld recovery status.
+#        Default:     0 - off
+#                     1 - on
+
+AiPlayerbot.CoaWorld.Recovery.Enable = 0
+
+#    AiPlayerbot.CoaWorld.Recovery.StuckSeconds
+#    AiPlayerbot.CoaWorld.Recovery.LoopSeconds
+#    AiPlayerbot.CoaWorld.Recovery.DeathsLimit
+#    AiPlayerbot.CoaWorld.Recovery.DeathsWindowMinutes
+#    AiPlayerbot.CoaWorld.Recovery.Hearth
+#        Description: Seconds standing within 3 yards (30 to 1800); seconds after which a bot back
+#                     within 15 yards of where it was, having walked 120, is going round in circles
+#                     (60 to 1800); deaths (2 to 20) within so many minutes (1 to 120); 1 - the
+#                     hearthstone home on a relapse, 0 - only drop what it was doing.
+#        Default:     90, 180, 3, 15, 1
+
+AiPlayerbot.CoaWorld.Recovery.StuckSeconds = 90
+AiPlayerbot.CoaWorld.Recovery.LoopSeconds = 180
+AiPlayerbot.CoaWorld.Recovery.DeathsLimit = 3
+AiPlayerbot.CoaWorld.Recovery.DeathsWindowMinutes = 15
+AiPlayerbot.CoaWorld.Recovery.Hearth = 1
+
+#    AiPlayerbot.CoaWorld.Travel.Enable
+#        Description: Bots take the zeppelins and the boats. A few random bots of the right side walk
+#                     to a zeppelin tower or a dock and wait; when the transport leaves they board
+#                     (they leave the world, only when no real player within 150 yards sees them and
+#                     none is aboard; otherwise they wait for the next one), and when it docks at the
+#                     other end they step off on the platform there and walk away (never right in front
+#                     of a real player standing on it). GMs: .coaworld travel status.
+#        Default:     0 - off
+#                     1 - on
+
+AiPlayerbot.CoaWorld.Travel.Enable = 0
+
+#    AiPlayerbot.CoaWorld.Travel.BotsPct
+#    AiPlayerbot.CoaWorld.Travel.BotsMax
+#    AiPlayerbot.CoaWorld.Travel.BotsPerPlatform
+#        Description: Bots travelling or waiting at once: this percent of the random bots online, at
+#                     most BotsMax (200 at most); at most BotsPerPlatform waiting on one platform (1 to 10).
+#        Default:     3, 20, 3
+
+AiPlayerbot.CoaWorld.Travel.BotsPct = 3
+AiPlayerbot.CoaWorld.Travel.BotsMax = 20
+AiPlayerbot.CoaWorld.Travel.BotsPerPlatform = 3
+
 # Quality a looted item must reach to be written to the "playerbots.loot" logger:
 # 3 rare (blue), 4 epic, 5 legendary. Nothing is written unless worldserver.conf
 # points that logger at an appender, and only bots are ever logged.

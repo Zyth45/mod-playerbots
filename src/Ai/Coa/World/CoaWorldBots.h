@@ -23,6 +23,9 @@
 #include "ObjectGuid.h"
 #include "SharedDefines.h"
 
+#include <ctime>
+#include <vector>
+
 class Player;
 
 namespace CoaWorld
@@ -31,6 +34,9 @@ namespace CoaWorld
     {
         BOT_OWNER_INVASION_BASE = 100,  // + invasion index
         BOT_OWNER_RUSH = 200,
+        BOT_OWNER_PVP_SKIRMISH = 300,
+        BOT_OWNER_PVP_DEFENCE_BASE = 400,   // + capital index
+        BOT_OWNER_TRAVEL_BASE = 500,        // + route * 2 + dock
         BOT_OWNER_DUNGEON_SIM_BASE = 1000,  // + run id
     };
 
@@ -46,6 +52,7 @@ namespace CoaWorld
         uint32 count = 0;
         float nearRadius = 500.0f;  // closer than this on the same map: they walk
         bool teleport = true;       // farther: brought to the rally point
+        bool (*filter)(Player*) = nullptr;  // extra condition on the bots (BorrowBots only)
     };
 
     // Random bots in the world now.
@@ -60,6 +67,10 @@ namespace CoaWorld
     // Hands back every bot of owner. returnHome: those brought from afar go back where they were.
     void ReleaseBots(uint32 owner, bool returnHome);
 
+    // A character under a PvP ruleset of CoA (High Risk, or War Mode without the PvE marker): the only
+    // ones a bot starts an open-world fight with (EnemyPlayerValue, AiPlayerbot.CoaRulesetForBots).
+    bool HasPvpRuleset(Player* player);
+
     // Free for an event: online random bot, alive, out of combat, group, battleground and instance,
     // without a real-player master and not borrowed already.
     bool IsFreeBot(Player* bot);
@@ -70,12 +81,21 @@ namespace CoaWorld
     // Drops the bot from owner's list without touching it (it logs out, for example).
     void ForgetBot(uint32 owner, ObjectGuid guid);
 
+    // The bots owner has now (online or not).
+    std::vector<ObjectGuid> BorrowedBots(uint32 owner);
+
+    // Offline holds: a bot logged out by an event (inside a dungeon, aboard a zeppelin) is not logged
+    // back in by RandomPlayerbotMgr before HoldBot's time, or ReleaseHold. Memory only: a restart
+    // clears them, and each ends by itself at its time.
+    void HoldBot(uint32 lowGuid, time_t until);
+    void ReleaseHold(uint32 lowGuid);
+    bool IsHeld(uint32 lowGuid);
+
     uint32 BorrowedCount(uint32 owner);
     uint32 BorrowedTotal();
 }
 
-// For RandomPlayerbotMgr::ProcessBot: a bot away on a simulated dungeon run stays offline until it
-// comes back (CoaWorldDungeonSim.cpp).
+// For RandomPlayerbotMgr::ProcessBot: a bot held offline by a CoA World event (see HoldBot).
 bool CoaWorldIsBotHeld(uint32 lowGuid);
 
 #endif
