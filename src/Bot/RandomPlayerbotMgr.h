@@ -159,6 +159,8 @@ public:
     uint32 activeBots = 0;
     static bool HandlePlayerbotConsoleCommand(ChatHandler* handler, char const* args);
     bool IsRandomBot(Player* bot);
+    // CoA World (CoA Monde session), density: this bot's time in the world ends now.
+    void CoaRetireBot(uint32 bot);
     bool IsRandomBot(ObjectGuid::LowType bot);
     bool IsAddclassBot(Player* bot);
     bool IsAddclassBot(ObjectGuid::LowType bot);

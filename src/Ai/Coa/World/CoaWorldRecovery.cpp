@@ -163,6 +163,7 @@ namespace
                 {
                     track.deaths.clear();
                     ++_counters.deaths;
+                    CoaWorld::LogEvent("stuck", bot->GetName(), "dying over and over");
                     track.wasDead = dead;
                     // Back home once it is up again.
                     track.lastRecovery = now - RELAPSE_SECONDS / 2;
@@ -222,6 +223,7 @@ namespace
             if (!still && !loop)
                 return;
 
+            CoaWorld::LogEvent("stuck", bot->GetName(), still ? "standing still on its way" : "going round in circles");
             if (still)
                 ++_counters.stuck;
             else
@@ -253,6 +255,7 @@ namespace
                 TRIGGERED_IGNORE_POWER_AND_REAGENT_COST | TRIGGERED_IGNORE_CAST_ITEM));
             botAI->rpgInfo.ChangeToRest();
             ++_counters.hearths;
+            CoaWorld::LogEvent("unstuck", bot->GetName(), "hearthstone home");
         }
 
         std::unordered_map<uint32, BotTrack> _tracks;

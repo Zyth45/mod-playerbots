@@ -17,6 +17,8 @@
  * Config: AiPlayerbot.CoaWorld.ServerFirst.Enable, off by default.
  */
 
+#include "CoaWorldBots.h"
+
 #include "Chat.h"
 #include "Config.h"
 #include "Creature.h"
@@ -135,6 +137,9 @@ namespace
                 : Acore::StringFormat("|cffff8000[Server First]|r {} has slain {}, a first for {}!", who, p.what, side);
             ChatHandler(nullptr).SendWorldText(text);
             LOG_INFO("module", "CoA World: server first ({}): {}", side, text);
+            CoaWorld::LogEvent("server_first", p.name, p.kind == FIRST_LEVEL
+                ? Acore::StringFormat("first of {} to level {}", side, p.entry)
+                : Acore::StringFormat("first kill of {} for {}", p.what, side));
         }
     }
 }

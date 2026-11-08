@@ -103,6 +103,9 @@ namespace CoaWorld
     // The invader of an event in the reader's language (IA MIND's %event, never at the start of a line).
     std::string EventName(Player* reader, std::string const& key);
 
+    // events.jsonl for the dashboard (CoaWorldEvents.cpp): one line, from any thread. Off: returns at once.
+    void LogEvent(char const* kind, std::string const& bot, std::string const& text);
+
     uint32 BorrowedCount(uint32 owner);
     uint32 BorrowedTotal();
 }
@@ -114,5 +117,9 @@ bool CoaWorldIsBotHeld(uint32 lowGuid);
 // hearthstone (the real 10 s spell, to the home just set) instead of not moving. True if it does.
 // With AiPlayerbot.CoaWorld.Travel.Enable or .Hearthstone off: a plain bool, false.
 bool CoaWorldHearthInstead(Player* bot);
+
+// For RandomPlayerbotMgr::AddRandomBots: the accounts with a character in a real player's zone go first
+// (AiPlayerbot.CoaWorld.Density). Off: returns at once.
+void CoaWorldDensityOrderAccounts(std::vector<uint32>& accounts);
 
 #endif

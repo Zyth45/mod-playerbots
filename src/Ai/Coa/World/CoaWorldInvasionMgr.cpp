@@ -533,6 +533,8 @@ namespace CoaWorld
                 RecruitBots(slot);
                 LOG_INFO("module", "CoA World: {} started at {} (level {}, {} bots budget)", slot.plan->name, site.name,
                     slot.level, slot.botBudget);
+                LogEvent("invasion", "", Acore::StringFormat("{} started at {} (level {})", slot.plan->name, site.name,
+                    slot.level));
                 _runMap = nullptr;
                 return true;
             }
@@ -619,6 +621,8 @@ namespace CoaWorld
                 ReleaseBots(slot.Owner(), settings.botsReturnHome);
                 Despawn(slot);
                 LOG_INFO("module", "CoA World: {} ended ({})", slot.plan->name, won ? "won" : "lost or stopped");
+                LogEvent("invasion", "", Acore::StringFormat("{} at {} {}", slot.plan->name,
+                    slot.Site().name, won ? "won" : "ended"));
                 Reschedule(slot, RollInterval(slot));
             }
 

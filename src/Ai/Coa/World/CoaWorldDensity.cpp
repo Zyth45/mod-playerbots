@@ -1,0 +1,254 @@
+/*
+ * This file is part of the mod-playerbots module for AzerothCore. See AUTHORS file for Copyright
+ * information; released under GNU GPL v2 license, redistribute/modify under version 2 of the License,
+ * or (at your option) any later version.
+ */
+
+/*
+ * CoA World: the bots where the players are.
+ *
+ * Works with the online/offline rotation of the random bots (AiPlayerbot.EnablePeriodicOnlineOffline, a pool
+ * larger than the bots online). Two things:
+ *  - who logs in: the accounts with a character saved in the zone of a real player online go first
+ *    (after OnlineSelection.FollowPlayerLevels, which keeps its order inside each group);
+ *  - who logs out early: while more than FarSharePct of the random bots online are far from every real
+ *    player (not in a real player's zone, nor within NearRange yards of one), a few of them a minute
+ *    (RetirePerMinute) end their time in the world now; the rotation logs in others in their place, near the
+ *    players. Offline, a bot costs nothing: the CPU goes where someone can see it.
+ * A bot that is grouped, borrowed by a CoA World event, held, in a battleground or seen by a real player is
+ * never sent off. With nobody online, nothing moves.
+ *
+ * The idea (logging bots in by proximity, from cmangos' LoginMgr) is written again here; no code taken.
+ * World thread only. Config: AiPlayerbot.CoaWorld.Density.*, off by default.
+ */
+
+#include "CoaWorldBots.h"
+
+#include "Chat.h"
+#include "ChatCommand.h"
+#include "Config.h"
+#include "DatabaseEnv.h"
+#include "Log.h"
+#include "ObjectAccessor.h"
+#include "Player.h"
+#include "PlayerbotAI.h"
+#include "Playerbots.h"
+#include "RandomPlayerbotMgr.h"
+#include "ScriptMgr.h"
+#include "StringFormat.h"
+#include "WorldSession.h"
+
+#include <algorithm>
+#include <unordered_set>
+#include <vector>
+
+using namespace Acore::ChatCommands;
+
+namespace
+{
+    using namespace CoaWorld;
+
+    constexpr char const* PREFIX = "AiPlayerbot.CoaWorld.Density.";
+
+    struct Settings
+    {
+        bool enabled = false;
+        uint32 farSharePct = 30;
+        uint32 retirePerMinute = 10;
+        float nearRange = 800.0f;
+        bool rotation = false;  // AiPlayerbot.EnablePeriodicOnlineOffline
+    };
+
+    Settings settings;
+
+    struct Counters
+    {
+        uint32 nearBots = 0;
+        uint32 farBots = 0;
+        uint32 retired = 0;
+        uint32 orderedFirst = 0;
+    };
+
+    Counters counters;
+
+    bool IsHumanPlayer(Player* player)
+    {
+        return player && player->IsInWorld() && !GET_PLAYERBOT_AI(player) && !player->IsGameMaster() &&
+               player->GetSession() && !player->GetSession()->IsBot();
+    }
+
+    std::vector<Player*> Humans()
+    {
+        std::vector<Player*> out;
+        for (auto const& [guid, player] : ObjectAccessor::GetPlayers())
+            if (IsHumanPlayer(player))
+                out.push_back(player);
+        return out;
+    }
+
+    bool IsNear(Player* bot, std::vector<Player*> const& humans, std::unordered_set<uint32> const& zones)
+    {
+        if (zones.count(bot->GetZoneId()))
+            return true;
+        for (Player* human : humans)
+            if (human->GetMapId() == bot->GetMapId() && human->GetExactDist(bot) < settings.nearRange)
+                return true;
+        return false;
+    }
+
+    void Retire()
+    {
+        std::vector<Player*> humans = Humans();
+        if (humans.empty())
+            return;
+        std::unordered_set<uint32> zones;
+        for (Player* h : humans)
+            zones.insert(h->GetZoneId());
+
+        std::vector<Player*> farList;
+        uint32 nearCount = 0;
+        for (auto const& [guid, bot] : sRandomPlayerbotMgr.GetAllBots())
+        {
+            if (!bot || !bot->IsInWorld())
+                continue;
+            if (IsNear(bot, humans, zones))
+            {
+                ++nearCount;
+                continue;
+            }
+            farList.push_back(bot);
+        }
+        counters.nearBots = nearCount;
+        counters.farBots = uint32(farList.size());
+
+        uint32 total = nearCount + uint32(farList.size());
+        uint32 keepFar = total * std::min<uint32>(settings.farSharePct, 100) / 100;
+        if (farList.size() <= keepFar)
+            return;
+
+        std::shuffle(farList.begin(), farList.end(), std::mt19937(urand(0, 0x7FFFFFFF)));
+        uint32 toRetire = std::min<uint32>(settings.retirePerMinute, uint32(farList.size()) - keepFar);
+        for (Player* bot : farList)
+        {
+            if (!toRetire)
+                break;
+            PlayerbotAI* botAI = GET_PLAYERBOT_AI(bot);
+            if (!botAI || botAI->GetMaster() || bot->GetGroup() || bot->InBattleground() || bot->InArena() ||
+                bot->InBattlegroundQueue() || bot->IsInCombat() || !IsFreeBot(bot) ||
+                IsHeld(bot->GetGUID().GetCounter()) || botAI->HasPlayerNearby(150.0f))
+                continue;
+            sRandomPlayerbotMgr.CoaRetireBot(bot->GetGUID().GetCounter());
+            ++counters.retired;
+            --toRetire;
+        }
+    }
+
+    void LoadSettings()
+    {
+        auto key = [](char const* name) { return std::string(PREFIX) + name; };
+        settings.enabled = sConfigMgr->GetOption<bool>(key("Enable"), false, false);
+        settings.farSharePct = std::min<uint32>(100, sConfigMgr->GetOption<uint32>(key("FarSharePct"), 30, false));
+        settings.retirePerMinute = std::min<uint32>(200, sConfigMgr->GetOption<uint32>(key("RetirePerMinute"), 10, false));
+        settings.nearRange = float(std::clamp<uint32>(sConfigMgr->GetOption<uint32>(key("NearRange"), 800, false), 100, 5000));
+        settings.rotation = sConfigMgr->GetOption<bool>("AiPlayerbot.EnablePeriodicOnlineOffline", false, false);
+        if (settings.enabled && !settings.rotation)
+            LOG_WARN("module", "CoA World: AiPlayerbot.CoaWorld.Density needs AiPlayerbot.EnablePeriodicOnlineOffline = 1 "
+                "(a pool of bots larger than those online); it does nothing without it.");
+    }
+}
+
+// For RandomPlayerbotMgr::AddRandomBots: puts first the accounts with a character saved in the zone of a real
+// player online, keeping the order inside each group. Off, or nobody online: a plain bool, nothing changes.
+void CoaWorldDensityOrderAccounts(std::vector<uint32>& accounts)
+{
+    if (!settings.enabled || !settings.rotation || accounts.empty())
+        return;
+
+    std::unordered_set<uint32> zones;
+    for (Player* h : Humans())
+        zones.insert(h->GetZoneId());
+    if (zones.empty())
+        return;
+
+    auto const [minimum, maximum] = std::minmax_element(accounts.begin(), accounts.end());
+    std::unordered_set<uint32> nearAccounts;
+    if (QueryResult result = CharacterDatabase.Query(
+            "SELECT account, zone FROM characters WHERE account BETWEEN {} AND {}", *minimum, *maximum))
+    {
+        do
+        {
+            Field* fields = result->Fetch();
+            if (zones.count(fields[1].Get<uint32>()))
+                nearAccounts.insert(fields[0].Get<uint32>());
+        } while (result->NextRow());
+    }
+    auto split = std::stable_partition(accounts.begin(), accounts.end(),
+        [&nearAccounts](uint32 account) { return nearAccounts.contains(account); });
+    counters.orderedFirst = uint32(std::distance(accounts.begin(), split));
+}
+
+class CoaWorldDensityWorldScript : public WorldScript
+{
+public:
+    CoaWorldDensityWorldScript()
+        : WorldScript("CoaWorldDensityWorldScript", { WORLDHOOK_ON_AFTER_CONFIG_LOAD, WORLDHOOK_ON_STARTUP, WORLDHOOK_ON_UPDATE })
+    {
+    }
+
+    void OnAfterConfigLoad(bool reload) override
+    {
+        if (reload)
+            LoadSettings();
+    }
+
+    void OnStartup() override { LoadSettings(); }
+
+    void OnUpdate(uint32 diff) override
+    {
+        if (!settings.enabled || !settings.rotation)
+            return;
+        _timer += diff;
+        if (_timer < MINUTE * IN_MILLISECONDS)
+            return;
+        _timer = 0;
+        Retire();
+    }
+
+private:
+    uint32 _timer = 0;
+};
+
+class CoaWorldDensityCommandScript : public CommandScript
+{
+public:
+    CoaWorldDensityCommandScript() : CommandScript("CoaWorldDensityCommandScript") { }
+
+    ChatCommandTable GetCommands() const override
+    {
+        static ChatCommandTable densityTable = {
+            { "status", HandleStatus, SEC_GAMEMASTER, Console::Yes },
+        };
+        static ChatCommandTable worldTable = {
+            { "density", densityTable },
+        };
+        static ChatCommandTable commandTable = {
+            { "coaworld", worldTable },
+        };
+        return commandTable;
+    }
+
+    static bool HandleStatus(ChatHandler* handler)
+    {
+        handler->PSendSysMessage("Bots near real players: {}, far: {} (kept far: {}%). Sent off early: {}. "
+            "Last login batch: {} accounts near players first.{}", counters.nearBots, counters.farBots, settings.farSharePct,
+            counters.retired, counters.orderedFirst,
+            !settings.enabled ? " (switched off)" : !settings.rotation ? " (needs EnablePeriodicOnlineOffline = 1)" : "");
+        return true;
+    }
+};
+
+void AddSC_coa_world_density()
+{
+    new CoaWorldDensityWorldScript();
+    new CoaWorldDensityCommandScript();
+}

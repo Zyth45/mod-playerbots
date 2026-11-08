@@ -54,6 +54,7 @@
 namespace
 {
     using CoaWorld::BotLine;
+    using CoaWorld::LogEvent;
 
     constexpr char const* PREFIX = "AiPlayerbot.CoaWorld.Guilds.";
 
@@ -204,6 +205,8 @@ namespace
                 {
                     case GuildEvent::LEVEL:
                     {
+                        if (Guild* g = sGuildMgr->GetGuildById(player->GetGuildId()))
+                            LogEvent("guild", player->GetName(), Acore::StringFormat("level {} in <{}>", e.value, g->GetName()));
                         if (!HumanOnlineInGuild(player->GetGuildId()))
                             break;
                         if (BotLine(player, "guild_ding", { { "level", std::to_string(e.value) } }))
@@ -223,6 +226,8 @@ namespace
                     }
                     case GuildEvent::LOOT:
                     {
+                        if (ItemTemplate const* looted = sObjectMgr->GetItemTemplate(e.value))
+                            LogEvent("guild", player->GetName(), Acore::StringFormat("looted {}", looted->Name1));
                         if (settings.coaLive || !HumanOnlineInGuild(player->GetGuildId()))
                             break;
                         ItemTemplate const* proto = sObjectMgr->GetItemTemplate(e.value);
