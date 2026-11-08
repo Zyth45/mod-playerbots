@@ -12,6 +12,8 @@
 #include "ChatHelper.h"
 #include "Chat.h"
 #include "CoaLiveRules.h"
+#include "CoaSessionRules.h"
+#include "Timer.h"
 #include "CoaMarketPrices.h"
 #include "Creature.h"
 #include "DBCStores.h"
@@ -1020,6 +1022,33 @@ bool OnWhisper(Player* from, Player* to, std::string const& msg)
     React(to, situation, from, "w" + std::to_string(to->GetGUID().GetCounter()), opt);
     return true;
 }
+
+bool SessionsEnabled() { return sPlayerbotAIConfig.coaLiveSessionsEnable; }
+
+namespace
+{
+uint32 HourPercentNow()
+{
+    time_t const now = GameTime::GetGameTime().count() + time_t(sPlayerbotAIConfig.coaLiveSessionsHourShift) * HOUR;
+    tm const local = Acore::Time::TimeBreakdown(now);
+    CoaSessions::Curve curve = CoaSessions::DefaultCurve();
+    if (sPlayerbotAIConfig.coaLiveSessionsCurve.size() == curve.size())
+        std::copy(sPlayerbotAIConfig.coaLiveSessionsCurve.begin(), sPlayerbotAIConfig.coaLiveSessionsCurve.end(),
+                  curve.begin());
+    return CoaSessions::HourPercent(curve, local.tm_hour, local.tm_min, local.tm_wday,
+                                    sPlayerbotAIConfig.coaLiveSessionsWeekendBonus,
+                                    sPlayerbotAIConfig.coaLiveSessionsMinPercent);
+}
+}  // namespace
+
+uint32 SessionTarget(uint32 count)
+{
+    return SessionsEnabled() ? CoaSessions::Target(count, HourPercentNow()) : count;
+}
+
+uint32 SessionSeconds() { return SessionsEnabled() ? CoaSessions::SessionSeconds(rng.between) : 0; }
+
+uint32 OfflineSeconds() { return SessionsEnabled() ? CoaSessions::OfflineSeconds(HourPercentNow(), rng.between) : 0; }
 
 bool SayLine(Player* bot, std::string const& situation, std::unordered_map<std::string, std::string> const& slots)
 {

@@ -6,6 +6,8 @@
 
 #include "RandomPlayerbotMgr.h"
 
+#include "CoaLive.h"
+
 #include "CoaWorldBots.h"  // CoA World: CoaWorldIsBotHeld, CoaWorldHearthInstead
 #include "AscensionRulesets.h"
 #include "BattlegroundUtils.h"
@@ -190,7 +192,8 @@ uint32 RandomPlayerbotMgr::GetMaxAllowedBotCount() { return GetTargetBotCount();
 // Alt bots and other bots of a real player are not random bots and are never counted or removed.
 uint32 RandomPlayerbotMgr::GetTargetBotCount()
 {
-    uint32 const count = GetEventValue(0, "bot_count");
+    // CoA Live sessions: the population follows the hour of the day (the count itself when off).
+    uint32 const count = CoaLive::SessionTarget(GetEventValue(0, "bot_count"));
     if (!sPlayerbotAIConfig.coaPlayersReplaceBots || !count)
         return count;
 
@@ -205,7 +208,8 @@ uint32 RandomPlayerbotMgr::GetTargetBotCount()
 // queue stay: ProcessBot() then logs out the ones marked here.
 void RandomPlayerbotMgr::CoaTrimBotsForPlayers(uint32 target)
 {
-    if (!sPlayerbotAIConfig.coaPlayersReplaceBots)
+    // Also when the CoA Live sessions lower the population at a quiet hour.
+    if (!sPlayerbotAIConfig.coaPlayersReplaceBots && !CoaLive::SessionsEnabled())
         return;
 
     // Bots already leaving stay in currentBots until ProcessBot() logs them out: not counted again.
@@ -244,7 +248,7 @@ void RandomPlayerbotMgr::CoaTrimBotsForPlayers(uint32 target)
     }
 
     if (!picked.empty())
-        LOG_INFO("playerbots", "{} random bots leave for real players ({} staying, {} wanted)", picked.size(),
+        LOG_INFO("playerbots", "{} random bots leave (real players or the hour; {} staying, {} wanted)", picked.size(),
                  staying - picked.size(), target);
 }
 
@@ -887,6 +891,9 @@ uint32 RandomPlayerbotMgr::AddRandomBots()
                                 ? urand(sPlayerbotAIConfig.minRandomBotInWorldTime,
                                         sPlayerbotAIConfig.maxRandomBotInWorldTime)
                                 : sPlayerbotAIConfig.permanentlyInWorldTime;
+            // CoA Live sessions: a session of a believable length instead.
+            if (uint32 const session = CoaLive::SessionSeconds())
+                add_time = session;
 
             SetEventValue(charInfo.guid, "add", 1, add_time);
             SetEventValue(charInfo.guid, "logout", 0, 0);
@@ -1965,8 +1972,10 @@ bool RandomPlayerbotMgr::ProcessBot(uint32 bot)
                   player->GetLevel(), player->GetName().c_str());
         LogoutPlayerBot(botGUID);
         currentBots.erase(bot);
+        uint32 const away = CoaLive::OfflineSeconds();  // CoA Live sessions: a break of a believable length
         SetEventValue(bot, "logout", 1,
-                      urand(sPlayerbotAIConfig.minRandomBotInWorldTime, sPlayerbotAIConfig.maxRandomBotInWorldTime));
+                      away ? away
+                           : urand(sPlayerbotAIConfig.minRandomBotInWorldTime, sPlayerbotAIConfig.maxRandomBotInWorldTime));
         return true;
     }
 

@@ -686,6 +686,12 @@ public:
     uint32 coaLiveTypingMsPerCharMin;
     uint32 coaLiveTypingMsPerCharMax;
     uint32 coaLiveGreetRange;
+    // AiPlayerbot.CoaLive.Sessions.*: the random bots come and go like players (CoaSessionRules.h)
+    bool coaLiveSessionsEnable;
+    std::vector<uint32> coaLiveSessionsCurve;  // 24 percentages
+    uint32 coaLiveSessionsWeekendBonus;
+    uint32 coaLiveSessionsMinPercent;
+    int32 coaLiveSessionsHourShift;
     // ---- end of CoA Live ----
 
     // ---- CoA World (LoadCoaWorldConfig, CoaWorldConfig.cpp) ----
