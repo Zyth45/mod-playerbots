@@ -4666,3 +4666,11 @@ AiPlayerbot.CoaCombat.GearScore.Enable = 0
 #     Default:     20
 
 AiPlayerbot.CoaCombat.LootNeedWaitSeconds = 20
+# AiPlayerbot.CoaCombat.MoltenCore.Enable
+#     Description: The CoA Combat fixes to the bots' Molten Core strategy, encounter by encounter (kill orders for
+#                  Lucifron's and Sulfuron's adds, and the next ones as they land). The stock strategy is unchanged
+#                  when this is 0.
+#     Default:     0 - (Disabled)
+#                  1 - (Enabled)
+
+AiPlayerbot.CoaCombat.MoltenCore.Enable = 0

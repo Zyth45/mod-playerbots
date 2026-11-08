@@ -59,6 +59,17 @@ enum MoltenCoreNPCs
     // CoA: Majordomo's periodic add; it roots, silences and pacifies the players it chains until it dies
     // (npc_sacrificial_chains_coa.cpp)
     NPC_SACRIFICIAL_CHAINS = 92030,
+    // CoA Combat (docs/MC-ETAT-3.0.md): Lucifron's and Sulfuron's adds, for their kill orders.
+    NPC_COA_LESSER_SON_OF_FLAME = 12143,  // CoA: Ragnaros' Sons of Flame, ranked; two of one rank within 5 yd for
+    NPC_COA_SON_OF_FLAME = 92026,         // 1.5 s merge into one of the next rank (Lesser, Son, Greater, Unstable)
+    NPC_COA_GREATER_SON_OF_FLAME = 92027,
+    NPC_COA_UNSTABLE_SON_OF_FLAME = 92028,
+    NPC_SHADOW_OF_LUCIFRON = 12268,     // CoA: +39 % shadow damage to Lucifron while it lives
+    NPC_FLAMEWAKER_PROTECTOR = 12119,   // Dominate Mind
+    NPC_FLAMEWAKER_PRIEST = 11662,      // Sulfuron's healer
+    NPC_COA_CULL_THE_DESTROYER = 92031,  // CoA Mythic/Ascended: Cauterize, Curse of Gehennas
+    NPC_COA_PROXIMA_THE_OPRESSOR = 92032,  // Dampen Magic, Arcane Instability
+    NPC_COA_EBON_THE_CRUEL = 92033,     // Dark Mending, Curse of Lucifron
 };
 
 // CoA difficulty copies of a Molten Core creature: base + offset (01_mc_difficulty_templates.sql)
@@ -107,6 +118,9 @@ enum MoltenCoreSpells
 // Fire patches under Magmadar's bombs: the body's stock trap and the CoA heads' ground fire
 constexpr uint32 MAGMADAR_LAVA_BOMB_AURAS[] = {SPELL_LAVA_BOMB_DOT, SPELL_LAVA_BOMB_COA_D0, SPELL_LAVA_BOMB_COA_D1,
                                                SPELL_LAVA_BOMB_COA_D2, SPELL_LAVA_BOMB_COA_D3};
+
+// CoA Combat (O1): Golemagg's Cave In, a periodic-damage zone of 8 yd cast on his tank after each Massive Stomp, 15 s.
+constexpr uint32 GOLEMAGG_CAVE_IN_AURAS[] = {2105825, 2105826, 2105827, 2105828};
 
 // Standing in Gehennas' Rain of Fire (stock or CoA)
 constexpr uint32 GEHENNAS_RAIN_OF_FIRE_AURAS[] = {SPELL_RAIN_OF_FIRE, SPELL_RAIN_OF_FIRE_COA_D0, SPELL_RAIN_OF_FIRE_COA_D1,
@@ -308,6 +322,29 @@ inline bool IsMajordomoAdd(Unit const* unit)
 {
     return unit &&
            (IsMcEntry(unit->GetEntry(), NPC_FLAMEWAKER_HEALER) || IsMcEntry(unit->GetEntry(), NPC_FLAMEWAKER_ELITE));
+}
+// CoA Combat (A1): the Son of Flame of Ragnaros to kill now: the highest rank first (a merged one hits hardest), the
+// most damaged within a rank, within 100 yd. nullptr when none is up.
+inline Creature* FindSonOfFlameToKill(Unit* from)
+{
+    uint32 const ranks[] = {NPC_COA_UNSTABLE_SON_OF_FLAME, NPC_COA_GREATER_SON_OF_FLAME, NPC_COA_SON_OF_FLAME,
+                            NPC_COA_LESSER_SON_OF_FLAME};
+    for (uint32 entry : ranks)
+    {
+        Creature* best = nullptr;
+        for (uint32 variant : {entry, entry + MC_ENTRY_OFFSET_HEROIC, entry + MC_ENTRY_OFFSET_MYTHIC,
+                               entry + MC_ENTRY_OFFSET_ASCENDED})
+        {
+            std::list<Creature*> sons;
+            from->GetCreatureListWithEntryInGrid(sons, variant, 100.0f);
+            for (Creature* son : sons)
+                if (son && son->IsAlive() && (!best || son->GetHealth() < best->GetHealth()))
+                    best = son;
+        }
+        if (best)
+            return best;
+    }
+    return nullptr;
 }
 }  // namespace MoltenCoreHelpers
 
