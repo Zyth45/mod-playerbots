@@ -20,7 +20,10 @@
 
 #include "Define.h"
 #include "Position.h"
+#include "ObjectGuid.h"
 #include "SharedDefines.h"
+
+class Player;
 
 namespace CoaWorld
 {
@@ -28,6 +31,7 @@ namespace CoaWorld
     {
         BOT_OWNER_INVASION_BASE = 100,  // + invasion index
         BOT_OWNER_RUSH = 200,
+        BOT_OWNER_DUNGEON_SIM_BASE = 1000,  // + run id
     };
 
     struct BorrowRequest
@@ -56,8 +60,22 @@ namespace CoaWorld
     // Hands back every bot of owner. returnHome: those brought from afar go back where they were.
     void ReleaseBots(uint32 owner, bool returnHome);
 
+    // Free for an event: online random bot, alive, out of combat, group, battleground and instance,
+    // without a real-player master and not borrowed already.
+    bool IsFreeBot(Player* bot);
+
+    // Sends that bot (free, checked by the caller) as BorrowBots would. False if it could not go.
+    bool SendBot(uint32 owner, Player* bot, BorrowRequest const& request);
+
+    // Drops the bot from owner's list without touching it (it logs out, for example).
+    void ForgetBot(uint32 owner, ObjectGuid guid);
+
     uint32 BorrowedCount(uint32 owner);
     uint32 BorrowedTotal();
 }
+
+// For RandomPlayerbotMgr::ProcessBot: a bot away on a simulated dungeon run stays offline until it
+// comes back (CoaWorldDungeonSim.cpp).
+bool CoaWorldIsBotHeld(uint32 lowGuid);
 
 #endif

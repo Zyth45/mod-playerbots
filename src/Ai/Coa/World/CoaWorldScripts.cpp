@@ -10,9 +10,11 @@
 #include "CoaWorldInvasion.h"
 
 void AddSC_coa_world_rush();
+void AddSC_coa_world_dungeon_sim();
 
 void AddCoaWorldScripts()
 {
     AddSC_coa_world_invasions();
     AddSC_coa_world_rush();
+    AddSC_coa_world_dungeon_sim();
 }

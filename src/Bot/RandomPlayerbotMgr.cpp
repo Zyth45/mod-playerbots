@@ -5,6 +5,8 @@
  */
 
 #include "RandomPlayerbotMgr.h"
+
+#include "CoaWorldBots.h"
 #include "AscensionRulesets.h"
 #include "BattlegroundUtils.h"
 #include "AiFactory.h"
@@ -1844,6 +1846,10 @@ void RandomPlayerbotMgr::ScheduleChangeStrategy(uint32 bot, uint32 time)
 
 bool RandomPlayerbotMgr::ProcessBot(uint32 bot)
 {
+    // CoA World: a bot away on a simulated dungeon run stays offline until it comes back.
+    if (CoaWorldIsBotHeld(bot))
+        return false;
+
     ObjectGuid botGUID = ObjectGuid::Create<HighGuid::Player>(bot);
     Player* player = GetPlayerBot(botGUID);
     PlayerbotAI* botAI = player ? GET_PLAYERBOT_AI(player) : nullptr;

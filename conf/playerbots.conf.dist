@@ -2730,6 +2730,68 @@ AiPlayerbot.CoaWorld.ResourceRush.BotsNearRadius = 600
 AiPlayerbot.CoaWorld.ResourceRush.BotsTeleport = 1
 AiPlayerbot.CoaWorld.ResourceRush.BotsReturnHome = 1
 
+#    AiPlayerbot.CoaWorld.DungeonSim.Enable
+#        Description: Bots that do dungeons on their own. When no real player waits in the Dungeon
+#                     Finder, five free random bots of a side (a tank, a healer, three others) of the
+#                     level of a classic dungeon call for it in LookingForGroup, gather at its entrance
+#                     and go in. Nobody sees inside another group's instance, so the run is simulated:
+#                     the bots log out at the door (no instance, no CPU) for about the time the dungeon
+#                     takes (the median of the Dungeon Clear bench), then come back out with the
+#                     experience and the loot of the bosses they killed, rolled from the bosses' own
+#                     loot tables. Their loot feeds trade and the auction house like any bot's.
+#                     When a real player is queued, the bots fill that queue instead, as before.
+#                     GMs: .coaworld dungeon status|start <alliance|horde> [name]|stop.
+#        Default:     0 - off
+#                     1 - on
+
+AiPlayerbot.CoaWorld.DungeonSim.Enable = 0
+
+#    AiPlayerbot.CoaWorld.DungeonSim.GroupsPerFaction
+#        Description: Simulated runs going on at once for each side (at most 10).
+#        Default:     2
+
+AiPlayerbot.CoaWorld.DungeonSim.GroupsPerFaction = 2
+
+#    AiPlayerbot.CoaWorld.DungeonSim.FactionIntervalSeconds
+#        Description: Seconds between two new runs of the same side.
+#        Default:     600
+
+AiPlayerbot.CoaWorld.DungeonSim.FactionIntervalSeconds = 600
+
+#    AiPlayerbot.CoaWorld.DungeonSim.BotCooldownMinutes
+#        Description: Minutes before a bot back from a run goes again.
+#        Default:     120
+
+AiPlayerbot.CoaWorld.DungeonSim.BotCooldownMinutes = 120
+
+#    AiPlayerbot.CoaWorld.DungeonSim.GatherMinutes
+#        Description: Minutes the group waits at the entrance for its last members (1 to 30).
+#        Default:     6
+
+AiPlayerbot.CoaWorld.DungeonSim.GatherMinutes = 6
+
+#    AiPlayerbot.CoaWorld.DungeonSim.DurationPct
+#    AiPlayerbot.CoaWorld.DungeonSim.DurationSpreadPct
+#        Description: Time inside, in percent of the dungeon's median clear time (20 to 500), and
+#                     how much it varies either way, in percent (at most 90).
+#        Default:     100, 25
+
+AiPlayerbot.CoaWorld.DungeonSim.DurationPct = 100
+AiPlayerbot.CoaWorld.DungeonSim.DurationSpreadPct = 25
+
+#    AiPlayerbot.CoaWorld.DungeonSim.XpPct
+#        Description: Experience of a run, in percent of what its kills would give.
+#        Default:     100
+
+AiPlayerbot.CoaWorld.DungeonSim.XpPct = 100
+
+#    AiPlayerbot.CoaWorld.DungeonSim.Announce
+#        Description: 1 - the leader calls for the run in LookingForGroup, and one of the five says a
+#                     word when they come out.
+#        Default:     1
+
+AiPlayerbot.CoaWorld.DungeonSim.Announce = 1
+
 # Quality a looted item must reach to be written to the "playerbots.loot" logger:
 # 3 rare (blue), 4 epic, 5 legendary. Nothing is written unless worldserver.conf
 # points that logger at an appender, and only bots are ever logged.

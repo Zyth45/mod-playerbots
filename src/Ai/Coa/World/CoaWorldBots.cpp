@@ -16,6 +16,7 @@
 #include "RandomPlayerbotMgr.h"
 
 #include <algorithm>
+#include <cmath>
 #include <unordered_map>
 #include <vector>
 
@@ -59,7 +60,7 @@ namespace CoaWorld
             return false;
         }
 
-        bool IsFree(Player* bot)
+        bool IsFreeImpl(Player* bot)
         {
             if (!bot || !bot->IsInWorld() || !bot->IsAlive() || bot->IsInCombat() || bot->IsInFlight() ||
                 bot->IsBeingTeleported())
@@ -70,6 +71,44 @@ namespace CoaWorld
                 return false;
             PlayerbotAI* botAI = GET_PLAYERBOT_AI(bot);
             return botAI && !botAI->GetMaster();
+        }
+
+        // Near: walks there through its usual travel. Far: brought to the rally point, never under the
+        // eyes of a real player.
+        bool SendOne(uint32 owner, Player* bot, BorrowRequest const& request, float dist, bool arrivalSeen)
+        {
+            WorldPosition goal(request.mapId, request.goal.GetPositionX(), request.goal.GetPositionY(),
+                request.goal.GetPositionZ());
+            PlayerbotAI* botAI = GET_PLAYERBOT_AI(bot);
+            Borrowed borrowed{ bot->GetGUID(), bot->GetWorldLocation(), false };
+
+            if (dist <= request.nearRadius)
+            {
+                // Near: walks there through its usual travel.
+                botAI->rpgInfo.ChangeToGoGrind(goal);
+            }
+            else
+            {
+                // Far: brought to the rally point, never under the eyes of a real player.
+                if (!request.teleport || arrivalSeen || botAI->HasPlayerNearby(UNSEEN_RANGE))
+                    return false;
+
+                float angle = frand(0.0f, 2.0f * float(M_PI));
+                float spread = frand(0.0f, 8.0f);
+                float x = request.rally.GetPositionX() + spread * std::cos(angle);
+                float y = request.rally.GetPositionY() + spread * std::sin(angle);
+
+                bot->GetMotionMaster()->Clear();
+                botAI->Reset(true);
+                bot->RemoveAurasWithInterruptFlags(AURA_INTERRUPT_FLAG_TELEPORTED | AURA_INTERRUPT_FLAG_CHANGE_MAP);
+                if (!bot->TeleportTo(request.mapId, x, y, request.rally.GetPositionZ(), request.rally.GetOrientation()))
+                    return false;
+                botAI->rpgInfo.ChangeToGoGrind(goal);
+                borrowed.teleported = true;
+            }
+
+            g_borrowed[owner].push_back(borrowed);
+            return true;
         }
     }
 
@@ -100,7 +139,7 @@ namespace CoaWorld
         std::vector<Candidate> candidates;
         for (auto const& [guid, bot] : sRandomPlayerbotMgr.GetAllBots())
         {
-            if (!IsFree(bot))
+            if (!IsFreeImpl(bot))
                 continue;
             if (bot->GetLevel() < request.minLevel || bot->GetLevel() > request.maxLevel)
                 continue;
@@ -122,9 +161,6 @@ namespace CoaWorld
         }
 
         bool arrivalSeen = RealPlayerNear(request.mapId, request.rally, ARRIVAL_UNSEEN_RANGE);
-        WorldPosition goal(request.mapId, request.goal.GetPositionX(), request.goal.GetPositionY(),
-            request.goal.GetPositionZ());
-        std::vector<Borrowed>& mine = g_borrowed[owner];
         uint32 got = 0;
 
         for (Candidate const& c : candidates)
@@ -137,35 +173,9 @@ namespace CoaWorld
             if (team > TEAM_HORDE || !perTeam[team])
                 continue;
 
-            PlayerbotAI* botAI = GET_PLAYERBOT_AI(bot);
-            Borrowed borrowed{ bot->GetGUID(), bot->GetWorldLocation(), false };
+            if (!SendOne(owner, bot, request, c.dist, arrivalSeen))
+                continue;
 
-            if (c.dist <= request.nearRadius)
-            {
-                // Near: walks there through its usual travel.
-                botAI->rpgInfo.ChangeToGoGrind(goal);
-            }
-            else
-            {
-                // Far: brought to the rally point, never under the eyes of a real player.
-                if (!request.teleport || arrivalSeen || botAI->HasPlayerNearby(UNSEEN_RANGE))
-                    continue;
-
-                float angle = frand(0.0f, 2.0f * float(M_PI));
-                float dist = frand(0.0f, 8.0f);
-                float x = request.rally.GetPositionX() + dist * std::cos(angle);
-                float y = request.rally.GetPositionY() + dist * std::sin(angle);
-
-                bot->GetMotionMaster()->Clear();
-                botAI->Reset(true);
-                bot->RemoveAurasWithInterruptFlags(AURA_INTERRUPT_FLAG_TELEPORTED | AURA_INTERRUPT_FLAG_CHANGE_MAP);
-                if (!bot->TeleportTo(request.mapId, x, y, request.rally.GetPositionZ(), request.rally.GetOrientation()))
-                    continue;
-                botAI->rpgInfo.ChangeToGoGrind(goal);
-                borrowed.teleported = true;
-            }
-
-            mine.push_back(borrowed);
             --perTeam[team];
             ++got;
         }
@@ -202,6 +212,29 @@ namespace CoaWorld
             }
         }
         g_borrowed.erase(itr);
+    }
+
+    bool IsFreeBot(Player* bot)
+    {
+        return IsFreeImpl(bot);
+    }
+
+    bool SendBot(uint32 owner, Player* bot, BorrowRequest const& request)
+    {
+        if (!IsFreeImpl(bot))
+            return false;
+        float dist = bot->GetMapId() == request.mapId ? bot->GetExactDist(&request.goal) : 1e9f;
+        return SendOne(owner, bot, request, dist, RealPlayerNear(request.mapId, request.rally, ARRIVAL_UNSEEN_RANGE));
+    }
+
+    void ForgetBot(uint32 owner, ObjectGuid guid)
+    {
+        auto itr = g_borrowed.find(owner);
+        if (itr == g_borrowed.end())
+            return;
+        std::erase_if(itr->second, [guid](Borrowed const& b) { return b.guid == guid; });
+        if (itr->second.empty())
+            g_borrowed.erase(itr);
     }
 
     uint32 BorrowedCount(uint32 owner)
