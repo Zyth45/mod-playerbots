@@ -15,5 +15,6 @@
 // One line per guard, added in the commit that hands the guard over (CoA Combat, migration 3.0).
 #define COA_COMBAT_OWNS_ESCAPE_LEAP_BAN 1  // A1: no hook
 #define COA_COMBAT_OWNS_ROOM_BOSS_CHASE 1  // A2: CoaGardesRunHooks::SetRoomClearBoss
+#define COA_COMBAT_OWNS_LYCEUM_CLOSE_UP 1  // A3: no hook
 
 #endif
