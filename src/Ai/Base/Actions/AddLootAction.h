@@ -29,6 +29,8 @@ public:
 
 protected:
     virtual bool AddLoot(ObjectGuid guid);
+
+    bool ordered = false;  // this run comes from a chat order
 };
 
 class AddGatheringLootAction : public AddAllLootAction

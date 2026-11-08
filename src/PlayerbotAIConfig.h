@@ -445,6 +445,7 @@ public:
     bool coaAvoidMarkedAlly;
     bool coaMeleeNoRangedHardcast;
     bool coaLootMakeRoom;
+    bool openChestsWithoutOrder;
     // AiPlayerbot.Missions.*: gathering missions of the alts ("mission gather <minutes>" whispered to the bot).
     bool missionsEnable;
     uint32 missionsMaxMinutes;

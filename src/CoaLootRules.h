@@ -30,4 +30,12 @@ inline bool LootHeightReachable(float dz, float dist2d)
     return std::fabs(dz) <= (dist2d > contact ? dist2d : contact);
 }
 
+// Whether a bot left to itself (no order) may take this game object as a loot target, AiPlayerbot.OpenChestsWithoutOrder
+// at 0: no chest (dungeon chests, crates, locked boxes), but herb and ore nodes, chest-type too, stay allowed, and so
+// does an object holding a quest item the bot still needs.
+inline bool CoaOpenWithoutOrder(bool openChestsWithoutOrder, bool isChest, bool herbOrMiningLock, bool neededForQuest)
+{
+    return openChestsWithoutOrder || !isChest || herbOrMiningLock || neededForQuest;
+}
+
 #endif

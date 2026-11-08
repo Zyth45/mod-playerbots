@@ -1882,6 +1882,12 @@ AiPlayerbot.CoaMeleeNoRangedHardcast = 1
 # Default: 1 (enabled)
 AiPlayerbot.CoaLootMakeRoom = 1
 
+# Whether bots open chests on their own (dungeon chests, crates, locked boxes; a rogue picks their lock), every bot
+# alike. At 0 a bot opens a chest only when told to ("add all loot" in chat, or "use" on it); herb and ore nodes,
+# and objects holding a quest item the bot still needs, are still taken.
+# Default: 1 (enabled)
+AiPlayerbot.OpenChestsWithoutOrder = 1
+
 # In a dungeon or a raid, a bot no longer casts an area spell (its own AoE, a ground spell, a tank's
 # Thunder Clap) that would also hit an attackable creature not yet in combat: the next pack, or the
 # spectators of an arena, are no longer pulled by the group's AoE. Outside instances nothing changes.

@@ -895,6 +895,7 @@ bool PlayerbotAIConfig::Initialize()
     coaAvoidMarkedAlly = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaAvoidMarkedAlly", true, false);
     coaMeleeNoRangedHardcast = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaMeleeNoRangedHardcast", true, false);
     coaLootMakeRoom = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaLootMakeRoom", true, false);
+    openChestsWithoutOrder = sConfigMgr->GetOption<bool>("AiPlayerbot.OpenChestsWithoutOrder", true, false);
     missionsEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.Missions.Enable", true, false);
     missionsMaxMinutes = std::clamp<uint32>(sConfigMgr->GetOption<uint32>("AiPlayerbot.Missions.MaxMinutes", 120, false), 1, 24 * 60);
     missionsDefaultMinutes = std::clamp<uint32>(

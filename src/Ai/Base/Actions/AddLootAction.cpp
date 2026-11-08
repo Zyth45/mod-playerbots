@@ -5,7 +5,9 @@
  */
 
 #include "AddLootAction.h"
+#include "CoaLootRules.h"
 #include "CellImpl.h"
+#include "DBCStores.h"
 #include "Event.h"
 #include "GridNotifiers.h"
 #include "GridNotifiersImpl.h"
@@ -13,17 +15,57 @@
 #include "Playerbots.h"
 #include "ServerFacade.h"
 
+namespace
+{
+bool HerbOrMiningLock(GameObject const* go)
+{
+    LockEntry const* lockInfo = sLockStore.LookupEntry(go->GetGOInfo()->GetLockId());
+    if (!lockInfo)
+        return false;
+
+    for (uint8 i = 0; i < MAX_LOCK_CASE; ++i)
+    {
+        if (lockInfo->Type[i] != LOCK_KEY_SKILL)
+            continue;
+
+        SkillType const skill = SkillByLockType(LockType(lockInfo->Index[i]));
+        if (skill == SKILL_HERBALISM || skill == SKILL_MINING)
+            return true;
+    }
+    return false;
+}
+
+bool OpenWithoutOrder(PlayerbotAI* botAI, Player* bot, ObjectGuid guid)
+{
+    if (sPlayerbotAIConfig.openChestsWithoutOrder || !guid.IsGameObject())
+        return true;
+
+    GameObject* go = botAI->GetGameObject(guid);
+    if (!go)
+        return true;
+
+    bool const isChest = go->GetGoType() == GAMEOBJECT_TYPE_CHEST;
+    return CoaOpenWithoutOrder(false, isChest, isChest && HerbOrMiningLock(go),
+                               isChest && LootObject::NeedsQuestItemFrom(bot, go));
+}
+}
+
 bool AddLootAction::Execute(Event event)
 {
     ObjectGuid guid = event.getObject();
     if (!guid)
         return false;
 
+    if (!OpenWithoutOrder(botAI, bot, guid))
+        return false;
+
     return AI_VALUE(LootObjectStack*, "available loot")->Add(guid);
 }
 
-bool AddAllLootAction::Execute(Event /*event*/)
+bool AddAllLootAction::Execute(Event event)
 {
+    // "add all loot" told in chat is an order: chests are taken whatever OpenChestsWithoutOrder says.
+    ordered = event.getOwner() != nullptr;
     bool added = false;
 
     GuidVector gos = context->GetValue<GuidVector>("nearest game objects")->Get();
@@ -41,7 +83,13 @@ bool AddLootAction::isUseful() { return true; }
 
 bool AddAllLootAction::isUseful() { return true; }
 
-bool AddAllLootAction::AddLoot(ObjectGuid guid) { return AI_VALUE(LootObjectStack*, "available loot")->Add(guid); }
+bool AddAllLootAction::AddLoot(ObjectGuid guid)
+{
+    if (!ordered && !OpenWithoutOrder(botAI, bot, guid))
+        return false;
+
+    return AI_VALUE(LootObjectStack*, "available loot")->Add(guid);
+}
 
 bool AddGatheringLootAction::AddLoot(ObjectGuid guid)
 {

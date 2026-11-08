@@ -21,5 +21,13 @@ int main()
     // Steeper than 45 degrees (a cliff or a ledge above): still refused.
     assert(!LootHeightReachable(15.0f, 10.0f));
     assert(!LootHeightReachable(-15.0f, 10.0f));
+    // OpenChestsWithoutOrder = 1 (default): everything as before.
+    assert(CoaOpenWithoutOrder(true, true, false, false));
+    // At 0: a plain chest is refused, a herb or ore node is not, nor a quest object the bot needs.
+    assert(!CoaOpenWithoutOrder(false, true, false, false));
+    assert(CoaOpenWithoutOrder(false, true, true, false));
+    assert(CoaOpenWithoutOrder(false, true, false, true));
+    // Not a chest (a corpse, a goober): unaffected.
+    assert(CoaOpenWithoutOrder(false, false, false, false));
     return 0;
 }
