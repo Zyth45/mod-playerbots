@@ -144,6 +144,11 @@ void RaidMcStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
     triggers.push_back(
         new TriggerNode("mc ragnaros fire resistance",
                         { NextAction("mc ragnaros fire resistance", ACTION_RAID) }));
+    // CoA Combat: the Sons of Flame one at a time, the highest rank first (docs/MC-ETAT-3.0.md, A1).
+    triggers.push_back(
+        new TriggerNode("mc ragnaros sons mark",
+                        { NextAction("mc ragnaros sons mark", ACTION_RAID + 1) }));
+
 
     // Trash
     triggers.push_back(
@@ -164,6 +169,7 @@ void RaidMcStrategy::InitMultipliers(std::vector<Multiplier*>& multipliers)
     multipliers.push_back(new MajordomoReflectionMultiplier(botAI));
     multipliers.push_back(new ShazzrahReflectionMultiplier(botAI));
     multipliers.push_back(new ShazzrahSaveInterruptMultiplier(botAI));
+    multipliers.push_back(new RagnarosSonsNoAoeMultiplier(botAI));
 }
 
 void RaidMcStrategy::AppendTargetExclusions(GuidSet& exclusions, TargetValueExclusionType type)

@@ -81,6 +81,15 @@ public:
     McGolemaggCaveInTrigger(PlayerbotAI* botAI) : Trigger(botAI, "mc golemagg cave in") {}
     bool IsActive() override;
 };
+// CoA Combat (A1): a Son of Flame of Ragnaros is up. The main tank skulls them one at a time, the highest rank first,
+// and the damage dealers keep their area spells: two Sons of one rank that stay within 5 yd for 1.5 s merge into one
+// of the next rank.
+class McRagnarosSonsTrigger : public Trigger
+{
+public:
+    McRagnarosSonsTrigger(PlayerbotAI* botAI) : Trigger(botAI, "mc ragnaros sons mark") {}
+    bool IsActive() override;
+};
 class McBaronGeddonBurnTrigger : public Trigger
 {
 public:

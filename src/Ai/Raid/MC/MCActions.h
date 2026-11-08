@@ -119,6 +119,13 @@ public:
     bool Execute(Event event) override;
 };
 
+// CoA Combat (A1): skull the Son of Flame to kill now (FindSonOfFlameToKill), sticky while the skulled one lives.
+class McRagnarosSonsMarkAction : public Action
+{
+public:
+    McRagnarosSonsMarkAction(PlayerbotAI* botAI) : Action(botAI, "mc ragnaros sons mark") {}
+    bool Execute(Event event) override;
+};
 class McCoreHoundMarkAction : public Action
 {
 public:

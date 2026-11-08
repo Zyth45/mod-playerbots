@@ -183,3 +183,8 @@ bool McGolemaggCaveInTrigger::IsActive()
 {
     return McCoaFixesOn() && HasAnyAura(bot, GOLEMAGG_CAVE_IN_AURAS);
 }
+
+bool McRagnarosSonsTrigger::IsActive()
+{
+    return McCoaFixesOn() && PlayerbotAI::IsMainTank(bot) && FindSonOfFlameToKill(bot);
+}

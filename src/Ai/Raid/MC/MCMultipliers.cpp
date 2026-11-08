@@ -238,3 +238,10 @@ float ShazzrahSaveInterruptMultiplier::GetValue(Action* action)
     SpellInfo const* info = spellId ? sSpellMgr->GetSpellInfo(spellId) : nullptr;
     return info && info->HasEffect(SPELL_EFFECT_INTERRUPT_CAST) ? 0.0f : 1.0f;
 }
+
+float RagnarosSonsNoAoeMultiplier::GetValue(Action* action)
+{
+    if (!McCoaFixesOn() || bot->GetMapId() != 409 || !IsDpsBotWithAoeAction(bot, action))
+        return 1.0f;
+    return FindSonOfFlameToKill(bot) ? 0.0f : 1.0f;
+}

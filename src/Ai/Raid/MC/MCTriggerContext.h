@@ -48,6 +48,7 @@ public:
         creators["mc lucifron mark"] = &RaidMcTriggerContext::lucifron_mark;
         creators["mc baron geddon burn"] = &RaidMcTriggerContext::baron_geddon_burn;
         creators["mc golemagg cave in"] = &RaidMcTriggerContext::golemagg_cave_in;
+        creators["mc ragnaros sons mark"] = &RaidMcTriggerContext::ragnaros_sons_mark;
         creators["mc sulfuron mark"] = &RaidMcTriggerContext::sulfuron_mark;
         creators["mc gehennas rain of fire"] = &RaidMcTriggerContext::gehennas_rain_of_fire;
         creators["mc gehennas flame orb cast"] = &RaidMcTriggerContext::gehennas_flame_orb_cast;
@@ -86,6 +87,7 @@ private:
     }
     static Trigger* magmadar_mark(PlayerbotAI* botAI) { return new RaidKillOrderMarkTrigger(botAI, "mc magmadar mark", "magmadar"); }
     static Trigger* gehennas_mark(PlayerbotAI* botAI) { return new RaidKillOrderMarkTrigger(botAI, "mc gehennas mark", "gehennas"); }
+    static Trigger* ragnaros_sons_mark(PlayerbotAI* botAI) { return new McRagnarosSonsTrigger(botAI); }
     static Trigger* golemagg_cave_in(PlayerbotAI* botAI) { return new McGolemaggCaveInTrigger(botAI); }
     static Trigger* baron_geddon_burn(PlayerbotAI* botAI) { return new McBaronGeddonBurnTrigger(botAI); }
     static Trigger* lucifron_mark(PlayerbotAI* botAI) { return new McCoaKillOrderTrigger(botAI, "mc lucifron mark", "lucifron"); }
