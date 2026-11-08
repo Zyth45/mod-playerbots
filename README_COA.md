@@ -190,4 +190,5 @@ revision (`targetSourceRevision` in the release `UPDATE.json`), rebuild, and tag
 - [steviecraycray](https://github.com/steviecraycray) for the authored per-specialization rotations, the gear
   weights and weapon shapes, and several fixes the nine base classes benefit from as well
 
-Same license as mod-playerbots (GPL-2.0).
+Same license as mod-playerbots (GPL-2.0). The combat guards in `src/Ai/Coa/Gardes/` (and `tests/dc294/`) come from Dungeon Clear by Jared Wright and
+contributors and stay under AGPL-3.0-or-later: see `LICENSE-GARDES` and `AUTHORS.md`.

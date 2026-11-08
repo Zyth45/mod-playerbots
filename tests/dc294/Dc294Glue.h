@@ -1,3 +1,13 @@
+/*
+ * Copyright (C) 2026+ Jared Wright and contributors
+ *
+ * This program is free software: you can redistribute it and/or modify it under the terms of the GNU Affero
+ * General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your
+ * option) any later version. This program is distributed WITHOUT ANY WARRANTY; see <https://www.gnu.org/licenses/>.
+ *
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
 // Dungeon Clear 2.9.4 (coa/2.9.4 @ 0590afb): the GLUE of the party combat guards (the gates around the pure kernels),
 // TRANSCRIBED line for line from the live code as the non-regression oracle of the module's versions. Live reads are
 // replaced by the facts they produce; nothing else is changed. With a bot tank driving an active run, the module must

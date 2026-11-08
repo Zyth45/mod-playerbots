@@ -121,3 +121,7 @@ Authorship is assigned for each commit within the git history, which is stored i
 * zeb139
 * ZhengPeiRu21
 * 姜耀
+
+## Code under another license
+
+* The combat guards in `src/Ai/Coa/Gardes/` and the reference headers in `tests/dc294/` come from Dungeon Clear by Jared Wright and contributors, under AGPL-3.0-or-later (see `LICENSE-GARDES`).
