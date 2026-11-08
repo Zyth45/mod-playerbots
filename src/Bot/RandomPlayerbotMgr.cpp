@@ -2856,11 +2856,12 @@ bool RandomPlayerbotMgr::IsRandomBot(Player* bot)
 
 bool RandomPlayerbotMgr::IsRandomBot(ObjectGuid::LowType bot)
 {
-    ObjectGuid guid = ObjectGuid::Create<HighGuid::Player>(bot);
-    if (!sPlayerbotAIConfig.IsInRandomAccountList(sCharacterCache->GetCharacterAccountIdByGuid(guid)))
+    // Cheap set lookup first: most callers ask about players that are not current random bots.
+    if (!currentBots.contains(bot))
         return false;
 
-    return currentBots.contains(bot);
+    ObjectGuid guid = ObjectGuid::Create<HighGuid::Player>(bot);
+    return sPlayerbotAIConfig.IsInRandomAccountList(sCharacterCache->GetCharacterAccountIdByGuid(guid));
 }
 
 bool RandomPlayerbotMgr::IsAddclassBot(Player* bot)
