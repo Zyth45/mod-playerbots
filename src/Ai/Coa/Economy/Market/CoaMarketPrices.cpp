@@ -10,6 +10,7 @@
 #include "AuctionHouseMgr.h"
 #include "CharacterCache.h"
 #include "CoaAuctionHouseBot.h"
+#include "CoaEconomyData.h"
 #include "Config.h"
 #include "DatabaseEnv.h"
 #include "GameTime.h"
@@ -141,6 +142,8 @@ void MarketPrices::OnSale(uint32 itemId, uint32 itemCount, uint64 price, uint32 
         return;
     if (IsHouseCharacter(ownerGuidLow) || IsHouseCharacter(buyerGuidLow))
         return;
+
+    Data::RecordSale(itemId, itemCount, price);
 
     uint64 const perItem = std::max<uint64>(1, price / itemCount);
     MarketBand& band = _bands[itemId];

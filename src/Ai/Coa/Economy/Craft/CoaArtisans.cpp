@@ -7,6 +7,7 @@
 #include "CoaArtisans.h"
 
 #include "CoaAuctionHouseBot.h"
+#include "CoaEconomyData.h"
 #include "CoaMarketPrices.h"
 #include "Config.h"
 #include "DBCStores.h"
@@ -198,7 +199,10 @@ Item* Craft(Player* bot, Recipe const& recipe)
     if (toPay)
         bot->ModifyMoney(-int32(std::min<uint64>(toPay, uint64(INT32_MAX))));
 
-    return bot->StoreNewItem(dest, recipe.itemId, true, Item::GenerateItemRandomPropertyId(recipe.itemId));
+    Item* item = bot->StoreNewItem(dest, recipe.itemId, true, Item::GenerateItemRandomPropertyId(recipe.itemId));
+    if (item)
+        Data::RecordCraft(recipe.skillId, recipe.itemId, recipe.count, int64(recipe.productValue) - int64(recipe.materialCost));
+    return item;
 }
 
 } // namespace CoaEconomy::Artisans
