@@ -4660,6 +4660,22 @@ AiPlayerbot.CoaEconomy.BotAuctions.MaxScan = 300
 AiPlayerbot.CoaEconomy.Artisans.Enable = 0
 AiPlayerbot.CoaEconomy.Artisans.MinProfitPercent = 20
 
+# Craft on order and artisans in Trade, with CoA Live's lines (bank 3_0_05 of CoA IA MIND) and COD mail. Needs
+# Artisans, and AiPlayerbot.CoaLive.Enable = 1 (without it nothing is said and no order is taken).
+# A player whispers "can you make [item]?" to a bot that knows the recipe: it quotes the market value of the piece
+# (never less than its materials plus FeePercent), crafts it and mails it cash on delivery; one order per
+# OrderCooldownMinutes per bot, else it says it is busy. Back from the auction house in a capital, an artisan may
+# offer the piece it just made in Trade (TradeOfferPercent; a player who answers gets it COD at the price said)
+# or say it takes orders.
+#    Enable                1 = on, 0 = off (default). Read at start-up (restart to change it).
+#    FeePercent            Least margin over the materials (default 15).
+#    OrderCooldownMinutes  Least time between two orders of a bot (default 5).
+#    TradeOfferPercent     Chance to offer a fresh piece in Trade rather than at the auction house (default 50).
+AiPlayerbot.CoaEconomy.CraftOrders.Enable = 0
+AiPlayerbot.CoaEconomy.CraftOrders.FeePercent = 15
+AiPlayerbot.CoaEconomy.CraftOrders.OrderCooldownMinutes = 5
+AiPlayerbot.CoaEconomy.CraftOrders.TradeOfferPercent = 50
+
 ###################################################################################################
 #  CoA Combat — owned by the CoA Combat session
 # CoA Combat

@@ -9,6 +9,7 @@
 
 #include "Define.h"
 
+#include <string>
 #include <vector>
 
 class Item;
@@ -30,6 +31,7 @@ namespace CoaEconomy::Artisans
         SpellInfo const* spell = nullptr;
         uint32 itemId = 0;
         uint32 count = 1;
+        uint32 skillId = 0;      // the profession (SkillLine.dbc)
         uint64 materialCost = 0; // all reagents at market price, copper
         uint64 productValue = 0; // the product at market price, whole count, copper
     };
@@ -44,6 +46,9 @@ namespace CoaEconomy::Artisans
     // Crafts it: uses the reagents held, pays the missing ones, stores the product. Null when the bags are full or
     // the gold is short (nothing is taken then).
     Item* Craft(Player* bot, Recipe const& recipe);
+
+    // The profession's name in the bot's language (English when it has none).
+    std::string ProfessionName(Player* bot, uint32 skillId);
 
     // One item's market price (learned price, else the house bot's, else a vendor-based guess), copper.
     uint64 MarketPrice(uint32 itemId);
