@@ -129,6 +129,10 @@ bool CoaWorldIsBotHeld(uint32 lowGuid);
 // With AiPlayerbot.CoaWorld.Travel.Enable or .Hearthstone off: a plain bool, false.
 bool CoaWorldHearthInstead(Player* bot);
 
+// For the NewRpg quest choice (NewRpgBaseAction, map threads): a quest this bot got stuck on is left aside until its
+// quarantine ends (CoaWorldRecovery). With nothing in quarantine: an atomic bool, false.
+bool CoaWorldQuestQuarantined(uint32 botLowGuid, uint32 questId);
+
 // For RandomPlayerbotMgr::AddRandomBots: the accounts with a character in a real player's zone go first
 // (AiPlayerbot.CoaWorld.Density). Off: returns at once.
 void CoaWorldDensityOrderAccounts(std::vector<uint32>& accounts);

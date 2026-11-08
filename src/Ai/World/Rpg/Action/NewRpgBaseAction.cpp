@@ -5,6 +5,8 @@
  */
 
 #include "CoaQuestMenu.h"
+
+#include "CoaWorldBots.h"  // CoA World: CoaWorldQuestQuarantined
 #include "CoaRpgTrade.h"
 #include "CoaQuestLogRules.h"
 #include "NewRpgBaseAction.h"
@@ -1305,6 +1307,12 @@ bool NewRpgBaseAction::RandomChangeStatus(std::vector<NewRpgStatus> candidateSta
                 if (botAI->lowPriorityQuest.find(questId) != botAI->lowPriorityQuest.end())
                     continue;
 
+                // --- CoA World (CoA Monde session) ---
+                // A quest the bot got stuck on is left aside a while (CoaWorldRecovery).
+                if (CoaWorldQuestQuarantined(bot->GetGUID().GetCounter(), questId))
+                    continue;
+                // --- end CoA World ---
+
                 // An elite, group or too high quest in the log (copied from the master, shared, "accept all") is
                 // only handed in, never worked on alone: bots died on it again and again
                 // (jealous-sound/azerothcore-wotlk-coa#5521).
@@ -1426,6 +1434,12 @@ bool NewRpgBaseAction::CheckRpgStatusAvailable(NewRpgStatus status)
                 uint32 questId = bot->GetQuestSlotQuestId(slot);
                 if (botAI->lowPriorityQuest.find(questId) != botAI->lowPriorityQuest.end())
                     continue;
+
+                // --- CoA World (CoA Monde session) ---
+                // A quest the bot got stuck on is left aside a while (CoaWorldRecovery).
+                if (CoaWorldQuestQuarantined(bot->GetGUID().GetCounter(), questId))
+                    continue;
+                // --- end CoA World ---
 
                 // An elite, group or too high quest in the log (copied from the master, shared, "accept all") is
                 // only handed in, never worked on alone: bots died on it again and again
