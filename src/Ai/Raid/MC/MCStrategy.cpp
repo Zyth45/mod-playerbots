@@ -158,6 +158,7 @@ void RaidMcStrategy::InitMultipliers(std::vector<Multiplier*>& multipliers)
     multipliers.push_back(new GolemaggMultiplier(botAI));
     multipliers.push_back(new MajordomoReflectionMultiplier(botAI));
     multipliers.push_back(new ShazzrahReflectionMultiplier(botAI));
+    multipliers.push_back(new ShazzrahSaveInterruptMultiplier(botAI));
 }
 
 void RaidMcStrategy::AppendTargetExclusions(GuidSet& exclusions, TargetValueExclusionType type)

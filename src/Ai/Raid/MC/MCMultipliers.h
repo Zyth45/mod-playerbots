@@ -38,6 +38,14 @@ public:
 };
 
 // CoA: melee wait outside a Reflection of Shazzrah's Arcane Explosion until the tank drags Shazzrah clear of it
+// CoA Combat (S1): Shazzrah's Arcane Force Nova (2105612, 10 s cast, 7,000-12,000 arcane to the whole raid) is the cast
+// to interrupt. While he casts anything else, the bots keep their interrupts for it (Mass Counterspell, his 1 s casts).
+class ShazzrahSaveInterruptMultiplier : public Multiplier
+{
+public:
+    ShazzrahSaveInterruptMultiplier(PlayerbotAI* botAI) : Multiplier(botAI, "mc shazzrah save interrupt") {}
+    float GetValue(Action* action) override;
+};
 class ShazzrahReflectionMultiplier : public Multiplier
 {
 public:
