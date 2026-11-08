@@ -6,6 +6,7 @@
 
 #include "ActionContext.h"
 #include "AiObjectContext.h"
+#include "CoaCombatContext.h"
 #include "CoaGardesContext.h"
 #include "Aq20ActionContext.h"
 #include "Aq40ActionContext.h"
@@ -104,4 +105,6 @@ void AiObjectContext::BuildSharedActionContexts(SharedNamedObjectContextList<Act
     // machen Kampfverhalten zu Daten - siehe Ai/Coa/CoaGenericContext.h
     actionContexts.Add(new CoaGenericActionContext());
     actionContexts.Add(new CoaGardesActionContext());
+    // CoA Combat
+    actionContexts.Add(new CoaCombatActionContext());
 }

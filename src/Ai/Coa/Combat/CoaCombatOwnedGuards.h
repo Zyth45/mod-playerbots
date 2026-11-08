@@ -29,5 +29,6 @@
 // Category B: guards Dungeon Clear ran alone, now in the module. Dungeon Clear calls or reads the module's instead.
 #define COA_COMBAT_OWNS_BEAR_FORM_BEFORE_PULL 1  // B1: Dungeon Clear's pull calls CoaTankForm::EnsureBearForm
 #define COA_COMBAT_OWNS_BREATH_GUARD 1  // B2: module world tick; Dungeon Clear's party gate calls CoaBreathGuard::AnyMemberUnderWater
+#define COA_COMBAT_OWNS_STUCK_COMBAT_BREAKER 1  // B3: CoaStuckCombat::SetRunAllows (bot-tank rung, chess); DC keeps its run watchdog
 
 #endif
