@@ -14,6 +14,7 @@ void AddSC_coa_world_dungeon_sim();
 void AddSC_coa_world_pvp();
 void AddSC_coa_world_recovery();
 void AddSC_coa_world_travel();
+void AddSC_coa_world_server_first();
 
 void AddCoaWorldScripts()
 {
@@ -23,4 +24,5 @@ void AddCoaWorldScripts()
     AddSC_coa_world_pvp();
     AddSC_coa_world_recovery();
     AddSC_coa_world_travel();
+    AddSC_coa_world_server_first();
 }
