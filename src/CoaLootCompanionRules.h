@@ -46,6 +46,13 @@ inline bool CoaLootCompanionMomentOk(CoaLootCompanionMoment const& m)
            (!m.inRaid || m.lootAppearance);
 }
 
+// A stealth or invisibility aura keeps the companion in only when the alt is really sneaking: a passive aura or one
+// with no duration (a class's permanent form, e.g. the Reaper's) does not count.
+inline bool CoaStealthBlocksCompanion(bool passive, bool permanent)
+{
+    return !passive && !permanent;
+}
+
 inline CoaKnownCompanion const* CoaFindCompanion(std::vector<CoaKnownCompanion> const& known, std::uint32_t spellId)
 {
     for (CoaKnownCompanion const& companion : known)
@@ -163,6 +170,12 @@ inline CoaLootPetVerb CoaLootPetVerbOf(std::string arg)
     if (arg == "auto" || arg == "on")
         return CoaLootPetVerb::Auto;
     return CoaLootPetVerb::Set;
+}
+
+// "loot pet off" puts away the companion the alt has out at once; the tick never brings one back while off.
+inline bool CoaLootPetDismissNow(CoaLootPetVerb verb, bool companionOut)
+{
+    return verb == CoaLootPetVerb::Off && companionOut;
 }
 
 inline std::string CoaLootPetField(std::string text)

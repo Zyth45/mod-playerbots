@@ -38,6 +38,12 @@ int main()
     m.lootAppearance = true;
     assert(CoaLootCompanionMomentOk(m));
 
+    // Only a real stealth keeps the companion in: not a passive or permanent aura.
+    assert(CoaStealthBlocksCompanion(false, false));
+    assert(!CoaStealthBlocksCompanion(true, false));
+    assert(!CoaStealthBlocksCompanion(false, true));
+    assert(!CoaStealthBlocksCompanion(true, true));
+
     // No favourite: a companion that loots by itself, the lowest spell id.
     assert(CoaChooseLootCompanion(all, 0, false, false) == lootbot.spellId);
     // The favourite, known and looting here.
@@ -100,6 +106,12 @@ int main()
     assert(CoaLootPetVerbOf("auto") == CoaLootPetVerb::Auto);
     assert(CoaLootPetVerbOf("on") == CoaLootPetVerb::Auto);
     assert(CoaLootPetVerbOf("90100") == CoaLootPetVerb::Set);
+
+    // "off" puts the companion away at once; nothing else does.
+    assert(CoaLootPetDismissNow(CoaLootPetVerb::Off, true));
+    assert(!CoaLootPetDismissNow(CoaLootPetVerb::Off, false));
+    assert(!CoaLootPetDismissNow(CoaLootPetVerb::Auto, true));
+    assert(!CoaLootPetDismissNow(CoaLootPetVerb::Set, true));
 
     // The addon contract, verbatim.
     assert(CoaLootPetLine(lootbot, "Lootbot 3000") == "LP\tpet\t90100\t44022\tLootbot 3000\t1");

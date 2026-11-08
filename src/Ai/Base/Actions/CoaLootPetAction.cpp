@@ -15,8 +15,11 @@
 #include "Map.h"
 #include "ObjectMgr.h"
 #include "Playerbots.h"
+#include "SpellAuraEffects.h"
+#include "SpellAuras.h"
 #include "SpellInfo.h"
 #include "SpellMgr.h"
+#include "TemporarySummon.h"
 #include "Timer.h"
 
 #include <algorithm>
@@ -89,6 +92,17 @@ Creature* OwnedCritter(Player* bot)
         return nullptr;
     Creature* critter = map->GetCreature(bot->GetCritterGUID());
     return critter && critter->IsAlive() && critter->GetOwnerGUID() == bot->GetGUID() ? critter : nullptr;
+}
+
+// A stealth or invisibility the alt is actively using (CoaStealthBlocksCompanion), not a passive or permanent one.
+bool Sneaking(Player* bot)
+{
+    for (AuraType type : {SPELL_AURA_MOD_STEALTH, SPELL_AURA_MOD_INVISIBILITY})
+        for (AuraEffect const* effect : bot->GetAuraEffectsByType(type))
+            if (Aura const* aura = effect->GetBase())
+                if (CoaStealthBlocksCompanion(aura->IsPassive(), aura->IsPermanent()))
+                    return true;
+    return false;
 }
 
 bool DueForCheck(Player* bot)
@@ -176,9 +190,15 @@ bool CoaLootPetAction::Execute(Event event)
                 botAI->TellMaster(ListText(known, choice.favourite));
             return true;
         case CoaLootPetVerb::Off:
+        {
             choice.off = true;
             Store(bot, choice);
+            Creature* out = OwnedCritter(bot);
+            if (CoaLootPetDismissNow(CoaLootPetVerb::Off, out != nullptr))
+                if (TempSummon* summon = out->ToTempSummon())
+                    summon->UnSummon();
             break;
+        }
         case CoaLootPetVerb::Auto:
             choice = CoaLootPetChoice();
             Store(bot, choice);
@@ -237,8 +257,7 @@ void CoaLootCompanionTick(PlayerbotAI* botAI)
                                         map->IsRaid(),
                                         lootAppearance,
                                         bot->IsNonMeleeSpellCast(true) || bot->IsInFlight() || bot->GetVehicle() ||
-                                            bot->HasUnitState(UNIT_STATE_CONTROLLED) || bot->HasStealthAura() ||
-                                            bot->HasInvisibilityAura()};
+                                            bot->HasUnitState(UNIT_STATE_CONTROLLED) || Sneaking(bot)};
     if (!CoaLootCompanionMomentOk(moment))
         return skip(std::string("not now:") + (moment.alive ? "" : " dead") + (moment.inCombat ? " combat" : "") +
                     (moment.mounted ? " mounted" : "") + (moment.flying ? " flying" : "") +
@@ -246,7 +265,7 @@ void CoaLootCompanionTick(PlayerbotAI* botAI)
                     (moment.inRaid && !lootAppearance ? " raid without the appearance" : "") +
                     (bot->IsNonMeleeSpellCast(true) ? " casting" : "") + (bot->IsInFlight() ? " taxi" : "") +
                     (bot->GetVehicle() ? " vehicle" : "") + (bot->HasUnitState(UNIT_STATE_CONTROLLED) ? " controlled" : "") +
-                    (bot->HasStealthAura() ? " stealth aura" : "") + (bot->HasInvisibilityAura() ? " invisibility aura" : ""));
+                    (Sneaking(bot) ? " stealthed" : ""));
 
     CoaLootPetChoice const choice = ChoiceOf(bot);
     if (choice.off)
