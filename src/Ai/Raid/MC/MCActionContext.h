@@ -45,6 +45,8 @@ public:
         creators["mc magmadar backup taunt"] = &RaidMcActionContext::magmadar_backup_taunt;
         creators["mc move from ground effect"] = &RaidMcActionContext::move_from_ground_effect;
         creators["mc gehennas mark"] = &RaidMcActionContext::gehennas_mark;
+        creators["mc lucifron mark"] = &RaidMcActionContext::lucifron_mark;
+        creators["mc sulfuron mark"] = &RaidMcActionContext::sulfuron_mark;
         creators["mc magmadar mark"] = &RaidMcActionContext::magmadar_mark;
         creators["mc gehennas clear flame orb spawn"] = &RaidMcActionContext::gehennas_clear_flame_orb_spawn;
         creators["mc gehennas move from flame orb"] = &RaidMcActionContext::gehennas_move_from_flame_orb;
@@ -84,6 +86,22 @@ private:
     static Action* gehennas_mark(PlayerbotAI* botAI)
     {
         return new RaidKillOrderMarkAction(botAI, "mc gehennas mark", "gehennas", { MoltenCoreHelpers::NPC_FLAMEWAKER });
+    }
+    // CoA Combat: the Shadow first (it gives Lucifron +39 % shadow damage), then the Protectors (Dominate Mind).
+    static Action* lucifron_mark(PlayerbotAI* botAI)
+    {
+        return new RaidKillOrderMarkAction(botAI, "mc lucifron mark", "lucifron",
+                                           { MoltenCoreHelpers::NPC_SHADOW_OF_LUCIFRON,
+                                             MoltenCoreHelpers::NPC_FLAMEWAKER_PROTECTOR });
+    }
+    // CoA Combat: Sulfuron's healers and cursers before him (they heal each other and stack -51 % healing, +99 %).
+    static Action* sulfuron_mark(PlayerbotAI* botAI)
+    {
+        return new RaidKillOrderMarkAction(botAI, "mc sulfuron mark", "sulfuron harbinger",
+                                           { MoltenCoreHelpers::NPC_FLAMEWAKER_PRIEST,
+                                             MoltenCoreHelpers::NPC_COA_EBON_THE_CRUEL,
+                                             MoltenCoreHelpers::NPC_COA_CULL_THE_DESTROYER,
+                                             MoltenCoreHelpers::NPC_COA_PROXIMA_THE_OPRESSOR });
     }
     static Action* gehennas_clear_flame_orb_spawn(PlayerbotAI* botAI)
     {

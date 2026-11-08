@@ -19,6 +19,10 @@ void RaidMcStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
     triggers.push_back(
         new TriggerNode("mc lucifron shadow resistance",
                         { NextAction("mc lucifron shadow resistance", ACTION_RAID) }));
+    // CoA Combat: the Shadow of Lucifron, then the Protectors, then him (docs/MC-ETAT-3.0.md, L1/L3).
+    triggers.push_back(
+        new TriggerNode("mc lucifron mark",
+                        { NextAction("mc lucifron mark", ACTION_RAID) }));
 
     // Magmadar
     // Panic fears everyone in 45 yd (stock 19408) or 100 yd (CoA 2105309): no range keeps a raid out of it, and a
@@ -90,6 +94,10 @@ void RaidMcStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
     triggers.push_back(
         new TriggerNode("mc sulfuron harbinger fire resistance",
                         { NextAction("mc sulfuron harbinger fire resistance", ACTION_RAID) }));
+    // CoA Combat: his priest and his three disciples, then him (docs/MC-ETAT-3.0.md, U1).
+    triggers.push_back(
+        new TriggerNode("mc sulfuron mark",
+                        { NextAction("mc sulfuron mark", ACTION_RAID) }));
 
     // Golemagg the Incinerator
     triggers.push_back(

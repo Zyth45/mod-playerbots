@@ -59,6 +59,13 @@ enum MoltenCoreNPCs
     // CoA: Majordomo's periodic add; it roots, silences and pacifies the players it chains until it dies
     // (npc_sacrificial_chains_coa.cpp)
     NPC_SACRIFICIAL_CHAINS = 92030,
+    // CoA Combat (docs/MC-ETAT-3.0.md): Lucifron's and Sulfuron's adds, for their kill orders.
+    NPC_SHADOW_OF_LUCIFRON = 12268,     // CoA: +39 % shadow damage to Lucifron while it lives
+    NPC_FLAMEWAKER_PROTECTOR = 12119,   // Dominate Mind
+    NPC_FLAMEWAKER_PRIEST = 11662,      // Sulfuron's healer
+    NPC_COA_CULL_THE_DESTROYER = 92031,  // CoA Mythic/Ascended: Cauterize, Curse of Gehennas
+    NPC_COA_PROXIMA_THE_OPRESSOR = 92032,  // Dampen Magic, Arcane Instability
+    NPC_COA_EBON_THE_CRUEL = 92033,     // Dark Mending, Curse of Lucifron
 };
 
 // CoA difficulty copies of a Molten Core creature: base + offset (01_mc_difficulty_templates.sql)

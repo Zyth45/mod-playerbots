@@ -10,6 +10,21 @@
 #include "PlayerbotAI.h"
 #include "Playerbots.h"
 #include "Trigger.h"
+#include "PlayerbotAIConfig.h"
+#include "RaidBossScripts.h"
+
+// CoA Combat (lot 7, docs/MC-ETAT-3.0.md): every Molten Core fix of the session is off unless
+// AiPlayerbot.CoaCombat.MoltenCore.Enable is 1.
+inline bool McCoaFixesOn() { return sPlayerbotAIConfig.coaCombatMoltenCoreEnable; }
+
+// A kill order the session added (Lucifron, Sulfuron): the stock skull logic, behind the option.
+class McCoaKillOrderTrigger : public RaidKillOrderMarkTrigger
+{
+public:
+    McCoaKillOrderTrigger(PlayerbotAI* botAI, std::string const name, std::string const bossName)
+        : RaidKillOrderMarkTrigger(botAI, name, bossName) {}
+    bool IsActive() override { return McCoaFixesOn() && RaidKillOrderMarkTrigger::IsActive(); }
+};
 
 class McLivingBombDebuffTrigger : public Trigger
 {

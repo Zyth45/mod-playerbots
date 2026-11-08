@@ -719,6 +719,8 @@ public:
     bool coaCombatGearScoreEnable = false;
     // At LootNeedRollLevel 2, how long a bot that wants an item waits for the real players to vote first (ms).
     uint32 coaCombatLootNeedWaitMs = 20000;
+    // Lot 7: the session's Molten Core fixes (kill orders, burn phases, dodges; docs/MC-ETAT-3.0.md).
+    bool coaCombatMoltenCoreEnable = false;
     // ---- end of CoA Combat ----
 
 private:
