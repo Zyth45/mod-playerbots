@@ -23,6 +23,7 @@
 #include "Guild.h"
 #include "GuildMgr.h"
 #include "LFGMgr.h"
+#include "Mail.h"
 #include "Log.h"
 #include "ObjectMgr.h"
 #include "ObjectAccessor.h"
@@ -34,6 +35,7 @@
 #include "RandomPlayerbotMgr.h"
 #include "ScriptMgr.h"
 #include "Util.h"
+#include "World.h"
 #include "WorldPacket.h"
 #include "WorldSession.h"
 
@@ -62,7 +64,28 @@ struct Pending
     uint32 emote = 0;
     std::string text;
     bool invite = false;
+    ObjectGuid codItem;  // an item of the bot's bags mailed to the subject, cash on delivery
+    uint32 cod = 0;
 };
+
+// A Trade announce that a real player may answer (spec: never an announce that leads nowhere).
+struct Offer
+{
+    bool wts = true;
+    ObjectGuid item;      // WTS: the very item of the bot's bags
+    uint32 itemId = 0;
+    uint32 price = 0;     // the price said, for the whole stack
+    uint64 expiresMs = 0;
+};
+constexpr uint64 OFFER_MS = 15 * MINUTE * IN_MILLISECONDS;
+std::unordered_map<uint64, Offer> offers;
+
+// The offer is answered: the bot does not deal twice.
+void ForgetOffer(Player* bot)
+{
+    std::lock_guard<std::mutex> guard(liveLock);
+    offers.erase(bot->GetGUID().GetRawValue());
+}
 
 std::mutex liveLock;
 std::shared_ptr<Bank const> bank;
@@ -162,6 +185,8 @@ struct ReactOptions
     float populationFactor = 1.0f;                 // the channel timers (1, 2, 4, 5)
     std::map<std::string, std::string> extra;      // %item, %price, %dungeon, %need...
     bool now = false;                              // no typing delay (a bot logging out)
+    ObjectGuid codItem;                            // mail this item to the subject, cash on delivery
+    uint32 cod = 0;
 };
 
 bool React(Player* bot, std::string const& situation, Player* subject, std::string const& scope,
@@ -241,6 +266,8 @@ bool React(Player* bot, std::string const& situation, Player* subject, std::stri
     p.emote = pick.line->emote;
     p.text = text;
     p.invite = invite;
+    p.codItem = opt.codItem;
+    p.cod = opt.cod;
     liveQueue.push_back(std::move(p));
     return true;
 }
@@ -326,6 +353,28 @@ void Play(Due isDue)
             }
         }
 
+        // "Sent you a COD": the item leaves the bot's bags by mail, cash on delivery at the price said, with the
+        // delivery delay a player's mail to another account gets.
+        if (p.codItem && p.cod && subject)
+        {
+            Item* item = bot->GetItemByGuid(p.codItem);
+            if (item && !item->IsSoulBound() && !item->IsInTrade() && item->GetTemplate())
+            {
+                CharacterDatabaseTransaction trans = CharacterDatabase.BeginTransaction();
+                bot->MoveItemFromInventory(item->GetBagSlot(), item->GetSlot(), true);
+                item->DeleteFromInventoryDB(trans);
+                item->SetOwnerGUID(subject->GetGUID());
+                item->SaveToDB(trans);
+                MailDraft(item->GetTemplate()->Name1, "")
+                    .AddItem(item)
+                    .AddCOD(p.cod)
+                    .SendMailTo(trans, MailReceiver(subject), MailSender(bot), MAIL_CHECK_MASK_COPIED,
+                                sWorld->getIntConfig(CONFIG_MAIL_DELIVERY_DELAY));
+                bot->SaveInventoryAndGoldToDB(trans);
+                CharacterDatabase.CommitTransaction(trans);
+            }
+        }
+
         // "Sure, inviting": the real invite, as the client sends it (world thread opcode).
         if (p.invite && subject && !bot->GetGroup() && !subject->GetGroup())
         {
@@ -391,7 +440,7 @@ uint64 PriceOf(Player* bot, ItemTemplate const* proto)
 
 // Something the bot really carries and could sell: tradable, not a quest item, worth something, green or better
 // (any trade good).
-bool WtsValues(Player* bot, std::map<std::string, std::string>& extra)
+bool WtsValues(Player* bot, std::map<std::string, std::string>& extra, Offer& offer)
 {
     std::vector<Item*> items;
     auto consider = [&](Item* item)
@@ -414,13 +463,16 @@ bool WtsValues(Player* bot, std::map<std::string, std::string>& extra)
         return false;
     Item* item = items[urand(0, items.size() - 1)];
     ItemTemplate const* proto = item->GetTemplate();
+    uint64 const unit = PriceOf(bot, proto);
+    uint64 const total = std::min<uint64>(unit * item->GetCount(), MAX_MONEY_AMOUNT);
     extra["item"] = ChatHelper::FormatItem(proto, item->GetCount() > 1 ? item->GetCount() : 0);
-    extra["price"] = FormatMoney(PriceOf(bot, proto));
+    extra["price"] = FormatMoney(item->GetCount() > 1 ? total : unit);
+    offer = {true, item->GetGUID(), proto->ItemId, static_cast<uint32>(total), 0};
     return true;
 }
 
 // Something on the bot's auction house that a bot of its level would want: a real listing, its real price.
-bool WtbValues(Player* bot, std::map<std::string, std::string>& extra)
+bool WtbValues(Player* bot, std::map<std::string, std::string>& extra, Offer& offer)
 {
     AuctionHouseEntry const* ahEntry = AuctionHouseMgr::GetAuctionHouseEntryFromFactionTemplate(bot->GetFaction());
     AuctionHouseObject* house = ahEntry ? sAuctionMgr->GetAuctionsMap(ahEntry) : nullptr;
@@ -444,6 +496,7 @@ bool WtbValues(Player* bot, std::map<std::string, std::string>& extra)
     ItemTemplate const* proto = sObjectMgr->GetItemTemplate(auction->item_template);
     extra["item"] = ChatHelper::FormatItem(proto);
     extra["price"] = FormatMoney(auction->buyout / auction->itemCount);
+    offer = {false, ObjectGuid::Empty, proto->ItemId, auction->buyout / auction->itemCount, 0};
     return true;
 }
 
@@ -556,13 +609,23 @@ void ChannelTimers(uint64 nowMs)
         if (InCapital(bot))
         {
             ReactOptions trade = opt;
+            Offer offer;
             uint32 const roll = urand(0, 2);
-            if (roll == 0 && WtsValues(bot, trade.extra))
-                React(bot, "trade_wts", nullptr, scope, trade);
-            else if (roll == 1 && WtbValues(bot, trade.extra))
-                React(bot, "trade_wtb", nullptr, scope, trade);
+            bool offered = false;
+            if (roll == 0 && WtsValues(bot, trade.extra, offer))
+                offered = React(bot, "trade_wts", nullptr, scope, trade);
+            else if (roll == 1 && WtbValues(bot, trade.extra, offer))
+                offered = React(bot, "trade_wtb", nullptr, scope, trade);
             else
                 React(bot, "trade_chat", nullptr, scope, trade);
+            if (offered)
+            {
+                offer.expiresMs = nowMs + OFFER_MS;
+                std::lock_guard<std::mutex> guard(liveLock);
+                offers[bot->GetGUID().GetRawValue()] = offer;
+                if (offers.size() > 4096)
+                    offers.clear();
+            }
         }
 
         bot = pick(it->second);
@@ -893,6 +956,42 @@ bool OnWhisper(Player* from, Player* to, std::string const& msg)
         WStrToUtf8(wide, lowered);
     }
     std::string const intent = Classify(NormalizeWhisper(lowered), current->IntentsOf(BotLocale()));
+
+    // An answer to the bot's own Trade announce: the deal is done for real (WTS: the item by mail, cash on
+    // delivery at the price said), or politely turned down (the item is gone; a WTB: "found one already").
+    if (intent != "bot" && intent != "hello" && intent != "thanks")
+    {
+        Offer offer;
+        bool live = false;
+        {
+            std::lock_guard<std::mutex> guard(liveLock);
+            auto it = offers.find(to->GetGUID().GetRawValue());
+            if (it != offers.end() && it->second.expiresMs > GameTime::GetGameTimeMS().count())
+            {
+                offer = it->second;
+                live = true;
+            }
+        }
+        if (live)
+        {
+            ReactOptions opt;
+            ItemTemplate const* proto = sObjectMgr->GetItemTemplate(offer.itemId);
+            if (proto)
+                opt.extra["item"] = ChatHelper::FormatItem(proto);
+            opt.extra["price"] = FormatMoney(offer.price);
+            std::string const scope = "w" + std::to_string(to->GetGUID().GetCounter());
+            Item* item = offer.wts ? to->GetItemByGuid(offer.item) : nullptr;
+            if (offer.wts && item && !item->IsSoulBound() && from->GetTeamId() == to->GetTeamId())
+            {
+                opt.codItem = offer.item;
+                opt.cod = offer.price;
+                if (React(to, "wh_offer_cod", from, scope, opt))
+                    return ForgetOffer(to), true;
+            }
+            else if (React(to, "wh_offer_gone", from, scope, opt))
+                return ForgetOffer(to), true;
+        }
+    }
 
     std::string situation = "wh_" + intent;
     bool invite = false;
