@@ -15,6 +15,7 @@
 #include "CoaFreshStartRules.h"
 #include "CoaImmersionRules.h"
 #include "CoaLiveRules.h"
+#include "CoaWorldFile.h"
 #include "FishingAction.h"
 #include "NewRpgInfo.h"
 #include "CoaSocial.h"
@@ -1174,6 +1175,7 @@ public:
 
     void OnUpdate(uint32 /*diff*/) override
     {
+        CoaWorldFile::Tick(GameTime::GetGameTimeMS().count());  // world.json, only while the dashboard watches
         if (Enabled())
         {
             uint64 const nowMs = GameTime::GetGameTimeMS().count();
@@ -1310,6 +1312,14 @@ bool OnWhisper(Player* from, Player* to, std::string const& msg)
 }
 
 bool SessionsEnabled() { return sPlayerbotAIConfig.coaLiveSessionsEnable; }
+
+bool IsFishing(Player* bot)
+{
+    if (!bot)
+        return false;
+    std::lock_guard<std::mutex> guard(liveLock);
+    return fishingUntil.count(bot->GetGUID().GetRawValue()) != 0;
+}
 
 namespace
 {

@@ -3211,6 +3211,17 @@ AiPlayerbot.CoaLive.Immersion.Enable = 0
 
 AiPlayerbot.CoaFreshStart.Enable = 0
 
+#    AiPlayerbot.CoaLive.DataFile.Enable
+#        Description: world.json for the CoA Dashboard (Population and Health pages): bots online by
+#                     zone, what they do, surnames, server tick. Written every 10 s, and only while the
+#                     dashboard asks for it (squidbot/watch.json): nothing is built when nobody looks.
+#                     Folder: AiPlayerbot.CoaDataDir ("" = <LogsDir>/squidbot); AiPlayerbot.CoaDataFiles
+#                     = 0 stops every data file.
+#        Default:     0 - off
+#                     1 - on
+
+AiPlayerbot.CoaLive.DataFile.Enable = 0
+
 # Bots' minimum and maximum level when teleporting in and out of a zone, according to the new RPG strategy
 # Format: AiPlayerbot.ZoneBracket.zoneID = minLevel,maxLevel
 #

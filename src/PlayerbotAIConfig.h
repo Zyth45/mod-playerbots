@@ -688,6 +688,9 @@ public:
     uint32 coaLiveGreetRange;
     // AiPlayerbot.CoaLive.Sessions.*: the random bots come and go like players (CoaSessionRules.h)
     bool coaLiveSessionsEnable;
+    bool coaLiveDataFileEnable;      // AiPlayerbot.CoaLive.DataFile.Enable: world.json for the dashboard
+    std::string coaLiveDataDir;      // AiPlayerbot.CoaDataDir (shared with the other sessions)
+    bool coaLiveDataFiles;           // AiPlayerbot.CoaDataFiles (shared: 0 stops every data file)
     bool coaFreshStartEnable;  // AiPlayerbot.CoaFreshStart.Enable (launch of a new living realm)
     bool coaLiveImmersionEnable;  // AiPlayerbot.CoaLive.Immersion.Enable (L2 fishing)
     bool coaLiveCityEnable;  // AiPlayerbot.CoaLive.City.Enable (L2 City Life)

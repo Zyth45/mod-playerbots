@@ -44,6 +44,8 @@ uint32 SessionTarget(uint32 count);
 uint32 SessionSeconds();
 uint32 OfflineSeconds();
 bool SessionsEnabled();
+// The bot is at the water (Immersion), for world.json.
+bool IsFishing(Player* bot);
 
 // For the other sessions (CoA World...): their own situations of the bank, said the CoA Live way. Both cost nothing
 // and give nothing when AiPlayerbot.CoaLive.Enable is 0 (the caller keeps its own text).
