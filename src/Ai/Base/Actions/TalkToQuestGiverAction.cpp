@@ -5,6 +5,7 @@
  */
 
 #include "TalkToQuestGiverAction.h"
+#include "CoaAutoNextQuest.h"
 #include "BroadcastHelper.h"
 #include "ChatHelper.h"
 #include "CoaAltAddon.h"
@@ -119,6 +120,7 @@ void TalkToQuestGiverAction::RewardNoItem(Quest const* quest, Object* questGiver
         BroadcastHelper::BroadcastQuestTurnedIn(botAI, bot, quest);
 
         bot->RewardQuest(quest, 0, questGiver, false);
+        CoaTakeAutoNextQuest(bot, quest, questGiver);  // the auto-accept next quest, as for a player
     }
     else
     {
@@ -139,6 +141,7 @@ void TalkToQuestGiverAction::RewardSingleItem(Quest const* quest, Object* questG
         out << PlayerbotTextMgr::instance().GetBotText("quest_status_complete_single_reward", args);
         BroadcastHelper::BroadcastQuestTurnedIn(botAI, bot, quest);
         bot->RewardQuest(quest, index, questGiver, true);
+        CoaTakeAutoNextQuest(bot, quest, questGiver);  // the auto-accept next quest, as for a player
     }
     else
     {
@@ -200,6 +203,7 @@ void TalkToQuestGiverAction::RewardMultipleItem(Quest const* quest, Object* ques
             }
             ItemTemplate const* item = sObjectMgr->GetItemTemplate(quest->RewardChoiceItemId[best]);
             bot->RewardQuest(quest, best, questGiver, true);
+            CoaTakeAutoNextQuest(bot, quest, questGiver);  // the auto-accept next quest, as for a player
             out << "Rewarded " << ChatHelper::FormatItem(item);
         }
         else
@@ -227,6 +231,7 @@ void TalkToQuestGiverAction::RewardMultipleItem(Quest const* quest, Object* ques
             uint32 firstId = *bestIds.begin();
             ItemTemplate const* item = sObjectMgr->GetItemTemplate(quest->RewardChoiceItemId[firstId]);
             bot->RewardQuest(quest, firstId, questGiver, true);
+            CoaTakeAutoNextQuest(bot, quest, questGiver);  // the auto-accept next quest, as for a player
 
             out << "Rewarded " << ChatHelper::FormatItem(item);
         }

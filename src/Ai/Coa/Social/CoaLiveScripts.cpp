@@ -8,8 +8,10 @@
 // Called once by AddPlayerbotsScripts (src/Script/Playerbots.cpp); a new script of the session goes here.
 
 #include "CoaLive.h"
+#include "CoaQuietAchievements.h"
 
 void AddCoaLiveScripts()
 {
     AddSC_coa_live();
+    AddSC_coa_quiet_achievements();
 }

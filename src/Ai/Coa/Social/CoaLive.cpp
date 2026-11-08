@@ -57,6 +57,7 @@
 #include "WorldPacket.h"
 #include "WorldSession.h"
 
+#include <cctype>
 #include <cstdlib>
 #include <list>
 #include <memory>
@@ -633,7 +634,8 @@ void Fish(Player* bot, PlayerbotAI* botAI)
     view.alive = bot->IsAlive();
     view.inCombat = bot->IsInCombat();
     view.inGroup = bot->GetGroup() != nullptr;
-    view.inInstanceOrCity = bot->GetMap()->Instanceable() || InCapital(bot) || bot->InBattleground();
+    // A capital's shore too (the canals of Stormwind): where the players are.
+    view.inInstanceOrCity = bot->GetMap()->Instanceable() || bot->InBattleground();
     NewRpgStatus const status = info.GetStatus();
     view.idleStatus = status == RPG_IDLE || status == RPG_REST || status == RPG_WANDER_RANDOM;
     view.knowsFishing = bot->HasSkill(SKILL_FISHING);
@@ -642,7 +644,7 @@ void Fish(Player* bot, PlayerbotAI* botAI)
 
     // Water close by: the costly look, last.
     WorldPosition water = FindWaterRadial(bot, bot->GetPositionX(), bot->GetPositionY(), bot->GetPositionZ(),
-                                                bot->GetMap(), bot->GetPhaseMask(), 10.0f, 40.0f, 10.0f);
+                                                bot->GetMap(), bot->GetPhaseMask(), 10.0f, 60.0f, 10.0f);
     if (!water.IsValid())
         return;
 
@@ -951,7 +953,9 @@ void ChannelTimers(uint64 nowMs)
         if (it == botsByZone.end() || it->second.empty())
             continue;
         ReactOptions opt;
-        opt.populationFactor = PopulationFactor(real);
+        // A realm with one player is the usual case: the bots of the zone count too (ten for one player), or the
+        // channels of a solo realm stayed at a third of their pace (a Trade line every 13 minutes).
+        opt.populationFactor = PopulationFactor(real + uint32(it->second.size()) / 10);
         std::string const scope = "z" + std::to_string(zone);
 
         React(pick(it->second), "general_chat", nullptr, scope, opt);
@@ -1604,12 +1608,38 @@ public:
         return commandTable;
     }
 
-    static Player* Bot(ChatHandler* handler, std::string const& name)
+    // "Kegarink Bot", Kegarink Bot or kegarink bot: quotes dropped, the name as written first, then each word with
+    // a capital (normalizePlayerName lowers the surname: "Kegarink bot" is nobody).
+    static std::string Unquoted(std::string text)
     {
-        std::string normalized = name;
-        if (!normalizePlayerName(normalized))
-            return nullptr;
-        Player* bot = ObjectAccessor::FindPlayerByName(normalized, true);
+        text = Acore::String::Trim(text);
+        if (text.size() >= 2 && text.front() == '"' && text.back() == '"')
+            text = Acore::String::Trim(text.substr(1, text.size() - 2));
+        return text;
+    }
+
+    static Player* Bot(ChatHandler* handler, std::string const& written)
+    {
+        std::string const name = Unquoted(written);
+        Player* bot = name.empty() ? nullptr : ObjectAccessor::FindPlayerByName(name, true);
+        if (!bot && !name.empty())
+        {
+            std::string capitals = name;
+            bool start = true;
+            for (char& c : capitals)
+            {
+                if (c == ' ')
+                    start = true;
+                else if (start)
+                {
+                    c = char(std::toupper(static_cast<unsigned char>(c)));
+                    start = false;
+                }
+                else
+                    c = char(std::tolower(static_cast<unsigned char>(c)));
+            }
+            bot = ObjectAccessor::FindPlayerByName(capitals, true);
+        }
         if (!bot || !sRandomPlayerbotMgr.IsRandomBot(bot))
         {
             handler->PSendSysMessage("No random bot named {} online.", name);
@@ -1648,7 +1678,7 @@ public:
             handler->SendSysMessage("Usage: .bot soul set <name> <lazy|quester|wanderer|trader|pvp>");
             return true;
         }
-        std::string const name = Acore::String::Trim(text.substr(0, space));
+        std::string const name = Unquoted(text.substr(0, space));
         std::string const kind = Acore::String::Trim(text.substr(space + 1));
         uint8 archetype = CoaSoul::ARCHETYPE_COUNT;
         for (uint8 a = 0; a < CoaSoul::ARCHETYPE_COUNT; ++a)

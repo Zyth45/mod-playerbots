@@ -5,6 +5,7 @@
  */
 
 #include "PlayerbotFactory.h"
+#include "CoaQuietAchievements.h"
 #include "AccountMgr.h"
 #include "AiFactory.h"
 #include "AiObjectContext.h"
@@ -852,6 +853,8 @@ void PlayerbotFactory::Prepare()
 
 void PlayerbotFactory::Randomize(bool incremental)
 {
+    // The achievements of a bot made or levelled here are earned, not announced around it (CoA Live).
+    CoaQuietAchievements::Scope quietAchievements(bot);
     // if (sPlayerbotAIConfig.disableRandomLevels)
     //     return;
 
