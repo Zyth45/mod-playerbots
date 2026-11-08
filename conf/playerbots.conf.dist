@@ -2959,6 +2959,16 @@ AiPlayerbot.CoaWorld.Density.FarSharePct = 30
 AiPlayerbot.CoaWorld.Density.RetirePerMinute = 10
 AiPlayerbot.CoaWorld.Density.NearRange = 800
 
+#    AiPlayerbot.CoaWorld.Events.Enable
+#        Description: events.jsonl for the SquidBots dashboard: one line per invasion, gold rush, server first,
+#                     guild ding or drop, and bot found stuck or sent home. Written by a thread of its own in
+#                     AiPlayerbot.CoaDataDir (default <LogsDir>/squidbot), turned over at 5 MB.
+#                     AiPlayerbot.CoaDataFiles = 0 turns it off too. Read at start-up.
+#        Default:     0 - off
+#                     1 - on
+
+AiPlayerbot.CoaWorld.Events.Enable = 0
+
 # Quality a looted item must reach to be written to the "playerbots.loot" logger:
 # 3 rare (blue), 4 epic, 5 legendary. Nothing is written unless worldserver.conf
 # points that logger at an appender, and only bots are ever logged.

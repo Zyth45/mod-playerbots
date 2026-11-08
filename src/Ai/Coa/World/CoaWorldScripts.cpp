@@ -17,6 +17,7 @@ void AddSC_coa_world_travel();
 void AddSC_coa_world_server_first();
 void AddSC_coa_world_guilds();
 void AddSC_coa_world_density();
+void AddSC_coa_world_events();
 
 void AddCoaWorldScripts()
 {
@@ -29,4 +30,5 @@ void AddCoaWorldScripts()
     AddSC_coa_world_server_first();
     AddSC_coa_world_guilds();
     AddSC_coa_world_density();
+    AddSC_coa_world_events();
 }

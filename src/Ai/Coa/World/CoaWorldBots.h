@@ -103,6 +103,9 @@ namespace CoaWorld
     // The invader of an event in the reader's language (IA MIND's %event, never at the start of a line).
     std::string EventName(Player* reader, std::string const& key);
 
+    // events.jsonl for the dashboard (CoaWorldEvents.cpp): one line, from any thread. Off: returns at once.
+    void LogEvent(char const* kind, std::string const& bot, std::string const& text);
+
     uint32 BorrowedCount(uint32 owner);
     uint32 BorrowedTotal();
 }
