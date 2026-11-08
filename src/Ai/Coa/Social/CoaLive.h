@@ -10,6 +10,7 @@
 #include "Common.h"
 #include "ObjectGuid.h"
 
+#include <functional>
 #include <string>
 #include <unordered_map>
 
@@ -54,6 +55,26 @@ bool SayLine(Player* bot, std::string const& situation, std::unordered_map<std::
 // only, for a system announce: no pace, no typo, no slang. Empty when there is none or a slot is missing.
 std::string SystemLine(Player* reader, std::string const& situation,
                        std::unordered_map<std::string, std::string> const& slots);
+
+// SayLine to one player: a whisper line (channel 6) of the situation goes to "to". False when "to" is not online.
+bool SayLine(Player* bot, std::string const& situation, std::unordered_map<std::string, std::string> const& slots,
+             ObjectGuid to);
+
+// For CoA Economy (artisans): an announce that leads somewhere. Says the line (slots, plus %item and %price from
+// the item and the price when absent) and keeps the offer 15 minutes, as a Trade WTS: a real player who answers
+// gets the item by mail, cash on delivery at that price (wh_offer_cod), or a polite no (wh_offer_gone).
+bool SayOffer(Player* bot, std::string const& situation, ObjectGuid item, uint32 price,
+              std::unordered_map<std::string, std::string> const& slots);
+
+// A whisper intent another session answers (the bank's intents table holds its keywords). Called before the
+// default answer, on the world thread, with the whisper in lower case; true takes the whisper.
+using WhisperHandler =
+    std::function<bool(Player* from, Player* to, std::string const& lowered, std::string const& intent)>;
+void RegisterWhisperHandler(std::string const& intent, WhisperHandler handler);
+
+// World thread: the item of the bot's bags by mail to "to", cash on delivery (the delivery delay of a player's
+// mail to another account). False when the bot no longer has a tradable item under that guid.
+bool MailCod(Player* bot, Player* to, ObjectGuid item, uint32 price);
 }  // namespace CoaLive
 
 void AddSC_coa_live();

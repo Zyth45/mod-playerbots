@@ -11,7 +11,11 @@
 #include "CellImpl.h"
 #include "ChatHelper.h"
 #include "Chat.h"
+#include "AttackAction.h"
 #include "CoaLiveRules.h"
+#include "CoaSocial.h"
+#include "CoaSocialRules.h"
+#include "SpellAuras.h"
 #include "CoaSessionRules.h"
 #include "Timer.h"
 #include "CoaMarketPrices.h"
@@ -285,6 +289,26 @@ void PlayEmote(Player* bot, uint32 emote, Player* target)
     bot->GetSession()->HandleTextEmoteOpcode(data);
 }
 
+// World thread: an item of the bot's bags by mail to a player, cash on delivery, with the delivery delay of any
+// player's mail to another account.
+void SendCod(Player* bot, Player* to, Item* item, uint32 price)
+{
+    CharacterDatabaseTransaction trans = CharacterDatabase.BeginTransaction();
+    bot->MoveItemFromInventory(item->GetBagSlot(), item->GetSlot(), true);
+    item->DeleteFromInventoryDB(trans);
+    item->SetOwnerGUID(to->GetGUID());
+    item->SaveToDB(trans);
+    MailDraft(item->GetTemplate()->Name1, "")
+        .AddItem(item)
+        .AddCOD(price)
+        .SendMailTo(trans, MailReceiver(to), MailSender(bot), MAIL_CHECK_MASK_COPIED,
+                    sWorld->getIntConfig(CONFIG_MAIL_DELIVERY_DELAY));
+    bot->SaveInventoryAndGoldToDB(trans);
+    CharacterDatabase.CommitTransaction(trans);
+}
+
+std::unordered_map<std::string, WhisperHandler> whisperHandlers;  // other sessions' intents (under liveLock)
+
 // World thread: plays the lines the filter takes out of the queue.
 template <class Due>
 void Play(Due isDue)
@@ -363,20 +387,7 @@ void Play(Due isDue)
         {
             Item* item = bot->GetItemByGuid(p.codItem);
             if (item && !item->IsSoulBound() && !item->IsInTrade() && item->GetTemplate())
-            {
-                CharacterDatabaseTransaction trans = CharacterDatabase.BeginTransaction();
-                bot->MoveItemFromInventory(item->GetBagSlot(), item->GetSlot(), true);
-                item->DeleteFromInventoryDB(trans);
-                item->SetOwnerGUID(subject->GetGUID());
-                item->SaveToDB(trans);
-                MailDraft(item->GetTemplate()->Name1, "")
-                    .AddItem(item)
-                    .AddCOD(p.cod)
-                    .SendMailTo(trans, MailReceiver(subject), MailSender(bot), MAIL_CHECK_MASK_COPIED,
-                                sWorld->getIntConfig(CONFIG_MAIL_DELIVERY_DELAY));
-                bot->SaveInventoryAndGoldToDB(trans);
-                CharacterDatabase.CommitTransaction(trans);
-            }
+                SendCod(bot, subject, item, p.cod);
         }
 
         // "Sure, inviting": the real invite, as the client sends it (world thread opcode).
@@ -390,7 +401,145 @@ void Play(Due isDue)
     }
 }
 
-// The bot looks around: a real player to greet, or an inn or a capital to idle in.
+
+// ---------------------------------------------------------------- social bots (L2)
+
+// The attack of the strategies, from outside them: the bot takes the enemy of the player it helps.
+class CoaSocialHelp : public AttackAction
+{
+public:
+    explicit CoaSocialHelp(PlayerbotAI* botAI) : AttackAction(botAI, "coa social help") {}
+    bool Execute(Event /*event*/) override { return false; }
+    bool Help(Unit* enemy) { return Attack(enemy); }
+};
+
+std::unordered_map<std::string, uint64> socialLast;  // "act@player" -> last time, any bot (under liveLock)
+
+std::string SocialKey(CoaSocial::Act act, Player* p)
+{
+    return std::to_string(int(act)) + "@" + std::to_string(p->GetGUID().GetCounter());
+}
+
+bool SocialDue(CoaSocial::Act act, Player* p, uint64 nowS)
+{
+    std::lock_guard<std::mutex> guard(liveLock);
+    auto it = socialLast.find(SocialKey(act, p));
+    return it == socialLast.end() || nowS >= it->second + CoaSocial::PlayerCooldownS(act);
+}
+
+void SocialDone(CoaSocial::Act act, Player* p, uint64 nowS)
+{
+    std::lock_guard<std::mutex> guard(liveLock);
+    socialLast[SocialKey(act, p)] = nowS;
+    if (socialLast.size() > 20000)
+        socialLast.clear();
+}
+
+// A group invite with no line (the bank has none for it yet): the same delay a player takes to decide.
+void QueueSilentInvite(Player* bot, Player* player)
+{
+    Pending p;
+    p.dueMs = GameTime::GetGameTimeMS().count() + urand(2000, 6000);
+    p.bot = bot->GetGUID();
+    p.subject = player->GetGUID();
+    p.channel = CH_WHISPER;
+    p.invite = true;
+    std::lock_guard<std::mutex> guard(liveLock);
+    if (liveQueue.size() < QUEUE_MAX)
+        liveQueue.push_back(std::move(p));
+}
+
+bool HasRule(std::string const& situation)
+{
+    std::lock_guard<std::mutex> guard(liveLock);
+    return bank && bank->RuleOf(situation);
+}
+
+// A free random bot passing real players of its faction: one helping act per look at most, most needed first.
+bool Social(Player* bot, PlayerbotAI* botAI, std::list<Player*> const& nearby)
+{
+    if (!sPlayerbotAIConfig.coaLiveSocialEnable)
+        return false;
+
+    using namespace CoaSocial;
+    uint64 const nowS = GameTime::GetGameTime().count();
+    BotView bv;
+    bv.level = bot->GetLevel();
+    bv.inGroup = bot->GetGroup() != nullptr;
+    bv.inInstance = bot->GetMap()->Instanceable();
+    bv.canHeal = PlayerbotAI::IsHeal(bot);
+
+    for (Player* p : nearby)
+    {
+        PlayerView pv;
+        pv.sameFaction = p->GetTeamId() == bot->GetTeamId();
+        pv.alive = p->IsAlive();
+        pv.ghost = p->HasPlayerFlag(PLAYER_FLAGS_GHOST);
+        pv.resurrectAsked = p->isResurrectRequested();
+        pv.inCombat = p->IsInCombat();
+        pv.inGroup = p->GetGroup() != nullptr;
+        pv.healthPct = static_cast<uint32>(p->GetHealthPct());
+        pv.attackers = static_cast<uint32>(p->getAttackers().size());
+        pv.level = p->GetLevel();
+        pv.distance = bot->GetDistance(p);
+
+        Act act = Decide(bv, pv);
+        if (act == Act::Invite && !SocialDue(act, p, nowS))
+            act = Act::Buff;  // asked lately: a buff in passing instead
+        if (act == Act::None || !SocialDue(act, p, nowS) || !rng.Roll(ChancePct(act)))
+            continue;
+
+        bool done = false;
+        std::string situation;
+        switch (act)
+        {
+            case Act::Rez:
+                done = CoaCastOnAlly(botAI, p, CoaAllyCast::Resurrect);
+                situation = "social_rez";
+                break;
+            case Act::Help:
+                if (bv.canHeal && pv.healthPct < 60)
+                    done = CoaCastOnAlly(botAI, p, CoaAllyCast::Heal);
+                if (!done)
+                    if (Unit* enemy = p->GetVictim(); enemy && enemy->IsAlive() && bot->IsValidAttackTarget(enemy))
+                    {
+                        botAI->GetAiObjectContext()->GetValue<GuidVector>("prioritized targets")->Set({enemy->GetGUID()});
+                        CoaSocialHelp attack(botAI);
+                        done = attack.Help(enemy);
+                    }
+                situation = "social_help";
+                break;
+            case Act::Buff:
+                done = CoaCastOnAlly(botAI, p, CoaAllyCast::Buff);
+                situation = "social_buff";
+                break;
+            case Act::Invite:
+            {
+                ReactOptions opt;
+                opt.invite = true;
+                if (HasRule("social_invite"))
+                    done = React(bot, "social_invite", p, "s" + std::to_string(p->GetGUID().GetCounter()), opt);
+                else
+                {
+                    QueueSilentInvite(bot, p);
+                    done = true;
+                }
+                break;
+            }
+            default:
+                break;
+        }
+        if (!done)
+            continue;
+        SocialDone(act, p, nowS);
+        if (act != Act::Invite)
+            React(bot, situation, p, "s" + std::to_string(p->GetGUID().GetCounter()));  // a word, when the bank has one
+        return true;
+    }
+    return false;
+}
+
+// The bot looks around: a real player to help or greet, or an inn or a capital to idle in.
 void LookAround(Player* bot, PlayerbotAI* botAI)
 {
     if (!IsRandom(bot) || !bot->IsAlive() || bot->IsInCombat() || bot->IsInFlight() || bot->InBattleground() ||
@@ -399,6 +548,9 @@ void LookAround(Player* bot, PlayerbotAI* botAI)
 
     std::list<Player*> const nearby = RealPlayersNear(bot, HEAR_RANGE);
     if (nearby.empty())
+        return;
+
+    if (Social(bot, botAI, nearby))
         return;
 
     float const greetRange = static_cast<float>(sPlayerbotAIConfig.coaLiveGreetRange);
@@ -895,6 +1047,32 @@ public:
     }
 };
 
+class CoaLiveUnitScript : public UnitScript
+{
+public:
+    CoaLiveUnitScript() : UnitScript("CoaLiveUnitScript", true, {UNITHOOK_ON_AURA_APPLY}) {}
+
+    // Every aura of the realm passes here: leave at once unless it is a real player's buff on a random bot.
+    void OnAuraApply(Unit* unit, Aura* aura) override
+    {
+        if (!Enabled() || !unit || !aura || unit->GetTypeId() != TYPEID_PLAYER)
+            return;
+        ObjectGuid const casterGuid = aura->GetCasterGUID();
+        if (!casterGuid.IsPlayer() || casterGuid == unit->GetGUID() || aura->IsPassive() || !aura->GetSpellInfo() ||
+            !aura->GetSpellInfo()->IsPositive() || aura->GetMaxDuration() < 60 * IN_MILLISECONDS)
+            return;
+        Player* bot = unit->ToPlayer();
+        if (!IsRandom(bot))
+            return;
+        Player* caster = ObjectAccessor::GetPlayer(*bot, casterGuid);
+        if (!caster || !IsRealPlayer(caster) || (bot->GetGroup() && bot->GetGroup() == caster->GetGroup()))
+            return;
+        ReactOptions opt;
+        opt.perSubjectCdS = 600;  // one thanks per player and bot in 10 minutes
+        React(bot, "buff_received", caster, "b" + std::to_string(caster->GetGUID().GetCounter()), opt);
+    }
+};
+
 class CoaLiveWorldScript : public WorldScript
 {
 public:
@@ -967,6 +1145,17 @@ bool OnWhisper(Player* from, Player* to, std::string const& msg)
         WStrToUtf8(wide, lowered);
     }
     std::string const intent = Classify(NormalizeWhisper(lowered), current->IntentsOf(BotLocale()));
+
+    // An intent another session answers itself (CoA Economy: "craft"): it takes the whisper when it says so.
+    WhisperHandler handler;
+    {
+        std::lock_guard<std::mutex> guard(liveLock);
+        auto it = whisperHandlers.find(intent);
+        if (it != whisperHandlers.end())
+            handler = it->second;
+    }
+    if (handler && handler(from, to, lowered, intent))
+        return true;
 
     // An answer to the bot's own Trade announce: the deal is done for real (WTS: the item by mail, cash on
     // delivery at the price said), or politely turned down (the item is gone; a WTB: "found one already").
@@ -1060,6 +1249,58 @@ bool SayLine(Player* bot, std::string const& situation, std::unordered_map<std::
     return React(bot, situation, nullptr, situation + "@z" + std::to_string(bot->GetZoneId()), opt);
 }
 
+bool SayLine(Player* bot, std::string const& situation, std::unordered_map<std::string, std::string> const& slots,
+             ObjectGuid to)
+{
+    if (!Enabled() || !bot)
+        return false;
+    Player* subject = to ? ObjectAccessor::FindConnectedPlayer(to) : nullptr;
+    if (to && !subject)
+        return false;
+    ReactOptions opt;
+    opt.extra.insert(slots.begin(), slots.end());
+    return React(bot, situation, subject, situation + "@w" + std::to_string(bot->GetGUID().GetCounter()), opt);
+}
+
+bool SayOffer(Player* bot, std::string const& situation, ObjectGuid item, uint32 price,
+              std::unordered_map<std::string, std::string> const& slots)
+{
+    if (!Enabled() || !bot || !price)
+        return false;
+    Item* carried = bot->GetItemByGuid(item);
+    if (!carried || carried->IsSoulBound() || !carried->GetTemplate())
+        return false;
+    ReactOptions opt;
+    opt.extra.insert(slots.begin(), slots.end());
+    if (!opt.extra.count("item"))
+        opt.extra["item"] = ChatHelper::FormatItem(carried->GetTemplate(), carried->GetCount() > 1 ? carried->GetCount() : 0);
+    if (!opt.extra.count("price"))
+        opt.extra["price"] = FormatMoney(price);
+    if (!React(bot, situation, nullptr, situation + "@z" + std::to_string(bot->GetZoneId()), opt))
+        return false;
+    std::lock_guard<std::mutex> guard(liveLock);
+    offers[bot->GetGUID().GetRawValue()] = {true, item, carried->GetEntry(), price,
+                                            uint64(GameTime::GetGameTimeMS().count()) + OFFER_MS};
+    return true;
+}
+
+void RegisterWhisperHandler(std::string const& intent, WhisperHandler handler)
+{
+    std::lock_guard<std::mutex> guard(liveLock);
+    whisperHandlers[intent] = std::move(handler);
+}
+
+bool MailCod(Player* bot, Player* to, ObjectGuid item, uint32 price)
+{
+    if (!bot || !to || !price)
+        return false;
+    Item* carried = bot->GetItemByGuid(item);
+    if (!carried || carried->IsSoulBound() || carried->IsInTrade() || !carried->GetTemplate())
+        return false;
+    SendCod(bot, to, carried, price);
+    return true;
+}
+
 std::string SystemLine(Player* reader, std::string const& situation,
                        std::unordered_map<std::string, std::string> const& slots)
 {
@@ -1095,4 +1336,5 @@ void AddSC_coa_live()
 {
     new CoaLivePlayerScript();
     new CoaLiveWorldScript();
+    new CoaLiveUnitScript();
 }

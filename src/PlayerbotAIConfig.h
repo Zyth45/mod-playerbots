@@ -688,6 +688,7 @@ public:
     uint32 coaLiveGreetRange;
     // AiPlayerbot.CoaLive.Sessions.*: the random bots come and go like players (CoaSessionRules.h)
     bool coaLiveSessionsEnable;
+    bool coaLiveSocialEnable;  // AiPlayerbot.CoaLive.Social.Enable (L2 social bots)
     std::vector<uint32> coaLiveSessionsCurve;  // 24 percentages
     uint32 coaLiveSessionsWeekendBonus;
     uint32 coaLiveSessionsMinPercent;
