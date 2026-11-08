@@ -10,6 +10,8 @@
 #include "AiObjectContext.h"
 #include "ArenaTeam.h"
 #include "ArenaTeamMgr.h"
+#include "AscensionBloodforging.h"
+#include "CoaGearRules.h"
 #include "CoaSpecLookup.h"
 #include "CoaSpecStatWeights.h"
 #include "CoaSpecialization.h"
@@ -5602,6 +5604,11 @@ void PlayerbotFactory::InitInventoryEquip()
             continue;
 
         if (proto->Quality != desiredQuality)
+            continue;
+
+        // Same Bloodforged filter as RandomItemMgr::IsValidItem: this scan reads the item store directly.
+        static bool const bloodforgedEnabled = sConfigMgr->GetOption<bool>("Bloodforged.Enable", false);
+        if (!CoaGearAllowed(Bloodforging::IsBloodforged(*proto), bloodforgedEnabled))
             continue;
 
         if (!CanEquipItem(proto))
