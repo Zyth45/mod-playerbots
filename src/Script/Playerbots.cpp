@@ -14,6 +14,7 @@
 #include "Channel.h"
 #include "CityDuels.h"
 #include "CoaAltAddon.h"
+#include "CoaBotIdentify.h"
 #include "Config.h"
 #include "DatabaseEnv.h"
 #include "DatabaseLoader.h"
@@ -294,8 +295,12 @@ public:
     bool OnPlayerCanUseChat(Player* player, uint32 type, uint32 lang, std::string& msg, Group* group) override
     {
         // Addon traffic (DBM, Carbonite, ...) is no bot command; its text used to trigger item commands like trade.
+        // Only the SquidBots Lite "WHO?" gets an answer from the bots of the group (CoaBotIdentify).
         if (lang == LANG_ADDON)
+        {
+            CoaBotIdentify::OnGroupAddonMessage(player, type, msg, group);
             return true;
+        }
 
         // "summon" from the leader of a raid built by ".playerbots coa raid" (SquidBots Lite Regroup): this hook runs
         // in the world thread (CMSG_MESSAGECHAT), so the server brings every bot of the raid itself, across maps, and

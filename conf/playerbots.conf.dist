@@ -2677,6 +2677,21 @@ AiPlayerbot.CityDuels.UpdateSeconds = 5
 AiPlayerbot.CityDuels.OrgrimmarSpot = ""
 AiPlayerbot.CityDuels.StormwindSpot = ""
 
+####################################################################################################
+# CoA Live (3.0): a server that feels inhabited
+#
+#    AiPlayerbot.CoaBotIdentify
+#        Description: Bots tell the SquidBots Lite addon that they are bots, without the "Bot" surname:
+#                     the addon asks its group "WHO?" on a hidden addon channel, every bot of the group
+#                     whispers back "random" or "alt" and its master, never shown in the chat. Only the
+#                     members of the asker's group and faction get an answer, at most one every 5 s.
+#                     Always on when AiPlayerbot.CoaBotSurname is not 1 (no "Bot" surname to go by).
+#                     Read again by ".reload config".
+#        Default:     0 - off (on anyway when the surname is not "Bot")
+#                     1 - on
+
+AiPlayerbot.CoaBotIdentify = 0
+
 # Bots' minimum and maximum level when teleporting in and out of a zone, according to the new RPG strategy
 # Format: AiPlayerbot.ZoneBracket.zoneID = minLevel,maxLevel
 #
