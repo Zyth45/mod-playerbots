@@ -15,6 +15,7 @@
 #include "CityDuels.h"
 #include "CoaAltAddon.h"
 #include "CoaBotIdentify.h"
+#include "CoaLive.h"
 #include "Config.h"
 #include "DatabaseEnv.h"
 #include "DatabaseLoader.h"
@@ -248,6 +249,7 @@ public:
         if (botAI != nullptr)
         {
             botAI->UpdateAI(diff);
+            CoaLive::OnBotUpdate(player, botAI, diff);
         }
 
         if (PlayerbotMgr* playerbotMgr = GET_PLAYERBOT_MGR(player))
@@ -280,6 +282,10 @@ public:
         {
             return true;
         }
+
+        // CoA Live: a stranger's whisper to a random bot gets a human answer, not a command.
+        if (CoaLive::OnWhisper(player, receiver, msg))
+            return true;
 
         botAI->HandleCommand(type, msg, player);
 
@@ -705,4 +711,7 @@ void AddPlayerbotsScripts()
 
     // CoA World (L3, the world moves)
     AddSC_coa_world_invasions();
+
+    // CoA Live (L1, they look human): reactions and whispers from the IA MIND bank (CoaLive.h)
+    AddSC_coa_live();
 }

@@ -2824,6 +2824,36 @@ AiPlayerbot.CoaBotIdentify = 0
 
 AiPlayerbot.CoaBotSurnameList = ""
 
+#    AiPlayerbot.CoaLive.Enable
+#        Description: Random bots react like people around real players, with the lines and emotes
+#                     of the CoA Live bank (tables playerbots_coa_live_*, English and French):
+#                     they greet a player passing by, cheer a level up, bow after a duel, thank
+#                     for a resurrection, call a boss pull in a group, idle at the inn or in a
+#                     capital, and answer a stranger's whispers after a human typing delay (a
+#                     "group" whisper may get a real invite). Only when a real player hears; each
+#                     situation has its chance and cooldowns in the bank. A random bot then no
+#                     longer reads a stranger's whisper as a command; its master's are unchanged.
+#                     Read again by ".reload config".
+#        Default:     0 - off
+#                     1 - on
+#    AiPlayerbot.CoaLive.TypoChance        % of lines with one typo (default 4).
+#    AiPlayerbot.CoaLive.AbbrevChance      % for each slang word to be shortened (default 25).
+#    AiPlayerbot.CoaLive.RareChance        % for the rare (joke) lines to enter a draw (default 10).
+#    AiPlayerbot.CoaLive.NoRepeatBot       Last lines a bot does not say again (default 50).
+#    AiPlayerbot.CoaLive.NoRepeatChannel   Last lines not said again in one place (default 200).
+#    AiPlayerbot.CoaLive.TypingMsPerCharMin / Max  Typing speed, drawn once per bot (default 60 / 90).
+#    AiPlayerbot.CoaLive.GreetRange        Yards within which a bot greets a passing player (default 15).
+
+AiPlayerbot.CoaLive.Enable = 0
+AiPlayerbot.CoaLive.TypoChance = 4
+AiPlayerbot.CoaLive.AbbrevChance = 25
+AiPlayerbot.CoaLive.RareChance = 10
+AiPlayerbot.CoaLive.NoRepeatBot = 50
+AiPlayerbot.CoaLive.NoRepeatChannel = 200
+AiPlayerbot.CoaLive.TypingMsPerCharMin = 60
+AiPlayerbot.CoaLive.TypingMsPerCharMax = 90
+AiPlayerbot.CoaLive.GreetRange = 15
+
 # Bots' minimum and maximum level when teleporting in and out of a zone, according to the new RPG strategy
 # Format: AiPlayerbot.ZoneBracket.zoneID = minLevel,maxLevel
 #

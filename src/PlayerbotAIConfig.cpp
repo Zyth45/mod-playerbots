@@ -7,6 +7,7 @@
 #include "PlayerbotAIConfig.h"
 #include "BisListMgr.h"
 #include "CoaBotNames.h"
+#include "CoaLive.h"
 #include "CoaSurnameRules.h"
 #include "CoaSpecialization.h"
 #include "Config.h"
@@ -1045,6 +1046,16 @@ bool PlayerbotAIConfig::Initialize()
 
     // CoA Live (3.0, session CoA SquidBot)
     coaBotIdentify = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaBotIdentify", false);
+    coaLiveEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaLive.Enable", false);
+    coaLiveTypoChance = std::min<uint32>(100, sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaLive.TypoChance", 4));
+    coaLiveAbbrevChance = std::min<uint32>(100, sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaLive.AbbrevChance", 25));
+    coaLiveRareChance = std::min<uint32>(100, sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaLive.RareChance", 10));
+    coaLiveNoRepeatBot = std::min<uint32>(1000, sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaLive.NoRepeatBot", 50));
+    coaLiveNoRepeatChannel =
+        std::min<uint32>(1000, sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaLive.NoRepeatChannel", 200));
+    coaLiveTypingMsPerCharMin = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaLive.TypingMsPerCharMin", 60);
+    coaLiveTypingMsPerCharMax = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaLive.TypingMsPerCharMax", 90);
+    coaLiveGreetRange = std::min<uint32>(40, sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaLive.GreetRange", 15));
     {
         std::vector<std::string> rejected;
         coaBotSurnameList =
@@ -1076,6 +1087,7 @@ bool PlayerbotAIConfig::Initialize()
     sBisListMgr->LoadAll();
     PlayerbotTextMgr::instance().LoadBotTexts();
     PlayerbotTextMgr::instance().LoadBotTextChance();
+    CoaLive::LoadBank();
     PlayerbotFactory::Init();
 
     AiObjectContext::BuildAllSharedContexts();
