@@ -2604,6 +2604,12 @@ AiPlayerbot.RpgStatusProbWeight.Rest = 5
 AiPlayerbot.RpgStatusProbWeight.OutdoorPvp = 10
 AiPlayerbot.RpgStatusProbWeight.GoCity = 10
 
+# How many quests a random bot drops at most each time it tidies a nearly full quest log (fewer than 2 free slots).
+# Each quest is scored (progress made, level fit, quest map data, current zone) and the lowest go first; a quest
+# ready to turn in is never dropped. 0 is read as 1.
+# Default: 1
+AiPlayerbot.Quest.MaxDropsPerPass = 1
+
 # How long a bot on a city visit (GoCity above) stays among the city NPCs, in minutes: a random time between the
 # two. Both are read again by ".reload config", like the GoCity weight.
 # Default: 10 and 30
