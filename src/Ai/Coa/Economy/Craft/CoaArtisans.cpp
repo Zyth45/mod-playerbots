@@ -18,6 +18,7 @@
 #include "SharedDefines.h"
 #include "SpellInfo.h"
 #include "SpellMgr.h"
+#include "WorldSession.h"
 
 #include <algorithm>
 
@@ -29,16 +30,17 @@ namespace
     bool enabled = false;
     uint32 minProfitPercent = 20;
 
-    bool IsProfessionSpell(uint32 spellId)
+    // The profession skill line of a recipe spell, 0 when it is not one.
+    uint32 ProfessionOf(uint32 spellId)
     {
         SkillLineAbilityMapBounds const bounds = sSpellMgr->GetSkillLineAbilityMapBounds(spellId);
         for (auto it = bounds.first; it != bounds.second; ++it)
         {
             SkillLineEntry const* skill = sSkillLineStore.LookupEntry(it->second->SkillLine);
             if (skill && (skill->categoryId == SKILL_CATEGORY_PROFESSION || skill->categoryId == SKILL_CATEGORY_SECONDARY))
-                return true;
+                return skill->id;
         }
-        return false;
+        return 0;
     }
 
     // A product worth selling to someone else: exists, not bound on pickup, not a quest item, has a value.
@@ -58,6 +60,18 @@ void LoadSettings()
 {
     enabled = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.Artisans.Enable", false, false);
     minProfitPercent = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaEconomy.Artisans.MinProfitPercent", 20);
+}
+
+std::string ProfessionName(Player* bot, uint32 skillId)
+{
+    SkillLineEntry const* skill = sSkillLineStore.LookupEntry(skillId);
+    if (!skill)
+        return "";
+    uint8 const locale = bot && bot->GetSession() ? uint8(bot->GetSession()->GetSessionDbcLocale()) : 0;
+    char const* name = skill->name[locale];
+    if (!name || !*name)
+        name = skill->name[0];
+    return name ? name : "";
 }
 
 uint64 MarketPrice(uint32 itemId)
@@ -99,10 +113,14 @@ std::vector<Recipe> KnownRecipes(Player* bot)
                 count = uint32(std::max(1, effect.CalcValue()));
                 break;
             }
-        if (!itemId || !IsTradable(sObjectMgr->GetItemTemplate(itemId)) || !IsProfessionSpell(spellId))
+        if (!itemId || !IsTradable(sObjectMgr->GetItemTemplate(itemId)))
+            continue;
+        uint32 const skillId = ProfessionOf(spellId);
+        if (!skillId)
             continue;
 
         Recipe recipe;
+        recipe.skillId = skillId;
         recipe.spell = spell;
         recipe.itemId = itemId;
         recipe.count = count;

@@ -9,6 +9,7 @@
 #include "AuctionHouseMgr.h"
 #include "CoaArtisans.h"
 #include "CoaAuctionHouseBot.h"
+#include "CoaCraftOrders.h"
 #include "CoaGearScore.h"
 #include "CoaMarketPrices.h"
 #include "Config.h"
@@ -158,14 +159,15 @@ namespace
     }
 
     // Lists up to ListPerVisit items the bot's item usage marks for the auction house, through the core's packet.
-    uint32 ListLoot(Player* bot, PlayerbotAI* botAI, ObjectGuid auctioneer, Traits const& traits, Item* crafted)
+    // crafted: a piece the artisan just made, listed first; held: a piece offered in Trade, kept for its buyer.
+    uint32 ListLoot(Player* bot, PlayerbotAI* botAI, ObjectGuid auctioneer, Traits const& traits, Item* crafted, Item* held)
     {
         std::vector<Item*> loot;
         if (crafted)
             loot.push_back(crafted);
         ForEachBagItem(bot, [&](Item* item)
         {
-            if (item == crafted)
+            if (item == crafted || item == held)
                 return;
             if (loot.size() >= settings.listPerVisit || item->IsSoulBound() || item->IsInTrade())
                 return;
@@ -279,7 +281,12 @@ namespace
         if (Artisans::IsEnabled() && Artisans::PickProfitable(bot, recipe))
             crafted = Artisans::Craft(bot, recipe);
 
-        ListLoot(bot, botAI, visit.auctioneer, traits, crafted);
+        // Sometimes offered in Trade first (CoA Live's offer: a player who answers gets it COD), else listed here.
+        Item* held = nullptr;
+        if (crafted && CraftOrders::OfferInTrade(bot, crafted, recipe.productValue))
+            std::swap(crafted, held);
+
+        ListLoot(bot, botAI, visit.auctioneer, traits, crafted, held);
         BuyOne(bot, visit.auctioneer, npc, traits);
     }
 
