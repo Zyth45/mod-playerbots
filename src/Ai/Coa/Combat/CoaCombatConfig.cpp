@@ -25,4 +25,5 @@ void PlayerbotAIConfig::LoadCoaCombatConfig()
     coaCombatCombatPurgeWindowMs = CoaCombatPurgeRule::WindowMs(
         sConfigMgr->GetOption<int64>("DungeonClear.UnreachableCombatPurgeSecs", -1, false));
     coaCombatSunkenTempleEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaCombat.SunkenTemple.Enable", false);
+    coaCombatTelegraphEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaCombat.Telegraph.Enable", false);
 }
