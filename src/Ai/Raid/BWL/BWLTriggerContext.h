@@ -39,6 +39,10 @@ public:
         creators["bwl affliction bronze"] = &RaidBwlTriggerContext::bwl_affliction_bronze;
 
         creators["bwl nefarian positioning"] = &RaidBwlTriggerContext::bwl_nefarian_positioning;
+        creators["bwl firemaw tank swap"] = &RaidBwlTriggerContext::bwl_firemaw_tank_swap;
+        creators["bwl ebonroc tank swap"] = &RaidBwlTriggerContext::bwl_ebonroc_tank_swap;
+        creators["bwl chromaggus positioning"] = &RaidBwlTriggerContext::bwl_chromaggus_positioning;
+        creators["bwl chromaggus red affliction"] = &RaidBwlTriggerContext::bwl_chromaggus_red_affliction;
         creators["bwl nefarian wild magic"] = &RaidBwlTriggerContext::bwl_nefarian_wild_magic;
 
         creators["bwl death talon wyrmguard tank"] = &RaidBwlTriggerContext::bwl_death_talon_wyrmguard_tank;
@@ -64,6 +68,16 @@ private:
     static Trigger* bwl_affliction_bronze(PlayerbotAI* ai) { return new BwlAfflictionBronzeTrigger(ai); }
     static Trigger* bwl_nefarian_wild_magic(PlayerbotAI* ai) { return new BwlNefarianWildMagicTrigger(ai); }
     static Trigger* bwl_nefarian_positioning(PlayerbotAI* ai) { return new BwlNefarianPositioningTrigger(ai); }
+    static Trigger* bwl_firemaw_tank_swap(PlayerbotAI* ai)
+    {
+        return new BwlDrakeTankSwapTrigger(ai, "bwl firemaw tank swap", "firemaw", true);
+    }
+    static Trigger* bwl_ebonroc_tank_swap(PlayerbotAI* ai)
+    {
+        return new BwlDrakeTankSwapTrigger(ai, "bwl ebonroc tank swap", "ebonroc", false);
+    }
+    static Trigger* bwl_chromaggus_positioning(PlayerbotAI* ai) { return new BwlChromaggusPositioningTrigger(ai); }
+    static Trigger* bwl_chromaggus_red_affliction(PlayerbotAI* ai) { return new BwlChromaggusRedAfflictionTrigger(ai); }
     static Trigger* bwl_death_talon_wyrmguard_tank(PlayerbotAI* ai) { return new BwlDeathTalonWyrmguardTankTrigger(ai); }
     static Trigger* bwl_death_talon_wyrmguard_ranged(PlayerbotAI* ai) { return new BwlDeathTalonWyrmguardRangedTrigger(ai); }
 };

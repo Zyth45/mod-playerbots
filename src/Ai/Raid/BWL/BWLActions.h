@@ -87,6 +87,14 @@ public:
     bool Execute(Event event) override;
 };
 
+// CoA Combat (C2): cure the unblessed Red affliction (a disease) on the raid member closest to dying.
+class BwlChromaggusCureRedAction : public Action
+{
+public:
+    BwlChromaggusCureRedAction(PlayerbotAI* botAI) : Action(botAI, "bwl chromaggus cure red") {}
+    bool Execute(Event event) override;
+};
+
 // Trash
 
 class BwlDeathTalonWyrmguardTankMoveAwayAction : public MovementAction

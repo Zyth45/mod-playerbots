@@ -384,3 +384,45 @@ bool BwlDeathTalonWyrmguardRangedMoveAwayAction::Execute(Event /*event*/)
 
     return MoveAway(target, distToTravel);
 }
+
+// ---- CoA Combat (lot 7, C2) ----
+
+bool BwlChromaggusCureRedAction::Execute(Event /*event*/)
+{
+    Group* group = bot->GetGroup();
+    if (!group)
+        return false;
+
+    Player* target = nullptr;
+    for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
+    {
+        Player* member = itr->GetSource();
+        if (!member || !member->IsAlive() || !member->IsInWorld() || member->GetMapId() != bot->GetMapId() ||
+            bot->GetDistance(member) >= 40.0f || !HasCurableRedAffliction(member))
+            continue;
+        if (!target || member->GetHealthPct() < target->GetHealthPct())
+            target = member;
+    }
+    if (!target)
+        return false;
+
+    std::vector<std::string> spells;
+    switch (bot->getClass())
+    {
+        case CLASS_PRIEST:
+            spells = {"cure disease", "abolish disease"};
+            break;
+        case CLASS_PALADIN:
+            spells = {"cleanse", "purify"};
+            break;
+        case CLASS_SHAMAN:
+            spells = {"cure toxins", "cleanse spirit", "cure disease"};
+            break;
+        default:
+            return false;
+    }
+    for (std::string const& spell : spells)
+        if (botAI->CanCastSpell(spell, target))
+            return botAI->CastSpell(spell, target);
+    return false;
+}

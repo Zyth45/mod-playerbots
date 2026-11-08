@@ -29,6 +29,23 @@ public:
     float GetValue(Action* action) override;
 };
 
+// CoA Combat (F1 / E1): a tank that may not take Firemaw or Ebonroc yet does not taunt it back from the tank that
+// just took it over.
+class BwlDrakeTauntHoldMultiplier : public Multiplier
+{
+public:
+    BwlDrakeTauntHoldMultiplier(PlayerbotAI* botAI) : Multiplier(botAI, "bwl drake taunt hold multiplier") {}
+    float GetValue(Action* action) override;
+};
+
+// CoA Combat (N1): no area spell or cleave lands near a Dominion clone; every hit on it lands on its owner.
+class BwlDominionCloneAoeMultiplier : public Multiplier
+{
+public:
+    BwlDominionCloneAoeMultiplier(PlayerbotAI* botAI) : Multiplier(botAI, "bwl dominion clone aoe multiplier") {}
+    float GetValue(Action* action) override;
+};
+
 class VaelastraszTankMultiplier : public Multiplier
 {
 public:

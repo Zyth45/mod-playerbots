@@ -51,6 +51,16 @@ void RaidBwlStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
     triggers.push_back(new TriggerNode("bwl chromaggus fire resistance", {
         NextAction("bwl chromaggus fire resistance", ACTION_RAID) }));
 
+    // CoA Combat (lot 7, docs/BWL-ETAT-3.0.md): drake tank swaps (F1, E1), Chromaggus (C1, C2).
+    triggers.push_back(new TriggerNode("bwl firemaw tank swap", {
+        NextAction("bwl firemaw tank swap", ACTION_RAID + 2) }));
+    triggers.push_back(new TriggerNode("bwl ebonroc tank swap", {
+        NextAction("bwl ebonroc tank swap", ACTION_RAID + 2) }));
+    triggers.push_back(new TriggerNode("bwl chromaggus positioning", {
+        NextAction("bwl chromaggus rear flank", ACTION_MOVE + 4) }));
+    triggers.push_back(new TriggerNode("bwl chromaggus red affliction", {
+        NextAction("bwl chromaggus cure red", ACTION_RAID + 1) }));
+
     triggers.push_back(new TriggerNode("bwl affliction bronze", {
         NextAction("bwl use hourglass sand", ACTION_RAID) }));
 
@@ -71,6 +81,8 @@ void RaidBwlStrategy::InitMultipliers(std::vector<Multiplier*>& multipliers)
     multipliers.push_back(new RazorgoreTankMultiplier(botAI));
     multipliers.push_back(new VaelastraszTankMultiplier(botAI));
     multipliers.push_back(new VaelastraszBurningAdrenalineMultiplier(botAI));
+    multipliers.push_back(new BwlDrakeTauntHoldMultiplier(botAI));
+    multipliers.push_back(new BwlDominionCloneAoeMultiplier(botAI));
 }
 
 void RaidBwlStrategy::AppendTargetExclusions(GuidSet& exclusions, TargetValueExclusionType type)

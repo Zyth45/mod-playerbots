@@ -154,3 +154,68 @@ bool BwlDeathTalonWyrmguardRangedTrigger::IsActive()
 {
     return PlayerbotAI::IsRanged(bot) && AI_VALUE2(Unit*, "find target", "death talon wyrmguard");
 }
+
+// ---- CoA Combat (lot 7, docs/BWL-ETAT-3.0.md) ----
+
+bool BwlDrakeTankSwapTrigger::IsActive()
+{
+    if (!BwlCoaFixesOn() || !PlayerbotAI::IsTank(bot) || !bot->IsAlive() || !CanTakeDrake(bot, firemaw))
+        return false;
+
+    Unit* boss = AI_VALUE2(Unit*, "find target", bossName);
+    if (!boss || !boss->IsAlive())
+        return false;
+
+    Unit* victim = boss->GetVictim();
+    Player* victimPlayer = victim ? victim->ToPlayer() : nullptr;
+    if (!victimPlayer || victim == bot || !PlayerbotAI::IsTank(victimPlayer) || !IsDrakeTankMarked(victim, firemaw))
+        return false;
+
+    Group* group = bot->GetGroup();
+    if (!group)
+        return false;
+
+    for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
+    {
+        Player* member = itr->GetSource();
+        if (!member || !member->IsAlive() || member == victim || !PlayerbotAI::IsTank(member) ||
+            !GET_PLAYERBOT_AI(member) || member->GetMapId() != bot->GetMapId() ||
+            member->HasUnitState(UNIT_STATE_LOST_CONTROL) || !CanTakeDrake(member, firemaw))
+            continue;
+
+        return member == bot;
+    }
+
+    return false;
+}
+
+bool BwlChromaggusPositioningTrigger::IsActive()
+{
+    if (!BwlCoaFixesOn())
+        return false;
+    Unit* boss = AI_VALUE2(Unit*, "find target", "chromaggus");
+    return boss && boss->IsAlive() && boss->GetVictim() != bot;
+}
+
+bool BwlChromaggusRedAfflictionTrigger::IsActive()
+{
+    if (!BwlCoaFixesOn() || !PlayerbotAI::IsHeal(bot))
+        return false;
+    uint8 const cls = bot->getClass();
+    if (cls != CLASS_PRIEST && cls != CLASS_PALADIN && cls != CLASS_SHAMAN)
+        return false;
+    if (!AI_VALUE2(Unit*, "find target", "chromaggus"))
+        return false;
+
+    Group* group = bot->GetGroup();
+    if (!group)
+        return false;
+    for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
+    {
+        Player* member = itr->GetSource();
+        if (member && member->IsAlive() && member->IsInWorld() && member->GetMapId() == bot->GetMapId() &&
+            bot->GetDistance(member) < 40.0f && HasCurableRedAffliction(member))
+            return true;
+    }
+    return false;
+}
