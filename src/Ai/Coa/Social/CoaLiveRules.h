@@ -390,6 +390,54 @@ inline std::string Classify(std::string const& normalized, std::vector<Intent> c
     return "fallback";
 }
 
+// "where is goldshire?": the words asked about after the "where" keyword that matched (padded " where "), longest
+// first, at most four words, leading little words left out ("is the", "est le"...). Empty when nothing follows.
+inline std::vector<std::string> WhereSubjects(std::string const& normalized, std::vector<std::string> const& keywords)
+{
+    static char const* const little[] = {"is", "s", "are", "the", "a", "an", "to", "get", "find", "i", "can", "u",
+                                         "est", "se", "trouve", "le", "la", "les", "l", "un", "une", "du", "de", "des",
+                                         "d", "on", "va", "aller", "trouver"};
+    size_t best = std::string::npos, after = 0;
+    for (std::string const& k : keywords)
+    {
+        size_t const at = normalized.find(k);
+        if (at != std::string::npos && (best == std::string::npos || at < best))
+        {
+            best = at;
+            after = at + k.size();
+        }
+    }
+    std::vector<std::string> out;
+    if (best == std::string::npos)
+        return out;
+    std::vector<std::string> words;
+    size_t i = after;
+    while (i < normalized.size())
+    {
+        size_t const j = normalized.find(' ', i);
+        std::string const w = normalized.substr(i, (j == std::string::npos ? normalized.size() : j) - i);
+        if (!w.empty())
+            words.push_back(w);
+        if (j == std::string::npos)
+            break;
+        i = j + 1;
+    }
+    size_t start = 0;
+    while (start < words.size() &&
+           std::find_if(std::begin(little), std::end(little), [&](char const* l) { return words[start] == l; }) !=
+               std::end(little))
+        ++start;
+    size_t const n = std::min<size_t>(4, words.size() - start);
+    for (size_t k = n; k > 0; --k)
+    {
+        std::string s;
+        for (size_t w = start; w < start + k; ++w)
+            s += (w > start ? " " : "") + words[w];
+        out.push_back(s);
+    }
+    return out;
+}
+
 // ---------------------------------------------------------------- bank
 
 struct Bank

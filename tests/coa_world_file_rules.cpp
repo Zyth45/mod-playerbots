@@ -54,6 +54,10 @@ int main()
     assert(data.find("\"tick_ms\":{\"avg\":null,\"p95\":null,\"max\":null}") != std::string::npos);
     assert(data.find("errors_10m") == std::string::npos);
 
+    snap.soulsOn = true;
+    snap.souls[1] = 2;
+    snap.souls[4] = 1;
+    assert(Data(snap).find("\"souls\":{\"lazy\":0,\"quester\":2,\"wanderer\":0,\"trader\":0,\"pvp\":1}") != std::string::npos);
     snap.surnameMode = 2;
     snap.surnameListSize = 64;
     snap.surnames = {{"Ashford", 3}, {"Stormhand", 5}};

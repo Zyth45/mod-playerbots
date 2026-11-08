@@ -131,6 +131,8 @@ struct Snapshot
     int32_t surnameMode = -1;  // -1: null
     uint32_t surnameListSize = 0;
     std::map<std::string, uint32_t> surnames;  // mode 2: family name -> bots online
+    bool soulsOn = false;  // false: null
+    uint32_t souls[5] = {};  // lazy, quester, wanderer, trader, pvp
     int64_t tickAvgMs = -1;  // -1: null
     int64_t tickMaxMs = -1;
 };
@@ -154,7 +156,18 @@ inline std::string Data(Snapshot s, size_t maxZones = 40, size_t maxSurnames = 1
     out += "],\"activities\":{";
     for (uint8_t a = 0; a < uint8_t(Activity::Count); ++a)
         out += std::string(a ? "," : "") + Quote(ActivityName(Activity(a))) + ":" + std::to_string(s.activities[a]);
-    out += "},\"souls\":null,\"surname\":";
+    out += "},\"souls\":";
+    if (!s.soulsOn)
+        out += "null";
+    else
+    {
+        static char const* const names[] = {"lazy", "quester", "wanderer", "trader", "pvp"};
+        out += "{";
+        for (int i = 0; i < 5; ++i)
+            out += std::string(i ? "," : "") + Quote(names[i]) + ":" + std::to_string(s.souls[i]);
+        out += "}";
+    }
+    out += ",\"surname\":";
     if (s.surnameMode < 0)
         out += "null";
     else

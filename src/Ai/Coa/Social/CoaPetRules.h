@@ -243,6 +243,13 @@ inline std::string AutoLine(bool on) { return std::string("PET\tauto\t") + (on ?
 inline std::string ErrLine(std::string const& reason) { return "PET\terr\t" + reason; }
 inline std::string EndLine() { return "PET\t-"; }
 
+// A profession at the top of its rank (Apprentice 75, Journeyman 150, Expert 225): the next rank is learnt from
+// the Book of Artisans. Artisan (300) is the last one of the level 60 world.
+inline bool RankCapReached(uint32_t value, uint32_t max, uint32_t lastRank = 300)
+{
+    return max > 0 && value >= max && max < lastRank;
+}
+
 // Why a companion cannot come out now, "" when it can (the loot pet's reasons, 2.9.5).
 inline std::string Refusal(bool known, bool alive, bool inCombat, bool mounted, bool lootInRaid)
 {

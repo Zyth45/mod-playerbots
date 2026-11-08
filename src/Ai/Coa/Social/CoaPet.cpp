@@ -18,6 +18,12 @@
 #include "RandomPlayerbotMgr.h"
 #include "SpellMgr.h"
 #include "TemporarySummon.h"
+#include "PlayerbotAIConfig.h"
+#include "TrainerAction.h"
+#include "GameTime.h"
+
+#include <mutex>
+#include <unordered_map>
 
 using namespace CoaPet;
 
@@ -110,6 +116,37 @@ void Dismiss(Player* bot)
         if (TempSummon* summon = out->ToTempSummon())
             summon->UnSummon();
 }
+
+// ---------------------------------------------------------------- automatic use of the books ("pet auto on")
+
+struct BookUse
+{
+    Category category = CAT_NONE;
+    uint64 summonedAtMs = 0;
+};
+
+std::mutex autoLock;
+std::unordered_map<uint64, BookUse> bookUses;         // alt -> the book it is about to use (map threads)
+std::unordered_map<uint64, uint64> nextCraftCheckMs;  // alt -> next look at its professions
+
+constexpr uint64 CRAFT_CHECK_MS = 10 * MINUTE * IN_MILLISECONDS;
+constexpr uint64 BOOK_WAIT_MS = 2000;  // the book is out and in reach
+constexpr uint64 BOOK_GIVE_UP_MS = 15000;
+
+bool ProfessionAtRankCap(Player* bot)
+{
+    static uint32 const professions[] = {164, 165, 171, 182, 186, 197, 202, 333, 393, 755, 773, 129, 185, 356};
+    for (uint32 skill : professions)
+        if (bot->HasSkill(skill) && RankCapReached(bot->GetSkillValue(skill), bot->GetMaxSkillValue(skill)))
+            return true;
+    return false;
+}
+
+void Ask(Player* bot, Category category)
+{
+    std::lock_guard<std::mutex> guard(autoLock);
+    bookUses.try_emplace(bot->GetGUID().GetRawValue(), BookUse{category, 0});
+}
 }  // namespace
 
 namespace CoaPet
@@ -198,5 +235,93 @@ bool Handle(PlayerbotAI* botAI, Player* requester, std::string const& param)
     }
     Reply(botAI, error);
     return true;
+}
+
+void OnLevelUp(Player* alt)
+{
+    // Off (the default), the alts never use a book by themselves, as in 2.9.5, whatever "pet auto" says.
+    PlayerbotAI* botAI = alt && sPlayerbotAIConfig.coaPetsAutoBooks ? GET_PLAYERBOT_AI(alt) : nullptr;
+    if (!botAI || !botAI->IsAltBot())
+        return;
+    Choice const choice = PetChoice(alt);
+    if (choice.autoOn && Choose(CAT_CLASS, choice.favourite[CAT_CLASS], [alt](uint32 s) { return alt->HasSpell(s); }))
+        Ask(alt, CAT_CLASS);
+}
+
+void Tick(PlayerbotAI* botAI)
+{
+    if (!sPlayerbotAIConfig.coaPetsAutoBooks)
+        return;
+    Player* bot = botAI ? botAI->GetBot() : nullptr;
+    if (!bot || !bot->IsInWorld() || !botAI->IsAltBot())
+        return;
+    uint64 const key = bot->GetGUID().GetRawValue();
+    uint64 const now = GameTime::GetGameTimeMS().count();
+
+    BookUse use;
+    {
+        std::lock_guard<std::mutex> guard(autoLock);
+        auto it = bookUses.find(key);
+        if (it != bookUses.end())
+            use = it->second;
+        else
+        {
+            // Now and then, the professions: one at the top of its rank asks for the Book of Artisans.
+            uint64& next = nextCraftCheckMs[key];
+            if (now < next)
+                return;
+            next = now + CRAFT_CHECK_MS;
+        }
+    }
+
+    if (use.category == CAT_NONE)
+    {
+        Choice const choice = PetChoice(bot);
+        if (choice.autoOn && ProfessionAtRankCap(bot) &&
+            Choose(CAT_CRAFT, choice.favourite[CAT_CRAFT], [bot](uint32 s) { return bot->HasSpell(s); }))
+            Ask(bot, CAT_CRAFT);
+        return;
+    }
+
+    auto done = [key]()
+    {
+        std::lock_guard<std::mutex> guard(autoLock);
+        bookUses.erase(key);
+    };
+    if (!PetChoice(bot).autoOn)
+        return done();
+    // Not now: it waits for a calm moment.
+    Map* map = bot->FindMap();
+    if (!bot->IsAlive() || bot->IsInCombat() || bot->IsMounted() || bot->IsFlying() || bot->IsInFlight() || !map ||
+        bot->InBattleground() || bot->InArena())
+        return;
+
+    if (!use.summonedAtMs)
+    {
+        uint32 const spellId =
+            Choose(use.category, PetChoice(bot).favourite[use.category], [bot](uint32 s) { return bot->HasSpell(s); });
+        if (!spellId || !sSpellMgr->GetSpellInfo(spellId))
+            return done();
+        Dismiss(bot);
+        if (bot->CastSpell(bot, spellId, true) != SPELL_CAST_OK)
+            return done();
+        std::lock_guard<std::mutex> guard(autoLock);
+        bookUses[key].summonedAtMs = now;
+        return;
+    }
+
+    if (now < use.summonedAtMs + BOOK_WAIT_MS)
+        return;
+    Creature* book = Out(bot);
+    Companion const* c = book ? ByEntry(book->GetEntry()) : nullptr;
+    if (c && c->category == use.category)
+    {
+        TrainerAction trainer(botAI);
+        trainer.LearnFrom(book);
+        Dismiss(bot);
+        return done();
+    }
+    if (now > use.summonedAtMs + BOOK_GIVE_UP_MS)
+        return done();
 }
 }  // namespace CoaPet

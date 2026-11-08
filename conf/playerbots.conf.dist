@@ -3270,6 +3270,33 @@ AiPlayerbot.CoaLive.Immersion.Enable = 0
 
 AiPlayerbot.CoaFreshStart.Enable = 0
 
+#    AiPlayerbot.CoaSoul.Enable
+#        Description: Souls of the bots. Each random bot gets an archetype (lazy, quester, wanderer,
+#                     trader, PvP) and five traits, drawn once from its character, the same at every
+#                     start, kept in the table playerbots_coa_soul. The soul tilts what the bot likes
+#                     to do: the lazy rest and visit the city twice as often, the traders go to the city
+#                     and its NPCs, the PvP go to world PvP three times as often, the wanderers roam and
+#                     fly; with CoA Live, it picks the lines that fit it and talks more or less.
+#                     Read again by ".reload config".
+#        Default:     0 - off (every bot as before)
+#                     1 - on
+#    AiPlayerbot.CoaSoul.Weights   Share of each archetype: lazy, quester, wanderer, trader, pvp
+#                                  (default "20,40,20,10,10"). A soul once drawn keeps its archetype.
+
+AiPlayerbot.CoaSoul.Enable = 0
+AiPlayerbot.CoaSoul.Weights = "20,40,20,10,10"
+
+#    AiPlayerbot.CoaPets.AutoBooks
+#        Description: Your alts use their class and craft books by themselves (Pets tab of the
+#                     SquidBots addon, "pet auto on"): after a level up the class book (Book of
+#                     Ascension or Conquest) to learn their new spells, and the Book of Artisans when
+#                     a profession reaches the top of its rank. Each alt can still say no with
+#                     "pet auto off". Random bots never do.
+#        Default:     0 - off (the alts use a book only when you ask)
+#                     1 - on
+
+AiPlayerbot.CoaPets.AutoBooks = 0
+
 #    AiPlayerbot.CoaLive.DataFile.Enable
 #        Description: world.json for the CoA Dashboard (Population and Health pages): bots online by
 #                     zone, what they do, surnames, server tick. Written every 10 s, and only while the

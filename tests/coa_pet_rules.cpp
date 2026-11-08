@@ -63,6 +63,10 @@ int main()
     assert(OutLine(750750) == "PET\tout\t750750" && AutoLine(true) == "PET\tauto\t1");
     assert(ErrLine("combat") == "PET\terr\tcombat" && EndLine() == "PET\t-");
 
+    // Rank caps: the book only helps below the last rank.
+    assert(RankCapReached(75, 75) && RankCapReached(225, 225) && !RankCapReached(74, 75));
+    assert(!RankCapReached(300, 300) && !RankCapReached(0, 0));
+
     // Refusals, in the loot pet's order.
     assert(Refusal(false, true, false, false, false) == "unknown");
     assert(Refusal(true, false, true, false, false) == "dead");

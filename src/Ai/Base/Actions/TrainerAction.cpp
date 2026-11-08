@@ -56,6 +56,14 @@ bool TrainerAction::Execute(Event event)
     return true;
 }
 
+bool TrainerAction::LearnFrom(Creature* trainer)
+{
+    if (!trainer || !trainer->IsInWorld() || !trainer->IsAlive() || !TrainerOf(trainer, bot))
+        return false;
+    Iterate(trainer, true, 0, CoaAltAddon::AddonSeen(botAI));
+    return true;
+}
+
 Creature* TrainerAction::InteractionTrainer()
 {
     auto usable = [this](Creature* npc)

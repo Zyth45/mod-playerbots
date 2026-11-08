@@ -141,6 +141,20 @@ int main()
     assert(Classify(NormalizeWhisper("t'es un bot ?"), ib.IntentsOf(2)) == "bot");
     assert(Classify(NormalizeWhisper("hello"), ib.IntentsOf(3)) == "hello");  // no locale 3: English
 
+    // "where": the subject, longest first, without the little words.
+    std::vector<std::string> const where{" where ", " how do i get "};
+    std::vector<std::string> subj = WhereSubjects(NormalizeWhisper("hey where is the goldshire inn?"), where);
+    assert((subj == std::vector<std::string>{"goldshire inn", "goldshire"}));
+    subj = WhereSubjects(NormalizeWhisper("how do i get to stormwind"), where);
+    assert((subj == std::vector<std::string>{"stormwind"}));
+    subj = WhereSubjects(NormalizeWhisper("where is hogger the big bad gnoll"), where);
+    assert(subj.size() == 4 && subj.front() == "hogger the big bad" && subj.back() == "hogger");
+    assert(WhereSubjects(NormalizeWhisper("where?"), where).empty());
+    assert(WhereSubjects(NormalizeWhisper("hello"), where).empty());
+    std::vector<std::string> const ou{" ou est ", " où "};
+    subj = WhereSubjects(NormalizeWhisper("ou est la forge"), ou);
+    assert((subj == std::vector<std::string>{"forge"}));
+
     // Off, no whisper is ever taken: the 2.9.5 path (commands, free chat replies) stays exactly as it was.
     for (int mask = 0; mask < 8; ++mask)
         assert(!TakesWhisper(false, mask & 1, mask & 2, mask & 4));
