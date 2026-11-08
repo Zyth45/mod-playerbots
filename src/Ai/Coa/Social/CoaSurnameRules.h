@@ -8,6 +8,7 @@
 #define PLAYERBOTS_COASURNAMERULES_H
 
 #include <cstdint>
+#include <map>
 #include <set>
 #include <string>
 #include <vector>
@@ -138,6 +139,75 @@ inline std::string CoaWantedBotName(std::string const& name, uint32_t mode, uint
         default:
             return first + " Bot";
     }
+}
+
+// A character of the realm, as ApplyCoaBotSurnames reads it: only random bots are renamed, every other one (a
+// real player, a player's alt) only holds its name.
+struct CoaNameRow
+{
+    uint64_t guid;
+    std::string name;
+    bool randomBot;
+};
+
+struct CoaRename
+{
+    uint64_t guid;
+    std::string from;
+    std::string to;
+};
+
+// Names compare without case: "Kegarink ashford" and "Kegarink Ashford" are one name to a player typing it.
+inline std::string CoaNameKey(std::string const& name)
+{
+    std::string key = name;
+    for (char& c : key)
+        if (c >= 'A' && c <= 'Z')
+            c = static_cast<char>(c - 'A' + 'a');
+    return key;
+}
+
+// The renames that give every random bot the name of the mode. A name stays unique on the realm: a bot whose wanted
+// name is held (by a real player, an alt or another bot, renamed or not) keeps its own, and so does a bot whose
+// wanted name the realm refuses (accepted(name) false). Only names change, never a guid.
+template <class Accepted>
+std::vector<CoaRename> CoaPlanBotRenames(std::vector<CoaNameRow> const& rows, uint32_t mode,
+                                         std::vector<std::string> const& list, Accepted accepted,
+                                         uint32_t* kept = nullptr)
+{
+    std::map<std::string, uint32_t> held;
+    for (CoaNameRow const& row : rows)
+        ++held[CoaNameKey(row.name)];
+
+    std::vector<CoaRename> out;
+    uint32_t keptCount = 0;
+    for (CoaNameRow const& row : rows)
+    {
+        if (!row.randomBot)
+            continue;
+        std::string const wanted = CoaWantedBotName(row.name, mode, row.guid, list);
+        if (wanted == row.name)
+            continue;
+        // A change of case only ("Kegarink bot" -> "Kegarink Bot") frees nothing and takes nothing.
+        std::string const key = CoaNameKey(wanted);
+        bool const sameKey = key == CoaNameKey(row.name);
+        if ((!sameKey && held.count(key)) || !accepted(wanted))
+        {
+            ++keptCount;
+            continue;
+        }
+        if (!sameKey)
+        {
+            auto it = held.find(CoaNameKey(row.name));
+            if (--it->second == 0)
+                held.erase(it);
+            ++held[key];
+        }
+        out.push_back({row.guid, row.name, wanted});
+    }
+    if (kept)
+        *kept = keptCount;
+    return out;
 }
 
 #endif

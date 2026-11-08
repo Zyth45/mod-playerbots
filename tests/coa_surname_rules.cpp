@@ -51,5 +51,76 @@ int main()
         assert(CoaWantedBotName(current, 2, 7, two) == "Kegarink " + CoaSurnameFor(7, two));
     }
     assert(CoaWantedBotName("Kegarink", 2, 7, {}) == "Kegarink");
+
+    auto const all = [](std::string const&) { return true; };
+    auto const apply = [](std::vector<CoaNameRow>& rows, std::vector<CoaRename> const& renames)
+    {
+        for (CoaRename const& r : renames)
+            for (CoaNameRow& row : rows)
+                if (row.guid == r.guid)
+                {
+                    assert(row.name == r.from);
+                    row.name = r.to;
+                }
+    };
+    auto const allUnique = [](std::vector<CoaNameRow> const& rows)
+    {
+        std::set<std::string> keys;
+        for (CoaNameRow const& row : rows)
+            if (!keys.insert(CoaNameKey(row.name)).second)
+                return false;
+        return true;
+    };
+    std::vector<std::string> const one{"Ashford"};
+
+    // 1. A full name stays unique: two bots of the same first name and the same family name, only one gets it.
+    {
+        std::vector<CoaNameRow> rows{{10, "Kegarink Bot", true}, {11, "Kegarink", true}, {12, "Doran Bot", true}};
+        uint32_t kept = 0;
+        std::vector<CoaRename> renames = CoaPlanBotRenames(rows, 2, one, all, &kept);
+        assert(renames.size() == 2 && kept == 1);
+        apply(rows, renames);
+        assert(allUnique(rows));
+        assert(rows[0].name == "Kegarink Ashford" && rows[1].name == "Kegarink" && rows[2].name == "Doran Ashford");
+        // A name the realm refuses is never given.
+        rows = {{10, "Kegarink Bot", true}};
+        renames = CoaPlanBotRenames(rows, 2, one, [](std::string const& n) { return n != "Kegarink Ashford"; }, &kept);
+        assert(renames.empty() && kept == 1);
+    }
+
+    // 2. A real player (or an alt) already holds the name, in any case: the bot keeps its own, the player is never
+    // renamed.
+    {
+        std::vector<CoaNameRow> rows{{1, "Kegarink ashford", false}, {10, "Kegarink Bot", true}, {2, "Doran Bot", false}};
+        uint32_t kept = 0;
+        std::vector<CoaRename> renames = CoaPlanBotRenames(rows, 2, one, all, &kept);
+        assert(renames.empty() && kept == 1);
+        renames = CoaPlanBotRenames(rows, 0, one, all, &kept);
+        assert(renames.size() == 1 && renames[0].guid == 10 && renames[0].to == "Kegarink");
+        renames = CoaPlanBotRenames(rows, 1, one, all, &kept);
+        assert(renames.empty() && kept == 0);  // "Doran Bot" is a player: untouched
+    }
+
+    // 3. 1 -> 2 -> 1 gives every bot its "First Bot" name back, same guids (friends, guild, mail and arena teams
+    // hold guids, not names); a "First Bot" taken meanwhile by a player keeps the bot on its family name.
+    {
+        std::vector<CoaNameRow> start;
+        for (uint64_t guid = 100; guid < 400; ++guid)
+            start.push_back({guid, "Name" + std::string(1, static_cast<char>('a' + guid % 26)) +
+                                       std::string(1, static_cast<char>('a' + (guid / 26) % 26)) + " Bot", true});
+        start.push_back({1, "Hero", false});
+        std::vector<CoaNameRow> rows = start;
+        apply(rows, CoaPlanBotRenames(rows, 2, defaults, all));
+        assert(allUnique(rows));
+        for (size_t i = 0; i + 1 < rows.size(); ++i)
+            assert(rows[i].name == CoaBotFirstName(start[i].name) + " " + CoaSurnameFor(rows[i].guid, defaults));
+        apply(rows, CoaPlanBotRenames(rows, 1, defaults, all));
+        for (size_t i = 0; i < rows.size(); ++i)
+            assert(rows[i].guid == start[i].guid && rows[i].name == start[i].name);
+
+        rows = {{10, "Kegarink Ashford", true}, {1, "Kegarink Bot", false}};
+        uint32_t kept = 0;
+        assert(CoaPlanBotRenames(rows, 1, one, all, &kept).empty() && kept == 1);
+    }
     return 0;
 }
