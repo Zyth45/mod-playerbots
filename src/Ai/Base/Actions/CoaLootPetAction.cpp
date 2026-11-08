@@ -212,14 +212,21 @@ bool CoaLootPetAction::Execute(Event event)
 
 void CoaLootCompanionTick(PlayerbotAI* botAI)
 {
-    if (!sPlayerbotAIConfig.altLootCompanion || !botAI)
+    if (!botAI)
         return;
     Player* bot = botAI->GetBot();
     if (!bot || !bot->IsInWorld() || !botAI->IsAltBot() || !DueForCheck(bot))
         return;
+    // One WARN line per check (every CoaLootCompanionCheckMs) while the alt brings out no loot pet, with the reason.
+    auto skip = [bot](std::string const& reason)
+    {
+        LOG_WARN("playerbots", "coa loot pet: {} brings out none: {}", bot->GetName(), reason);
+    };
+    if (!sPlayerbotAIConfig.altLootCompanion)
+        return skip("AiPlayerbot.AltLootCompanion = 0");
     Map* map = bot->FindMap();
     if (!map)
-        return;
+        return skip("no map");
 
     bool const lootAppearance = Ascension::CompanionLooting::HasLootAppearance(bot);
     CoaLootCompanionMoment const moment{bot->IsAlive(),
@@ -233,11 +240,17 @@ void CoaLootCompanionTick(PlayerbotAI* botAI)
                                             bot->HasUnitState(UNIT_STATE_CONTROLLED) || bot->HasStealthAura() ||
                                             bot->HasInvisibilityAura()};
     if (!CoaLootCompanionMomentOk(moment))
-        return;
+        return skip(std::string("not now:") + (moment.alive ? "" : " dead") + (moment.inCombat ? " combat" : "") +
+                    (moment.mounted ? " mounted" : "") + (moment.flying ? " flying" : "") +
+                    (moment.inBattlegroundOrArena ? " battleground" : "") +
+                    (moment.inRaid && !lootAppearance ? " raid without the appearance" : "") +
+                    (bot->IsNonMeleeSpellCast(true) ? " casting" : "") + (bot->IsInFlight() ? " taxi" : "") +
+                    (bot->GetVehicle() ? " vehicle" : "") + (bot->HasUnitState(UNIT_STATE_CONTROLLED) ? " controlled" : "") +
+                    (bot->HasStealthAura() ? " stealth aura" : "") + (bot->HasInvisibilityAura() ? " invisibility aura" : ""));
 
     CoaLootPetChoice const choice = ChoiceOf(bot);
     if (choice.off)
-        return;
+        return skip("loot pet off for this alt");
 
     Creature* out = OwnedCritter(bot);
     bool const outLoots = out && Ascension::CompanionLooting::CompanionLoots(bot);
@@ -247,17 +260,20 @@ void CoaLootCompanionTick(PlayerbotAI* botAI)
     std::vector<CoaKnownCompanion> const known = KnownCompanions(bot);
     uint32 const chosen = CoaChooseLootCompanion(known, choice.favourite, lootAppearance, moment.inRaid);
     CoaKnownCompanion const* companion = chosen ? CoaFindCompanion(known, chosen) : nullptr;
-    if (!companion || !CoaLootCompanionNeedsSummon(companion->creatureEntry, chosen == choice.favourite,
-                                                   out ? out->GetEntry() : 0, outLoots))
+    if (!companion)
+        return skip("no looting companion known (" + std::to_string(known.size()) + " companions known, favourite " +
+                    std::to_string(choice.favourite) + ", appearance " + (lootAppearance ? "on" : "off") + ")");
+    if (!CoaLootCompanionNeedsSummon(companion->creatureEntry, chosen == choice.favourite, out ? out->GetEntry() : 0,
+                                     outLoots))
         return;
 
     SpellInfo const* info = sSpellMgr->GetSpellInfo(chosen);
     if (!info)
-        return;
+        return skip("no spell " + std::to_string(chosen));
     // Triggered: an alt following its master is nearly always moving, and a cast-time summon never got through.
     SpellCastResult const result = bot->CastSpell(bot, chosen, true);
-    LOG_DEBUG("playerbots", "coa loot pet: {} summons {} ({}): result {}", bot->GetName(), companion->creatureEntry,
-              chosen, uint32(result));
+    LOG_WARN("playerbots", "coa loot pet: {} summons creature {} with spell {} (out before: {}): cast result {}",
+             bot->GetName(), companion->creatureEntry, chosen, out ? out->GetEntry() : 0, uint32(result));
 }
 
 bool CoaLeavesCorpseToCompanion(Player* bot, Creature* corpse, bool skinning)
