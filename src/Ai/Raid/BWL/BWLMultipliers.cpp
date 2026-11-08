@@ -9,6 +9,7 @@
 #include "BWLHelpers.h"
 #include "ChooseTargetActions.h"
 #include "HunterActions.h"
+#include "ObjectAccessor.h"
 #include "Playerbots.h"
 #include "ReachTargetActions.h"
 
@@ -16,6 +17,22 @@ using namespace BlackwingLairHelpers;
 
 static constexpr float VAELASTRASZ_BA_SAFE_DISTANCE = 20.0f;
 static constexpr float VAELASTRASZ_BA_BOSS_DISTANCE = 30.0f;
+
+float RazorgorePossessionMultiplier::GetValue(Action* action)
+{
+    // Read off the bot's own charm field, never a cross-bot signal: the channel is what must not break, so the
+    // channel decides. A warlock's enslaved demon is a charm too, hence the entry test.
+    constexpr uint32 NPC_RAZORGORE_THE_UNTAMED = 12435;
+    ObjectGuid const charm = bot->GetCharmGUID();
+    if (charm.IsEmpty())
+        return 1.0f;
+    Unit* held = ObjectAccessor::GetUnit(*bot, charm);
+    if (!held || !held->IsAlive() || held->GetEntry() != NPC_RAZORGORE_THE_UNTAMED)
+        return 1.0f;
+
+    // The one action left: Dungeon Clear's orb rung, which stops the bot's swing and movement while it holds him.
+    return action && action->getName() == "dungeon clear razorgore orb" ? 1.0f : 0.0f;
+}
 
 float RazorgoreTankMultiplier::GetValue(Action* action)
 {
