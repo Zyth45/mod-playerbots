@@ -2655,6 +2655,81 @@ AiPlayerbot.CoaWorld.Invasions.AhnQiraj.IntervalMin = 120
 AiPlayerbot.CoaWorld.Invasions.AhnQiraj.IntervalMax = 240
 AiPlayerbot.CoaWorld.Invasions.AhnQiraj.MinLevel = 55
 
+#    AiPlayerbot.CoaWorld.ResourceRush.Enable
+#        Description: Gold rushes: at random times, rich veins and rare herbs of the right level appear
+#                     in the open world 80 to 200 yards from a real player (never in a city or a
+#                     sanctuary), the players of about that level are told, and random bots run there:
+#                     both sides in a contested zone, only its own side in a faction zone. Each node can
+#                     be gathered once. GMs: .coaworld rush start|stop; everyone: .coaworld rush status.
+#        Default:     0 - off
+#                     1 - on
+
+AiPlayerbot.CoaWorld.ResourceRush.Enable = 0
+
+#    AiPlayerbot.CoaWorld.ResourceRush.IntervalMin
+#    AiPlayerbot.CoaWorld.ResourceRush.IntervalMax
+#        Description: Minutes between one rush and the next chance, picked at random.
+#        Default:     60, 120
+
+AiPlayerbot.CoaWorld.ResourceRush.IntervalMin = 60
+AiPlayerbot.CoaWorld.ResourceRush.IntervalMax = 120
+
+#    AiPlayerbot.CoaWorld.ResourceRush.DurationMinutes
+#        Description: How long the nodes stay.
+#        Default:     20
+
+AiPlayerbot.CoaWorld.ResourceRush.DurationMinutes = 20
+
+#    AiPlayerbot.CoaWorld.ResourceRush.RetryMinutes
+#        Description: How often a due rush checks again while no real player is out in the open world.
+#        Default:     5
+
+AiPlayerbot.CoaWorld.ResourceRush.RetryMinutes = 5
+
+#    AiPlayerbot.CoaWorld.ResourceRush.MinLevel
+#        Description: Lowest level of the player a rush appears near.
+#        Default:     10
+
+AiPlayerbot.CoaWorld.ResourceRush.MinLevel = 10
+
+#    AiPlayerbot.CoaWorld.ResourceRush.MinNodes
+#    AiPlayerbot.CoaWorld.ResourceRush.MaxNodes
+#    AiPlayerbot.CoaWorld.ResourceRush.RadiusYards
+#    AiPlayerbot.CoaWorld.ResourceRush.RarePct
+#        Description: Veins and herbs of a rush (half each, at most 60), within so many yards
+#                     (10 to 80); percent of rare ones (gold, truesilver, black lotus...).
+#        Default:     12, 20, 30, 10
+
+AiPlayerbot.CoaWorld.ResourceRush.MinNodes = 12
+AiPlayerbot.CoaWorld.ResourceRush.MaxNodes = 20
+AiPlayerbot.CoaWorld.ResourceRush.RadiusYards = 30
+AiPlayerbot.CoaWorld.ResourceRush.RarePct = 10
+
+#    AiPlayerbot.CoaWorld.ResourceRush.AnnounceLevelRange
+#        Description: Real players within so many levels of the rush are told.
+#        Default:     10
+
+AiPlayerbot.CoaWorld.ResourceRush.AnnounceLevelRange = 10
+
+#    AiPlayerbot.CoaWorld.ResourceRush.BotsPct
+#    AiPlayerbot.CoaWorld.ResourceRush.BotsMax
+#    AiPlayerbot.CoaWorld.ResourceRush.BotsLevelRange
+#    AiPlayerbot.CoaWorld.ResourceRush.BotsNearRadius
+#    AiPlayerbot.CoaWorld.ResourceRush.BotsTeleport
+#    AiPlayerbot.CoaWorld.ResourceRush.BotsReturnHome
+#        Description: Random bots sent to the rush: this percent of those online, at most BotsMax,
+#                     within BotsLevelRange levels; closer than BotsNearRadius yards they walk, farther
+#                     they are brought 90 yards off the veins out of sight of real players (BotsTeleport)
+#                     and taken back afterwards (BotsReturnHome).
+#        Default:     5, 40, 5, 600, 1, 1
+
+AiPlayerbot.CoaWorld.ResourceRush.BotsPct = 5
+AiPlayerbot.CoaWorld.ResourceRush.BotsMax = 40
+AiPlayerbot.CoaWorld.ResourceRush.BotsLevelRange = 5
+AiPlayerbot.CoaWorld.ResourceRush.BotsNearRadius = 600
+AiPlayerbot.CoaWorld.ResourceRush.BotsTeleport = 1
+AiPlayerbot.CoaWorld.ResourceRush.BotsReturnHome = 1
+
 # Quality a looted item must reach to be written to the "playerbots.loot" logger:
 # 3 rare (blue), 4 epic, 5 legendary. Nothing is written unless worldserver.conf
 # points that logger at an appender, and only bots are ever logged.

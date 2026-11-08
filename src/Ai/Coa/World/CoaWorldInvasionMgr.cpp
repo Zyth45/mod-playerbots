@@ -24,6 +24,8 @@
 
 #include "CoaWorldInvasion.h"
 
+#include "CoaWorldBots.h"
+
 #include "Chat.h"
 #include "ChatCommand.h"
 #include "Config.h"
@@ -140,13 +142,6 @@ namespace CoaWorld
                 handler.SendNotification(text);
         }
 
-        struct Borrowed
-        {
-            ObjectGuid guid;
-            WorldLocation home;
-            bool teleported = false;
-        };
-
         struct Slot
         {
             InvasionPlan const* plan = nullptr;
@@ -165,8 +160,8 @@ namespace CoaWorld
             int64 waveTimer = 0;
             bool bossUp = false;
             bool won = false;
-            std::vector<Borrowed> bots;
             uint32 botBudget = 0;
+            uint32 Owner() const { return BOT_OWNER_INVASION_BASE + index; }
 
             InvasionSite const& Site() const { return plan->sites[site]; }
             EventSettings const& Conf() const { return settings.events[index]; }
@@ -326,14 +321,6 @@ namespace CoaWorld
             {
                 if (slot.state != State::Idle)
                     Finish(slot, false);
-            }
-
-            uint32 BorrowedCount() const
-            {
-                uint32 n = 0;
-                for (Slot const& slot : _slots)
-                    n += slot.bots.size();
-                return n;
             }
 
         private:
@@ -506,7 +493,6 @@ namespace CoaWorld
                 _runMap = map;
 
                 slot.summons.clear();
-                slot.bots.clear();
                 slot.wave = 0;
                 slot.waveTimer = slot.plan->firstWaveMs;
                 slot.bossUp = false;
@@ -535,7 +521,7 @@ namespace CoaWorld
                 // Nothing on the map yet but a portal or a line is fine: the waves come next.
                 slot.state = State::Running;
                 slot.timer = int64(std::max<uint32>(1, settings.duration)) * MINUTE_MS;
-                slot.botBudget = BotBudget();
+                slot.botBudget = BotBudget(settings.botsPct, settings.botsMax);
 
                 std::string text = Acore::StringFormat(slot.plan->startText, site.name, site.zone);
                 for (Player* player : Eligible(slot, site.team))
@@ -623,7 +609,7 @@ namespace CoaWorld
                         Tell(player, text, true);
                 }
 
-                ReleaseBots(slot);
+                ReleaseBots(slot.Owner(), settings.botsReturnHome);
                 Despawn(slot);
                 LOG_INFO("module", "CoA World: {} ended ({})", slot.plan->name, won ? "won" : "lost or stopped");
                 Reschedule(slot, RollInterval(slot));
@@ -713,133 +699,32 @@ namespace CoaWorld
 
             // --- Bots ------------------------------------------------------------------------
 
-            uint32 BotBudget() const
-            {
-                uint32 online = 0;
-                for (auto const& [guid, bot] : sRandomPlayerbotMgr.GetAllBots())
-                    if (bot && bot->IsInWorld())
-                        ++online;
-
-                uint32 budget = std::min<uint32>(settings.botsMax, online * settings.botsPct / 100);
-                uint32 busy = BorrowedCount();
-                return budget > busy ? budget - busy : 0;
-            }
-
-            bool IsBorrowed(ObjectGuid guid) const
-            {
-                for (Slot const& slot : _slots)
-                    for (Borrowed const& b : slot.bots)
-                        if (b.guid == guid)
-                            return true;
-                return false;
-            }
-
             // Spread over the run: a share at the start and at each wave, until the budget is used.
             void RecruitBots(Slot& slot)
             {
-                if (!slot.botBudget || slot.bots.size() >= slot.botBudget)
+                uint32 have = BorrowedCount(slot.Owner());
+                if (!slot.botBudget || have >= slot.botBudget)
+                    return;
+
+                // Every running event shares the same pool: never above the budget all together.
+                uint32 total = BorrowedTotal();
+                uint32 globalBudget = BotBudget(settings.botsPct, settings.botsMax);
+                if (total >= globalBudget)
                     return;
 
                 uint32 share = (slot.botBudget + slot.plan->waveCount) / (slot.plan->waveCount + 1);
-                uint32 want = std::min<uint32>(share, slot.botBudget - slot.bots.size());
                 InvasionSite const& site = slot.Site();
-                int32 low = int32(slot.level) - int32(settings.botsLevelRange);
-                int32 high = int32(slot.level) + int32(settings.botsLevelRange);
-
-                struct Candidate
-                {
-                    Player* bot;
-                    float dist;
-                };
-                std::vector<Candidate> candidates;
-                for (auto const& [guid, bot] : sRandomPlayerbotMgr.GetAllBots())
-                {
-                    if (!bot || !bot->IsInWorld() || !bot->IsAlive() || bot->IsInCombat() || bot->IsInFlight() ||
-                        bot->IsBeingTeleported())
-                        continue;
-                    if (int32(bot->GetLevel()) < low || int32(bot->GetLevel()) > high)
-                        continue;
-                    if (site.team != TEAM_NEUTRAL && bot->GetTeamId() != site.team)
-                        continue;
-                    if (bot->GetGroup() || bot->InBattleground() || bot->InArena() || bot->InBattlegroundQueue())
-                        continue;
-                    if (!bot->GetMap() || bot->GetMap()->Instanceable() || IsBorrowed(bot->GetGUID()))
-                        continue;
-                    PlayerbotAI* botAI = GET_PLAYERBOT_AI(bot);
-                    if (!botAI || botAI->GetMaster())
-                        continue;
-
-                    float dist = bot->GetMapId() == site.mapId ? bot->GetExactDist(&site.target) : 1e9f;
-                    candidates.push_back({ bot, dist });
-                }
-
-                std::sort(candidates.begin(), candidates.end(),
-                    [](Candidate const& a, Candidate const& b) { return a.dist < b.dist; });
-
-                for (Candidate const& c : candidates)
-                {
-                    if (!want)
-                        break;
-
-                    Player* bot = c.bot;
-                    PlayerbotAI* botAI = GET_PLAYERBOT_AI(bot);
-                    WorldPosition goal(site.mapId, site.target.GetPositionX(), site.target.GetPositionY(),
-                        site.target.GetPositionZ());
-                    Borrowed borrowed{ bot->GetGUID(), bot->GetWorldLocation(), false };
-
-                    if (c.dist <= settings.botsNearRadius)
-                    {
-                        // Near: walks there through its usual travel.
-                        botAI->rpgInfo.ChangeToGoGrind(goal);
-                    }
-                    else
-                    {
-                        // Far: brought behind the defenders, never under the eyes of a real player.
-                        if (!settings.botsTeleport || botAI->HasPlayerNearby(150.0f))
-                            continue;
-
-                        Position rally = PointAround(site.rally, 0.0f, 10.0f);
-                        bot->GetMotionMaster()->Clear();
-                        botAI->Reset(true);
-                        bot->RemoveAurasWithInterruptFlags(AURA_INTERRUPT_FLAG_TELEPORTED | AURA_INTERRUPT_FLAG_CHANGE_MAP);
-                        if (!bot->TeleportTo(site.mapId, rally.GetPositionX(), rally.GetPositionY(), rally.GetPositionZ(),
-                                rally.GetOrientation()))
-                            continue;
-                        botAI->rpgInfo.ChangeToGoGrind(goal);
-                        borrowed.teleported = true;
-                    }
-
-                    slot.bots.push_back(borrowed);
-                    --want;
-                }
-            }
-
-            // Back to their usual life: whoever still heads for the fight or wanders there picks
-            // something else, and those brought from afar go home when nobody sees them leave.
-            void ReleaseBots(Slot& slot)
-            {
-                for (Borrowed const& b : slot.bots)
-                {
-                    Player* bot = ObjectAccessor::FindPlayer(b.guid);
-                    if (!bot || !bot->IsInWorld())
-                        continue;
-                    PlayerbotAI* botAI = GET_PLAYERBOT_AI(bot);
-                    if (!botAI || botAI->GetMaster())
-                        continue;
-
-                    NewRpgStatus status = botAI->rpgInfo.GetStatus();
-                    if (status == RPG_GO_GRIND || status == RPG_WANDER_RANDOM)
-                        botAI->rpgInfo.ChangeToIdle();
-
-                    if (b.teleported && settings.botsReturnHome && bot->IsAlive() && !bot->IsInCombat() &&
-                        !bot->GetGroup() && !bot->IsBeingTeleported() && !botAI->HasPlayerNearby(150.0f))
-                    {
-                        bot->GetMotionMaster()->Clear();
-                        botAI->Reset(true);
-                        bot->TeleportTo(b.home);
-                    }
-                }
-                slot.bots.clear();
+                BorrowRequest request;
+                request.mapId = site.mapId;
+                request.goal = site.target;
+                request.rally = Ground(site.rally);
+                request.team = site.team;
+                request.minLevel = uint32(std::max<int32>(1, int32(slot.level) - int32(settings.botsLevelRange)));
+                request.maxLevel = slot.level + settings.botsLevelRange;
+                request.count = std::min({ share, slot.botBudget - have, globalBudget - total });
+                request.nearRadius = settings.botsNearRadius;
+                request.teleport = settings.botsTeleport;
+                BorrowBots(slot.Owner(), request);
             }
 
             bool _initialized = false;
@@ -993,7 +878,7 @@ public:
             handler->PSendSysMessage("{} ({}): {}{}, next step in {}, level {}, site {}, {} bots borrowed, {} creatures",
                 slot.plan->name, slot.plan->key, StateName(slot.state), Mgr().IsAvailable(slot) ? "" : " (disabled)",
                 FormatMinutes(slot.timer), slot.level, slot.state == State::Idle ? "-" : slot.Site().name,
-                slot.bots.size(), slot.summons.size());
+                BorrowedCount(slot.Owner()), slot.summons.size());
         }
         return true;
     }
