@@ -40,6 +40,8 @@
 #include "StringFormat.h"
 
 #include <array>
+#include <atomic>
+#include <mutex>
 #include <cmath>
 #include <deque>
 #include <unordered_map>
@@ -64,6 +66,7 @@ namespace
         uint32 deathsLimit = 3;
         uint32 deathsWindowMinutes = 15;
         bool hearth = true;
+        uint32 quarantineMinutes = 30;
     };
 
     Settings settings;
@@ -91,6 +94,29 @@ namespace
         uint32 deaths = 0;
         uint32 hearths = 0;
     };
+
+    // Quests set aside: (bot, quest) -> until. Written by the world thread, read by the bots' RPG in map threads.
+    std::mutex g_quarantineLock;
+    std::unordered_map<uint64, time_t> g_quarantine;
+    std::atomic<bool> g_anyQuarantine{false};
+
+    uint64 QuarantineKey(uint32 bot, uint32 quest) { return (uint64(bot) << 32) | quest; }
+
+    // The quest the bot was on when it got stuck is left aside for quarantineMinutes.
+    void Quarantine(Player* bot, PlayerbotAI* botAI)
+    {
+        if (!settings.quarantineMinutes)
+            return;
+        auto const* data = std::get_if<NewRpgInfo::DoQuest>(&botAI->rpgInfo.data);
+        if (!data || !data->questId)
+            return;
+        time_t now = time(nullptr);
+        std::lock_guard<std::mutex> lock(g_quarantineLock);
+        for (auto itr = g_quarantine.begin(); itr != g_quarantine.end();)
+            itr = itr->second <= now ? g_quarantine.erase(itr) : std::next(itr);
+        g_quarantine[QuarantineKey(bot->GetGUID().GetCounter(), data->questId)] = now + settings.quarantineMinutes * MINUTE;
+        g_anyQuarantine.store(true, std::memory_order_relaxed);
+    }
 
     // RPG states in which a bot is meant to be going somewhere.
     bool IsTravelling(NewRpgStatus status)
@@ -121,7 +147,7 @@ namespace
             _timer = 0;
 
             time_t now = time(nullptr);
-            for (auto const& [guid, bot] : sRandomPlayerbotMgr.GetAllBots())
+            for (auto const& [guid, bot] : RandomBots())
                 if (bot && bot->IsInWorld())
                     Check(bot, now);
 
@@ -230,6 +256,8 @@ namespace
                 ++_counters.loops;
             track.samples.clear();
 
+            Quarantine(bot, botAI);
+
             // Again within ten minutes: home. Otherwise something else to do.
             if (track.lastRecovery && now - track.lastRecovery < RELAPSE_SECONDS)
                 Hearth(bot, botAI, track, now);
@@ -276,7 +304,17 @@ namespace
         settings.deathsLimit = std::clamp<uint32>(sConfigMgr->GetOption<uint32>(key("DeathsLimit"), 3, false), 2, 20);
         settings.deathsWindowMinutes = std::clamp<uint32>(sConfigMgr->GetOption<uint32>(key("DeathsWindowMinutes"), 15, false), 1, 120);
         settings.hearth = sConfigMgr->GetOption<bool>(key("Hearth"), true, false);
+        settings.quarantineMinutes = std::min<uint32>(1440, sConfigMgr->GetOption<uint32>(key("QuarantineMinutes"), 30, false));
     }
+}
+
+bool CoaWorldQuestQuarantined(uint32 botLowGuid, uint32 questId)
+{
+    if (!g_anyQuarantine.load(std::memory_order_relaxed))
+        return false;
+    std::lock_guard<std::mutex> lock(g_quarantineLock);
+    auto itr = g_quarantine.find(QuarantineKey(botLowGuid, questId));
+    return itr != g_quarantine.end() && itr->second > time(nullptr);
 }
 
 class CoaWorldRecoveryWorldScript : public WorldScript

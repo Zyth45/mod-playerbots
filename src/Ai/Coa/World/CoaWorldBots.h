@@ -24,6 +24,7 @@
 #include "SharedDefines.h"
 
 #include <ctime>
+#include <map>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -56,6 +57,16 @@ namespace CoaWorld
         bool teleport = true;       // farther: brought to the rally point
         bool (*filter)(Player*) = nullptr;  // extra condition on the bots (BorrowBots only)
     };
+
+    // The random bots, read in place (RandomPlayerbotMgr::GetAllBots copies the whole map: 2000 nodes a call).
+    // World thread only; the loop must not log a bot out while it runs.
+    struct RandomBotRange
+    {
+        std::map<ObjectGuid, Player*>::const_iterator first, last;
+        std::map<ObjectGuid, Player*>::const_iterator begin() const { return first; }
+        std::map<ObjectGuid, Player*>::const_iterator end() const { return last; }
+    };
+    RandomBotRange RandomBots();
 
     // Random bots in the world now.
     uint32 OnlineRandomBots();
@@ -117,6 +128,10 @@ bool CoaWorldIsBotHeld(uint32 lowGuid);
 // hearthstone (the real 10 s spell, to the home just set) instead of not moving. True if it does.
 // With AiPlayerbot.CoaWorld.Travel.Enable or .Hearthstone off: a plain bool, false.
 bool CoaWorldHearthInstead(Player* bot);
+
+// For the NewRpg quest choice (NewRpgBaseAction, map threads): a quest this bot got stuck on is left aside until its
+// quarantine ends (CoaWorldRecovery). With nothing in quarantine: an atomic bool, false.
+bool CoaWorldQuestQuarantined(uint32 botLowGuid, uint32 questId);
 
 // For RandomPlayerbotMgr::AddRandomBots: the accounts with a character in a real player's zone go first
 // (AiPlayerbot.CoaWorld.Density). Off: returns at once.

@@ -184,7 +184,11 @@ public:
     void CoaReleaseOrphanGroups();
     Player* GetRandomPlayer();
     std::vector<Player*> GetPlayers() { return players; };
+    // A copy of the bot map: for a caller that logs bots in or out (or may) while it loops.
     PlayerBotMap GetAllBots() { return playerBots; };
+    // The bot map in place, no copy (2000 nodes allocated per call otherwise): for a caller that only reads it.
+    // World thread only, and nothing in the loop may log a bot in or out.
+    PlayerBotMap const& GetAllBotsRef() const { return playerBots; }
     void InitArenaTeams();
     void PrintStats();
     double GetBuyMultiplier(Player* bot);
@@ -321,6 +325,9 @@ private:
     time_t DelayLoginBotsTimer;
     time_t printStatsTimer;
     std::unordered_map<ObjectGuid::LowType, time_t> coaOrphanGroups;  // group -> since when it has been orphaned
+    // Low level bots: their last experience mark and since when (ProcessBot), in memory only: after a restart the
+    // check just starts over. World thread; a bot's entry goes when it logs out.
+    std::unordered_map<uint32, std::pair<uint32, uint32>> coaXpTrack;  // bot -> (progress, since)
     time_t coaOrphanCheckAt = 0;
     uint32 AddRandomBots();
     void CoaTrimBotsForPlayers(uint32 target);

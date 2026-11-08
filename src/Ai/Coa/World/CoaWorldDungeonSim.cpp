@@ -252,7 +252,7 @@ namespace
         bool TryStart(TeamId team, DungeonDef const* only, time_t now)
         {
             std::vector<Player*> free;
-            for (auto const& [guid, bot] : sRandomPlayerbotMgr.GetAllBots())
+            for (auto const& [guid, bot] : RandomBots())
                 if (bot && bot->GetTeamId() == team && IsFreeBot(bot) && !OnCooldown(bot, now) &&
                     !IsHeld(bot->GetGUID().GetCounter()))
                     free.push_back(bot);

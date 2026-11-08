@@ -107,7 +107,7 @@ namespace
 
         std::vector<Player*> farList;
         uint32 nearCount = 0;
-        for (auto const& [guid, bot] : sRandomPlayerbotMgr.GetAllBots())
+        for (auto const& [guid, bot] : RandomBots())
         {
             if (!bot || !bot->IsInWorld())
                 continue;
@@ -170,20 +170,30 @@ void CoaWorldDensityOrderAccounts(std::vector<uint32>& accounts)
     if (zones.empty())
         return;
 
-    auto const [minimum, maximum] = std::minmax_element(accounts.begin(), accounts.end());
-    std::unordered_set<uint32> nearAccounts;
-    if (QueryResult result = CharacterDatabase.Query(
-            "SELECT account, zone FROM characters WHERE account BETWEEN {} AND {}", *minimum, *maximum))
+    // The same players' zones within a minute: the accounts found last time are still the ones near them.
+    static std::unordered_set<uint32> cachedZones;
+    static std::unordered_set<uint32> nearAccounts;
+    static time_t cachedAt = 0;
+    time_t now = time(nullptr);
+    if (zones != cachedZones || now - cachedAt >= 60)
     {
-        do
+        cachedZones = zones;
+        cachedAt = now;
+        nearAccounts.clear();
+        auto const [minimum, maximum] = std::minmax_element(accounts.begin(), accounts.end());
+        if (QueryResult result = CharacterDatabase.Query(
+                "SELECT account, zone FROM characters WHERE account BETWEEN {} AND {}", *minimum, *maximum))
         {
-            Field* fields = result->Fetch();
-            if (zones.count(fields[1].Get<uint32>()))
-                nearAccounts.insert(fields[0].Get<uint32>());
-        } while (result->NextRow());
+            do
+            {
+                Field* fields = result->Fetch();
+                if (zones.count(fields[1].Get<uint32>()))
+                    nearAccounts.insert(fields[0].Get<uint32>());
+            } while (result->NextRow());
+        }
     }
     auto split = std::stable_partition(accounts.begin(), accounts.end(),
-        [&nearAccounts](uint32 account) { return nearAccounts.contains(account); });
+        [](uint32 account) { return nearAccounts.contains(account); });
     counters.orderedFirst = uint32(std::distance(accounts.begin(), split));
 }
 

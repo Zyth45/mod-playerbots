@@ -2874,6 +2874,13 @@ AiPlayerbot.CoaWorld.Recovery.DeathsLimit = 3
 AiPlayerbot.CoaWorld.Recovery.DeathsWindowMinutes = 15
 AiPlayerbot.CoaWorld.Recovery.Hearth = 1
 
+#    AiPlayerbot.CoaWorld.Recovery.QuarantineMinutes
+#        Description: Minutes a quest a bot got stuck on is left aside (it picks other quests meanwhile;
+#                     1440 at most, 0 never). Nothing while Recovery.Enable is 0.
+#        Default:     30
+
+AiPlayerbot.CoaWorld.Recovery.QuarantineMinutes = 30
+
 #    AiPlayerbot.CoaWorld.Travel.Enable
 #        Description: Bots take the zeppelins and the boats. A few random bots of the right side walk
 #                     to a zeppelin tower or a dock and wait; when the transport leaves they board
