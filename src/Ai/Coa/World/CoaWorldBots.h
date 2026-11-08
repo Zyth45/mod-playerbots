@@ -115,4 +115,8 @@ bool CoaWorldIsBotHeld(uint32 lowGuid);
 // With AiPlayerbot.CoaWorld.Travel.Enable or .Hearthstone off: a plain bool, false.
 bool CoaWorldHearthInstead(Player* bot);
 
+// For RandomPlayerbotMgr::AddRandomBots: the accounts with a character in a real player's zone go first
+// (AiPlayerbot.CoaWorld.Density). Off: returns at once.
+void CoaWorldDensityOrderAccounts(std::vector<uint32>& accounts);
+
 #endif

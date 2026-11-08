@@ -8,7 +8,7 @@
 
 #include "CoaLive.h"
 
-#include "CoaWorldBots.h"  // CoA World: CoaWorldIsBotHeld, CoaWorldHearthInstead
+#include "CoaWorldBots.h"  // CoA World: CoaWorldIsBotHeld, CoaWorldHearthInstead, CoaWorldDensityOrderAccounts
 #include "AscensionRulesets.h"
 #include "BattlegroundUtils.h"
 #include "AiFactory.h"
@@ -811,6 +811,11 @@ uint32 RandomPlayerbotMgr::AddRandomBots()
                                           [&nearAccounts](uint32 account) { return nearAccounts.contains(account); });
                 }
             }
+
+            // --- CoA World (CoA Monde session) ---
+            // Density: the accounts with a character in a real player's zone log in first (CoaWorldDensity).
+            CoaWorldDensityOrderAccounts(shuffledAccounts);
+            // --- end CoA World ---
 
             for (uint32 i = 0; i < accountsToUseCount && i < shuffledAccounts.size(); i++)
             {
@@ -1850,6 +1855,15 @@ void RandomPlayerbotMgr::ScheduleChangeStrategy(uint32 bot, uint32 time)
 
     SetEventValue(bot, "change_strategy", 1, time);
 }
+
+// --- CoA World (CoA Monde session) ---
+// Density: a bot far from every real player ends its time in the world now; ProcessBot logs it out as at the end
+// of its usual time, and the rotation logs in another one, near the players (CoaWorldDensity).
+void RandomPlayerbotMgr::CoaRetireBot(uint32 bot)
+{
+    SetEventValue(bot, "add", 0, 0);
+}
+// --- end CoA World ---
 
 bool RandomPlayerbotMgr::ProcessBot(uint32 bot)
 {
