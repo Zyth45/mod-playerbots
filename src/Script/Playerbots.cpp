@@ -660,6 +660,7 @@ void AddSC_random_bot_transmog();
 void AddSC_coa_leave_instance();
 void AddSC_coa_player_main_tank();
 void AddSC_coa_gardes_menace();
+void AddSC_coa_economy_ahbot();
 
 void AddPlayerbotsScripts()
 {
@@ -692,4 +693,5 @@ void AddPlayerbotsScripts()
     AddSC_coa_player_main_tank();
     AddSC_coa_gardes_menace();
     AddSC_coa_lfg();
+    AddSC_coa_economy_ahbot();
 }

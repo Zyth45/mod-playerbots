@@ -4021,3 +4021,14 @@ AiPlayerbot.TargetPosRecalcDistance = 0.1
 
 # Allow bots to be summoned near innkeepers
 AiPlayerbot.SummonAtInnkeepersEnabled = 1
+
+###################################################################################################
+# CoA Economy
+#
+# The auction house bot (seller and buyer of the house), merged into SquidBot. Its settings stay
+# the AuctionHouseBot.* keys of mod_ahbot.conf (same file, same values as before).
+#    1 = SquidBot runs the auction house bot. Read at start-up only (restart to change it).
+#    0 = off (default). Leave it at 0 while mod-ah-bot-plus is still built into the core: only one
+#        of the two may run.
+# Default: 0
+AiPlayerbot.CoaEconomy.AHBot.Enable = 0
