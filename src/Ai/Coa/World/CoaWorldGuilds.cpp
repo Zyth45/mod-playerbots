@@ -53,6 +53,8 @@
 
 namespace
 {
+    using CoaWorld::BotLine;
+
     constexpr char const* PREFIX = "AiPlayerbot.CoaWorld.Guilds.";
 
     struct Settings
@@ -78,7 +80,7 @@ namespace
     };
 
     // From map threads: what happened, to be told by the world thread.
-    struct Event
+    struct GuildEvent
     {
         enum Kind : uint8 { LEVEL, LOOT, LOGIN } kind;
         ObjectGuid guid;
@@ -86,9 +88,9 @@ namespace
     };
 
     std::mutex g_lock;
-    std::vector<Event> g_events;
+    std::vector<GuildEvent> g_events;
 
-    void Push(Event e)
+    void Push(GuildEvent e)
     {
         std::lock_guard<std::mutex> lock(g_lock);
         g_events.push_back(e);
@@ -186,13 +188,13 @@ namespace
 
         void HandleEvents(time_t now)
         {
-            std::vector<Event> events;
+            std::vector<GuildEvent> events;
             {
                 std::lock_guard<std::mutex> lock(g_lock);
                 events.swap(g_events);
             }
 
-            for (Event const& e : events)
+            for (GuildEvent const& e : events)
             {
                 Player* player = ObjectAccessor::FindPlayer(e.guid);
                 if (!player || !player->IsInWorld() || !player->GetGuildId())
@@ -200,7 +202,7 @@ namespace
 
                 switch (e.kind)
                 {
-                    case Event::LEVEL:
+                    case GuildEvent::LEVEL:
                     {
                         if (!HumanOnlineInGuild(player->GetGuildId()))
                             break;
@@ -219,7 +221,7 @@ namespace
                                 Say(other, Acore::StringFormat(Pick(gz), player->GetName()), now + urand(6, 15));
                         break;
                     }
-                    case Event::LOOT:
+                    case GuildEvent::LOOT:
                     {
                         if (settings.coaLive || !HumanOnlineInGuild(player->GetGuildId()))
                             break;
@@ -235,7 +237,7 @@ namespace
                             Say(other, Pick(gz), now + urand(8, 18));
                         break;
                     }
-                    case Event::LOGIN:
+                    case GuildEvent::LOGIN:
                         Welcome(player, now);
                         break;
                 }
@@ -400,7 +402,7 @@ public:
             return;
         uint8 level = player->GetLevel();
         if (level % 10 == 0 || level >= 55)
-            Push({ Event::LEVEL, player->GetGUID(), level });
+            Push({ GuildEvent::LEVEL, player->GetGUID(), level });
     }
 
     void OnPlayerLootItem(Player* player, Item* item, uint32 /*count*/, ObjectGuid /*lootguid*/) override
@@ -408,14 +410,14 @@ public:
         if (!settings.enabled || !settings.chat || !player || !item || !player->GetGuildId() || !IsBot(player))
             return;
         if (item->GetTemplate()->Quality >= ITEM_QUALITY_RARE)
-            Push({ Event::LOOT, player->GetGUID(), item->GetEntry() });
+            Push({ GuildEvent::LOOT, player->GetGUID(), item->GetEntry() });
     }
 
     void OnPlayerLogin(Player* player) override
     {
         if (!settings.enabled || !player || !player->GetGuildId() || IsBot(player))
             return;
-        Push({ Event::LOGIN, player->GetGUID(), 0 });
+        Push({ GuildEvent::LOGIN, player->GetGUID(), 0 });
     }
 };
 
