@@ -1021,6 +1021,37 @@ bool OnWhisper(Player* from, Player* to, std::string const& msg)
     return true;
 }
 
+bool SayLine(Player* bot, std::string const& situation, std::unordered_map<std::string, std::string> const& slots)
+{
+    if (!Enabled() || !bot)
+        return false;
+    ReactOptions opt;
+    opt.extra.insert(slots.begin(), slots.end());
+    // Paced per place: the bot's zone.
+    return React(bot, situation, nullptr, situation + "@z" + std::to_string(bot->GetZoneId()), opt);
+}
+
+std::string SystemLine(Player* reader, std::string const& situation,
+                       std::unordered_map<std::string, std::string> const& slots)
+{
+    if (!Enabled())
+        return "";
+    std::shared_ptr<Bank const> current;
+    {
+        std::lock_guard<std::mutex> guard(liveLock);
+        current = bank;
+    }
+    if (!current)
+        return "";
+    uint8 locale = LOCALE_enUS;
+    if (reader && reader->GetSession())
+        locale = static_cast<uint8>(reader->GetSession()->GetSessionDbLocaleIndex());
+    std::map<std::string, std::string> const values(slots.begin(), slots.end());
+    Pick const pick = Draw(*current, situation, locale, reader ? LevelBand(reader->GetLevel()) : 0, ARCH_NONE,
+                           rng.Roll(sPlayerbotAIConfig.coaLiveRareChance), nullptr, nullptr, values, rng);
+    return pick.line ? pick.text : "";
+}
+
 void OnResurrectAccepted(Player* bot, ObjectGuid by)
 {
     if (!Enabled() || !IsRandom(bot))
