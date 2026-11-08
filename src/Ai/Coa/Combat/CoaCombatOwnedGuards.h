@@ -24,5 +24,6 @@
 #define COA_COMBAT_OWNS_COMBAT_REGROUP 1  // A9: CoaGardesRunHooks::SetCampHoldPassive
 #define COA_COMBAT_OWNS_HEAL_REPOSITION 1  // A10: CoaHealEscort::SetProvider (already wired)
 #define COA_COMBAT_OWNS_TOP_OFF_PARTY 1  // A11: no hook
+#define COA_COMBAT_OWNS_BOSS_STAND_DOWN 1  // A12: CoaBossStandDown::SetRosterBossProvider; DC reads CoaBossStandDown::IsActive
 
 #endif
