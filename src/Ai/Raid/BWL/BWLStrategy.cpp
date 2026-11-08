@@ -67,6 +67,7 @@ void RaidBwlStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
 
 void RaidBwlStrategy::InitMultipliers(std::vector<Multiplier*>& multipliers)
 {
+    multipliers.push_back(new RazorgorePossessionMultiplier(botAI));
     multipliers.push_back(new RazorgoreTankMultiplier(botAI));
     multipliers.push_back(new VaelastraszTankMultiplier(botAI));
     multipliers.push_back(new VaelastraszBurningAdrenalineMultiplier(botAI));

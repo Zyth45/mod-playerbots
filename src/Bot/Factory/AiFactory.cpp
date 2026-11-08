@@ -315,6 +315,7 @@ void AiFactory::AddDefaultCombatStrategies(Player* player, PlayerbotAI* const fa
         engine->addStrategiesNoInit("coa gardes combat", "coa ground hazards", "coa target exclusion", nullptr);
         // CoA Combat guards (src/Ai/Coa/Combat).
         engine->addStrategy("coa combat escape leap", false);
+        engine->addStrategy("coa combat stuck combat", false);
     }
 
     // CoA: a grouped bot steps out of ground effects too, not only one a real player leads: in headless dungeon runs
@@ -700,6 +701,7 @@ void AiFactory::AddDefaultNonCombatStrategies(Player* player, PlayerbotAI* const
         nonCombatEngine->addStrategiesNoInit("coa gardes noncombat", "coa ground hazards", nullptr);
         // CoA Combat guards (src/Ai/Coa/Combat).
         nonCombatEngine->addStrategy("coa combat escape leap nc", false);
+        nonCombatEngine->addStrategy("coa combat stuck combat nc", false);
     }
 
     if (sPlayerbotAIConfig.autoSaveMana && PlayerbotAI::IsHeal(player, true))

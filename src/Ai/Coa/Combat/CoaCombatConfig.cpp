@@ -13,4 +13,11 @@
 void PlayerbotAIConfig::LoadCoaCombatConfig()
 {
     coaCombatBreathGuardEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaCombat.BreathGuard.Enable", false);
+    coaCombatStuckCombatEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaCombat.StuckCombat.Enable", false);
+    // Dungeon Clear's old key first: a value the player set there is kept.
+    float const legacyStuckCombat = sConfigMgr->GetOption<float>("DungeonClear.StuckCombatTimeout", -1.0f, false);
+    coaCombatStuckCombatTimeoutSeconds =
+        legacyStuckCombat >= 0.0f
+            ? legacyStuckCombat
+            : sConfigMgr->GetOption<float>("AiPlayerbot.CoaCombat.StuckCombat.TimeoutSeconds", 15.0f);
 }

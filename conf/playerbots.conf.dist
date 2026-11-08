@@ -4390,3 +4390,19 @@ AiPlayerbot.CoaEconomy.LaunchCurve.LaunchPremiumPercent = 150
 #                  1 - (Enabled)
 
 AiPlayerbot.CoaCombat.BreathGuard.Enable = 0
+
+# AiPlayerbot.CoaCombat.StuckCombat.Enable
+#     Description: Stuck combat breaker outside a Dungeon Clear run. A grouped bot in a dungeon or raid, in combat
+#                  with nothing hitting it, no target, and nothing reachable coming for it, has its combat cleared
+#                  after the timeout below. Never during a raid boss encounter. Always on inside a Dungeon Clear run.
+#     Default:     0 - (Disabled)
+#                  1 - (Enabled)
+
+AiPlayerbot.CoaCombat.StuckCombat.Enable = 0
+
+# AiPlayerbot.CoaCombat.StuckCombat.TimeoutSeconds
+#     Description: How long (seconds, 0-120) the stuck combat must last before it is cleared. 0 disables the breaker,
+#                  inside a Dungeon Clear run too. DungeonClear.StuckCombatTimeout, when set, is read first.
+#     Default:     15
+
+AiPlayerbot.CoaCombat.StuckCombat.TimeoutSeconds = 15

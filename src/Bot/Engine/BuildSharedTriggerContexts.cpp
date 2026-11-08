@@ -5,6 +5,7 @@
  */
 
 #include "AiObjectContext.h"
+#include "CoaCombatContext.h"
 #include "CoaGardesContext.h"
 #include "Aq20TriggerContext.h"
 #include "Aq40TriggerContext.h"
@@ -104,4 +105,6 @@ void AiObjectContext::BuildSharedTriggerContexts(SharedNamedObjectContextList<Tr
     // machen Kampfverhalten zu Daten - siehe Ai/Coa/CoaGenericContext.h
     triggerContexts.Add(new CoaGenericTriggerContext());
     triggerContexts.Add(new CoaGardesTriggerContext());
+    // CoA Combat
+    triggerContexts.Add(new CoaCombatTriggerContext());
 }

@@ -8,13 +8,29 @@
 #define PLAYERBOTS_COA_COMBAT_CONTEXT_H
 
 #include "NamedObjectContext.h"
+#include "Action.h"
 #include "Strategy.h"
+#include "Trigger.h"
 
 // The strategies of the CoA Combat guards (src/Ai/Coa/Combat), one entry per guard.
 class CoaCombatStrategyContext : public NamedObjectContext<Strategy>
 {
 public:
     CoaCombatStrategyContext();
+};
+
+// The triggers of the CoA Combat guards.
+class CoaCombatTriggerContext : public NamedObjectContext<Trigger>
+{
+public:
+    CoaCombatTriggerContext();
+};
+
+// The actions of the CoA Combat guards.
+class CoaCombatActionContext : public NamedObjectContext<Action>
+{
+public:
+    CoaCombatActionContext();
 };
 
 #endif
