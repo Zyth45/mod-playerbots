@@ -4272,3 +4272,12 @@ AiPlayerbot.CoaCombat.StuckCombat.Enable = 0
 #     Default:     15
 
 AiPlayerbot.CoaCombat.StuckCombat.TimeoutSeconds = 15
+
+# AiPlayerbot.CoaCombat.CombatPurge.Enable
+#     Description: Combat purge outside a Dungeon Clear run. A few known creatures hold a party in a combat that can
+#                  never end (Shadowfang Keep: [DND] Vial Bunny; Dire Maul West: Crystal Totem). After 60 s their
+#                  combat is cleared and the bots stop targeting them. Always on inside a Dungeon Clear run.
+#     Default:     0 - (Disabled)
+#                  1 - (Enabled)
+
+AiPlayerbot.CoaCombat.CombatPurge.Enable = 0

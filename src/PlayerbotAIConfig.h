@@ -703,6 +703,10 @@ public:
     // DungeonClear.StuckCombatTimeout first when the player has it).
     bool coaCombatStuckCombatEnable = false;
     float coaCombatStuckCombatTimeoutSeconds = 15.0f;
+    // B4 combat purge outside a Dungeon Clear run (always on inside one), and its window in ms (no key of its own:
+    // DungeonClear.UnreachableCombatPurgeSecs when the player has it, else 60 s; 0 = off).
+    bool coaCombatCombatPurgeEnable = false;
+    uint32 coaCombatCombatPurgeWindowMs = 60000;
     // ---- end of CoA Combat ----
 
 private:

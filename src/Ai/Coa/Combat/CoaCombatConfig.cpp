@@ -7,6 +7,7 @@
 // CoA Combat: the session's settings kept in PlayerbotAIConfig. Called by PlayerbotAIConfig::Initialize();
 // a new setting of the session goes here (its member in the "CoA Combat" block of PlayerbotAIConfig.h).
 
+#include "CoaCombatPurgeRule.h"
 #include "Config.h"
 #include "PlayerbotAIConfig.h"
 
@@ -20,4 +21,7 @@ void PlayerbotAIConfig::LoadCoaCombatConfig()
         legacyStuckCombat >= 0.0f
             ? legacyStuckCombat
             : sConfigMgr->GetOption<float>("AiPlayerbot.CoaCombat.StuckCombat.TimeoutSeconds", 15.0f);
+    coaCombatCombatPurgeEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaCombat.CombatPurge.Enable", false);
+    coaCombatCombatPurgeWindowMs = CoaCombatPurgeRule::WindowMs(
+        sConfigMgr->GetOption<int64>("DungeonClear.UnreachableCombatPurgeSecs", -1, false));
 }
