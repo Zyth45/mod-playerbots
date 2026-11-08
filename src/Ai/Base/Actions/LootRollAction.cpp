@@ -6,6 +6,8 @@
 
 #include "LootRollAction.h"
 #include "CoaGearScore.h"
+#include "CoaRollRule.h"
+#include "ObjectAccessor.h"
 #include "Event.h"
 #include "Group.h"
 #include "ItemUsageValue.h"
@@ -128,15 +130,24 @@ bool LootRollAction::Execute(Event /*event*/)
         // A shirt or a tabard only dresses: a player who wants one gets it before a bot (Twilight's Embrace, #6895).
         if (vote == NEED && (proto->InventoryType == INVTYPE_BODY || proto->InventoryType == INVTYPE_TABARD))
             vote = GREED;
-        if (vote == NEED)
+        // The bots' manners (CoaRollRule): Need only when the realm allows it, never against a real player's Need.
+        if (vote == NEED || vote == GREED)
         {
-            if (sPlayerbotAIConfig.lootNeedRollLevel == 0 || RollUniqueCheck(proto, bot))
-                vote = PASS;
-            else if (sPlayerbotAIConfig.lootNeedRollLevel == 1)
-                vote = GREED;
+            bool realPlayerRolledNeed = false;
+            if (vote == NEED)
+                for (auto const& [voter, theirVote] : roll->playerVote)
+                    if (theirVote == NEED && voter != bot->GetGUID())
+                        if (Player* p = ObjectAccessor::FindPlayer(voter); p && !GET_PLAYERBOT_AI(p))
+                        {
+                            realPlayerRolledNeed = true;
+                            break;
+                        }
+            CoaRollRule::Vote const polite = CoaRollRule::Polite(
+                vote == NEED ? CoaRollRule::Vote::Need : CoaRollRule::Vote::Greed, sPlayerbotAIConfig.lootNeedRollLevel,
+                vote == NEED && RollUniqueCheck(proto, bot), realPlayerRolledNeed,
+                sPlayerbotAIConfig.lootGreedRollLevel != 0);
+            vote = polite == CoaRollRule::Vote::Need ? NEED : polite == CoaRollRule::Vote::Greed ? GREED : PASS;
         }
-        else if (vote == GREED && !sPlayerbotAIConfig.lootGreedRollLevel)
-            vote = PASS;
 
         switch (group->GetLootMethod())
         {
