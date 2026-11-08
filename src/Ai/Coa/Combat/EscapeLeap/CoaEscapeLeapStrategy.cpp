@@ -7,11 +7,11 @@
 #include "CoaEscapeLeapStrategy.h"
 
 #include "Action.h"
+#include "CoaBossStandDown.h"
 #include "CoaEscapeLeapRule.h"
-#include "CoaGroupTank.h"
 #include "CoaGardesGate.h"
 #include "CoaGardesRunHooks.h"
-#include "InstanceScript.h"
+#include "CoaGroupTank.h"
 #include "Map.h"
 #include "Player.h"
 
@@ -34,14 +34,10 @@ float CoaEscapeLeapMultiplier::GetValue(Action* action)
     // bot's map; it must also be alive.
     Player* tank = CoaGroupTank::Reference(bot);
     s.groupHasTank = tank && tank->IsInWorld() && tank->IsAlive();
-    if (map && map->IsRaid())
-    {
-        InstanceScript* instance = bot->GetInstanceScript();
-        // The instance script's encounter state, or the run's own stand-down (Dungeon Clear's hook, with its fallback
-        // on a roster boss holding a member).
-        s.raidEncounterInProgress = (instance && instance->IsEncounterInProgress()) ||
-                                    (CoaGroupTank::InDungeonClearRun(bot) && CoaGardesRunHooks::IsRaidStandDown(bot));
-    }
+    // The raid stand-down: the module's own (encounter in progress, or a roster boss holding a member), or Dungeon
+    // Clear's while it still evaluates it for its runs.
+    s.raidEncounterInProgress = CoaBossStandDown::IsActive(bot) ||
+                                (CoaGroupTank::InDungeonClearRun(bot) && CoaGardesRunHooks::IsRaidStandDown(bot));
 
     return CoaEscapeLeapRule::Forbids(s) ? 0.0f : 1.0f;
 }
