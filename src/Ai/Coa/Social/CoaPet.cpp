@@ -18,6 +18,7 @@
 #include "RandomPlayerbotMgr.h"
 #include "SpellMgr.h"
 #include "TemporarySummon.h"
+#include "PlayerbotAIConfig.h"
 #include "TrainerAction.h"
 #include "GameTime.h"
 
@@ -238,7 +239,8 @@ bool Handle(PlayerbotAI* botAI, Player* requester, std::string const& param)
 
 void OnLevelUp(Player* alt)
 {
-    PlayerbotAI* botAI = alt ? GET_PLAYERBOT_AI(alt) : nullptr;
+    // Off (the default), the alts never use a book by themselves, as in 2.9.5, whatever "pet auto" says.
+    PlayerbotAI* botAI = alt && sPlayerbotAIConfig.coaPetsAutoBooks ? GET_PLAYERBOT_AI(alt) : nullptr;
     if (!botAI || !botAI->IsAltBot())
         return;
     Choice const choice = PetChoice(alt);
@@ -248,6 +250,8 @@ void OnLevelUp(Player* alt)
 
 void Tick(PlayerbotAI* botAI)
 {
+    if (!sPlayerbotAIConfig.coaPetsAutoBooks)
+        return;
     Player* bot = botAI ? botAI->GetBot() : nullptr;
     if (!bot || !bot->IsInWorld() || !botAI->IsAltBot())
         return;
