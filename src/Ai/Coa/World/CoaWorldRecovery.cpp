@@ -248,6 +248,7 @@ namespace
             bot->GetMotionMaster()->Clear();
             bot->StopMoving();
             // The real hearthstone, its cast seen by whoever is near; no item or cooldown needed.
+            BotLine(bot, "recovery_home", {});
             bot->CastSpell(bot, SPELL_HEARTHSTONE, TriggerCastFlags(TRIGGERED_IGNORE_SPELL_AND_CATEGORY_CD |
                 TRIGGERED_IGNORE_POWER_AND_REAGENT_COST | TRIGGERED_IGNORE_CAST_ITEM));
             botAI->rpgInfo.ChangeToRest();

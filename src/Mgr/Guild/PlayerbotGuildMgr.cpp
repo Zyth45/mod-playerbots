@@ -5,6 +5,8 @@
  */
 
 #include "PlayerbotGuildMgr.h"
+
+#include "CoaWorldGuilds.h"  // CoA World: CoaWorldGuildSideMayCreate
 #include "CharacterCache.h"
 #include "DatabaseEnv.h"
 #include "Guild.h"
@@ -119,6 +121,15 @@ std::string PlayerbotGuildMgr::AssignToGuild(Player* player)
 
     if (count < sPlayerbotAIConfig.randomBotGuildCount)
     {
+        // --- CoA World (CoA Monde session) ---
+        // Balanced generation (idea of Coralis, GPL-2.0): a new bot guild only for the side that has fewer.
+        uint32 sideGuilds[2] = { 0, 0 };
+        for (auto const& [id, cached] : _guildCache)
+            if (!cached.hasRealPlayer && cached.faction < 2)
+                ++sideGuilds[cached.faction];
+        if (!CoaWorldGuildSideMayCreate(playerFaction, sideGuilds[0], sideGuilds[1]))
+            return "";
+        // --- end CoA World ---
         for (auto& key : _shuffled_guild_keys)
         {
             if (_guildNames[key])

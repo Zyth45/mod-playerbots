@@ -29,6 +29,7 @@
 #include "Config.h"
 #include "Log.h"
 #include "Map.h"
+#include "MotionMaster.h"
 #include "MapMgr.h"
 #include "ObjectAccessor.h"
 #include "ObjectMgr.h"
@@ -86,6 +87,7 @@ namespace
         uint32 botsPct = 3;
         uint32 botsMax = 20;
         uint32 perPlatform = 3;
+        bool hearthstone = true;
     };
 
     Settings settings;
@@ -374,6 +376,7 @@ namespace
                 _arrivedWait.erase(guid);
                 if (PlayerbotAI* botAI = GET_PLAYERBOT_AI(bot))
                     botAI->rpgInfo.ChangeToIdle();
+                BotLine(bot, "travel_arrive", {});
             }
             _arrived = still;
         }
@@ -410,6 +413,7 @@ namespace
             std::vector<ObjectGuid> bots = BorrowedBots(route.Owner(from));
             for (size_t i = before; i < bots.size(); ++i)
                 route.waiting[from].push_back({ bots[i], 0 });
+            BorrowedSay(route.Owner(from), before, "travel_wait", { { "place", route.def->name } }, 1);
         }
 
         bool _initialized = false;
@@ -430,7 +434,27 @@ namespace
         settings.botsPct = std::min<uint32>(50, sConfigMgr->GetOption<uint32>(key("BotsPct"), 3, false));
         settings.botsMax = std::min<uint32>(200, sConfigMgr->GetOption<uint32>(key("BotsMax"), 20, false));
         settings.perPlatform = std::clamp<uint32>(sConfigMgr->GetOption<uint32>(key("BotsPerPlatform"), 3, false), 1, 10);
+        settings.hearthstone = sConfigMgr->GetOption<bool>(key("Hearthstone"), true, false);
     }
+}
+
+bool CoaWorldHearthInstead(Player* bot)
+{
+    if (!settings.enabled || !settings.hearthstone || !bot)
+        return false;
+    if (!bot->IsAlive() || bot->IsInCombat() || bot->IsInFlight() || bot->IsNonMeleeSpellCast(false) ||
+        bot->GetMap()->Instanceable())
+        return false;
+
+    bot->RemoveAurasByType(SPELL_AURA_MOUNTED);
+    bot->GetMotionMaster()->Clear();
+    bot->StopMoving();
+    if (PlayerbotAI* botAI = GET_PLAYERBOT_AI(bot))
+        botAI->rpgInfo.ChangeToRest();
+    // Its home was just set to where it goes: the real hearthstone takes it there, cast for all to see.
+    bot->CastSpell(bot, 8690, TriggerCastFlags(TRIGGERED_IGNORE_SPELL_AND_CATEGORY_CD |
+        TRIGGERED_IGNORE_POWER_AND_REAGENT_COST | TRIGGERED_IGNORE_CAST_ITEM));
+    return true;
 }
 
 class CoaWorldTravelWorldScript : public WorldScript

@@ -19,6 +19,10 @@ void RaidMcStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
     triggers.push_back(
         new TriggerNode("mc lucifron shadow resistance",
                         { NextAction("mc lucifron shadow resistance", ACTION_RAID) }));
+    // CoA Combat: the Shadow of Lucifron, then the Protectors, then him (docs/MC-ETAT-3.0.md, L1/L3).
+    triggers.push_back(
+        new TriggerNode("mc lucifron mark",
+                        { NextAction("mc lucifron mark", ACTION_RAID) }));
 
     // Magmadar
     // Panic fears everyone in 45 yd (stock 19408) or 100 yd (CoA 2105309): no range keeps a raid out of it, and a
@@ -70,6 +74,11 @@ void RaidMcStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
     triggers.push_back(
         new TriggerNode("mc baron geddon inferno",
                         { NextAction("mc move from baron geddon", ACTION_RAID) }));
+    // CoA Combat: the last 10 % in one burst, before Armageddon (docs/MC-ETAT-3.0.md, B1).
+    triggers.push_back(
+        new TriggerNode("mc baron geddon burn",
+                        { NextAction("heroism", ACTION_RAID + 3), NextAction("bloodlust", ACTION_RAID + 3) }));
+
 
     // Shazzrah
     triggers.push_back(
@@ -90,6 +99,10 @@ void RaidMcStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
     triggers.push_back(
         new TriggerNode("mc sulfuron harbinger fire resistance",
                         { NextAction("mc sulfuron harbinger fire resistance", ACTION_RAID) }));
+    // CoA Combat: his priest and his three disciples, then him (docs/MC-ETAT-3.0.md, U1).
+    triggers.push_back(
+        new TriggerNode("mc sulfuron mark",
+                        { NextAction("mc sulfuron mark", ACTION_RAID) }));
 
     // Golemagg the Incinerator
     triggers.push_back(
@@ -110,6 +123,11 @@ void RaidMcStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
     triggers.push_back(
         new TriggerNode("mc golemagg is healer",
                         { NextAction("mc golemagg healer position", ACTION_RAID) }));
+    // CoA Combat: out of Cave In, the tank first (docs/MC-ETAT-3.0.md, O1).
+    triggers.push_back(
+        new TriggerNode("mc golemagg cave in",
+                        { NextAction("mc move from ground effect", ACTION_RAID + 1) }));
+
 
     // Majordomo Executus
     triggers.push_back(
@@ -126,6 +144,11 @@ void RaidMcStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
     triggers.push_back(
         new TriggerNode("mc ragnaros fire resistance",
                         { NextAction("mc ragnaros fire resistance", ACTION_RAID) }));
+    // CoA Combat: the Sons of Flame one at a time, the highest rank first (docs/MC-ETAT-3.0.md, A1).
+    triggers.push_back(
+        new TriggerNode("mc ragnaros sons mark",
+                        { NextAction("mc ragnaros sons mark", ACTION_RAID + 1) }));
+
 
     // Trash
     triggers.push_back(
@@ -145,6 +168,8 @@ void RaidMcStrategy::InitMultipliers(std::vector<Multiplier*>& multipliers)
     multipliers.push_back(new GolemaggMultiplier(botAI));
     multipliers.push_back(new MajordomoReflectionMultiplier(botAI));
     multipliers.push_back(new ShazzrahReflectionMultiplier(botAI));
+    multipliers.push_back(new ShazzrahSaveInterruptMultiplier(botAI));
+    multipliers.push_back(new RagnarosSonsNoAoeMultiplier(botAI));
 }
 
 void RaidMcStrategy::AppendTargetExclusions(GuidSet& exclusions, TargetValueExclusionType type)

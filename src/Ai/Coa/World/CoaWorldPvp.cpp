@@ -222,7 +222,8 @@ namespace
             std::string text = Acore::StringFormat("Fighting has broken out {}! The posts are sending their fighters.",
                 best->name);
             for (Player* player : Audience(*best))
-                Tell(player, text);
+                Tell(player, WorldLine(player, "sys_skirmish", { { "place", best->name } }, text));
+            BorrowedSay(BOT_OWNER_PVP_SKIRMISH, 0, "pvp_skirmish", { { "place", best->name } }, 2);
 
             LOG_INFO("module", "CoA World: skirmish {} ({} bots)", best->name, got);
             return true;
@@ -411,7 +412,8 @@ namespace
                 std::string text = Acore::StringFormat("{} is under attack! Its defenders are rallying.", capital.name);
                 for (auto const& [guid, player] : ObjectAccessor::GetPlayers())
                     if (IsHumanPlayer(player) && player->GetTeamId() == capital.team)
-                        Tell(player, text);
+                        Tell(player, WorldLine(player, "sys_capital", { { "city", capital.name } }, text));
+                BorrowedSay(defence.Owner(), 0, "pvp_capital", { { "city", capital.name } }, 2);
                 LOG_INFO("module", "CoA World: {} attacked by {} players, {} defenders", capital.name, attackers.size(),
                     BorrowedCount(defence.Owner()));
             }

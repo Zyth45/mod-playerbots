@@ -188,7 +188,8 @@ namespace
                 "Gold rush! A tremor has laid bare rich veins and rare herbs near {} in {}. Prospectors are already on "
                 "their way.", AreaName(_areaId), AreaName(_zoneId));
             for (Player* player : Audience())
-                Tell(player, text, true);
+                Tell(player, WorldLine(player, "sys_rush_start", { { "subzone", AreaName(_areaId) },
+                    { "zone", AreaName(_zoneId) } }, text), true);
 
             RecruitBots();
             LOG_INFO("module", "CoA World: resource rush near {} in {} (level {}, {} nodes, {} bots)", AreaName(_areaId),
@@ -203,7 +204,8 @@ namespace
                 std::string text = Acore::StringFormat("The gold rush near {} is over: the last veins have been picked clean.",
                     AreaName(_areaId));
                 for (Player* player : Audience())
-                    Tell(player, text, false);
+                    Tell(player, WorldLine(player, "sys_rush_end", { { "subzone", AreaName(_areaId) },
+                        { "zone", AreaName(_zoneId) } }, text), false);
             }
 
             if (Map* map = sMapMgr->FindBaseMap(_mapId))
@@ -375,6 +377,7 @@ namespace
             request.nearRadius = settings.botsNearRadius;
             request.teleport = settings.botsTeleport;
             BorrowBots(BOT_OWNER_RUSH, request);
+            BorrowedSay(BOT_OWNER_RUSH, 0, "rush_heard", { { "subzone", AreaName(_areaId) }, { "zone", AreaName(_zoneId) } }, 2);
         }
 
         bool _scheduled = false;

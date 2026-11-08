@@ -6,6 +6,9 @@
 
 #include "CoaWorldBots.h"
 
+#include "CoaLive.h"
+#include "WorldSession.h"
+
 #include "Map.h"
 #include "MapMgr.h"
 #include "MotionMaster.h"
@@ -283,6 +286,39 @@ namespace CoaWorld
         g_held.erase(itr);
         g_anyHeld = !g_held.empty();
         return false;
+    }
+
+    std::string WorldLine(Player* reader, char const* situation, Slots const& slots, std::string const& fallback)
+    {
+        std::string line = reader ? CoaLive::SystemLine(reader, situation, slots) : std::string();
+        return line.empty() ? fallback : line;
+    }
+
+    bool BotLine(Player* bot, char const* situation, Slots const& slots)
+    {
+        return bot && CoaLive::SayLine(bot, situation, slots);
+    }
+
+    void BorrowedSay(uint32 owner, size_t from, char const* situation, Slots const& slots, uint32 most)
+    {
+        auto itr = g_borrowed.find(owner);
+        if (itr == g_borrowed.end())
+            return;
+        uint32 said = 0;
+        for (size_t i = from; i < itr->second.size() && said < most; ++i)
+            if (Player* bot = ObjectAccessor::FindPlayer(itr->second[i].guid))
+                if (bot->IsInWorld() && BotLine(bot, situation, slots))
+                    ++said;
+    }
+
+    std::string EventName(Player* reader, std::string const& key)
+    {
+        bool fr = reader && reader->GetSession() && reader->GetSession()->GetSessionDbLocaleIndex() == LOCALE_frFR;
+        if (key == "scourge")
+            return fr ? "le Fl\u00e9au" : "the Scourge";
+        if (key == "legion")
+            return fr ? "la L\u00e9gion ardente" : "the Burning Legion";
+        return fr ? "l'essaim qiraji" : "the Qiraji swarm";
     }
 
     uint32 BorrowedCount(uint32 owner)

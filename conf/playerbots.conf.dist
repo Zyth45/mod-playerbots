@@ -2897,6 +2897,42 @@ AiPlayerbot.CoaWorld.Travel.BotsPct = 3
 AiPlayerbot.CoaWorld.Travel.BotsMax = 20
 AiPlayerbot.CoaWorld.Travel.BotsPerPlatform = 3
 
+#    AiPlayerbot.CoaWorld.Travel.Hearthstone
+#        Description: A random bot moving to another zone in sight of a real player (which until now
+#                     made it stay put) casts its hearthstone instead: the real 10 s cast, then gone to
+#                     its new home. Nothing while Travel.Enable is 0.
+#        Default:     1
+
+AiPlayerbot.CoaWorld.Travel.Hearthstone = 1
+
+#    AiPlayerbot.CoaWorld.ServerFirst.Enable
+#        Description: "Server first" told to the whole realm, for each side: the first character to
+#                     reach the highest level, and the first kill of each raid boss (with the raid
+#                     leader's name and guild). Bots count like anyone. Each first is told once in the
+#                     life of the realm (kept in the playerbots database). Meant for a new realm: on an
+#                     older one, a side with characters at the top level already had its first.
+#        Default:     0 - off
+#                     1 - on
+
+AiPlayerbot.CoaWorld.ServerFirst.Enable = 0
+
+#    AiPlayerbot.CoaWorld.Guilds.Enable
+#        Description: Guilds of bots that live: balanced between the sides (Balance), a new message of
+#                     the day now and then (Motd), bots telling their guild about a round level or a rare
+#                     drop and guildmates congratulating them (Chat), calls for members in General
+#                     (RecruitMinutes, 0 never), and a real player in a guild with bots greeted at login
+#                     and, at most every GiftHours, mailed potions and bandages of their level (Help).
+#        Default:     0 - off
+#                     1 - on
+
+AiPlayerbot.CoaWorld.Guilds.Enable = 0
+AiPlayerbot.CoaWorld.Guilds.Balance = 1
+AiPlayerbot.CoaWorld.Guilds.Motd = 1
+AiPlayerbot.CoaWorld.Guilds.Chat = 1
+AiPlayerbot.CoaWorld.Guilds.RecruitMinutes = 45
+AiPlayerbot.CoaWorld.Guilds.Help = 1
+AiPlayerbot.CoaWorld.Guilds.GiftHours = 24
+
 # Quality a looted item must reach to be written to the "playerbots.loot" logger:
 # 3 rare (blue), 4 epic, 5 legendary. Nothing is written unless worldserver.conf
 # points that logger at an appender, and only bots are ever logged.
@@ -4663,3 +4699,11 @@ AiPlayerbot.CoaCombat.GearScore.Enable = 0
 #     Default:     20
 
 AiPlayerbot.CoaCombat.LootNeedWaitSeconds = 20
+# AiPlayerbot.CoaCombat.MoltenCore.Enable
+#     Description: The CoA Combat fixes to the bots' Molten Core strategy, encounter by encounter (kill orders for
+#                  Lucifron's and Sulfuron's adds, and the next ones as they land). The stock strategy is unchanged
+#                  when this is 0.
+#     Default:     0 - (Disabled)
+#                  1 - (Enabled)
+
+AiPlayerbot.CoaCombat.MoltenCore.Enable = 0

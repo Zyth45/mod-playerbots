@@ -458,3 +458,22 @@ bool McMajordomoStopAttackAction::Execute(Event /*event*/)
     // Auto-attack keeps swinging into the Damage Shield; the multiplier keeps the bot from re-engaging.
     return bot->AttackStop();
 }
+
+bool McRagnarosSonsMarkAction::Execute(Event /*event*/)
+{
+    Group* group = bot->GetGroup();
+    if (!group)
+        return false;
+    ObjectGuid const skull = group->GetTargetIcon(RtiTargetValue::skullIndex);
+    if (Unit* current = skull.IsEmpty() ? nullptr : botAI->GetUnit(skull))
+        if (current->IsAlive() && (IsMcEntry(current->GetEntry(), NPC_COA_LESSER_SON_OF_FLAME) ||
+                                   IsMcEntry(current->GetEntry(), NPC_COA_SON_OF_FLAME) ||
+                                   IsMcEntry(current->GetEntry(), NPC_COA_GREATER_SON_OF_FLAME) ||
+                                   IsMcEntry(current->GetEntry(), NPC_COA_UNSTABLE_SON_OF_FLAME)))
+            return false;  // the kill in progress finishes
+    Creature* son = FindSonOfFlameToKill(bot);
+    if (!son)
+        return false;
+    group->SetTargetIcon(RtiTargetValue::skullIndex, bot->GetGUID(), son->GetGUID());
+    return true;
+}

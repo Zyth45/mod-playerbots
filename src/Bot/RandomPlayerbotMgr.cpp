@@ -6,7 +6,7 @@
 
 #include "RandomPlayerbotMgr.h"
 
-#include "CoaWorldBots.h"  // CoA World: CoaWorldIsBotHeld
+#include "CoaWorldBots.h"  // CoA World: CoaWorldIsBotHeld, CoaWorldHearthInstead
 #include "AscensionRulesets.h"
 #include "BattlegroundUtils.h"
 #include "AiFactory.h"
@@ -2277,6 +2277,11 @@ void RandomPlayerbotMgr::RandomTeleport(Player* bot, std::vector<WorldLocation>&
         // Prevent blink to be detected by visible real players
         if (botAI->HasPlayerNearby(150.0f))
         {
+            // --- CoA World (CoA Monde session) ---
+            // Seen by a real player, a move to a new home goes by a visible hearthstone instead (CoaWorldTravel).
+            if (hearth)
+                CoaWorldHearthInstead(bot);
+            // --- end CoA World ---
             stop = true;
             break;
         }
