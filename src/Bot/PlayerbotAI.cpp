@@ -5,6 +5,8 @@
  */
 
 #include "PlayerbotAI.h"
+
+#include "CoaLive.h"
 #include "CurrentTargetValue.h"
 
 #include <set>
@@ -1521,6 +1523,10 @@ void PlayerbotAI::HearChat(WorldPacket const& packet)
         // do not reply to self but always try to reply to real player
         if (guid1 != bot->GetGUID())
         {
+            // CoA Live answers a stranger's whispers to a random bot from its bank (CoaLive::OnWhisper).
+            if (msgtype == CHAT_MSG_WHISPER && CoaLive::AnswersWhispers(this, guid1))
+                return;
+
             time_t lastChat = GetAiObjectContext()->GetValue<time_t>("last said", "chat")->Get();
             bool isPaused = time(0) < lastChat;
             bool isFromFreeBot = false;

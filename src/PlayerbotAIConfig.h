@@ -669,6 +669,16 @@ public:
     // CoA Live (3.0, session CoA SquidBot)
     bool coaBotIdentify;  // AiPlayerbot.CoaBotIdentify: bots answer the addon's "WHO?" (CoaBotIdentify)
     std::vector<std::string> coaBotSurnameList;  // AiPlayerbot.CoaBotSurnameList, never empty (default list)
+    // AiPlayerbot.CoaLive.*: bots react like people, from the bank of CoA IA MIND (CoaLive)
+    bool coaLiveEnable;
+    uint32 coaLiveTypoChance;
+    uint32 coaLiveAbbrevChance;
+    uint32 coaLiveRareChance;
+    uint32 coaLiveNoRepeatBot;
+    uint32 coaLiveNoRepeatChannel;
+    uint32 coaLiveTypingMsPerCharMin;
+    uint32 coaLiveTypingMsPerCharMax;
+    uint32 coaLiveGreetRange;
 
 private:
     PlayerbotAIConfig() = default;

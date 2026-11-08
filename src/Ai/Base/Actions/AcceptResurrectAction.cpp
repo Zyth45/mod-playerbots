@@ -5,6 +5,8 @@
  */
 
 #include "AcceptResurrectAction.h"
+
+#include "CoaLive.h"
 #include "Event.h"
 #include "Playerbots.h"
 
@@ -22,6 +24,7 @@ bool AcceptResurrectAction::Execute(Event event)
     packet << guid;
     packet << uint8(1);                                        // accept
     bot->GetSession()->HandleResurrectResponseOpcode(packet);  // queue the packet to get around race condition
+    CoaLive::OnResurrectAccepted(bot, guid);
 
     return true;
 }
