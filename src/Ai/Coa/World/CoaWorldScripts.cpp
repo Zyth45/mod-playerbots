@@ -9,7 +9,10 @@
 
 #include "CoaWorldInvasion.h"
 
+void AddSC_coa_world_rush();
+
 void AddCoaWorldScripts()
 {
     AddSC_coa_world_invasions();
+    AddSC_coa_world_rush();
 }
