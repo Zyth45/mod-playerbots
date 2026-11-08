@@ -121,7 +121,7 @@ namespace
             _timer = 0;
 
             time_t now = time(nullptr);
-            for (auto const& [guid, bot] : sRandomPlayerbotMgr.GetAllBots())
+            for (auto const& [guid, bot] : RandomBots())
                 if (bot && bot->IsInWorld())
                     Check(bot, now);
 

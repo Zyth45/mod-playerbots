@@ -21,6 +21,7 @@
 #include <algorithm>
 #include <cmath>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace CoaWorld
@@ -39,6 +40,7 @@ namespace CoaWorld
         };
 
         std::unordered_map<uint32, std::vector<Borrowed>> g_borrowed;
+        std::unordered_set<ObjectGuid> g_borrowedSet;  // every bot of g_borrowed, for IsBorrowed
 
         // World thread only (events' OnUpdate and RandomPlayerbotMgr::UpdateAIInternal).
         std::unordered_map<uint32, time_t> g_held;
@@ -46,11 +48,7 @@ namespace CoaWorld
 
         bool IsBorrowed(ObjectGuid guid)
         {
-            for (auto const& [owner, bots] : g_borrowed)
-                for (Borrowed const& b : bots)
-                    if (b.guid == guid)
-                        return true;
-            return false;
+            return g_borrowedSet.count(guid) != 0;
         }
 
         bool RealPlayerNear(uint32 mapId, Position const& pos, float range)
@@ -115,6 +113,7 @@ namespace CoaWorld
             }
 
             g_borrowed[owner].push_back(borrowed);
+            g_borrowedSet.insert(borrowed.guid);
             return true;
         }
     }
@@ -125,10 +124,15 @@ namespace CoaWorld
         return player && (player->HasAura(1004019) || (player->HasAura(1004119) && !player->HasAura(9931032)));
     }
 
+    RandomBotRange RandomBots()
+    {
+        return { sRandomPlayerbotMgr.GetPlayerBotsBegin(), sRandomPlayerbotMgr.GetPlayerBotsEnd() };
+    }
+
     uint32 OnlineRandomBots()
     {
         uint32 online = 0;
-        for (auto const& [guid, bot] : sRandomPlayerbotMgr.GetAllBots())
+        for (auto const& [guid, bot] : RandomBots())
             if (bot && bot->IsInWorld())
                 ++online;
         return online;
@@ -150,7 +154,7 @@ namespace CoaWorld
             float dist;
         };
         std::vector<Candidate> candidates;
-        for (auto const& [guid, bot] : sRandomPlayerbotMgr.GetAllBots())
+        for (auto const& [guid, bot] : RandomBots())
         {
             if (!IsFreeImpl(bot))
                 continue;
@@ -205,6 +209,7 @@ namespace CoaWorld
 
         for (Borrowed const& b : itr->second)
         {
+            g_borrowedSet.erase(b.guid);
             Player* bot = ObjectAccessor::FindPlayer(b.guid);
             if (!bot || !bot->IsInWorld())
                 continue;
@@ -248,6 +253,7 @@ namespace CoaWorld
         if (itr == g_borrowed.end())
             return;
         std::erase_if(itr->second, [guid](Borrowed const& b) { return b.guid == guid; });
+        g_borrowedSet.erase(guid);
         if (itr->second.empty())
             g_borrowed.erase(itr);
     }

@@ -55,6 +55,7 @@ namespace
 {
     using CoaWorld::BotLine;
     using CoaWorld::LogEvent;
+    using CoaWorld::RandomBots;
 
     constexpr char const* PREFIX = "AiPlayerbot.CoaWorld.Guilds.";
 
@@ -167,7 +168,7 @@ namespace
         static Player* OnlineGuildBot(uint32 guildId, ObjectGuid notGuid)
         {
             std::vector<Player*> found;
-            for (auto const& [guid, bot] : sRandomPlayerbotMgr.GetAllBots())
+            for (auto const& [guid, bot] : RandomBots())
                 if (bot && bot->IsInWorld() && bot->GetGuildId() == guildId && bot->GetGUID() != notGuid)
                     found.push_back(bot);
             return found.empty() ? nullptr : found[urand(0, found.size() - 1)];
@@ -319,7 +320,7 @@ namespace
                 "Congrats to everyone who dinged this week!",
             };
             std::unordered_set<uint32> seen;
-            for (auto const& [guid, bot] : sRandomPlayerbotMgr.GetAllBots())
+            for (auto const& [guid, bot] : RandomBots())
             {
                 if (!bot || !bot->IsInWorld() || !bot->GetGuildId() || !seen.insert(bot->GetGuildId()).second)
                     continue;
@@ -339,7 +340,7 @@ namespace
         void Recruit()
         {
             std::vector<Player*> callers;
-            for (auto const& [guid, bot] : sRandomPlayerbotMgr.GetAllBots())
+            for (auto const& [guid, bot] : RandomBots())
             {
                 if (!bot || !bot->IsInWorld() || !bot->GetGuildId() || bot->IsInCombat() || !IsRandomBot(bot))
                     continue;
