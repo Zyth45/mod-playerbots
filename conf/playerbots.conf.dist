@@ -1965,6 +1965,13 @@ AiPlayerbot.AltDisenchant = 1
 # Default: 0 (disabled: the alts loot as before)
 AiPlayerbot.AltLootCompanion = 0
 
+# Totems put away after the fight: a bot of any class (Shaman, Witch Doctor, Cultist, Hero builds, random bots
+# and alts) with totems out recalls them (Totemic Recall when it knows it, else they are dismissed) once it and its
+# group have been out of combat for 5 seconds, never during a boss encounter or a Dungeon Clear run. Totems left
+# out would pull the mobs nearby.
+# Default: 1 (enabled; 0: the totems stay out as before)
+AiPlayerbot.CoaTotemRecall = 1
+
 # Automatic guild bank deposits: a bot in the guild of a real player (your alts, the bots you invited)
 # standing near a guild vault puts there the items of the classes below and the gold above KeepGold.
 # Never in a guild of random bots, never during a mission, never bound, quest or equipped items.

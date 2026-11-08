@@ -1901,6 +1901,7 @@ void CoaLfgHeard(Player* player, std::string const& message, Channel* channel)
             time_t const last = asked == LfgClassAsked.end() ? 0 : asked->second;
             if (!CoaLfgClassAskAllowed(last, now, settings.classCooldownSeconds))
             {
+                // Matched by the SquidBots addon ("^You can ask for a class again in (%d+) s"): keep it as is.
                 chat.PSendSysMessage("You can ask for a class again in {} s: your request is answered by role.",
                                      uint32(time_t(settings.classCooldownSeconds) - (now - last)));
                 for (CoaLfgAsk const& ask : classAsks)

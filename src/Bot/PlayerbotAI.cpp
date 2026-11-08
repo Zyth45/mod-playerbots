@@ -56,6 +56,7 @@
 #include "PlayerbotWorldThreadProcessor.h"
 #include "CoaPlayerMainTank.h"
 #include "CoaLootPetAction.h"
+#include "CoaTotemRecall.h"
 #include "CoaTankAction.h"
 #include "Playerbots.h"
 #include "PositionValue.h"
@@ -562,6 +563,8 @@ void PlayerbotAI::UpdateAI(uint32 elapsed, bool minimal)
     CoaTankOrderTick(this);
     // The loot pet of an alt (AiPlayerbot.AltLootCompanion).
     CoaLootCompanionTick(this);
+    // Totems put away after the fight (AiPlayerbot.CoaTotemRecall).
+    CoaTotemRecallTick(this);
 
     // Update internal AI
     UpdateAIInternal(elapsed, minimal);
