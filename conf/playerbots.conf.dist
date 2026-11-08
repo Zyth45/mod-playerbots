@@ -4545,6 +4545,17 @@ AiPlayerbot.CoaEconomy.LaunchCurve.AllowLegendary = 0
 AiPlayerbot.CoaEconomy.LaunchCurve.StartStockPercent = 10
 AiPlayerbot.CoaEconomy.LaunchCurve.LaunchPremiumPercent = 150
 
+# New rpg random bots sell their loot and repair at vendors, as people do between two quests. When their bags
+# reach BagPercent and they hold something to sell, they pick a vendor nearby as their next NPC to visit; at any
+# vendor they visit they sell what their item usage marks for sale (grey loot, gear they will not use, goods
+# worth only a vendor price) and repair at an armorer when their gear is worn.
+# Pairs with AiPlayerbot.RefreshClearsInventory = 0 (bots keep their loot between refreshes); that key is not
+# changed here. Read at start-up and by the playerbots config reload command (not by ".reload config").
+#    Enable      1 = on, 0 = off (default).
+#    BagPercent  Bag fill (%) from which a bot looks for a vendor (default 70).
+AiPlayerbot.CoaEconomy.RpgSell.Enable = 0
+AiPlayerbot.CoaEconomy.RpgSell.BagPercent = 70
+
 ###################################################################################################
 #  CoA Combat — owned by the CoA Combat session
 # CoA Combat

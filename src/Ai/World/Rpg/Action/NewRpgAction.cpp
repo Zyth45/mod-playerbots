@@ -5,6 +5,7 @@
  */
 
 #include "NewRpgAction.h"
+#include "CoaRpgTrade.h"
 #include "AreaDefines.h"
 #include "BroadcastHelper.h"
 #include "ChatHelper.h"
@@ -254,6 +255,13 @@ bool NewRpgStatusUpdateAction::Execute(Event /*event*/)
                 LeaveCity();
                 return true;
             }
+            // CoA Economy: bags filling up and a vendor in reach: go and sell first
+            if (CoaEconomy::RpgTrade::WantsVendor(botAI) &&
+                !CoaEconomy::RpgTrade::ChooseVendor(botAI, AI_VALUE(GuidVector, "possible new rpg targets")).IsEmpty())
+            {
+                info.ChangeToWanderNpc();
+                return true;
+            }
             return RandomChangeStatus({RPG_GO_CAMP, RPG_GO_GRIND, RPG_WANDER_RANDOM, RPG_WANDER_NPC, RPG_DO_QUEST,
                                        RPG_TRAVEL_FLIGHT, RPG_REST, RPG_OUTDOOR_PVP, RPG_GO_CITY});
 
@@ -480,6 +488,8 @@ bool NewRpgWanderNpcAction::Execute(Event /*event*/)
             data.lastReach = getMSTime();
             if (bot->CanInteractWithQuestGiver(object))
                 InteractWithNpcOrGameObjectForQuest(data.npcOrGo);
+            // CoA Economy: sell loot and repair at a vendor, as people do between two quests
+            CoaEconomy::RpgTrade::TradeAtNpc(botAI, object);
             return true;
         }
 

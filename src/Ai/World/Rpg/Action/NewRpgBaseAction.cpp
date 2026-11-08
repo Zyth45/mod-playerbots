@@ -5,6 +5,7 @@
  */
 
 #include "CoaQuestMenu.h"
+#include "CoaRpgTrade.h"
 #include "CoaQuestLogRules.h"
 #include "NewRpgBaseAction.h"
 #include "BroadcastHelper.h"
@@ -774,6 +775,14 @@ ObjectGuid NewRpgBaseAction::ChooseNpcOrGameObjectToInteract(bool questgiverOnly
     // No questgiver to accept or reward
     if (questgiverOnly)
         return ObjectGuid();
+
+    // CoA Economy: bags filling up, a vendor before a random NPC
+    if (CoaEconomy::RpgTrade::WantsVendor(botAI))
+    {
+        ObjectGuid const vendor = CoaEconomy::RpgTrade::ChooseVendor(botAI, possibleTargets, distanceLimit);
+        if (!vendor.IsEmpty())
+            return vendor;
+    }
 
     if (possibleTargets.empty())
         return ObjectGuid();

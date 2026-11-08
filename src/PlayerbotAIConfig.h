@@ -693,7 +693,10 @@ public:
     // ---- end of CoA World ----
 
     // ---- CoA Economy (LoadCoaEconomyConfig, CoaEconomyConfig.cpp) ----
-    // No member yet: AiPlayerbot.CoaEconomy.* are read by the auction house bot (Economy/AuctionHouse).
+    // The auction house bot reads its own AiPlayerbot.CoaEconomy.* keys (Economy/AuctionHouse, Market, Launch).
+    // New rpg bots sell at vendors (Economy/Rpg/CoaRpgTrade): on/off, and the bag fill (%) that sends them there.
+    bool coaEconomyRpgSellEnable = false;
+    uint32 coaEconomyRpgSellBagPercent = 70;
     // ---- end of CoA Economy ----
 
     // ---- CoA Combat (LoadCoaCombatConfig, CoaCombatConfig.cpp) ----
