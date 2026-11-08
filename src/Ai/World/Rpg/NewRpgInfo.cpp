@@ -185,8 +185,13 @@ std::string NewRpgInfo::ToString()
         {
             out << "TRAVEL_FLIGHT";
             out << "\nflightMasterEntry: " << arg.flightMasterEntry;
-            out << "\nfromNode: " << arg.path[0];
-            out << "\ntoNode: " << arg.path[arg.path.size() - 1];
+            if (arg.path.empty())
+                out << "\npath: (empty)";
+            else
+            {
+                out << "\nfromNode: " << arg.path.front();
+                out << "\ntoNode: " << arg.path.back();
+            }
             out << "\ninFlight: " << arg.inFlight;
         }
         else if constexpr (std::is_same_v<T, GoCity>)

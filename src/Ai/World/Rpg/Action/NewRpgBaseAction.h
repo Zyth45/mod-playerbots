@@ -40,6 +40,8 @@ protected:
     bool ForceToWait(uint32 duration, MovementPriority priority = MovementPriority::MOVEMENT_NORMAL);
 
     /* QUEST RELATED CHECK */
+    // nullptr when the quest is not in the bot's log (getQuestStatusMap().at() would throw).
+    QuestStatusData const* GetQuestStatusData(uint32 questId) const;
     ObjectGuid ChooseNpcOrGameObjectToInteract(bool questgiverOnly = false, float distanceLimit = 0.0f);
     bool HasQuestToAcceptOrReward(WorldObject* object);
     bool InteractWithNpcOrGameObjectForQuest(ObjectGuid guid);
