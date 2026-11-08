@@ -6,7 +6,10 @@
 
 #include "CoaLive.h"
 
+#include "AuctionHouseMgr.h"
+#include "Bag.h"
 #include "CellImpl.h"
+#include "ChatHelper.h"
 #include "Chat.h"
 #include "CoaLiveRules.h"
 #include "Creature.h"
@@ -19,7 +22,9 @@
 #include "Group.h"
 #include "Guild.h"
 #include "GuildMgr.h"
+#include "LFGMgr.h"
 #include "Log.h"
+#include "ObjectMgr.h"
 #include "ObjectAccessor.h"
 #include "Player.h"
 #include "PlayerbotAI.h"
@@ -36,6 +41,7 @@
 #include <list>
 #include <memory>
 #include <mutex>
+#include <shared_mutex>
 #include <vector>
 
 using namespace CoaLive;
@@ -148,8 +154,18 @@ std::map<std::string, std::string> Values(Player* bot, Player* subject, Unit* bo
 
 // The reaction of a bot to a situation: rolled, paced, drawn and typed now; played by the world thread later.
 // scope: the place or the person the pace of the situation is counted on.
-bool React(Player* bot, std::string const& situation, Player* subject, std::string const& scope, Unit* boss = nullptr,
-           uint32 perSubjectCdS = 0, bool invite = false)
+struct ReactOptions
+{
+    Unit* boss = nullptr;
+    uint32 perSubjectCdS = 0;
+    bool invite = false;
+    float populationFactor = 1.0f;                 // the channel timers (1, 2, 4, 5)
+    std::map<std::string, std::string> extra;      // %item, %price, %dungeon, %need...
+    bool now = false;                              // no typing delay (a bot logging out)
+};
+
+bool React(Player* bot, std::string const& situation, Player* subject, std::string const& scope,
+           ReactOptions const& opt = {})
 {
     if (!bot || !bot->IsInWorld())
         return false;
@@ -162,11 +178,15 @@ bool React(Player* bot, std::string const& situation, Player* subject, std::stri
     if (!current)
         return false;
     Rule const* rule = current->RuleOf(situation);
-    if (!rule || !rng.Roll(ReactPct(*rule, -1, 1.0f)))
+    if (!rule || !rng.Roll(ReactPct(*rule, -1, opt.populationFactor)))
         return false;
 
     uint8 const locale = BotLocale();
-    std::map<std::string, std::string> const values = Values(bot, subject, boss, locale);
+    std::map<std::string, std::string> values = Values(bot, subject, opt.boss, locale);
+    for (auto const& [key, value] : opt.extra)
+        values[key] = value;
+    uint32 const perSubjectCdS = opt.perSubjectCdS;
+    bool const invite = opt.invite;
     uint64 const botKey = bot->GetGUID().GetRawValue();
     uint64 const nowMs = GameTime::GetGameTimeMS().count();
     uint64 const nowS = nowMs / 1000;
@@ -214,7 +234,7 @@ bool React(Player* bot, std::string const& situation, Player* subject, std::stri
     if (liveQueue.size() >= QUEUE_MAX)
         return false;
     Pending p;
-    p.dueMs = nowMs + TypingMs(*rule, text.size(), text.empty() ? 0 : MsPerChar(bot), rng);
+    p.dueMs = opt.now ? 0 : nowMs + TypingMs(*rule, text.size(), text.empty() ? 0 : MsPerChar(bot), rng);
     p.bot = bot->GetGUID();
     p.subject = subject ? subject->GetGUID() : ObjectGuid::Empty;
     p.channel = channel;
@@ -234,15 +254,16 @@ void PlayEmote(Player* bot, uint32 emote, Player* target)
     bot->GetSession()->HandleTextEmoteOpcode(data);
 }
 
-// World thread: plays what is due.
-void Play(uint64 nowMs)
+// World thread: plays the lines the filter takes out of the queue.
+template <class Due>
+void Play(Due isDue)
 {
     std::vector<Pending> due;
     {
         std::lock_guard<std::mutex> guard(liveLock);
         if (liveQueue.empty())
             return;
-        auto split = std::partition(liveQueue.begin(), liveQueue.end(), [nowMs](Pending const& p) { return p.dueMs > nowMs; });
+        auto split = std::partition(liveQueue.begin(), liveQueue.end(), [&](Pending const& p) { return !isDue(p); });
         due.assign(std::make_move_iterator(split), std::make_move_iterator(liveQueue.end()));
         liveQueue.erase(split, liveQueue.end());
     }
@@ -250,8 +271,9 @@ void Play(uint64 nowMs)
     for (Pending const& p : due)
     {
         Player* bot = ObjectAccessor::FindPlayer(p.bot);
-        if (!bot || !bot->IsInWorld() || !bot->GetSession() || !bot->IsAlive())
+        if (!bot || !bot->GetSession() || (p.channel == CH_NEAR && (!bot->IsInWorld() || !bot->IsAlive())))
             continue;
+        PlayerbotAI* botAI = GET_PLAYERBOT_AI(bot);
         Player* subject = p.subject ? ObjectAccessor::FindPlayer(p.subject) : nullptr;
         // The player went away, or went too far for an emote at them.
         if (p.subject && !subject && (p.channel == CH_WHISPER || p.invite))
@@ -282,6 +304,22 @@ void Play(uint64 nowMs)
                 case CH_WHISPER:
                     if (subject)
                         bot->Whisper(p.text, LANG_UNIVERSAL, subject);
+                    break;
+                case CH_GENERAL:
+                    if (botAI)
+                        botAI->SayToChannelNow(p.text, ChatChannelId::GENERAL);
+                    break;
+                case CH_TRADE:
+                    if (botAI)
+                        botAI->SayToChannelNow(p.text, ChatChannelId::TRADE);
+                    break;
+                case CH_LFG:
+                    if (botAI)
+                        botAI->SayToChannelNow(p.text, ChatChannelId::LOOKING_FOR_GROUP);
+                    break;
+                case CH_GUILD:
+                    if (botAI)
+                        botAI->SayToGuild(p.text);
                     break;
                 default:
                     break;
@@ -328,6 +366,283 @@ void LookAround(Player* bot, PlayerbotAI* botAI)
         React(bot, "inn_idle", nullptr, place + "a" + std::to_string(bot->GetAreaId()));
     else if (InCapital(bot))
         React(bot, "city_idle", nullptr, place);
+}
+
+// ---------------------------------------------------------------- channels (brick 3b)
+
+constexpr uint32 CHANNEL_TICK_MS = 20000;  // the channel timers look at the world this often
+uint64 nextChannelTick = 0;
+
+// The price of one item: the lowest buyout per unit on the bot's auction house, else the vendor price x 3 (spec).
+uint64 PriceOf(Player* bot, ItemTemplate const* proto)
+{
+    uint64 best = 0;
+    if (AuctionHouseEntry const* ahEntry = AuctionHouseMgr::GetAuctionHouseEntryFromFactionTemplate(bot->GetFaction()))
+        if (AuctionHouseObject* house = sAuctionMgr->GetAuctionsMap(ahEntry))
+            for (auto const& [id, auction] : house->GetAuctions())
+                if (auction && auction->item_template == proto->ItemId && auction->buyout && auction->itemCount)
+                {
+                    uint64 const unit = auction->buyout / auction->itemCount;
+                    if (!best || unit < best)
+                        best = unit;
+                }
+    return best ? best : uint64(proto->SellPrice) * 3;
+}
+
+// Something the bot really carries and could sell: tradable, not a quest item, worth something, green or better
+// (any trade good).
+bool WtsValues(Player* bot, std::map<std::string, std::string>& extra)
+{
+    std::vector<Item*> items;
+    auto consider = [&](Item* item)
+    {
+        if (!item || item->IsSoulBound() || item->IsInTrade())
+            return;
+        ItemTemplate const* proto = item->GetTemplate();
+        if (!proto || proto->Bonding == BIND_QUEST_ITEM || proto->Class == ITEM_CLASS_QUEST || !proto->SellPrice)
+            return;
+        if (proto->Quality >= ITEM_QUALITY_UNCOMMON || proto->Class == ITEM_CLASS_TRADE_GOODS)
+            items.push_back(item);
+    };
+    for (uint8 slot = INVENTORY_SLOT_ITEM_START; slot < INVENTORY_SLOT_ITEM_END; ++slot)
+        consider(bot->GetItemByPos(INVENTORY_SLOT_BAG_0, slot));
+    for (uint8 bag = INVENTORY_SLOT_BAG_START; bag < INVENTORY_SLOT_BAG_END; ++bag)
+        if (Bag* b = bot->GetBagByPos(bag))
+            for (uint32 slot = 0; slot < b->GetBagSize(); ++slot)
+                consider(b->GetItemByPos(slot));
+    if (items.empty())
+        return false;
+    Item* item = items[urand(0, items.size() - 1)];
+    ItemTemplate const* proto = item->GetTemplate();
+    extra["item"] = ChatHelper::FormatItem(proto, item->GetCount() > 1 ? item->GetCount() : 0);
+    extra["price"] = FormatMoney(PriceOf(bot, proto));
+    return true;
+}
+
+// Something on the bot's auction house that a bot of its level would want: a real listing, its real price.
+bool WtbValues(Player* bot, std::map<std::string, std::string>& extra)
+{
+    AuctionHouseEntry const* ahEntry = AuctionHouseMgr::GetAuctionHouseEntryFromFactionTemplate(bot->GetFaction());
+    AuctionHouseObject* house = ahEntry ? sAuctionMgr->GetAuctionsMap(ahEntry) : nullptr;
+    if (!house || house->GetAuctions().empty())
+        return false;
+    std::vector<AuctionEntry*> fit;
+    for (auto const& [id, auction] : house->GetAuctions())
+    {
+        if (!auction || !auction->buyout || !auction->itemCount)
+            continue;
+        ItemTemplate const* proto = sObjectMgr->GetItemTemplate(auction->item_template);
+        if (proto && proto->RequiredLevel <= bot->GetLevel() + 5 && proto->Quality >= ITEM_QUALITY_NORMAL &&
+            proto->Quality <= ITEM_QUALITY_EPIC)
+            fit.push_back(auction);
+        if (fit.size() >= 200)
+            break;
+    }
+    if (fit.empty())
+        return false;
+    AuctionEntry* auction = fit[urand(0, fit.size() - 1)];
+    ItemTemplate const* proto = sObjectMgr->GetItemTemplate(auction->item_template);
+    extra["item"] = ChatHelper::FormatItem(proto);
+    extra["price"] = FormatMoney(auction->buyout / auction->itemCount);
+    return true;
+}
+
+// A real dungeon of the bot's level for its faction, and what a group built around the bot still needs.
+bool LfgValues(Player* bot, uint8 locale, std::map<std::string, std::string>& extra)
+{
+    std::vector<LFGDungeonEntry const*> fit;
+    for (uint32 id : sRandomPlayerbotMgr.LfgDungeons[bot->GetTeamId()])
+        if (LFGDungeonEntry const* d = sLFGDungeonStore.LookupEntry(id))
+            if (d->TypeID == lfg::LFG_TYPE_DUNGEON && d->Difficulty == 0 && bot->GetLevel() >= d->MinLevel &&
+                bot->GetLevel() <= d->MaxLevel)
+                fit.push_back(d);
+    if (fit.empty())
+        return false;
+    LFGDungeonEntry const* dungeon = fit[urand(0, fit.size() - 1)];
+    char const* name = dungeon->Name[locale];
+    if (!name || !*name)
+        name = dungeon->Name[LOCALE_enUS];
+    if (!name || !*name)
+        return false;
+    extra["dungeon"] = name;
+
+    // 1 tank, 1 heal, 3 dps, less the group as it is (the bot alone when it has none).
+    int tanks = 1, heals = 1, dps = 3;
+    auto count = [&](Player* member)
+    {
+        if (PlayerbotAI::IsTank(member))
+            --tanks;
+        else if (PlayerbotAI::IsHeal(member))
+            --heals;
+        else
+            --dps;
+    };
+    if (Group* group = bot->GetGroup())
+    {
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+            if (Player* member = ref->GetSource())
+                count(member);
+    }
+    else
+        count(bot);
+    std::string need;
+    auto add = [&need](int n, char const* role)
+    {
+        if (n > 0)
+            need += (need.empty() ? "" : " ") + std::to_string(n) + " " + role;
+    };
+    add(tanks, "tank");
+    add(heals, "heal");
+    add(dps, "dps");
+    if (need.empty())
+        return false;
+    extra["need"] = "need " + need;
+    return true;
+}
+
+bool FreeRandomBot(Player* p)
+{
+    if (!p || !p->IsInWorld() || !p->IsAlive() || p->IsInCombat() || !IsRandom(p) || p->InBattleground() ||
+        p->InArena() || p->GetMap()->Instanceable())
+        return false;
+    PlayerbotAI* ai = GET_PLAYERBOT_AI(p);
+    return ai && !ai->HasGameClientMaster();
+}
+
+// World thread, every CHANNEL_TICK_MS: in each zone with real players, one free random bot may talk in General,
+// in Trade (capitals), in LookingForGroup; in each guild with real players online, one bot may talk in the guild.
+// The rules of the bank pace them; the population factor keeps an empty channel calm.
+void ChannelTimers(uint64 nowMs)
+{
+    if (nowMs < nextChannelTick)
+        return;
+    nextChannelTick = nowMs + CHANNEL_TICK_MS;
+
+    std::unordered_map<uint32, uint32> realByZone, realByGuild;
+    std::unordered_map<uint32, std::vector<Player*>> botsByZone, botsByGuild;
+    std::shared_lock<std::shared_mutex> playersLock(*HashMapHolder<Player>::GetLock());
+    for (auto const& [guid, player] : ObjectAccessor::GetPlayers())
+    {
+        if (!player || !player->IsInWorld())
+            continue;
+        if (IsRealPlayer(player))
+        {
+            ++realByZone[player->GetZoneId()];
+            if (player->GetGuildId())
+                ++realByGuild[player->GetGuildId()];
+        }
+        else if (FreeRandomBot(player))
+        {
+            botsByZone[player->GetZoneId()].push_back(player);
+            if (player->GetGuildId())
+                botsByGuild[player->GetGuildId()].push_back(player);
+        }
+    }
+
+    uint8 const locale = BotLocale();
+    auto pick = [](std::vector<Player*> const& v) { return v[urand(0, v.size() - 1)]; };
+    for (auto const& [zone, real] : realByZone)
+    {
+        auto it = botsByZone.find(zone);
+        if (it == botsByZone.end() || it->second.empty())
+            continue;
+        ReactOptions opt;
+        opt.populationFactor = PopulationFactor(real);
+        std::string const scope = "z" + std::to_string(zone);
+
+        React(pick(it->second), "general_chat", nullptr, scope, opt);
+
+        Player* bot = pick(it->second);
+        if (InCapital(bot))
+        {
+            ReactOptions trade = opt;
+            uint32 const roll = urand(0, 2);
+            if (roll == 0 && WtsValues(bot, trade.extra))
+                React(bot, "trade_wts", nullptr, scope, trade);
+            else if (roll == 1 && WtbValues(bot, trade.extra))
+                React(bot, "trade_wtb", nullptr, scope, trade);
+            else
+                React(bot, "trade_chat", nullptr, scope, trade);
+        }
+
+        bot = pick(it->second);
+        ReactOptions lfg = opt;
+        if (LfgValues(bot, locale, lfg.extra))
+            React(bot, urand(0, 1) ? "lfg_lfm" : "lfg_lfg", nullptr, "lfg" + std::to_string(bot->GetTeamId()), lfg);
+    }
+
+    for (auto const& [guildId, real] : realByGuild)
+    {
+        auto it = botsByGuild.find(guildId);
+        if (it == botsByGuild.end() || it->second.empty())
+            continue;
+        ReactOptions opt;
+        opt.populationFactor = PopulationFactor(real);
+        React(pick(it->second), "guild_idle", nullptr, "g" + std::to_string(guildId), opt);
+    }
+}
+
+// ---------------------------------------------------------------- guild events
+
+uint32 RealOnlineInGuild(uint32 guildId, Player* except)
+{
+    uint32 n = 0;
+    std::shared_lock<std::shared_mutex> playersLock(*HashMapHolder<Player>::GetLock());
+    for (auto const& [guid, player] : ObjectAccessor::GetPlayers())
+        if (player && player != except && player->IsInWorld() && player->GetGuildId() == guildId && IsRealPlayer(player))
+            ++n;
+    return n;
+}
+
+// Another random bot of the guild, online and free to type.
+Player* GuildBot(uint32 guildId, Player* except)
+{
+    std::vector<Player*> bots;
+    std::shared_lock<std::shared_mutex> playersLock(*HashMapHolder<Player>::GetLock());
+    for (auto const& [guid, player] : ObjectAccessor::GetPlayers())
+        if (player && player != except && player->GetGuildId() == guildId && FreeRandomBot(player))
+            bots.push_back(player);
+    return bots.empty() ? nullptr : bots[urand(0, bots.size() - 1)];
+}
+
+// Guild events seen on a map thread wait for the world thread, where the guild's members can be looked at.
+struct GuildEvent
+{
+    std::string situation;  // guild_levelup, guild_loot, guild_self_loot
+    uint32 guildId = 0;
+    ObjectGuid who;
+    uint32 itemId = 0;
+};
+std::vector<GuildEvent> guildEvents;
+
+void NoteGuildEvent(GuildEvent e)
+{
+    std::lock_guard<std::mutex> guard(liveLock);
+    if (guildEvents.size() < 256)
+        guildEvents.push_back(std::move(e));
+}
+
+void PlayGuildEvents()
+{
+    std::vector<GuildEvent> events;
+    {
+        std::lock_guard<std::mutex> guard(liveLock);
+        events.swap(guildEvents);
+    }
+    for (GuildEvent const& e : events)
+    {
+        Player* who = ObjectAccessor::FindPlayer(e.who);
+        if (!who || !RealOnlineInGuild(e.guildId, nullptr))
+            continue;
+        ReactOptions opt;
+        if (ItemTemplate const* proto = e.itemId ? sObjectMgr->GetItemTemplate(e.itemId) : nullptr)
+            opt.extra["item"] = ChatHelper::FormatItem(proto);
+        std::string const scope = "g" + std::to_string(e.guildId);
+        if (e.situation == "guild_self_loot")
+            React(who, e.situation, nullptr, scope, opt);
+        else if (Player* bot = GuildBot(e.guildId, who))
+            React(bot, e.situation, who, scope, opt);
+    }
 }
 
 void Load()
@@ -399,7 +714,8 @@ class CoaLivePlayerScript : public PlayerScript
 public:
     CoaLivePlayerScript()
         : PlayerScript("CoaLivePlayerScript",
-                       {PLAYERHOOK_ON_LEVEL_CHANGED, PLAYERHOOK_ON_DUEL_END, PLAYERHOOK_ON_PLAYER_ENTER_COMBAT})
+                       {PLAYERHOOK_ON_LEVEL_CHANGED, PLAYERHOOK_ON_DUEL_END, PLAYERHOOK_ON_PLAYER_ENTER_COMBAT,
+                        PLAYERHOOK_ON_LOGIN, PLAYERHOOK_ON_LOGOUT, PLAYERHOOK_ON_LOOT_ITEM})
     {
     }
 
@@ -410,6 +726,8 @@ public:
             return;
 
         std::string const scope = "l" + std::to_string(player->GetGUID().GetCounter());
+        if (uint32 guildId = player->GetGuildId())
+            NoteGuildEvent({"guild_levelup", guildId, player->GetGUID(), 0});
         if (IsRandom(player))
         {
             if (!RealPlayersNear(player, HEAR_RANGE).empty())
@@ -444,6 +762,53 @@ public:
             React(loser, "duel_lost", winner, scope + "l");
     }
 
+    // World thread. A real player logs in: a bot of the guild says hello. A random bot logs in in front of the
+    // guild's real players: it says hello itself.
+    void OnPlayerLogin(Player* player) override
+    {
+        if (!Enabled() || !player || !player->GetGuildId())
+            return;
+        uint32 const guildId = player->GetGuildId();
+        std::string const scope = "g" + std::to_string(guildId);
+        if (IsRealPlayer(player))
+        {
+            if (Player* bot = GuildBot(guildId, player))
+                React(bot, "guild_login", player, scope);
+        }
+        else if (IsRandom(player) && RealOnlineInGuild(guildId, nullptr))
+        {
+            // Logged in a moment ago: the line waits for the bot to be in the world (React needs it there).
+            ReactOptions opt;
+            React(player, "guild_self_login", nullptr, scope, opt);
+        }
+    }
+
+    // World thread, the bot still in the world: its goodbye is said at once, it will not be there later.
+    void OnPlayerLogout(Player* player) override
+    {
+        if (!Enabled() || !player || !player->GetGuildId() || !IsRandom(player) ||
+            !RealOnlineInGuild(player->GetGuildId(), nullptr))
+            return;
+        ReactOptions opt;
+        opt.now = true;
+        ObjectGuid const guid = player->GetGUID();
+        if (React(player, "guild_logout", nullptr, "g" + std::to_string(player->GetGuildId()), opt))
+            Play([guid](Pending const& p) { return p.bot == guid && p.dueMs == 0; });
+    }
+
+    // A guild member loots a rare item or better.
+    void OnPlayerLootItem(Player* player, Item* item, uint32 /*count*/, ObjectGuid /*lootguid*/) override
+    {
+        if (!Enabled() || !player || !item || !player->GetGuildId() || !item->GetTemplate() ||
+            item->GetTemplate()->Quality < ITEM_QUALITY_RARE)
+            return;
+        bool const self = IsRandom(player);
+        if (!self && !IsRealPlayer(player))
+            return;
+        NoteGuildEvent({self ? "guild_self_loot" : "guild_loot", player->GetGuildId(), player->GetGUID(),
+                        item->GetEntry()});
+    }
+
     // A bot pulls a boss in a group with a real player.
     void OnPlayerEnterCombat(Player* player, Unit* enemy) override
     {
@@ -464,7 +829,12 @@ public:
     void OnUpdate(uint32 /*diff*/) override
     {
         if (Enabled())
-            Play(GameTime::GetGameTimeMS().count());
+        {
+            uint64 const nowMs = GameTime::GetGameTimeMS().count();
+            Play([nowMs](Pending const& p) { return p.dueMs <= nowMs; });
+            PlayGuildEvents();
+            ChannelTimers(nowMs);
+        }
     }
 };
 }  // namespace
