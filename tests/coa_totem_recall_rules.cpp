@@ -53,6 +53,21 @@ int main()
     m.msSinceCombat = 60000;
     assert(CoaTotemRecallDecide(m) == CoaTotemRecallDecision::Unsummon);
 
+    // Once per fight end.
+    assert(!CoaTotemRecallPending(false, false));
+    assert(CoaTotemRecallPending(false, true));
+    assert(CoaTotemRecallPending(true, false));
+    m = calm;
+    m.inDcRun = true;
+    assert(CoaTotemRecallStillPending(CoaTotemRecallDecide(m)));
+    assert(!CoaTotemRecallStillPending(CoaTotemRecallDecide(calm)));
+
+    // Plain CoA summons count as totems by their type, only the bot's own.
+    assert(CoaIsOwnedTotem(true, true, true));
+    assert(!CoaIsOwnedTotem(false, true, true));
+    assert(!CoaIsOwnedTotem(true, false, true));
+    assert(!CoaIsOwnedTotem(true, true, false));
+
     static_assert(CoaTotemRecallDelayMs == 5000);
     static_assert(CoaTotemRecallCheckMs == 1000);
     return 0;

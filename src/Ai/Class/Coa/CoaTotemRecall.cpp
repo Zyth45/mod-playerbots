@@ -16,8 +16,12 @@
 #include "Pet.h"
 #include "Playerbots.h"
 #include "Timer.h"
+#include "CellImpl.h"
+#include "GridNotifiers.h"
+#include "GridNotifiersImpl.h"
 #include "Totem.h"
 
+#include <list>
 #include <mutex>
 #include <unordered_map>
 #include <vector>
@@ -30,6 +34,7 @@ struct RecallState
 {
     uint32 lastCheck;
     uint32 lastCombat;
+    bool pending;
 };
 
 std::mutex stateLock;
@@ -40,10 +45,11 @@ bool DueForCheck(Player* bot, bool fighting, uint32& msSinceCombat)
 {
     std::lock_guard<std::mutex> guard(stateLock);
     uint32 const now = getMSTime();
-    auto [itr, inserted] = states.try_emplace(bot->GetGUID().GetCounter(), RecallState{now, now});
+    auto [itr, inserted] = states.try_emplace(bot->GetGUID().GetCounter(), RecallState{now, now, true});
     if (fighting)
         itr->second.lastCombat = now;
-    if (inserted || getMSTimeDiff(itr->second.lastCheck, now) < CoaTotemRecallCheckMs)
+    itr->second.pending = CoaTotemRecallPending(itr->second.pending, fighting);
+    if (inserted || !itr->second.pending || getMSTimeDiff(itr->second.lastCheck, now) < CoaTotemRecallCheckMs)
         return false;
     itr->second.lastCheck = now;
     msSinceCombat = getMSTimeDiff(itr->second.lastCombat, now);
@@ -69,6 +75,14 @@ bool GroupInCombat(Player* bot)
     return false;
 }
 
+void SetPending(Player* bot, bool pending)
+{
+    std::lock_guard<std::mutex> guard(stateLock);
+    auto const itr = states.find(bot->GetGUID().GetCounter());
+    if (itr != states.end())
+        itr->second.pending = pending;
+}
+
 bool BossInProgress(Map* map)
 {
     if (!map->IsDungeon())
@@ -82,7 +96,7 @@ bool BossInProgress(Map* map)
     return false;
 }
 
-std::vector<Totem*> OwnedTotems(Player* bot, Map* map)
+std::vector<Totem*> SlotTotems(Player* bot, Map* map)
 {
     std::vector<Totem*> totems;
     for (uint8 slot = SUMMON_SLOT_TOTEM_FIRE; slot < MAX_TOTEM_SLOT; ++slot)
@@ -94,6 +108,27 @@ std::vector<Totem*> OwnedTotems(Player* bot, Map* map)
         if (creature && creature->IsAlive() && creature->IsTotem() && creature->GetOwnerGUID() == bot->GetGUID())
             if (Totem* totem = creature->ToTotem())
                 totems.push_back(totem);
+    }
+    return totems;
+}
+
+// The CoA totems summoned outside the totem slots (Witch Doctor wards and idols, Primalist totem...).
+std::vector<Creature*> UnslottedTotems(Player* bot)
+{
+    Acore::AnyUnitInObjectRangeCheck check(bot, CoaTotemRecallSearchRadius);
+    std::list<Unit*> units;
+    Acore::UnitListSearcher<Acore::AnyUnitInObjectRangeCheck> searcher(bot, units, check);
+    Cell::VisitObjects(bot, searcher, CoaTotemRecallSearchRadius);
+    std::vector<Creature*> totems;
+    for (Unit* unit : units)
+    {
+        Creature* creature = unit->ToCreature();
+        if (!creature || creature->IsTotem())
+            continue;
+        bool const totemType = creature->GetCreatureTemplate() &&
+                               creature->GetCreatureTemplate()->type == CREATURE_TYPE_TOTEM;
+        if (CoaIsOwnedTotem(creature->GetOwnerGUID() == bot->GetGUID(), creature->IsAlive(), totemType))
+            totems.push_back(creature);
     }
     return totems;
 }
@@ -125,12 +160,8 @@ void CoaTotemRecallTick(PlayerbotAI* botAI)
     if (!DueForCheck(bot, inCombat || groupInCombat, msSinceCombat))
         return;
 
-    std::vector<Totem*> const totems = OwnedTotems(bot, map);
-    if (totems.empty())
-        return;
-
     uint32 const recall = RecallSpell(bot);
-    CoaTotemRecallMoment const moment{true,
+    CoaTotemRecallMoment moment{true,
                                       bot->IsAlive(),
                                       inCombat,
                                       groupInCombat,
@@ -138,20 +169,26 @@ void CoaTotemRecallTick(PlayerbotAI* botAI)
                                       CoaGroupTank::InDungeonClearRun(bot),
                                       bot->IsNonMeleeSpellCast(true) || bot->IsInFlight() || bot->GetVehicle() ||
                                           bot->HasUnitState(UNIT_STATE_CONTROLLED),
-                                      uint32(totems.size()),
+                                      1,
                                       msSinceCombat,
                                       recall != 0};
-    switch (CoaTotemRecallDecide(moment))
-    {
-        case CoaTotemRecallDecision::CastRecall:
-            if (!bot->HasSpellCooldown(recall))
-                bot->CastSpell(bot, recall, false);
-            break;
-        case CoaTotemRecallDecision::Unsummon:
-            for (Totem* totem : totems)
-                totem->UnSummon();
-            break;
-        case CoaTotemRecallDecision::None:
-            break;
-    }
+    if (CoaTotemRecallStillPending(CoaTotemRecallDecide(moment)))
+        return;
+
+    std::vector<Totem*> const slotTotems = SlotTotems(bot, map);
+    std::vector<Creature*> const otherTotems = UnslottedTotems(bot);
+    moment.totemsOut = uint32(slotTotems.size() + otherTotems.size());
+    moment.knowsRecall = recall && !slotTotems.empty() && !bot->HasSpellCooldown(recall);
+    CoaTotemRecallDecision const decision = CoaTotemRecallDecide(moment);
+    SetPending(bot, false);
+    if (decision == CoaTotemRecallDecision::None)
+        return;
+
+    if (decision == CoaTotemRecallDecision::CastRecall)
+        bot->CastSpell(bot, recall, false);
+    else
+        for (Totem* totem : slotTotems)
+            totem->UnSummon();
+    for (Creature* totem : otherTotems)
+        totem->DespawnOrUnsummon();
 }

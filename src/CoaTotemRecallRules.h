@@ -15,6 +15,9 @@
 constexpr std::uint32_t CoaTotemRecallCheckMs = 1000;
 // A group chaining packs re-engages within this delay and keeps its totems.
 constexpr std::uint32_t CoaTotemRecallDelayMs = 5000;
+// CoA classes (Witch Doctor wards and idols, Primalist totem...) summon their totems as plain summons, out of the
+// four totem slots: they are looked for around the bot, once per fight end.
+constexpr float CoaTotemRecallSearchRadius = 60.0f;
 
 struct CoaTotemRecallMoment
 {
@@ -43,6 +46,24 @@ inline CoaTotemRecallDecision CoaTotemRecallDecide(CoaTotemRecallMoment const& m
         !m.totemsOut || m.msSinceCombat < CoaTotemRecallDelayMs)
         return CoaTotemRecallDecision::None;
     return m.knowsRecall ? CoaTotemRecallDecision::CastRecall : CoaTotemRecallDecision::Unsummon;
+}
+
+// Once per fight end: pending is set while the bot or its group fights, and cleared once the totems were put
+// away or none was found. A moment that blocks the recall (boss, Dungeon Clear run, busy) keeps it pending.
+inline bool CoaTotemRecallPending(bool pending, bool fighting)
+{
+    return pending || fighting;
+}
+
+inline bool CoaTotemRecallStillPending(CoaTotemRecallDecision decisionWithTotems)
+{
+    return decisionWithTotems == CoaTotemRecallDecision::None;
+}
+
+// A creature the bot put down as a totem: owned by it, alive, a totem by its creature type or its class.
+inline bool CoaIsOwnedTotem(bool ownedByBot, bool alive, bool totemType)
+{
+    return ownedByBot && alive && totemType;
 }
 
 #endif
