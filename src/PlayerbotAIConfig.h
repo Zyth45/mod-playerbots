@@ -717,6 +717,8 @@ public:
     bool coaCombatOffTankEnable = false;
     // Gear score: item set bonuses and raid tokens count in the choice of gear (CoaGearScore).
     bool coaCombatGearScoreEnable = false;
+    // At LootNeedRollLevel 2, how long a bot that wants an item waits for the real players to vote first (ms).
+    uint32 coaCombatLootNeedWaitMs = 20000;
     // ---- end of CoA Combat ----
 
 private:

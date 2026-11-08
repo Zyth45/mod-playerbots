@@ -3,6 +3,7 @@
 
 #include <cassert>
 
+using CoaRollRule::HoldVote;
 using CoaRollRule::Polite;
 using CoaRollRule::Vote;
 
@@ -24,5 +25,17 @@ int main()
     assert(Polite(Vote::Need, 1, false, false, false) == Vote::Pass);
     // Pass stays Pass.
     assert(Polite(Vote::Pass, 2, false, false, true) == Vote::Pass);
+    // The held vote: only at level 2, only for a Need, only while a real player may still vote, at most the wait.
+    assert(HoldVote(Vote::Need, 2, true, 0, 20000));
+    assert(HoldVote(Vote::Need, 2, true, 19999, 20000));
+    assert(!HoldVote(Vote::Need, 2, true, 20000, 20000));   // the wait is over: vote
+    assert(!HoldVote(Vote::Need, 2, false, 0, 20000));      // every player voted (or none rolls): vote at once
+    assert(!HoldVote(Vote::Need, 1, true, 0, 20000));       // level 1: Greed at once, as before
+    assert(!HoldVote(Vote::Need, 0, true, 0, 20000));
+    assert(!HoldVote(Vote::Greed, 2, true, 0, 20000));      // a Greed never waits
+    assert(!HoldVote(Vote::Need, 2, true, 0, 0));           // 0: no wait
+    // Capped under the roll's 60 s: a 90 s setting still votes at 50 s.
+    assert(HoldVote(Vote::Need, 2, true, 49999, 90000));
+    assert(!HoldVote(Vote::Need, 2, true, 50000, 90000));
     return 0;
 }

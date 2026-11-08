@@ -29,4 +29,5 @@ void PlayerbotAIConfig::LoadCoaCombatConfig()
     coaCombatPursuitStopEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaCombat.PursuitStop.Enable", false);
     coaCombatOffTankEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaCombat.OffTank.Enable", false);
     coaCombatGearScoreEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaCombat.GearScore.Enable", false);
+    coaCombatLootNeedWaitMs = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaCombat.LootNeedWaitSeconds", 20) * 1000;
 }
