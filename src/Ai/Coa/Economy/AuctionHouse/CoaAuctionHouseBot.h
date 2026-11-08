@@ -23,11 +23,14 @@
 
 #include "Common.h"
 #include "ObjectGuid.h"
+#include "Random.h"
 
 #include <map>
+#include <unordered_map>
 #include <vector>
 
 struct AuctionEntry;
+class AuctionHouseObject;
 class Player;
 class WorldSession;
 
@@ -339,6 +342,26 @@ private:
     uint32 LastSellCycleCount;
     int ActiveListMultipleItemID;
     int RemainingListMultipleCount;
+
+    // CoA Economy (lot 2): a buyer that acts like people (AiPlayerbot.CoaEconomy.Buyer.*, off by default).
+    struct HumanBuyerSettings
+    {
+        bool Enabled = false;
+        uint32 DelayMinSeconds = 60;
+        uint32 DelayMaxSeconds = 900;
+        uint32 BaseChancePercent = 35;
+        uint32 RivalPercent = 25;
+        uint32 ArbitrageMarginPercent = 90;
+    };
+    HumanBuyerSettings HumanBuyer;
+    // Per auction house: auction id -> game time (seconds) from which the buyer may look at it.
+    std::map<uint32, std::unordered_map<uint32, uint32>> HumanBuyerEligibleAt;
+    // While true, CalculateItemValue takes the low end of every random range (the house's lowest asking price).
+    bool PriceRollLowest = false;
+    uint32 PriceRoll(uint32 low, uint32 high) const { return PriceRollLowest ? low : urand(low, high); }
+    uint64 GetHouseLowestBuyoutPerItem(ItemTemplate const* itemProto);
+    void LoadHumanBuyerSettings();
+    void FilterHumanBuyerCandidates(uint32 houseId, std::vector<uint32>& possibleBids, AuctionHouseObject* auctionHouse);
 
     AuctionHouseBot();
 
