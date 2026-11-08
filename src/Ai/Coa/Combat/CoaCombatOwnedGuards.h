@@ -23,5 +23,6 @@
 #define COA_COMBAT_OWNS_TANK_FIGHT_ASSIST 1  // A8: no hook (camp branch stays in DC)
 #define COA_COMBAT_OWNS_COMBAT_REGROUP 1  // A9: CoaGardesRunHooks::SetCampHoldPassive
 #define COA_COMBAT_OWNS_HEAL_REPOSITION 1  // A10: CoaHealEscort::SetProvider (already wired)
+#define COA_COMBAT_OWNS_TOP_OFF_PARTY 1  // A11: no hook
 
 #endif
