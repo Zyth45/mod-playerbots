@@ -11,6 +11,7 @@
 #include "ObjectGuid.h"
 
 #include <string>
+#include <unordered_map>
 
 class Player;
 class PlayerbotAI;
@@ -35,6 +36,17 @@ bool AnswersWhispers(PlayerbotAI* botAI, ObjectGuid from);
 
 // The bot accepted a resurrection cast by "by".
 void OnResurrectAccepted(Player* bot, ObjectGuid by);
+
+// For the other sessions (CoA World...): their own situations of the bank, said the CoA Live way. Both cost nothing
+// and give nothing when AiPlayerbot.CoaLive.Enable is 0 (the caller keeps its own text).
+// SayLine: the bot draws a line of the situation (rules, chance, soul, no-repeat), filled with the bot's values and
+// the slots ("city" fills %city), and says it on the line's channel after a human typing delay. False when the rule
+// or the chance says no, or the bank has nothing to say. Any thread; played by the world thread.
+bool SayLine(Player* bot, std::string const& situation, std::unordered_map<std::string, std::string> const& slots);
+// SystemLine: a line of the situation in the reader's language (English when it has none), filled with the slots
+// only, for a system announce: no pace, no typo, no slang. Empty when there is none or a slot is missing.
+std::string SystemLine(Player* reader, std::string const& situation,
+                       std::unordered_map<std::string, std::string> const& slots);
 }  // namespace CoaLive
 
 void AddSC_coa_live();
