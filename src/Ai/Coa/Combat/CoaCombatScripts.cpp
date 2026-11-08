@@ -10,6 +10,7 @@
 // (CoaCombatStrategyContext) and added to the bots in src/Bot/Factory/AiFactory.cpp.
 
 #include "CoaBreathGuard.h"
+#include "CoaCombatPurge.h"
 #include "ScriptMgr.h"
 
 namespace
@@ -28,6 +29,7 @@ namespace
             uint32 const elapsed = sinceSweepMs;
             sinceSweepMs = 0;
             CoaBreathGuard::Tick(elapsed);  // B2
+            CoaCombatPurge::Tick(elapsed);  // B4
         }
 
     private:

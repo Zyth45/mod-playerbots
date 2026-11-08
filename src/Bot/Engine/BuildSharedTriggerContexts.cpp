@@ -6,6 +6,7 @@
 
 #include "AiObjectContext.h"
 #include "CoaCombatContext.h"
+#include "STContexts.h"
 #include "CoaGardesContext.h"
 #include "Aq20TriggerContext.h"
 #include "Aq40TriggerContext.h"
@@ -74,6 +75,7 @@ void AiObjectContext::BuildSharedTriggerContexts(SharedNamedObjectContextList<Tr
     triggerContexts.Add(new VanillaDungeonRFDTriggerContext());
     triggerContexts.Add(new VanillaDungeonBRSTriggerContext());
     triggerContexts.Add(new VanillaDungeonBRDTriggerContext());
+    triggerContexts.Add(new VanillaDungeonSTTriggerContext());
     triggerContexts.Add(new VanillaDungeonScholoTriggerContext());
     triggerContexts.Add(new VanillaDungeonStratTriggerContext());
     triggerContexts.Add(new VanillaDungeonMaraTriggerContext());

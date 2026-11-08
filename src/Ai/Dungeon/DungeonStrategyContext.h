@@ -36,6 +36,7 @@
 #include "SMStrategy.h"
 #include "Strategy.h"
 #include "StratStrategy.h"
+#include "STStrategy.h"
 #include "TOCStrategy.h"
 #include "UBStrategy.h"
 #include "UKStrategy.h"
@@ -63,6 +64,7 @@ class DungeonStrategyContext : public NamedObjectContext<Strategy>
             creators["vanilla-brd"] = &DungeonStrategyContext::vanilla_brd;  // Blackrock Depths
             creators["vanilla-scholo"] = &DungeonStrategyContext::vanilla_scholo;  // Scholomance
             creators["vanilla-strat"] = &DungeonStrategyContext::vanilla_strat;  // Stratholme
+            creators["vanilla-st"] = &DungeonStrategyContext::vanilla_st;  // Sunken Temple
             creators["vanilla-mara"] = &DungeonStrategyContext::vanilla_mara;  // Maraudon
             creators["coa-other-side"] = &DungeonStrategyContext::coa_other_side;  // Road to De Other Side
             creators["coa-vaults"] = &DungeonStrategyContext::coa_vaults;  // Vaults of the Inquisition
@@ -105,6 +107,7 @@ class DungeonStrategyContext : public NamedObjectContext<Strategy>
         static Strategy* vanilla_brd(PlayerbotAI* botAI) { return new VanillaDungeonBRDStrategy(botAI); }
         static Strategy* vanilla_scholo(PlayerbotAI* botAI) { return new VanillaDungeonScholoStrategy(botAI); }
         static Strategy* vanilla_strat(PlayerbotAI* botAI) { return new VanillaDungeonStratStrategy(botAI); }
+    static Strategy* vanilla_st(PlayerbotAI* botAI) { return new VanillaDungeonSTStrategy(botAI); }
         static Strategy* vanilla_mara(PlayerbotAI* botAI) { return new VanillaDungeonMaraStrategy(botAI); }
         static Strategy* coa_other_side(PlayerbotAI* botAI) { return new CoaDungeonOtherSideStrategy(botAI); }
         static Strategy* coa_vaults(PlayerbotAI* botAI) { return new CoaDungeonVaultsStrategy(botAI); }
