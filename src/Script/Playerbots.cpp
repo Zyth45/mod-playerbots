@@ -671,10 +671,15 @@ void AddSC_random_bot_transmog();
 void AddSC_coa_leave_instance();
 void AddSC_coa_player_main_tank();
 void AddSC_coa_gardes_menace();
-void AddSC_coa_economy_ahbot();
 
-// CoA World (L3, the world moves): invasions.
-void AddSC_coa_world_invasions();
+// One entry point per code session, each defined in the session's own file:
+// Economy src/Ai/Coa/Economy/CoaEconomyScripts.cpp, World src/Ai/Coa/World/CoaWorldScripts.cpp,
+// Live src/Ai/Coa/Social/CoaLiveScripts.cpp, Combat src/Ai/Coa/Combat/CoaCombatScripts.cpp.
+// A session registers a new script in its own file, never here.
+void AddCoaEconomyScripts();
+void AddCoaWorldScripts();
+void AddCoaLiveScripts();
+void AddCoaCombatScripts();
 
 void AddPlayerbotsScripts()
 {
@@ -707,11 +712,10 @@ void AddPlayerbotsScripts()
     AddSC_coa_player_main_tank();
     AddSC_coa_gardes_menace();
     AddSC_coa_lfg();
-    AddSC_coa_economy_ahbot();
 
-    // CoA World (L3, the world moves)
-    AddSC_coa_world_invasions();
-
-    // CoA Live (L1, they look human): reactions and whispers from the IA MIND bank (CoaLive.h)
-    AddSC_coa_live();
+    // Code sessions, in the order they were registered before (hooks shared by two of them keep their call order).
+    AddCoaEconomyScripts();
+    AddCoaWorldScripts();
+    AddCoaLiveScripts();
+    AddCoaCombatScripts();
 }

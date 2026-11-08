@@ -2438,21 +2438,6 @@ AiPlayerbot.ZoneCrowdLimit = 30
 AiPlayerbot.CoaHealsExcluded = "Nanobot Reconstruction"
 
 #
-#    AiPlayerbot.CoaBotSurname
-#        Description: Random bots carry the surname "Bot" ("Kegarink Bot"), so players tell them from
-#                     real players at a glance: nameplates, tooltips, chat, /who.
-#                     Applied at the next start: turned off, the bots take their own names back.
-#                     Needs a client that shows two-word names (CoA client revision 8 or later).
-#                     To whisper a bot by typing its name: /w "Kegarink Bot" hello
-#        Default:     1 - on, the surname "Bot"
-#                     0 - off, no surname
-#                     2 - a family name, the same for a bot at every start, from
-#                         AiPlayerbot.CoaBotSurnameList ("Kegarink Ashford"); the SquidBots addon
-#                         then knows the bots by AiPlayerbot.CoaBotIdentify, on by itself.
-
-AiPlayerbot.CoaBotSurname = 1
-
-#
 #    AiPlayerbot.CoaRecruitSameFaction
 #        Description: Bots recruited by a player (lfg bot, .playerbots coa tank|heal|dps, the
 #                     SquidBots buttons) are of the player's faction, even on a realm that allows
@@ -2550,7 +2535,8 @@ AiPlayerbot.CoaLfgAnnounceMinutes = 10
 
 AiPlayerbot.CoaLfgAnnounceText =
 
-#
+####################################################################################################
+#  CoA World — owned by the CoA World session
 # CoA World (L3, "the world moves")
 #
 #    AiPlayerbot.CoaWorld.Invasions.Enable
@@ -2800,8 +2786,23 @@ AiPlayerbot.CityDuels.OrgrimmarSpot = ""
 AiPlayerbot.CityDuels.StormwindSpot = ""
 
 ####################################################################################################
+#  CoA Live — owned by the CoA SquidBot session
 # CoA Live (3.0): a server that feels inhabited
 #
+#    AiPlayerbot.CoaBotSurname
+#        Description: Random bots carry the surname "Bot" ("Kegarink Bot"), so players tell them from
+#                     real players at a glance: nameplates, tooltips, chat, /who.
+#                     Applied at the next start: turned off, the bots take their own names back.
+#                     Needs a client that shows two-word names (CoA client revision 8 or later).
+#                     To whisper a bot by typing its name: /w "Kegarink Bot" hello
+#        Default:     1 - on, the surname "Bot"
+#                     0 - off, no surname
+#                     2 - a family name, the same for a bot at every start, from
+#                         AiPlayerbot.CoaBotSurnameList ("Kegarink Ashford"); the SquidBots addon
+#                         then knows the bots by AiPlayerbot.CoaBotIdentify, on by itself.
+
+AiPlayerbot.CoaBotSurname = 1
+
 #    AiPlayerbot.CoaBotIdentify
 #        Description: Bots tell the SquidBots Lite addon that they are bots, without the "Bot" surname:
 #                     the addon asks its group "WHO?" on a hidden addon channel, every bot of the group
@@ -4200,6 +4201,7 @@ AiPlayerbot.TargetPosRecalcDistance = 0.1
 AiPlayerbot.SummonAtInnkeepersEnabled = 1
 
 ###################################################################################################
+#  CoA Economy — owned by the CoA Economy session
 # CoA Economy
 #
 # The auction house bot (seller and buyer of the house), merged into SquidBot. Its settings stay
@@ -4241,3 +4243,9 @@ AiPlayerbot.CoaEconomy.Buyer.DelayMaxSeconds = 900
 AiPlayerbot.CoaEconomy.Buyer.BaseChancePercent = 35
 AiPlayerbot.CoaEconomy.Buyer.RivalPercent = 25
 AiPlayerbot.CoaEconomy.Buyer.ArbitrageMarginPercent = 90
+
+###################################################################################################
+#  CoA Combat — owned by the CoA Combat session
+# CoA Combat
+#
+# No setting yet.

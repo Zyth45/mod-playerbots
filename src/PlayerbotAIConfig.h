@@ -102,6 +102,13 @@ public:
 
     bool Initialize();
     void LoadRandomBotLevelConfig();
+
+    // Code sessions: each one loads its own settings, in a file of its own, called by Initialize().
+    void LoadCoaLiveConfig();     // src/Ai/Coa/Social/CoaLiveConfig.cpp
+    void LoadCoaWorldConfig();    // src/Ai/Coa/World/CoaWorldConfig.cpp
+    void LoadCoaEconomyConfig();  // src/Ai/Coa/Economy/CoaEconomyConfig.cpp
+    void LoadCoaCombatConfig();   // src/Ai/Coa/Combat/CoaCombatConfig.cpp
+
     bool IsInRandomAccountList(uint32 id);
     // "tradegoods,herb,7:9,5": item classes or class:subclass pairs, with a few names.
     void LoadGuildBankDepositItems(std::string const& value);
@@ -477,7 +484,6 @@ public:
     bool coaArenaPurge;
     bool coaBossKnowledge;
     bool coaRecruitSameFaction;
-    uint32 coaBotSurname;  // 0 none, 1 "Bot" (default), 2 a family name (CoaSurnameRules.h)
     uint32 coaThreatHold;
     uint32 coaTankThreatBonus;
     bool coaAttackLoop;
@@ -666,7 +672,8 @@ public:
     bool resetBotLevelIgnoreGuildWithRealPlayers;
     std::vector<std::string> resetBotLevelExcludeNames;
 
-    // CoA Live (3.0, session CoA SquidBot)
+    // ---- CoA Live, owned by the CoA SquidBot session (loaded by LoadCoaLiveConfig, CoaLiveConfig.cpp) ----
+    uint32 coaBotSurname;  // 0 none, 1 "Bot" (default), 2 a family name (CoaSurnameRules.h)
     bool coaBotIdentify;  // AiPlayerbot.CoaBotIdentify: bots answer the addon's "WHO?" (CoaBotIdentify)
     std::vector<std::string> coaBotSurnameList;  // AiPlayerbot.CoaBotSurnameList, never empty (default list)
     // AiPlayerbot.CoaLive.*: bots react like people, from the bank of CoA IA MIND (CoaLive)
@@ -679,6 +686,19 @@ public:
     uint32 coaLiveTypingMsPerCharMin;
     uint32 coaLiveTypingMsPerCharMax;
     uint32 coaLiveGreetRange;
+    // ---- end of CoA Live ----
+
+    // ---- CoA World (LoadCoaWorldConfig, CoaWorldConfig.cpp) ----
+    // No member yet: AiPlayerbot.CoaWorld.* are read by the invasion manager (CoaWorldInvasionMgr.cpp).
+    // ---- end of CoA World ----
+
+    // ---- CoA Economy (LoadCoaEconomyConfig, CoaEconomyConfig.cpp) ----
+    // No member yet: AiPlayerbot.CoaEconomy.* are read by the auction house bot (Economy/AuctionHouse).
+    // ---- end of CoA Economy ----
+
+    // ---- CoA Combat (LoadCoaCombatConfig, CoaCombatConfig.cpp) ----
+    // No member yet.
+    // ---- end of CoA Combat ----
 
 private:
     PlayerbotAIConfig() = default;
