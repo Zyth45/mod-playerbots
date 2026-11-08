@@ -2897,6 +2897,14 @@ AiPlayerbot.CoaWorld.Travel.BotsPct = 3
 AiPlayerbot.CoaWorld.Travel.BotsMax = 20
 AiPlayerbot.CoaWorld.Travel.BotsPerPlatform = 3
 
+#    AiPlayerbot.CoaWorld.Travel.Hearthstone
+#        Description: A random bot moving to another zone in sight of a real player (which until now
+#                     made it stay put) casts its hearthstone instead: the real 10 s cast, then gone to
+#                     its new home. Nothing while Travel.Enable is 0.
+#        Default:     1
+
+AiPlayerbot.CoaWorld.Travel.Hearthstone = 1
+
 # Quality a looted item must reach to be written to the "playerbots.loot" logger:
 # 3 rare (blue), 4 epic, 5 legendary. Nothing is written unless worldserver.conf
 # points that logger at an appender, and only bots are ever logged.
