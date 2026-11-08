@@ -43,6 +43,19 @@ static void QueueLootRoll(Player* bot, ObjectGuid lootGuid, uint8 vote)
     bot->GetSession()->QueuePacket(packet);
 }
 
+// CoA Combat: how long this bot has seen this roll open, for the vote it may hold back (CoaRollRule::HoldVote).
+static uint32 RollSeenForMs(Player* bot, ObjectGuid lootGuid)
+{
+    static std::mutex lock;
+    static std::map<std::pair<ObjectGuid, ObjectGuid>, uint32> firstSeen;
+    uint32 const now = getMSTime();
+    std::lock_guard<std::mutex> guard(lock);
+    for (auto itr = firstSeen.begin(); itr != firstSeen.end();)
+        itr = getMSTimeDiff(itr->second, now) > 120000 ? firstSeen.erase(itr) : std::next(itr);
+    auto const [itr, inserted] = firstSeen.emplace(std::make_pair(bot->GetGUID(), lootGuid), now);
+    return inserted ? 0 : getMSTimeDiff(itr->second, now);
+}
+
 bool LootRollAction::Execute(Event /*event*/)
 {
     Group* group = bot->GetGroup();
@@ -134,14 +147,26 @@ bool LootRollAction::Execute(Event /*event*/)
         if (vote == NEED || vote == GREED)
         {
             bool realPlayerRolledNeed = false;
+            bool realPlayerStillToVote = false;
             if (vote == NEED)
                 for (auto const& [voter, theirVote] : roll->playerVote)
-                    if (theirVote == NEED && voter != bot->GetGUID())
-                        if (Player* p = ObjectAccessor::FindPlayer(voter); p && !GET_PLAYERBOT_AI(p))
-                        {
-                            realPlayerRolledNeed = true;
-                            break;
-                        }
+                {
+                    if (voter == bot->GetGUID())
+                        continue;
+                    Player* p = ObjectAccessor::FindPlayer(voter);
+                    if (!p || GET_PLAYERBOT_AI(p))
+                        continue;
+                    if (theirVote == NEED)
+                        realPlayerRolledNeed = true;
+                    else if (theirVote == NOT_EMITED_YET)
+                        realPlayerStillToVote = true;
+                }
+            // At "Bots need items", a bot that wants it waits for the real players who may roll to vote first (or
+            // AiPlayerbot.CoaCombat.LootNeedWaitSeconds); the action runs again on the next tick.
+            if (CoaRollRule::HoldVote(vote == NEED ? CoaRollRule::Vote::Need : CoaRollRule::Vote::Greed,
+                                      sPlayerbotAIConfig.lootNeedRollLevel, realPlayerStillToVote,
+                                      RollSeenForMs(bot, guid), sPlayerbotAIConfig.coaCombatLootNeedWaitMs))
+                continue;
             CoaRollRule::Vote const polite = CoaRollRule::Polite(
                 vote == NEED ? CoaRollRule::Vote::Need : CoaRollRule::Vote::Greed, sPlayerbotAIConfig.lootNeedRollLevel,
                 vote == NEED && RollUniqueCheck(proto, bot), realPlayerRolledNeed,

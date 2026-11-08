@@ -22,6 +22,24 @@ namespace CoaRollRule
         Greed
     };
 
+    // A loot roll lasts 60 s; the wait always leaves the bot time to vote before it closes.
+    inline constexpr unsigned ROLL_DURATION_MS = 60000;
+    inline constexpr unsigned VOTE_MARGIN_MS = 10000;
+
+    inline unsigned WaitCapMs(unsigned configuredMs)
+    {
+        return configuredMs < ROLL_DURATION_MS - VOTE_MARGIN_MS ? configuredMs : ROLL_DURATION_MS - VOTE_MARGIN_MS;
+    }
+
+    // Whether a bot that wants to roll Need holds its vote for now: only when the realm lets bots roll Need
+    // (LootNeedRollLevel 2) and a real player who may roll on the item has not voted yet, for at most the wait. Every
+    // other case votes at once, as before.
+    inline bool HoldVote(Vote wanted, int needRollLevel, bool realPlayerStillToVote, unsigned waitedMs,
+                         unsigned waitMs)
+    {
+        return wanted == Vote::Need && needRollLevel == 2 && realPlayerStillToVote && waitedMs < WaitCapMs(waitMs);
+    }
+
     inline Vote Polite(Vote wanted, int needRollLevel, bool uniqueAlreadyOwned, bool realPlayerRolledNeed,
                        bool greedAllowed)
     {
