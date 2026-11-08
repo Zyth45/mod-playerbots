@@ -10,6 +10,46 @@
 #include "ReputationMgr.h"
 #include "ServerFacade.h"
 #include "SharedDefines.h"
+#include "PerfMonitor.h"
+#include "Timer.h"
+
+Unit* GrindTargetValue::Get()
+{
+    uint32 const now = getMSTime();
+    uint32 const cacheInterval = sPlayerbotAIConfig.reactDelay ? sPlayerbotAIConfig.reactDelay : 1;
+    if (targetCacheInitialized && getMSTimeDiff(lastTargetCheckTime, now) < cacheInterval)
+    {
+        if (!cachedTargetGuid)
+            return nullptr;
+
+        Unit* cached = botAI->GetUnit(cachedTargetGuid);
+        if (cached && cached->IsInWorld() && !cached->IsDuringRemoveFromWorld() && cached->IsAlive())
+            return cached;
+    }
+
+    PerfMonitorOperation* pmo =
+        sPerfMonitor.start(PERF_MON_VALUE, getName(), context ? &context->performanceStack : nullptr);
+    Unit* target = Calculate();
+    if (pmo)
+        pmo->finish();
+
+    if (target && !target->IsInWorld())
+        target = nullptr;
+
+    value = target;
+    cachedTargetGuid = target ? target->GetGUID() : ObjectGuid::Empty;
+    lastTargetCheckTime = now;
+    targetCacheInitialized = true;
+    return target;
+}
+
+void GrindTargetValue::Reset()
+{
+    TargetValue::Reset();
+    cachedTargetGuid.Clear();
+    lastTargetCheckTime = 0;
+    targetCacheInitialized = false;
+}
 
 Unit* GrindTargetValue::Calculate()
 {

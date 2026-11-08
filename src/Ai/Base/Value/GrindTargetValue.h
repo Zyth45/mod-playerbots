@@ -17,9 +17,16 @@ class GrindTargetValue : public TargetValue
 public:
     GrindTargetValue(PlayerbotAI* botAI, std::string const name = "grind target") : TargetValue(botAI, name) {}
 
+    Unit* Get() override;
+    void Reset() override;
     Unit* Calculate() override;
 
 private:
+    // Several triggers read the grind target per tick: keep one result per reaction cycle.
+    ObjectGuid cachedTargetGuid;
+    uint32 lastTargetCheckTime = 0;
+    bool targetCacheInitialized = false;
+
     uint32 GetTargetingPlayerCount(Unit* unit);
     Unit* FindTargetForGrinding(uint32 assistCount);
     bool needForQuest(Unit* target);
