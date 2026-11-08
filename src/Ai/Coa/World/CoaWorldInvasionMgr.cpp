@@ -409,7 +409,9 @@ namespace CoaWorld
                 std::string text = Acore::StringFormat(slot.plan->warningText, slot.Site().name, slot.Site().zone,
                     settings.warning);
                 for (Player* player : Eligible(slot, slot.Site().team))
-                    Tell(player, text, true);
+                    Tell(player, WorldLine(player, "sys_inv_warning", { { "event", EventName(player, slot.plan->key) },
+                        { "place", slot.Site().name }, { "zone", slot.Site().zone },
+                        { "minutes", std::to_string(settings.warning) } }, text), true);
 
                 LOG_INFO("module", "CoA World: {} announced at {} (level {}), in {} minutes", slot.plan->name,
                     slot.Site().name, slot.level, settings.warning);
@@ -525,7 +527,8 @@ namespace CoaWorld
 
                 std::string text = Acore::StringFormat(slot.plan->startText, site.name, site.zone);
                 for (Player* player : Eligible(slot, site.team))
-                    Tell(player, text, true);
+                    Tell(player, WorldLine(player, "sys_inv_start", { { "event", EventName(player, slot.plan->key) },
+                        { "place", site.name }, { "zone", site.zone } }, text), true);
 
                 RecruitBots(slot);
                 LOG_INFO("module", "CoA World: {} started at {} (level {}, {} bots budget)", slot.plan->name, site.name,
@@ -606,7 +609,11 @@ namespace CoaWorld
 
                     std::string text = Acore::StringFormat(won ? slot.plan->wonText : slot.plan->lostText, slot.Site().name);
                     for (Player* player : Eligible(slot, slot.Site().team))
-                        Tell(player, text, true);
+                        Tell(player, WorldLine(player, won ? "sys_inv_won" : "sys_inv_lost",
+                            { { "event", EventName(player, slot.plan->key) }, { "place", slot.Site().name },
+                              { "zone", slot.Site().zone } }, text), true);
+                    if (won)
+                        BorrowedSay(slot.Owner(), 0, "inv_won", { { "city", slot.Site().name } }, 2);
                 }
 
                 ReleaseBots(slot.Owner(), settings.botsReturnHome);
@@ -724,7 +731,9 @@ namespace CoaWorld
                 request.count = std::min({ share, slot.botBudget - have, globalBudget - total });
                 request.nearRadius = settings.botsNearRadius;
                 request.teleport = settings.botsTeleport;
+                size_t before = BorrowedCount(slot.Owner());
                 BorrowBots(slot.Owner(), request);
+                BorrowedSay(slot.Owner(), before, "inv_rally", { { "city", site.name }, { "zone", site.zone } }, 2);
             }
 
             bool _initialized = false;

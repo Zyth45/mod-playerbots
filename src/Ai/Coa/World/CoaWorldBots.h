@@ -24,6 +24,8 @@
 #include "SharedDefines.h"
 
 #include <ctime>
+#include <string>
+#include <unordered_map>
 #include <vector>
 
 class Player;
@@ -90,6 +92,16 @@ namespace CoaWorld
     void HoldBot(uint32 lowGuid, time_t until);
     void ReleaseHold(uint32 lowGuid);
     bool IsHeld(uint32 lowGuid);
+
+    // Lines of IA MIND's bank (playerbots_coa_live_*, through CoaLive), with our English text as fallback when
+    // CoaLive is off or the bank has nothing for the situation.
+    using Slots = std::unordered_map<std::string, std::string>;
+    std::string WorldLine(Player* reader, char const* situation, Slots const& slots, std::string const& fallback);
+    bool BotLine(Player* bot, char const* situation, Slots const& slots);
+    // A few of owner's bots borrowed since index "from" say a line of the situation (at most "most" of them).
+    void BorrowedSay(uint32 owner, size_t from, char const* situation, Slots const& slots, uint32 most);
+    // The invader of an event in the reader's language (IA MIND's %event, never at the start of a line).
+    std::string EventName(Player* reader, std::string const& key);
 
     uint32 BorrowedCount(uint32 owner);
     uint32 BorrowedTotal();

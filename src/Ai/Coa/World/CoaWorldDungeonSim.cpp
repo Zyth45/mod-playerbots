@@ -365,7 +365,9 @@ namespace
                 "{} with a full group, see you inside",
             };
             std::string line = Acore::StringFormat(lines[urand(0, lines.size() - 1)], run.dungeon->name);
-            botAI->SayToChannel(line, LOOKING_FOR_GROUP);
+            // The bank's line when it has one.
+            if (!BotLine(leader, "dsim_lfm", { { "dungeon", run.dungeon->name }, { "need", "1 dps" } }))
+                botAI->SayToChannel(line, LOOKING_FOR_GROUP);
         }
 
         // false: the run is over.
@@ -594,6 +596,15 @@ namespace
                 "{} cleared, nothing for me again", "gg, that was a long {}" };
             auto const& pool = goodDrop ? happy : plain;
             std::string line = Acore::StringFormat(pool[urand(0, pool.size() - 1)], run.dungeon->name);
+            // The bank's line first, with the run's best item for %item.
+            std::string item;
+            for (auto const& [guid, reward] : run.rewards)
+                for (auto const& [itemId, count] : reward.items)
+                    if (ItemTemplate const* proto = sObjectMgr->GetItemTemplate(itemId))
+                        if (proto->Quality >= ITEM_QUALITY_RARE)
+                            item = proto->Name1;
+            if (BotLine(bot, goodDrop ? "dsim_back_drop" : "dsim_back_plain", { { "dungeon", run.dungeon->name }, { "item", item } }))
+                return;
             if (bot->GetGuildId())
                 botAI->SayToGuild(line);
             else
