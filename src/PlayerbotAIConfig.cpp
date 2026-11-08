@@ -1036,6 +1036,9 @@ bool PlayerbotAIConfig::Initialize()
     selfBotLevel = sConfigMgr->GetOption<int32>("AiPlayerbot.SelfBotLevel", 1);
     botTextLocale = sConfigMgr->GetOption<int32>("AiPlayerbot.BotTextLocale", -1);
 
+    // CoA Live (3.0, session CoA SquidBot)
+    coaBotIdentify = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaBotIdentify", false);
+
     RandomPlayerbotFactory::CreateRandomBots();
     if (World::IsStopped())
     {

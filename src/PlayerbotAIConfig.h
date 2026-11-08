@@ -666,6 +666,9 @@ public:
     bool resetBotLevelIgnoreGuildWithRealPlayers;
     std::vector<std::string> resetBotLevelExcludeNames;
 
+    // CoA Live (3.0, session CoA SquidBot)
+    bool coaBotIdentify;  // AiPlayerbot.CoaBotIdentify: bots answer the addon's "WHO?" (CoaBotIdentify)
+
 private:
     PlayerbotAIConfig() = default;
     ~PlayerbotAIConfig() = default;
