@@ -5,7 +5,10 @@
  */
 
 #include "RandomItemMgr.h"
+#include "AscensionBloodforging.h"
+#include "CoaGearRules.h"
 #include "CoaSpecialization.h"
+#include "Config.h"
 #include "DBCStores.h"
 #include "ItemTemplate.h"
 #include "Playerbots.h"
@@ -1417,6 +1420,12 @@ bool RandomItemMgr::IsValidItem(ItemTemplate const* proto)
 
     // check temporary/expiring items
     if (proto->Duration)
+        return false;
+
+    // Bloodforged copies only where players can get them too (same default as the core). The gear caches are built
+    // once at start-up, so the option is read once.
+    static bool const bloodforgedEnabled = sConfigMgr->GetOption<bool>("Bloodforged.Enable", false);
+    if (!CoaGearAllowed(Bloodforging::IsBloodforged(*proto), bloodforgedEnabled))
         return false;
 
     // CoA's Bronze to Rune Amulets (586-592) carry 635 armor on a level 10 rare that any level 1 can wear, and their
