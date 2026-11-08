@@ -55,6 +55,7 @@
 #include "PlayerbotTextMgr.h"
 #include "PlayerbotWorldThreadProcessor.h"
 #include "CoaPlayerMainTank.h"
+#include "CoaLootPetAction.h"
 #include "CoaTankAction.h"
 #include "Playerbots.h"
 #include "PositionValue.h"
@@ -559,6 +560,8 @@ void PlayerbotAI::UpdateAI(uint32 elapsed, bool minimal)
     UpdateAIGroupMaster();
     // The end of a Main Tank bar order and a stale main tank flag, before the engine runs (RC11).
     CoaTankOrderTick(this);
+    // The loot pet of an alt (AiPlayerbot.AltLootCompanion).
+    CoaLootCompanionTick(this);
 
     // Update internal AI
     UpdateAIInternal(elapsed, minimal);

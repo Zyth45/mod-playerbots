@@ -63,6 +63,7 @@ public:
         creators["mission"] = &ChatTriggerContext::mission;
         creators["alt"] = &ChatTriggerContext::alt;
         creators["tank"] = &ChatTriggerContext::tank;
+        creators["loot pet"] = &ChatTriggerContext::loot_pet;
         creators["wildcard"] = &ChatTriggerContext::wildcard;
         creators["spells"] = &ChatTriggerContext::spells;
         creators["co"] = &ChatTriggerContext::co;
@@ -240,6 +241,7 @@ private:
     static Trigger* mission(PlayerbotAI* botAI) { return new ChatCommandTrigger(botAI, "mission"); }
     static Trigger* alt(PlayerbotAI* botAI) { return new ChatCommandTrigger(botAI, "alt"); }
     static Trigger* tank(PlayerbotAI* botAI) { return new ChatCommandTrigger(botAI, "tank"); }
+    static Trigger* loot_pet(PlayerbotAI* botAI) { return new ChatCommandTrigger(botAI, "loot pet"); }
     static Trigger* wildcard(PlayerbotAI* botAI) { return new ChatCommandTrigger(botAI, "wildcard"); }
     static Trigger* equip(PlayerbotAI* botAI) { return new ChatCommandTrigger(botAI, "e"); }
     static Trigger* uneqip(PlayerbotAI* botAI) { return new ChatCommandTrigger(botAI, "ue"); }

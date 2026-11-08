@@ -5,6 +5,7 @@
  */
 
 #include "LootObjectStack.h"
+#include "CoaLootPetAction.h"
 #include "CoaLootRules.h"
 #include "CoaMissionMgr.h"
 #include "GameObjectAI.h"
@@ -119,7 +120,9 @@ void LootObject::Refresh(Player* bot, ObjectGuid lootGUID)
     Creature* creature = botAI->GetCreature(lootGUID);
     if (creature && creature->getDeathState() == DeathState::Corpse)
     {
-        if (creature->HasFlag(UNIT_DYNAMIC_FLAGS, UNIT_DYNFLAG_LOOTABLE))
+        // An alt whose companion loots (AiPlayerbot.AltLootCompanion) leaves it the corpses within its reach.
+        if (creature->HasFlag(UNIT_DYNAMIC_FLAGS, UNIT_DYNFLAG_LOOTABLE) &&
+            !CoaLeavesCorpseToCompanion(bot, creature, false))
             guid = lootGUID;
 
         if (creature->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_SKINNABLE))
@@ -127,7 +130,8 @@ void LootObject::Refresh(Player* bot, ObjectGuid lootGUID)
             skillId = creature->GetCreatureTemplate()->GetRequiredLootSkill();
             uint32 targetLevel = creature->GetLevel();
             reqSkillValue = targetLevel < 10 ? 1 : targetLevel < 20 ? (targetLevel - 10) * 10 : targetLevel * 5;
-            if (botAI->HasSkill((SkillType)skillId) && bot->GetSkillValue(skillId) >= reqSkillValue)
+            if (botAI->HasSkill((SkillType)skillId) && bot->GetSkillValue(skillId) >= reqSkillValue &&
+                !(skillId == SKILL_SKINNING && CoaLeavesCorpseToCompanion(bot, creature, true)))
                 guid = lootGUID;
         }
 
@@ -339,6 +343,11 @@ bool LootObject::IsLootPossible(Player* bot)
     WorldObject* worldObj = GetWorldObject(bot);  // Store result to avoid multiple calls
     if (!worldObj)
         return false;
+
+    // A corpse picked farther off becomes the companion's once the alt walks within its reach.
+    if (Creature* corpse = worldObj->ToCreature())
+        if (CoaLeavesCorpseToCompanion(bot, corpse, false) && LootObject(bot, guid).IsEmpty())
+            return false;
 
     PlayerbotAI* botAI = GET_PLAYERBOT_AI(bot);
     if (!botAI)

@@ -462,6 +462,8 @@ public:
     bool catchUpQuestChains;
     // AiPlayerbot.AltDisenchant: the enchanter of the team (CoaEnchanter).
     bool altDisenchant;
+    // AiPlayerbot.AltLootCompanion: the alts bring out a loot pet and leave it the corpses (CoaLootPetAction).
+    bool altLootCompanion;
     // AiPlayerbot.GuildBankDeposit.*: bots of a real player's guild fill the guild bank near a guild vault.
     bool guildBankDepositEnable;
     std::vector<std::pair<int32, int32>> guildBankDepositItems;  // item class, subclass (-1 = all)
