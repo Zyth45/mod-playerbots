@@ -41,6 +41,7 @@ void PlayerbotAIConfig::LoadCoaLiveConfig()
     coaLiveSessionsEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaLive.Sessions.Enable", false);
     coaLiveSocialEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaLive.Social.Enable", false);
     coaLiveCityEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaLive.City.Enable", false);
+    coaLiveImmersionEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaLive.Immersion.Enable", false);
     {
         std::string const curve = sConfigMgr->GetOption<std::string>("AiPlayerbot.CoaLive.Sessions.HourCurve", "");
         CoaSessions::Curve parsed;

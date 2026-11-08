@@ -688,6 +688,7 @@ public:
     uint32 coaLiveGreetRange;
     // AiPlayerbot.CoaLive.Sessions.*: the random bots come and go like players (CoaSessionRules.h)
     bool coaLiveSessionsEnable;
+    bool coaLiveImmersionEnable;  // AiPlayerbot.CoaLive.Immersion.Enable (L2 fishing)
     bool coaLiveCityEnable;  // AiPlayerbot.CoaLive.City.Enable (L2 City Life)
     bool coaLiveSocialEnable;  // AiPlayerbot.CoaLive.Social.Enable (L2 social bots)
     std::vector<uint32> coaLiveSessionsCurve;  // 24 percentages

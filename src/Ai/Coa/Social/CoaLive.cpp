@@ -12,7 +12,10 @@
 #include "ChatHelper.h"
 #include "Chat.h"
 #include "AttackAction.h"
+#include "CoaImmersionRules.h"
 #include "CoaLiveRules.h"
+#include "FishingAction.h"
+#include "NewRpgInfo.h"
 #include "CoaSocial.h"
 #include "CoaSocialRules.h"
 #include "SpellAuras.h"
@@ -537,6 +540,70 @@ bool Social(Player* bot, PlayerbotAI* botAI, std::list<Player*> const& nearby)
         return true;
     }
     return false;
+}
+
+
+// ---------------------------------------------------------------- Immersion (L2): fishing on the shore
+
+std::unordered_map<uint64, uint64> fishingUntil;  // bot -> end of its time at the water (map threads, under liveLock)
+
+bool ImmersionEnabled() { return sPlayerbotAIConfig.coaLiveImmersionEnable; }
+
+// The "new rpg" holds the bot (REST, only the clock is reset: it does not sit) while the fishing strategy works.
+void Fish(Player* bot, PlayerbotAI* botAI)
+{
+    uint64 const nowMs = GameTime::GetGameTimeMS().count();
+    uint64 const key = bot->GetGUID().GetRawValue();
+    NewRpgInfo& info = botAI->rpgInfo;
+    uint64 endMs = 0;
+    {
+        std::lock_guard<std::mutex> guard(liveLock);
+        auto it = fishingUntil.find(key);
+        if (it != fishingUntil.end())
+            endMs = it->second;
+    }
+
+    if (endMs)
+    {
+        if (CoaImmersion::MustStop(nowMs, endMs, bot->IsInCombat(), bot->GetGroup() != nullptr,
+                                   info.GetStatus() == RPG_REST))
+        {
+            botAI->ChangeStrategy("-master fishing", BOT_STATE_NON_COMBAT);
+            if (info.GetStatus() == RPG_REST)
+                info.ChangeToIdle();
+            std::lock_guard<std::mutex> guard(liveLock);
+            fishingUntil.erase(key);
+        }
+        else
+            info.ChangeToRest();  // a few more seconds at the water
+        return;
+    }
+
+    CoaImmersion::BotView view;
+    view.randomBot = IsRandom(bot);
+    view.ownedByPlayer = botAI->HasGameClientMaster();
+    view.alive = bot->IsAlive();
+    view.inCombat = bot->IsInCombat();
+    view.inGroup = bot->GetGroup() != nullptr;
+    view.inInstanceOrCity = bot->GetMap()->Instanceable() || InCapital(bot) || bot->InBattleground();
+    NewRpgStatus const status = info.GetStatus();
+    view.idleStatus = status == RPG_IDLE || status == RPG_REST || status == RPG_WANDER_RANDOM;
+    view.knowsFishing = bot->HasSkill(SKILL_FISHING);
+    if (!CoaImmersion::MayStartFishing(view) || urand(1, 1000) > CoaImmersion::START_CHANCE_PER_MILLE)
+        return;
+
+    // Water close by: the costly look, last.
+    WorldPosition water = FindWaterRadial(bot, bot->GetPositionX(), bot->GetPositionY(), bot->GetPositionZ(),
+                                                bot->GetMap(), bot->GetPhaseMask(), 10.0f, 40.0f, 10.0f);
+    if (!water.IsValid())
+        return;
+
+    info.ChangeToRest();
+    botAI->ChangeStrategy("+master fishing", BOT_STATE_NON_COMBAT);
+    std::lock_guard<std::mutex> guard(liveLock);
+    fishingUntil[key] = nowMs + CoaImmersion::FishingMs(rng.between);
+    if (fishingUntil.size() > 20000)
+        fishingUntil.clear();
 }
 
 // The bot looks around: a real player to help or greet, or an inn or a capital to idle in.
@@ -1115,14 +1182,17 @@ void LoadBank() { Load(); }
 
 void OnBotUpdate(Player* bot, PlayerbotAI* botAI, uint32 diff)
 {
-    if (!Enabled() || !bot || !botAI || diff == 0)
+    if ((!Enabled() && !ImmersionEnabled()) || !bot || !botAI || diff == 0)
         return;
     // About every SCAN_MS per bot, spread over the bots, with no state: the bot's turn comes when the clock,
     // shifted by its guid, crosses a multiple of SCAN_MS during this update.
     uint64 const shifted = GameTime::GetGameTimeMS().count() + bot->GetGUID().GetCounter() * 977u;
     if (shifted % SCAN_MS >= std::min<uint64>(diff, SCAN_MS))
         return;
-    LookAround(bot, botAI);
+    if (ImmersionEnabled())
+        Fish(bot, botAI);
+    if (Enabled())
+        LookAround(bot, botAI);
 }
 
 bool AnswersWhispers(PlayerbotAI* botAI, ObjectGuid from)
