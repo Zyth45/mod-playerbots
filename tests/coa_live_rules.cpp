@@ -175,6 +175,8 @@ int main()
     assert(ReactPct(c, 100, 1.0f) == 60);
     assert(ReactPct(c, -1, PopulationFactor(0)) == 8);
     assert(PopulationFactor(3) == 1.0f && PopulationFactor(30) == 1.0f);
+    assert(FormatMoney(125000) == "12g 50s" && FormatMoney(120000) == "12g" && FormatMoney(7500) == "75s" &&
+           FormatMoney(8) == "8c" && FormatMoney(0) == "0c" && FormatMoney(10099) == "1g");
     assert(LevelBand(1) == 1 && LevelBand(19) == 1 && LevelBand(20) == 2 && LevelBand(59) == 3 && LevelBand(60) == 4);
     return 0;
 }

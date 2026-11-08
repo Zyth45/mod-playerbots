@@ -647,6 +647,17 @@ inline uint32_t ReactPct(Rule const& rule, int32_t sociability /* -1: no soul */
     return pct <= 0.0f ? 0u : std::min<uint32_t>(100u, static_cast<uint32_t>(pct + 0.5f));
 }
 
+// "12g 50s", "75s", "8c": how players write a price (copper below a silver only).
+inline std::string FormatMoney(uint64_t copper)
+{
+    uint64_t const g = copper / 10000, s = (copper / 100) % 100, c = copper % 100;
+    if (g)
+        return std::to_string(g) + "g" + (s ? " " + std::to_string(s) + "s" : "");
+    if (s)
+        return std::to_string(s) + "s";
+    return std::to_string(c) + "c";
+}
+
 // min(1, real players / 3), floor 0.2 (spec §4).
 inline float PopulationFactor(uint32_t realPlayers) { return std::max(0.2f, std::min(1.0f, realPlayers / 3.0f)); }
 }  // namespace CoaLive

@@ -2831,7 +2831,11 @@ AiPlayerbot.CoaBotSurnameList = ""
 #                     they greet a player passing by, cheer a level up, bow after a duel, thank
 #                     for a resurrection, call a boss pull in a group, idle at the inn or in a
 #                     capital, and answer a stranger's whispers after a human typing delay (a
-#                     "group" whisper may get a real invite). Only when a real player hears; each
+#                     "group" whisper may get a real invite). They also talk in the channels
+#                     where real players are: General of the zone, Trade in capitals (WTS of an
+#                     item they carry, WTB of a real auction, at real auction prices), LookingFor
+#                     Group (a real dungeon of their level, the roles still missing), and guild
+#                     chat (hello, goodbye, gz, loot). Only when a real player hears; each
 #                     situation has its chance and cooldowns in the bank. A random bot then no
 #                     longer reads a stranger's whisper as a command; its master's are unchanged.
 #                     Read again by ".reload config".
