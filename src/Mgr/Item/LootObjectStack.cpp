@@ -358,7 +358,7 @@ bool LootObject::IsLootPossible(Player* bot)
         !sCoaMissionMgr.IsOnMission(bot))
         return false;
 
-    if (abs(worldObj->GetPositionZ() - bot->GetPositionZ()) > INTERACTION_DISTANCE - 2.0f)
+    if (!LootHeightReachable(worldObj->GetPositionZ() - bot->GetPositionZ(), bot->GetExactDist2d(worldObj)))
         return false;
 
     Creature* creature = botAI->GetCreature(guid);
