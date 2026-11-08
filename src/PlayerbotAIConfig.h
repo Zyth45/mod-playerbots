@@ -711,6 +711,8 @@ public:
     bool coaCombatSunkenTempleEnable = false;
     // Telegraphs (Targorr): leave a listed ground marker that announces a hit. New everywhere, Dungeon Clear runs too.
     bool coaCombatTelegraphEnable = false;
+    // Pursuit stop: no chase of a fleeing mob beyond 20 yd from the tank. New everywhere, Dungeon Clear runs too.
+    bool coaCombatPursuitStopEnable = false;
     // ---- end of CoA Combat ----
 
 private:

@@ -317,6 +317,7 @@ void AiFactory::AddDefaultCombatStrategies(Player* player, PlayerbotAI* const fa
         engine->addStrategy("coa combat escape leap", false);
         engine->addStrategy("coa combat stuck combat", false);
         engine->addStrategy("coa combat telegraph", false);
+        engine->addStrategy("coa combat pursuit stop", false);
     }
 
     // CoA: a grouped bot steps out of ground effects too, not only one a real player leads: in headless dungeon runs

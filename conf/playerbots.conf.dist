@@ -4297,3 +4297,11 @@ AiPlayerbot.CoaCombat.SunkenTemple.Enable = 0
 #                  1 - (Enabled)
 
 AiPlayerbot.CoaCombat.Telegraph.Enable = 0
+# AiPlayerbot.CoaCombat.PursuitStop.Enable
+#     Description: In a dungeon or raid group, a bot that is not the tank does not run after a fleeing mob when
+#                  the chase would end more than 20 yd from its tank (the mob runs for help and brings the next pack).
+#                  Ranged bots keep shooting it. Inside and outside a Dungeon Clear run.
+#     Default:     0 - (Disabled)
+#                  1 - (Enabled)
+
+AiPlayerbot.CoaCombat.PursuitStop.Enable = 0
