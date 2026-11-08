@@ -5,6 +5,7 @@
  */
 
 #include "NewRpgAction.h"
+#include "CoaRpgTrade.h"
 #include "AreaDefines.h"
 #include "BroadcastHelper.h"
 #include "ChatHelper.h"
@@ -254,6 +255,12 @@ bool NewRpgStatusUpdateAction::Execute(Event /*event*/)
                 LeaveCity();
                 return true;
             }
+            // CoA Economy: business with a vendor or an auctioneer in reach: go there first
+            if (CoaEconomy::RpgTrade::HasTradeNpcInReach(botAI))
+            {
+                info.ChangeToWanderNpc();
+                return true;
+            }
             return RandomChangeStatus({RPG_GO_CAMP, RPG_GO_GRIND, RPG_WANDER_RANDOM, RPG_WANDER_NPC, RPG_DO_QUEST,
                                        RPG_TRAVEL_FLIGHT, RPG_REST, RPG_OUTDOOR_PVP, RPG_GO_CITY});
 
@@ -480,6 +487,8 @@ bool NewRpgWanderNpcAction::Execute(Event /*event*/)
             data.lastReach = getMSTime();
             if (bot->CanInteractWithQuestGiver(object))
                 InteractWithNpcOrGameObjectForQuest(data.npcOrGo);
+            // CoA Economy: sell, repair or use the auction house, as people do between two quests
+            CoaEconomy::RpgTrade::TradeAtNpc(botAI, object);
             return true;
         }
 

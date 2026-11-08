@@ -4581,6 +4581,48 @@ AiPlayerbot.CoaEconomy.LaunchCurve.AllowLegendary = 0
 AiPlayerbot.CoaEconomy.LaunchCurve.StartStockPercent = 10
 AiPlayerbot.CoaEconomy.LaunchCurve.LaunchPremiumPercent = 150
 
+# New rpg random bots sell their loot and repair at vendors, as people do between two quests. When their bags
+# reach BagPercent and they hold something to sell, they pick a vendor nearby as their next NPC to visit; at any
+# vendor they visit they sell what their item usage marks for sale (grey loot, gear they will not use, goods
+# worth only a vendor price) and repair at an armorer when their gear is worn.
+# Pairs with AiPlayerbot.RefreshClearsInventory = 0 (bots keep their loot between refreshes); that key is not
+# changed here. Read at start-up and by the playerbots config reload command (not by ".reload config").
+#    Enable      1 = on, 0 = off (default).
+#    BagPercent  Bag fill (%) from which a bot looks for a vendor (default 70).
+AiPlayerbot.CoaEconomy.RpgSell.Enable = 0
+AiPlayerbot.CoaEconomy.RpgSell.BagPercent = 70
+
+# Random bots use the auction house like players. A bot with loot its item usage marks for the auction house
+# picks an auctioneer as its next NPC (in town); there it collects its auction mail (gold of its sales, items
+# it won), lists up to ListPerVisit items at the market price (learned price, else the house bot's, else a
+# vendor-based guess; an impatient bot undercuts more) and buys one thing it can afford: the best upgrade by
+# CoA Combat's gear score, else a bag for an empty bag slot. Each bot has its own thrift and patience (stable
+# per character). All of it goes through the core's auction packets: deposits, cuts and mails as for players.
+# With RpgSell on, auction loot is kept for the auction house unless the bags are nearly full (95 %).
+#    Enable                1 = on, 0 = off (default). Read at start-up (restart to change it).
+#    VisitCooldownMinutes  Least time between two visits of a bot (default 45).
+#    ListPerVisit          Items listed at most per visit (default 3).
+#    MaxBudgetPercent      Most of its gold a bot spends in a visit (default 30; a thrifty bot spends less).
+#    VisitsPerTick         Visits run per world update, to spread the cost (default 2).
+#    DurationHours         Auction duration: 12, 24 or 48 (default 24).
+#    MaxScan               Gear auctions looked at per visit for an upgrade (default 300).
+AiPlayerbot.CoaEconomy.BotAuctions.Enable = 0
+AiPlayerbot.CoaEconomy.BotAuctions.VisitCooldownMinutes = 45
+AiPlayerbot.CoaEconomy.BotAuctions.ListPerVisit = 3
+AiPlayerbot.CoaEconomy.BotAuctions.MaxBudgetPercent = 30
+AiPlayerbot.CoaEconomy.BotAuctions.VisitsPerTick = 2
+AiPlayerbot.CoaEconomy.BotAuctions.DurationHours = 24
+AiPlayerbot.CoaEconomy.BotAuctions.MaxScan = 300
+
+# Artisans: bots with a profession craft from the recipes they really know (any primary or secondary profession
+# of the client data, CoA's own included) and sell the product. At an auction house visit (BotAuctions) an artisan
+# makes one piece worth at least MinProfitPercent over its materials, the best margins first, and lists it with its
+# loot. Reagents it holds are used; missing ones are paid in gold at market price, as if it had shopped.
+#    Enable            1 = on, 0 = off (default). Read at start-up (restart to change it). Needs BotAuctions.
+#    MinProfitPercent  Least margin over the materials' market price (default 20).
+AiPlayerbot.CoaEconomy.Artisans.Enable = 0
+AiPlayerbot.CoaEconomy.Artisans.MinProfitPercent = 20
+
 ###################################################################################################
 #  CoA Combat — owned by the CoA Combat session
 # CoA Combat

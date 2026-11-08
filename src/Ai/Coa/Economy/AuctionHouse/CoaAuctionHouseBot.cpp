@@ -2184,6 +2184,13 @@ double AuctionHouseBot::GetRarityPriceFactor(uint32 itemId) const
     return 1.0 + RarityPremium * std::clamp(share, 0.0, 1.0);
 }
 
+uint64 AuctionHouseBot::GetReferencePricePerItem(ItemTemplate const* itemProto)
+{
+    if (!itemProto || (!SellingBotEnabled && !BuyingBotEnabled))
+        return 0;
+    return GetHouseLowestBuyoutPerItem(itemProto);
+}
+
 uint64 AuctionHouseBot::GetHouseLowestBuyoutPerItem(ItemTemplate const* itemProto)
 {
     uint64 bid = 0;
