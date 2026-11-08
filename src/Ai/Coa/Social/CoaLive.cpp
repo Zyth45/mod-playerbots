@@ -37,6 +37,7 @@
 #include "LFGMgr.h"
 #include "Mail.h"
 #include "Log.h"
+#include "MapMgr.h"
 #include "ObjectMgr.h"
 #include "ObjectAccessor.h"
 #include "Player.h"
@@ -56,6 +57,7 @@
 #include <memory>
 #include <mutex>
 #include <shared_mutex>
+#include <unordered_set>
 #include <vector>
 
 using namespace CoaLive;
@@ -68,6 +70,37 @@ constexpr uint32 GREET_PLAYER_CD_S = 3600;  // a bot greets the same player once
 constexpr size_t QUEUE_MAX = 4096;
 
 std::mutex liveLock;
+
+// The zones where a real player is, refreshed by the world thread every second: a bot's look (about every 5 s)
+// stops at once in any other zone, so 2 000 bots cost a set lookup each, not a grid search.
+std::shared_ptr<std::unordered_set<uint32> const> peopledZones = std::make_shared<std::unordered_set<uint32>>();
+uint64 nextZonesRefresh = 0;
+
+bool ZonePeopled(uint32 zoneId)
+{
+    std::shared_ptr<std::unordered_set<uint32> const> zones;
+    {
+        std::lock_guard<std::mutex> guard(liveLock);
+        zones = peopledZones;
+    }
+    return zones->count(zoneId) != 0;
+}
+
+void RefreshPeopledZones(uint64 nowMs)
+{
+    if (nowMs < nextZonesRefresh)
+        return;
+    nextZonesRefresh = nowMs + 1000;
+    auto zones = std::make_shared<std::unordered_set<uint32>>();
+    {
+        std::shared_lock<std::shared_mutex> playersLock(*HashMapHolder<Player>::GetLock());
+        for (auto const& [guid, player] : ObjectAccessor::GetPlayers())
+            if (player && player->IsInWorld() && IsRealPlayer(player))
+                zones->insert(player->GetZoneId());
+    }
+    std::lock_guard<std::mutex> guard(liveLock);
+    peopledZones = std::move(zones);
+}
 
 struct Pending
 {
@@ -608,11 +641,86 @@ void Fish(Player* bot, PlayerbotAI* botAI)
         fishingUntil.clear();
 }
 
+
+// ---------------------------------------------------------------- %place: "where is ...?"
+
+// A name made comparable with a whisper: lower case (UTF-8, by the core), then NormalizeWhisper, without the spaces
+// at both ends.
+std::string Comparable(std::string const& name)
+{
+    std::wstring wide;
+    std::string lowered = name;
+    if (Utf8toWStr(name, wide))
+    {
+        wstrToLower(wide);
+        WStrToUtf8(wide, lowered);
+    }
+    std::string n = NormalizeWhisper(lowered);
+    size_t const a = n.find_first_not_of(' '), b = n.find_last_not_of(' ');
+    return a == std::string::npos ? "" : n.substr(a, b - a + 1);
+}
+
+// Area and creature names, indexed once (world thread, at the first question): name -> area id / creature entry.
+struct PlaceIndex
+{
+    std::unordered_map<std::string, uint32> areas;
+    std::unordered_map<std::string, uint32> creatures;
+};
+
+PlaceIndex const& Places()
+{
+    static PlaceIndex const index = []()
+    {
+        PlaceIndex i;
+        for (AreaTableEntry const* area : sAreaTableStore)
+            for (uint8 loc = 0; loc < TOTAL_LOCALES; ++loc)
+                if (area->area_name[loc] && *area->area_name[loc])
+                    i.areas.emplace(Comparable(area->area_name[loc]), area->ID);
+        for (auto const& [entry, creature] : *sObjectMgr->GetCreatureTemplates())
+            if (!creature.Name.empty() && creature.Name.find('[') == std::string::npos)
+                i.creatures.emplace(Comparable(creature.Name), entry);
+        return i;
+    }();
+    return index;
+}
+
+std::string AreaAndZone(uint32 areaId, uint8 locale)
+{
+    AreaTableEntry const* area = sAreaTableStore.LookupEntry(areaId);
+    if (!area)
+        return "";
+    std::string text = AreaName(areaId, locale);
+    if (area->zone && area->zone != areaId)
+    {
+        std::string const zone = AreaName(area->zone, locale);
+        if (!zone.empty() && zone != text)
+            text += ", " + zone;
+    }
+    return text;
+}
+
+// The place of the first thing the words name: an area ("goldshire"), else a creature's first spawn ("hogger").
+std::string FindPlace(std::vector<std::string> const& subjects, uint8 locale)
+{
+    PlaceIndex const& index = Places();
+    for (std::string const& s : subjects)
+    {
+        if (auto it = index.areas.find(s); it != index.areas.end())
+            return AreaAndZone(it->second, locale);
+        if (auto it = index.creatures.find(s); it != index.creatures.end())
+            for (auto const& [spawnId, data] : sObjectMgr->GetAllCreatureData())
+                if (data.id == it->second)
+                    return AreaAndZone(sMapMgr->GetAreaId(PHASEMASK_NORMAL, data.mapid, data.posX, data.posY, data.posZ),
+                                       locale);
+    }
+    return "";
+}
+
 // The bot looks around: a real player to help or greet, or an inn or a capital to idle in.
 void LookAround(Player* bot, PlayerbotAI* botAI)
 {
-    if (!IsRandom(bot) || !bot->IsAlive() || bot->IsInCombat() || bot->IsInFlight() || bot->InBattleground() ||
-        bot->InArena() || botAI->HasGameClientMaster())
+    if (!ZonePeopled(bot->GetZoneId()) || !IsRandom(bot) || !bot->IsAlive() || bot->IsInCombat() ||
+        bot->IsInFlight() || bot->InBattleground() || bot->InArena() || botAI->HasGameClientMaster())
         return;
 
     std::list<Player*> const nearby = RealPlayersNear(bot, HEAR_RANGE);
@@ -1179,6 +1287,7 @@ public:
         if (Enabled())
         {
             uint64 const nowMs = GameTime::GetGameTimeMS().count();
+            RefreshPeopledZones(nowMs);
             Play([nowMs](Pending const& p) { return p.dueMs <= nowMs; });
             PlayGuildEvents();
             ChannelTimers(nowMs);
@@ -1243,7 +1352,8 @@ bool OnWhisper(Player* from, Player* to, std::string const& msg)
         wstrToLower(wide);
         WStrToUtf8(wide, lowered);
     }
-    std::string const intent = Classify(NormalizeWhisper(lowered), current->IntentsOf(BotLocale()));
+    std::string const normalized = NormalizeWhisper(lowered);
+    std::string const intent = Classify(normalized, current->IntentsOf(BotLocale()));
 
     // An intent another session answers itself (CoA Economy: "craft"): it takes the whisper when it says so.
     WhisperHandler handler;
@@ -1302,11 +1412,22 @@ bool OnWhisper(Player* from, Player* to, std::string const& msg)
         situation = free ? "wh_group_yes" : "wh_group_no";
         invite = free;
     }
-    else if (intent == "where")
-        situation = "wh_where_unknown";  // %place is not looked up yet
+    std::string place;
+    if (intent == "where")
+    {
+        // The words after the "where" keyword, looked up as an area or a creature of the world.
+        std::vector<std::string> keywords;
+        for (Intent const& i : current->IntentsOf(BotLocale()))
+            if (i.intent == "where")
+                keywords = i.keywords;
+        place = FindPlace(WhereSubjects(normalized, keywords), BotLocale());
+        situation = place.empty() ? "wh_where_unknown" : "wh_where_known";
+    }
 
     ReactOptions opt;
     opt.invite = invite;
+    if (!place.empty())
+        opt.extra["place"] = place;
     React(to, situation, from, "w" + std::to_string(to->GetGUID().GetCounter()), opt);
     return true;
 }

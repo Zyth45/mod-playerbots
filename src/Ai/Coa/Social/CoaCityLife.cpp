@@ -72,15 +72,6 @@ struct StationObjectCheck
     }
 };
 
-uint32 BotsAt(ObjectGuid station, uint64 nowMs)
-{
-    uint32 n = 0;
-    for (auto const& [bot, h] : holding)
-        if (h.station == station && nowMs < h.sinceMs + HOLD_MS)
-            ++n;
-    return n;
-}
-
 Station KindOf(WorldObject* object)
 {
     if (Creature* c = object->ToCreature())
@@ -118,18 +109,27 @@ ObjectGuid ChooseStation(PlayerbotAI* botAI)
     if (holding.size() > 4096)
         for (auto it = holding.begin(); it != holding.end();)
             it = nowMs >= it->second.sinceMs + HOLD_MS ? holding.erase(it) : std::next(it);
+    std::unordered_map<ObjectGuid, uint32> held;  // station -> bots holding it (one pass)
+    for (auto const& [bot, h] : holding)
+        if (nowMs < h.sinceMs + HOLD_MS)
+            ++held[h.station];
+    auto botsAt = [&held](ObjectGuid station)
+    {
+        auto it = held.find(station);
+        return it == held.end() ? 0u : it->second;
+    };
     std::vector<Candidate> candidates;
     std::unordered_map<uint64, ObjectGuid> guids;
     for (Creature* c : creatures)
     {
         candidates.push_back({StationOfCreature(c->GetNpcFlags(), c->GetName()), c->GetGUID().GetRawValue(),
-                              BotsAt(c->GetGUID(), nowMs)});
+                              botsAt(c->GetGUID())});
         guids[c->GetGUID().GetRawValue()] = c->GetGUID();
     }
     for (GameObject* go : objects)
     {
         candidates.push_back({StationOfFocus(go->GetGOInfo()->spellFocus.focusId), go->GetGUID().GetRawValue(),
-                              BotsAt(go->GetGUID(), nowMs)});
+                              botsAt(go->GetGUID())});
         guids[go->GetGUID().GetRawValue()] = go->GetGUID();
     }
     uint64 const picked = Pick(candidates, between);
