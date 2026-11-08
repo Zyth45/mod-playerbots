@@ -5,6 +5,7 @@
  */
 
 #include "CoaQuestMenu.h"
+#include "CoaSoul.h"
 
 #include "CoaWorldBots.h"  // CoA World: CoaWorldQuestQuarantined
 #include "CoaRpgTrade.h"
@@ -1235,15 +1236,18 @@ bool NewRpgBaseAction::RandomChangeStatus(std::vector<NewRpgStatus> candidateSta
 {
     std::vector<NewRpgStatus> availableStatus;
     uint32 probSum = 0;
+    // CoA souls: the configured weight tilted by the bot's soul (the configured one when off).
+    auto weight = [this](NewRpgStatus status)
+    { return CoaSoul::RpgWeight(bot, status, sPlayerbotAIConfig.RpgStatusProbWeight[status]); };
     for (NewRpgStatus status : candidateStatus)
     {
-        if (sPlayerbotAIConfig.RpgStatusProbWeight[status] == 0)
+        if (weight(status) == 0)
             continue;
 
         if (CheckRpgStatusAvailable(status))
         {
             availableStatus.push_back(status);
-            probSum += sPlayerbotAIConfig.RpgStatusProbWeight[status];
+            probSum += weight(status);
         }
     }
     // Safety check. Default to "rest" if all RPG weights = 0
@@ -1258,7 +1262,7 @@ bool NewRpgBaseAction::RandomChangeStatus(std::vector<NewRpgStatus> candidateSta
     NewRpgStatus chosenStatus = RPG_STATUS_END;
     for (NewRpgStatus status : availableStatus)
     {
-        accumulate += sPlayerbotAIConfig.RpgStatusProbWeight[status];
+        accumulate += weight(status);
         if (accumulate >= rand)
         {
             chosenStatus = status;

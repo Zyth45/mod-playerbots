@@ -15,6 +15,7 @@
 #include "CoaFreshStartRules.h"
 #include "CoaImmersionRules.h"
 #include "CoaLiveRules.h"
+#include "CoaSoul.h"
 #include "CoaPet.h"
 #include "CoaWorldFile.h"
 #include "FishingAction.h"
@@ -250,7 +251,15 @@ bool React(Player* bot, std::string const& situation, Player* subject, std::stri
     if (!current)
         return false;
     Rule const* rule = current->RuleOf(situation);
-    if (!rule || !rng.Roll(ReactPct(*rule, -1, opt.populationFactor)))
+    Archetype soulArch = ARCH_NONE;
+    int32 sociability = -1;
+    if (CoaSoul::Enabled() && IsRandom(bot))
+    {
+        CoaSoul::Soul const soul = CoaSoul::Get(bot);
+        soulArch = Archetype(soul.archetype);
+        sociability = soul.sociability;
+    }
+    if (!rule || !rng.Roll(ReactPct(*rule, sociability, opt.populationFactor)))
         return false;
 
     uint8 const locale = BotLocale();
@@ -282,7 +291,7 @@ bool React(Player* bot, std::string const& situation, Player* subject, std::stri
     Ring& botRing = botRings.try_emplace(botKey, sPlayerbotAIConfig.coaLiveNoRepeatBot).first->second;
     Ring& channelRing = channelRings.try_emplace(channelScope, sPlayerbotAIConfig.coaLiveNoRepeatChannel).first->second;
     bool const rareRoll = rng.Roll(sPlayerbotAIConfig.coaLiveRareChance);
-    Pick const pick = Draw(*current, situation, locale, LevelBand(bot->GetLevel()), ARCH_NONE, rareRoll, &botRing,
+    Pick const pick = Draw(*current, situation, locale, LevelBand(bot->GetLevel()), soulArch, rareRoll, &botRing,
                            &channelRing, values, rng);
     if (!pick.line)
         return false;
@@ -1287,6 +1296,7 @@ public:
     void OnUpdate(uint32 /*diff*/) override
     {
         CoaWorldFile::Tick(GameTime::GetGameTimeMS().count());  // world.json, only while the dashboard watches
+        CoaSoul::Flush(GameTime::GetGameTimeMS().count());       // new souls into their table
         if (Enabled())
         {
             uint64 const nowMs = GameTime::GetGameTimeMS().count();
@@ -1301,7 +1311,11 @@ public:
 
 namespace CoaLive
 {
-void LoadBank() { Load(); }
+void LoadBank()
+{
+    CoaSoul::Load();
+    Load();
+}
 
 void OnBotUpdate(Player* bot, PlayerbotAI* botAI, uint32 diff)
 {

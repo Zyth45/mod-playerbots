@@ -7,6 +7,7 @@
 #include "CoaWorldFile.h"
 
 #include "CoaLive.h"
+#include "CoaSoul.h"
 #include "CoaSurnameRules.h"
 #include "CoaWorldFileRules.h"
 #include "Config.h"
@@ -125,6 +126,8 @@ Snapshot Build()
             if (PlayerbotAI* botAI = GET_PLAYERBOT_AI(player))
                 state.rpg = RpgName(botAI->rpgInfo.GetStatus());
             ++s.activities[uint8(Classify(state))];
+            if (CoaSoul::Enabled())
+                ++s.souls[std::min<uint8>(CoaSoul::Get(player).archetype, 4)];
 
             if (surnameMode == COA_SURNAME_FAMILY)
             {
@@ -137,6 +140,7 @@ Snapshot Build()
     }
     for (auto const& [key, bots] : zones)
         s.zones.push_back({key.first, key.second, bots, Capital(key.second)});
+    s.soulsOn = CoaSoul::Enabled();
     s.surnameMode = int32(surnameMode);
     s.surnameListSize = uint32(sPlayerbotAIConfig.coaBotSurnameList.size());
     s.tickAvgMs = sWorldUpdateTime.GetAverageUpdateTime();

@@ -691,6 +691,8 @@ public:
     bool coaLiveDataFileEnable;      // AiPlayerbot.CoaLive.DataFile.Enable: world.json for the dashboard
     std::string coaLiveDataDir;      // AiPlayerbot.CoaDataDir (shared with the other sessions)
     bool coaLiveDataFiles;           // AiPlayerbot.CoaDataFiles (shared: 0 stops every data file)
+    bool coaSoulEnable;           // AiPlayerbot.CoaSoul.Enable (souls of the bots)
+    std::string coaSoulWeights;   // AiPlayerbot.CoaSoul.Weights: lazy, quester, wanderer, trader, pvp
     bool coaFreshStartEnable;  // AiPlayerbot.CoaFreshStart.Enable (launch of a new living realm)
     bool coaLiveImmersionEnable;  // AiPlayerbot.CoaLive.Immersion.Enable (L2 fishing)
     bool coaLiveCityEnable;  // AiPlayerbot.CoaLive.City.Enable (L2 City Life)
