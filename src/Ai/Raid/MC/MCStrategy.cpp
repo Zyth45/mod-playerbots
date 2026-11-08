@@ -123,6 +123,11 @@ void RaidMcStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
     triggers.push_back(
         new TriggerNode("mc golemagg is healer",
                         { NextAction("mc golemagg healer position", ACTION_RAID) }));
+    // CoA Combat: out of Cave In, the tank first (docs/MC-ETAT-3.0.md, O1).
+    triggers.push_back(
+        new TriggerNode("mc golemagg cave in",
+                        { NextAction("mc move from ground effect", ACTION_RAID + 1) }));
+
 
     // Majordomo Executus
     triggers.push_back(

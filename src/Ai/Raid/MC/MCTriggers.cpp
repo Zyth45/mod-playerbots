@@ -178,3 +178,8 @@ bool McBaronGeddonBurnTrigger::IsActive()
     Unit* geddon = AI_VALUE2(Unit*, "find target", "baron geddon");
     return geddon && geddon->IsAlive() && geddon->GetHealthPct() <= BURN_HEALTH_PCT;
 }
+
+bool McGolemaggCaveInTrigger::IsActive()
+{
+    return McCoaFixesOn() && HasAnyAura(bot, GOLEMAGG_CAVE_IN_AURAS);
+}

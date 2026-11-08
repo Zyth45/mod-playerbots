@@ -115,6 +115,9 @@ enum MoltenCoreSpells
 constexpr uint32 MAGMADAR_LAVA_BOMB_AURAS[] = {SPELL_LAVA_BOMB_DOT, SPELL_LAVA_BOMB_COA_D0, SPELL_LAVA_BOMB_COA_D1,
                                                SPELL_LAVA_BOMB_COA_D2, SPELL_LAVA_BOMB_COA_D3};
 
+// CoA Combat (O1): Golemagg's Cave In, a periodic-damage zone of 8 yd cast on his tank after each Massive Stomp, 15 s.
+constexpr uint32 GOLEMAGG_CAVE_IN_AURAS[] = {2105825, 2105826, 2105827, 2105828};
+
 // Standing in Gehennas' Rain of Fire (stock or CoA)
 constexpr uint32 GEHENNAS_RAIN_OF_FIRE_AURAS[] = {SPELL_RAIN_OF_FIRE, SPELL_RAIN_OF_FIRE_COA_D0, SPELL_RAIN_OF_FIRE_COA_D1,
                                                   SPELL_RAIN_OF_FIRE_COA_D2, SPELL_RAIN_OF_FIRE_COA_D3};

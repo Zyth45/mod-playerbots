@@ -73,6 +73,14 @@ public:
 
 // CoA Combat (B1): under 4 % Baron Geddon casts Armageddon (2105747, 10 s, not interruptible), then the whole raid
 // dies unless he is dead. From 10 % a shaman pops Heroism / Bloodlust, so the last 10 % go in one burst.
+// CoA Combat (O1): standing in Golemagg's Cave In. The tank steps out too, so the boss leaves the zone with it and the
+// melee follow instead of fighting inside it.
+class McGolemaggCaveInTrigger : public Trigger
+{
+public:
+    McGolemaggCaveInTrigger(PlayerbotAI* botAI) : Trigger(botAI, "mc golemagg cave in") {}
+    bool IsActive() override;
+};
 class McBaronGeddonBurnTrigger : public Trigger
 {
 public:
