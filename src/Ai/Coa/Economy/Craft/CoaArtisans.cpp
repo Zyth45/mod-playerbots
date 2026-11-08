@@ -8,6 +8,7 @@
 
 #include "CoaAuctionHouseBot.h"
 #include "CoaEconomyData.h"
+#include "CoaEconomyRules.h"
 #include "CoaMarketPrices.h"
 #include "Config.h"
 #include "DBCStores.h"
@@ -150,7 +151,7 @@ bool PickProfitable(Player* bot, Recipe& out)
 {
     std::vector<Recipe> profitable;
     for (Recipe const& recipe : KnownRecipes(bot))
-        if (recipe.productValue * 100 >= recipe.materialCost * (100 + minProfitPercent) && recipe.productValue > recipe.materialCost)
+        if (CoaEconomyRules::IsProfitable(recipe.productValue, recipe.materialCost, minProfitPercent))
             profitable.push_back(recipe);
     if (profitable.empty())
         return false;

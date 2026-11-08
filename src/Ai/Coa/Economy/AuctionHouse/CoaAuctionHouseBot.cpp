@@ -23,6 +23,7 @@
 #include "CoaAuctionHouseBot.h"
 #include "CoaMarketPrices.h"
 #include "CoaLaunchCurve.h"
+#include "CoaEconomyRules.h"
 #include "AuctionHouseSearcher.h"
 #include "AccountMgr.h"
 #include "Config.h"
@@ -145,8 +146,8 @@ struct CoaSellableFilter
         scaled = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.Filter.ScaledEntries", true);
         bool const bloodforgedOn = sConfigMgr->GetOption<bool>("Bloodforged.Enable", false, false);
         bool const allowBloodforged = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.Filter.AllowBloodforged", false);
-        bloodforged = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.Filter.Bloodforged", true) &&
-            (!bloodforgedOn || !allowBloodforged);
+        bloodforged = CoaEconomyRules::LeavesOutBloodforged(
+            sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.Filter.Bloodforged", true), bloodforgedOn, allowBloodforged);
     }
 
     bool Keeps(ItemTemplate const& proto)
@@ -1999,8 +2000,8 @@ void AuctionHouseBot::AddNewAuctionBuyerBotBid(std::vector<Player*> AHBPlayers, 
         // so buying from the house to sell back to it can never pay
         if (HumanBuyer.Enabled)
         {
-            uint64 const houseFloor = GetHouseLowestBuyoutPerItem(prototype) * HumanBuyer.ArbitrageMarginPercent / 100;
-            willingToSpendPerItemPrice = std::min(willingToSpendPerItemPrice, houseFloor);
+            willingToSpendPerItemPrice = CoaEconomyRules::ArbitrageCap(willingToSpendPerItemPrice,
+                GetHouseLowestBuyoutPerItem(prototype), HumanBuyer.ArbitrageMarginPercent);
         }
         uint64 willingToPayForStackPrice = willingToSpendPerItemPrice * pItem->GetCount();
 
@@ -2046,8 +2047,7 @@ void AuctionHouseBot::AddNewAuctionBuyerBotBid(std::vector<Player*> AHBPlayers, 
 
             // People jump on bargains and hesitate near their limit: chance = base x (wanted / asked)^2
             uint64 const asked = doBuyout ? uint64(auction->buyout) : calcBidAmount;
-            double const ratio = asked > 0 ? double(willingToPayForStackPrice) / double(asked) : 1.0;
-            double const chance = std::min(1.0, HumanBuyer.BaseChancePercent / 100.0 * ratio * ratio);
+            double const chance = CoaEconomyRules::PurchaseChance(HumanBuyer.BaseChancePercent, willingToPayForStackPrice, asked);
             if (rand_norm() >= chance)
             {
                 doBuyout = false;
@@ -2180,8 +2180,7 @@ double AuctionHouseBot::GetRarityPriceFactor(uint32 itemId) const
     auto found = CachedItemDropRates.find(itemId);
     if (found == CachedItemDropRates.end() || found->second <= 0.0)
         return 1.0;
-    double const share = std::log(RarityCommonRate / found->second) / std::log(RarityCommonRate / RarityRareRate);
-    return 1.0 + RarityPremium * std::clamp(share, 0.0, 1.0);
+    return CoaEconomyRules::RarityFactor(found->second, RarityPremium, RarityCommonRate, RarityRareRate);
 }
 
 uint64 AuctionHouseBot::GetReferencePricePerItem(ItemTemplate const* itemProto)
@@ -2233,7 +2232,7 @@ void AuctionHouseBot::FilterHumanBuyerCandidates(uint32 houseId, std::vector<uin
             uint64 price = 0;
             if (AuctionEntry* auction = auctionHouse ? auctionHouse->GetAuction(auctionId) : nullptr)
                 price = auction->buyout ? auction->buyout : auction->startbid;
-            uint32 const factor = price < 10000 ? 1 : price < 100000 ? 2 : price < 1000000 ? 4 : 8;
+            uint32 const factor = CoaEconomyRules::NoticeDelayFactor(price);
             eligibleAt = now + urand(HumanBuyer.DelayMinSeconds, HumanBuyer.DelayMaxSeconds) * factor;
         }
         stillListed[auctionId] = eligibleAt;

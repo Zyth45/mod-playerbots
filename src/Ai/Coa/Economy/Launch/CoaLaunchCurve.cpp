@@ -5,6 +5,7 @@
  */
 
 #include "CoaLaunchCurve.h"
+#include "CoaEconomyRules.h"
 
 #include "AccountMgr.h"
 #include "Config.h"
@@ -25,8 +26,6 @@ namespace
 {
     // The house bot's automatic account (see CoaAuctionHouseBot.cpp): its characters are not population.
     constexpr char const* HouseAccountName = "AHBOT";
-    // An item without a required level (materials, consumables) passes up to this item level above the cap.
-    constexpr uint32 ItemLevelSlack = 5;
 }
 
 LaunchCurve* LaunchCurve::instance()
@@ -119,31 +118,10 @@ void LaunchCurve::ReadLevels(QueryResult result)
         return;
     }
 
-    // Front: the level that FrontPercentile % of the population has reached at most.
-    uint32 const wanted = std::max<uint32>(1, (population * _frontPercentile + 99) / 100);
-    uint32 seen = 0;
-    for (auto const& [level, count] : byLevel)
-    {
-        seen += count;
-        if (seen >= wanted)
-        {
-            _frontLevel = level;
-            break;
-        }
-    }
-
-    // Top: the highest level that at least TopCount characters have reached.
-    seen = 0;
-    _topLevel = 1;
-    for (auto it = byLevel.rbegin(); it != byLevel.rend(); ++it)
-    {
-        seen += it->second;
-        if (seen >= _topCount)
-        {
-            _topLevel = it->first;
-            break;
-        }
-    }
+    // Front: the level FrontPercentile % of the population has reached at most; top: the highest level that at least
+    // TopCount characters have reached.
+    _frontLevel = CoaEconomyRules::FrontLevel(byLevel, _frontPercentile);
+    _topLevel = CoaEconomyRules::TopLevel(byLevel, _topCount);
 
     _progress = std::clamp(float(_frontLevel) / float(maxLevel), 0.0f, 1.0f);
 }
@@ -153,44 +131,28 @@ bool LaunchCurve::AllowsListing(ItemTemplate const& proto) const
     if (!_enabled)
         return true;
 
-    uint32 const levelCap = _frontLevel + _levelMargin;
-    if (proto.RequiredLevel > 0)
-    {
-        if (proto.RequiredLevel > levelCap)
-            return false;
-    }
-    else if (proto.ItemLevel > levelCap + ItemLevelSlack)
-        return false;
-
-    switch (proto.Quality)
-    {
-        case ITEM_QUALITY_POOR:
-        case ITEM_QUALITY_NORMAL:
-        case ITEM_QUALITY_UNCOMMON:
-            return true;
-        case ITEM_QUALITY_RARE:
-            return _frontLevel >= _rareFromLevel;
-        case ITEM_QUALITY_EPIC:
-            // Someone must have the level to get it.
-            return _topLevel >= _epicFromLevel && _topLevel >= proto.RequiredLevel;
-        default:
-            return _allowLegendary && _topLevel >= _epicFromLevel;
-    }
+    CoaEconomyRules::LaunchCaps caps;
+    caps.front = _frontLevel;
+    caps.top = _topLevel;
+    caps.levelMargin = _levelMargin;
+    caps.rareFromLevel = _rareFromLevel;
+    caps.epicFromLevel = _epicFromLevel;
+    caps.allowLegendary = _allowLegendary;
+    return CoaEconomyRules::LaunchAllows(caps, proto.RequiredLevel, proto.ItemLevel, proto.Quality);
 }
 
 float LaunchCurve::StockFactor() const
 {
     if (!_enabled)
         return 1.0f;
-    return _startStock + (1.0f - _startStock) * _progress;
+    return CoaEconomyRules::LaunchStockFactor(_startStock, _progress);
 }
 
 float LaunchCurve::PriceFactor() const
 {
     if (!_enabled)
         return 1.0f;
-    float const left = 1.0f - _progress;
-    return 1.0f + _launchPremium * left * left;
+    return CoaEconomyRules::LaunchPriceFactor(_launchPremium, _progress);
 }
 
 } // namespace CoaEconomy

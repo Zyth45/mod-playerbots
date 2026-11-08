@@ -11,6 +11,7 @@
 #include "CharacterCache.h"
 #include "CoaAuctionHouseBot.h"
 #include "CoaEconomyData.h"
+#include "CoaEconomyRules.h"
 #include "Config.h"
 #include "DatabaseEnv.h"
 #include "GameTime.h"
@@ -31,15 +32,7 @@ namespace
     constexpr char const* HouseAccountName = "AHBOT";
     constexpr char const* TableName = "coa_economy_market";
 
-    // How a sale moves the band: the usual price follows a moving average, the edges move faster
-    // toward a sale outside them and creep back toward the usual price otherwise.
-    constexpr double UsualKeep = 0.8;
-    constexpr double EdgeKeep = 0.7;
-    constexpr double EdgeCreep = 0.03;
-    // A sale more than this factor away from a usual price backed by a few sales is a mistake or a
-    // gift between friends: it is not learned.
-    constexpr uint64 OutlierFactor = 4;
-    constexpr uint32 OutlierMinSales = 3;
+    // How a sale moves the band and when it is ignored: CoaEconomyRules::Learn / IsOutlier.
 }
 
 MarketPrices* MarketPrices::instance()
@@ -114,26 +107,12 @@ bool MarketPrices::IsHouseCharacter(uint32 guidLow) const
 
 void MarketPrices::Learn(MarketBand& band, uint64 price) const
 {
-    if (band.Sales == 0)
-    {
-        band.Usual = band.Low = band.High = price;
-        return;
-    }
-
-    band.Usual = uint64(UsualKeep * band.Usual + (1.0 - UsualKeep) * price);
-
-    if (price < band.Low)
-        band.Low = uint64(EdgeKeep * band.Low + (1.0 - EdgeKeep) * price);
-    else if (band.Low < band.Usual)
-        band.Low += uint64((band.Usual - band.Low) * EdgeCreep);
-
-    if (price > band.High)
-        band.High = uint64(EdgeKeep * band.High + (1.0 - EdgeKeep) * price);
-    else if (band.High > band.Usual)
-        band.High -= uint64((band.High - band.Usual) * EdgeCreep);
-
-    band.Low = std::min(band.Low, band.Usual);
-    band.High = std::max(band.High, band.Usual);
+    CoaEconomyRules::Band rule{band.Usual, band.Low, band.High, band.Sales};
+    CoaEconomyRules::Learn(rule, price);
+    band.Usual = rule.usual;
+    band.Low = rule.low;
+    band.High = rule.high;
+    band.Sales = rule.sales;
 }
 
 void MarketPrices::OnSale(uint32 itemId, uint32 itemCount, uint64 price, uint32 ownerGuidLow, uint32 buyerGuidLow)
@@ -147,11 +126,10 @@ void MarketPrices::OnSale(uint32 itemId, uint32 itemCount, uint64 price, uint32 
 
     uint64 const perItem = std::max<uint64>(1, price / itemCount);
     MarketBand& band = _bands[itemId];
-    if (band.Sales >= OutlierMinSales && (perItem > band.Usual * OutlierFactor || perItem * OutlierFactor < band.Usual))
+    if (CoaEconomyRules::IsOutlier({band.Usual, band.Low, band.High, band.Sales}, perItem))
         return;
 
     Learn(band, perItem);
-    ++band.Sales;
     band.Updated = uint32(GameTime::GetGameTime().count());
     Save(itemId, band);
 }
@@ -172,10 +150,9 @@ MarketBand const* MarketPrices::GetBand(uint32 itemId) const
 
 float MarketPrices::GetWeight(MarketBand const& band) const
 {
-    float const bySales = std::min(1.0f, float(band.Sales) / float(_minSales));
     uint32 const now = uint32(GameTime::GetGameTime().count());
     float const ageDays = now > band.Updated ? float(now - band.Updated) / float(DAY) : 0.0f;
-    return _maxWeight * bySales * std::pow(0.5f, ageDays / _halfLifeDays);
+    return CoaEconomyRules::LearnedWeight(band.Sales, _minSales, ageDays, _halfLifeDays, _maxWeight);
 }
 
 uint64 MarketPrices::Blend(uint32 itemId, uint64 formulaPrice) const
@@ -187,9 +164,7 @@ uint64 MarketPrices::Blend(uint32 itemId, uint64 formulaPrice) const
         return formulaPrice;
 
     // The learned price stays within a band around the formula, so a thin market cannot run away.
-    double const learned = std::clamp(double(band->Usual), formulaPrice * double(_bandMin), formulaPrice * double(_bandMax));
-    double const weight = GetWeight(*band);
-    return std::max<uint64>(1, uint64(formulaPrice + (learned - double(formulaPrice)) * weight));
+    return CoaEconomyRules::Blend(formulaPrice, band->Usual, GetWeight(*band), _bandMin, _bandMax);
 }
 
 } // namespace CoaEconomy

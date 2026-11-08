@@ -10,6 +10,7 @@
 #include "CoaArtisans.h"
 #include "CoaBotAuctions.h"
 #include "CoaEconomyData.h"
+#include "CoaEconomyRules.h"
 #include "CoaLive.h"
 #include "Config.h"
 #include "GameTime.h"
@@ -59,9 +60,8 @@ namespace
     // patient bot asks a little more, an impatient one a little less.
     uint32 Quote(Player* bot, Artisans::Recipe const& recipe)
     {
-        uint64 const floor = recipe.materialCost * (100 + feePercent) / 100;
-        double const mood = 0.95 + 0.15 * BotAuctions::TraitsFor(bot->GetGUID()).patience;
-        uint64 const price = uint64(double(std::max(recipe.productValue, floor)) * mood);
+        uint64 const price = CoaEconomyRules::CraftQuote(recipe.productValue, recipe.materialCost, feePercent,
+            BotAuctions::TraitsFor(bot->GetGUID()).patience);
         return uint32(std::clamp<uint64>(price, 1, MAX_MONEY_AMOUNT));
     }
 

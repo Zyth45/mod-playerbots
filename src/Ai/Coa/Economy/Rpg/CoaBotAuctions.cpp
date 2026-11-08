@@ -10,6 +10,7 @@
 #include "CoaArtisans.h"
 #include "CoaAuctionHouseBot.h"
 #include "CoaCraftOrders.h"
+#include "CoaEconomyRules.h"
 #include "CoaGearScore.h"
 #include "CoaMarketPrices.h"
 #include "Config.h"
@@ -176,11 +177,10 @@ namespace
         });
 
         // An impatient bot undercuts more: 85 % to 105 % of the reference price.
-        double const factor = 0.85 + 0.20 * traits.patience;
         for (Item* item : loot)
         {
             uint64 const buyout = std::min<uint64>(MAX_MONEY_AMOUNT,
-                std::max<uint64>(1, uint64(ReferencePrice(item->GetTemplate()) * factor) * item->GetCount()));
+                CoaEconomyRules::BotListingPrice(ReferencePrice(item->GetTemplate()), traits.patience, item->GetCount()));
             uint64 const bid = std::max<uint64>(1, buyout * 3 / 4);
 
             WorldPacket packet(CMSG_AUCTION_SELL_ITEM);
@@ -204,7 +204,7 @@ namespace
     bool BuyOne(Player* bot, ObjectGuid auctioneer, Creature* npc, Traits const& traits)
     {
         // A thrifty bot spends down to 30 % of its share.
-        uint64 const budget = uint64(double(bot->GetMoney()) * settings.maxBudgetPercent / 100.0 * (1.0 - 0.7 * traits.thrift));
+        uint64 const budget = CoaEconomyRules::BotBudget(bot->GetMoney(), settings.maxBudgetPercent, traits.thrift);
         if (!budget)
             return false;
 
