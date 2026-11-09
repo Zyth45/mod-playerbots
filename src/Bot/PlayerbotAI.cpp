@@ -569,6 +569,8 @@ void PlayerbotAI::UpdateAI(uint32 elapsed, bool minimal)
     CoaLootCompanionTick(this);
     // The alt's class and craft books, used by themselves ("pet auto on", CoA Pets).
     CoaPet::Tick(this);
+    // The CoA talents left by a capped rebuild (AiPlayerbot.CoaLive.TalentsPerUpdate).
+    CoaTalentsTick(bot);
     // Totems put away after the fight (AiPlayerbot.CoaTotemRecall).
     CoaTotemRecallTick(this);
 

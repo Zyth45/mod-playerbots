@@ -126,7 +126,16 @@ bool EnsureCoaSpecialization(Player* bot);
 // would: one ability essence at every even level from 10 (class tree), one talent essence at every
 // odd level from 11 (specialization tree), in the order of the ascensionsidekick.com level build.
 // Returns the number of entries raised.
-uint32 ApplyCoaTalents(Player* bot);
+// maxRaises 0: all at once (as before); else at most that many now, the rest on the bot's next updates
+// (CoaTalentsTick), in the same order, to the same end.
+uint32 ApplyCoaTalents(Player* bot, uint32 maxRaises = 0);
+// AiPlayerbot.CoaLive.TalentsPerUpdate (0: off, all at once).
+uint32 CoaTalentsPerUpdate();
+// The bot's update: the raises left by a capped ApplyCoaTalents, a few at a time.
+void CoaTalentsTick(Player* bot);
+// The entries the build wants at the bot's level that it holds below their rank (0: complete). For the check
+// command ".bot coatalents".
+uint32 CoaTalentsMissing(Player* bot);
 
 // The Character Advancement entry `entryId`, or null.
 AscensionCompatData::CoATalentEntry const* FindCoaEntry(uint32 entryId);

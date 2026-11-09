@@ -48,7 +48,7 @@ int main()
     snap.activities[uint8_t(Activity::Quest)] = 1;
     std::string const data = Data(snap);
     assert(data.find("\"online\":3,\"players\":1") != std::string::npos);
-    assert(data.find("\"zones\":[{\"map\":1,\"zone\":1637,\"bots\":2,\"capital\":true}") != std::string::npos);
+    assert(data.find("\"zones\":[{\"map\":1,\"zone\":1637,\"bots\":2,\"capital\":true,\"faction\":{\"alliance\":0,\"horde\":0}}") != std::string::npos);
     assert(data.find("\"city\":2") != std::string::npos && data.find("\"fish\":0") != std::string::npos);
     assert(data.find("\"souls\":null,\"surname\":null") != std::string::npos);
     assert(data.find("\"tick_ms\":{\"avg\":null,\"p95\":null,\"max\":null}") != std::string::npos);
@@ -67,6 +67,32 @@ int main()
     assert(d2.find("\"surname\":{\"mode\":2,\"list_size\":64,\"top\":[{\"name\":\"Stormhand\",\"bots\":5},"
                    "{\"name\":\"Ashford\",\"bots\":3}]}") != std::string::npos);
     assert(d2.find("\"avg\":38,\"p95\":null,\"max\":140") != std::string::npos);
+
+    // Gathering, the factions of a zone, the p95 tick.
+    {
+        BotState g;
+        g.gathering = true;
+        g.rpg = "rest";
+        assert(Classify(g) == Activity::Gather && std::string(ActivityName(Activity::Gather)) == "gather");
+        g.fishing = true;
+        assert(Classify(g) == Activity::Fish);
+        Snapshot f;
+        ZoneCount z;
+        z.map = 0;
+        z.zone = 1519;
+        z.bots = 5;
+        z.capital = true;
+        z.alliance = 4;
+        z.horde = 1;
+        f.zones.push_back(z);
+        f.tickAvgMs = 30;
+        f.tickMaxMs = 90;
+        f.tickP95Ms = 61;
+        std::string const d3 = Data(f);
+        assert(d3.find("\"capital\":true,\"faction\":{\"alliance\":4,\"horde\":1}}") != std::string::npos);
+        assert(d3.find("\"avg\":30,\"p95\":61,\"max\":90") != std::string::npos);
+        assert(d3.find("\"gather\":0") != std::string::npos);
+    }
 
     std::string const env = Envelope(1762600000, 10, 420, 1762500000, "{}");
     assert(env == "{\"schema\":\"squidbot.world/1\",\"at\":1762600000,\"every\":10,\"build_us\":420,"

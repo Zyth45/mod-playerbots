@@ -38,6 +38,8 @@
 #include "Creature.h"
 #include "DBCStores.h"
 #include "CoaDbCheck.h"
+#include "CoaSpecialization.h"
+#include "AscensionSpecialization.h"
 #include "DatabaseEnv.h"
 #include "EmoteAction.h"
 #include "GameTime.h"
@@ -1937,6 +1939,14 @@ bool IsFishing(Player* bot)
     return fishingUntil.count(bot->GetGUID().GetRawValue()) != 0;
 }
 
+bool IsGathering(Player* bot)
+{
+    if (!bot)
+        return false;
+    std::lock_guard<std::mutex> guard(liveLock);
+    return gatherUntil.count(bot->GetGUID().GetRawValue()) != 0;
+}
+
 uint32 SessionSeconds() { return SessionsEnabled() ? CoaSessions::SessionSeconds(rng.between) : 0; }
 
 uint32 OfflineSeconds() { return SessionsEnabled() ? CoaSessions::OfflineSeconds(rng.between) : 0; }
@@ -2043,6 +2053,31 @@ class CoaSoulCommandScript : public CommandScript
 public:
     CoaSoulCommandScript() : CommandScript("CoaSoulCommandScript") {}
 
+    // ".bot coatalents": the CoA random bots online, and those still short of their build's talents (a capped
+    // rebuild in progress, or a difference to look at).
+    static bool HandleCoaTalents(ChatHandler* handler)
+    {
+        uint32 bots = 0, incomplete = 0, entries = 0;
+        std::string sample;
+        std::shared_lock<std::shared_mutex> lock(*HashMapHolder<Player>::GetLock());
+        for (auto const& [guid, player] : ObjectAccessor::GetPlayers())
+        {
+            if (!player || !player->IsInWorld() || !IsRandom(player) || !IsAscensionCustomClassId(player->getClass()))
+                continue;
+            ++bots;
+            if (uint32 const missing = CoaTalentsMissing(player))
+            {
+                ++incomplete;
+                entries += missing;
+                if (incomplete <= 5)
+                    sample += " " + player->GetName() + "(" + std::to_string(missing) + ")";
+            }
+        }
+        handler->PSendSysMessage("CoA talents: {} CoA random bots online, {} short of their build ({} entries):{}",
+                                 bots, incomplete, entries, sample);
+        return true;
+    }
+
     ChatCommandTable GetCommands() const override
     {
         static ChatCommandTable soulTable = {
@@ -2051,6 +2086,7 @@ public:
         };
         static ChatCommandTable botTable = {
             {"soul", soulTable},
+            {"coatalents", HandleCoaTalents, SEC_GAMEMASTER, Console::Yes},
         };
         static ChatCommandTable commandTable = {
             {"bot", botTable},
