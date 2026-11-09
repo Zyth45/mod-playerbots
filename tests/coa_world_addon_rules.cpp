@@ -12,7 +12,7 @@ int main()
     assert(Request("SQBA\tGLIST").empty());
     assert(Request("SQBW").empty());
 
-    assert(Mine("GORD") && Mine("GLIST") && Mine("WEV?") && Mine("GOFF") && Mine("GACC") && Mine("GREF") && Mine("GCAT"));
+    assert(Mine("GORD") && Mine("GLIST") && Mine("WEV?") && Mine("GOFF") && Mine("GACC") && Mine("GREF") && Mine("GCAT") && Mine("GACT?") && Mine("GACT"));
     assert(!Mine("ALIST") && !Mine("SOUL?") && !Mine("gord"));
 
     assert(RateOk(0, 5) && !RateOk(1000, 1999) && RateOk(1000, 2000));

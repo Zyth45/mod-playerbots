@@ -51,7 +51,7 @@ inline std::vector<std::string> Request(std::string const& msg)
 inline bool Mine(std::string const& word)
 {
     return word == "GORD" || word == "GLIST" || word == "WEV?" || word == "GOFF" || word == "GACC" || word == "GREF" ||
-           word == "GCAT";
+           word == "GCAT" || word == "GACT?" || word == "GACT";
 }
 
 inline bool RateOk(uint64_t lastMs, uint64_t nowMs) { return lastMs == 0 || nowMs - lastMs >= MIN_GAP_MS; }

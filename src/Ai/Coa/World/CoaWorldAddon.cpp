@@ -18,6 +18,7 @@
  */
 
 #include "CoaWorldAddonRules.h"
+#include "CoaWorldGuildActivities.h"
 #include "CoaWorldGuilds.h"
 #include "CoaWorldState.h"
 
@@ -101,6 +102,7 @@ public:
         bool const on = word == "WEV?" ? CoaWorldAddon::On()
                         : gifts            ? CoaWorldGuildGiftsOn()
                         : word == "GCAT"   ? CoaWorldGuildCatalogOn()
+                        : word == "GACT?" || word == "GACT" ? CoaWorldGuildActivitiesOn()
                                            : CoaWorldGuildAddonOn();
         if (!on || !player->GetSession() || player->GetSession()->IsBot())
             return false;
@@ -114,6 +116,16 @@ public:
         if (word == "GACC" || word == "GREF")
         {
             Answer(player, CoaWorldGuildGiftAnswer(player, request, word == "GACC"));
+            return false;
+        }
+        if (word == "GACT?")
+        {
+            Answer(player, CoaWorldGuildActivityList(player));
+            return false;
+        }
+        if (word == "GACT")
+        {
+            Answer(player, CoaWorldGuildActivityStart(player, request));
             return false;
         }
         if (word == "GCAT")
