@@ -394,12 +394,12 @@ namespace
             auto [potion, bandage] = GiftFor(player->GetLevel());
             CharacterDatabaseTransaction trans = CharacterDatabase.BeginTransaction();
             MailDraft draft("From the guild", Acore::StringFormat("Had some spare, thought you could use them. - {}", bot->GetName()));
-            if (Item* item = Item::CreateItem(potion, 5, bot))
+            if (Item* item = Item::CreateItem(potion, 5, player))
             {
                 item->SaveToDB(trans);
                 draft.AddItem(item);
             }
-            if (Item* item = Item::CreateItem(bandage, 10, bot))
+            if (Item* item = Item::CreateItem(bandage, 10, player))
             {
                 item->SaveToDB(trans);
                 draft.AddItem(item);
@@ -417,6 +417,7 @@ namespace
             bot->MoveItemFromInventory(item->GetBagSlot(), item->GetSlot(), true);
             item->DeleteFromInventoryDB(trans);
             item->SetOwnerGUID(to->GetGUID());
+            item->SetState(ITEM_CHANGED);  // as MailHandler: saved standalone, in no player's update queue
             item->SaveToDB(trans);
             MailDraft draft(item->GetTemplate()->Name1, "From the guild.");
             draft.AddItem(item);
@@ -431,7 +432,7 @@ namespace
         static bool MailNew(Player* bot, Player* to, uint32 entry, uint32 count, uint64 cod, uint32 delay,
                             std::string const& body)
         {
-            Item* item = Item::CreateItem(entry, count, bot);
+            Item* item = Item::CreateItem(entry, count, to);  // owned by the receiver, as the core's mailed rewards
             if (!item)
                 return false;
             CharacterDatabaseTransaction trans = CharacterDatabase.BeginTransaction();
@@ -478,7 +479,9 @@ namespace
             for (Player* bot : mates)
             {
                 Item* item = bot->GetItemByEntry(entry);
-                if (!item || item->IsEquipped() || item->IsSoulBound() || item->IsInTrade())
+                // What the core lets a player mail (MailHandler): never a bag in a bag slot or with items in it, a
+                // soulbound item or the loot being looted. A bag moved out with its contents left them dangling.
+                if (!item || item->IsEquipped() || item->IsInTrade() || item->IsBag() || !item->CanBeTraded(true))
                     continue;
                 ++count.second;
                 MailFromBags(bot, player, item, 0, urand(1, 4) * MINUTE);
@@ -569,6 +572,7 @@ namespace
             sAuctionMgr->RemoveAItem(best->item_guid);
             house->RemoveAuction(best);
             item->SetOwnerGUID(player->GetGUID());
+            item->SetState(ITEM_CHANGED);  // the new owner reaches item_instance (an auction item is saved as unchanged)
             item->SaveToDB(trans);
             MailDraft(proto->Name1, "Got it at the auction house, you pay what I paid.")
                 .AddItem(item)
