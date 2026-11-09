@@ -143,6 +143,21 @@ bool LootRollAction::Execute(Event /*event*/)
         // A shirt or a tabard only dresses: a player who wants one gets it before a bot (Twilight's Embrace, #6895).
         if (vote == NEED && (proto->InventoryType == INVTYPE_BODY || proto->InventoryType == INVTYPE_TABARD))
             vote = GREED;
+        // CoA Combat, Loot Need refined (AiPlayerbot.CoaCombat.LootNeedEpicOnly, LootNeedMinUpgradePct): a Need kept
+        // only on epic or better, and on gear only for a large enough upgrade over the piece worn; otherwise Greed.
+        if (vote == NEED &&
+            (sPlayerbotAIConfig.coaCombatLootNeedEpicOnly || sPlayerbotAIConfig.coaCombatLootNeedMinUpgradePct > 0.0f))
+        {
+            bool const isGear = proto->Class == ITEM_CLASS_WEAPON || proto->Class == ITEM_CLASS_ARMOR;
+            bool emptySlot = false;
+            float const pct = isGear && sPlayerbotAIConfig.coaCombatLootNeedMinUpgradePct > 0.0f
+                                  ? CoaGearScore::UpgradePct(bot, itemId, randomProperty, emptySlot)
+                                  : 0.0f;
+            if (!CoaRollRule::KeepNeed(proto->Quality >= ITEM_QUALITY_EPIC, isGear, pct, emptySlot,
+                                       sPlayerbotAIConfig.coaCombatLootNeedEpicOnly,
+                                       sPlayerbotAIConfig.coaCombatLootNeedMinUpgradePct))
+                vote = GREED;
+        }
         // The bots' manners (CoaRollRule): Need only when the realm allows it, never against a real player's Need.
         if (vote == NEED || vote == GREED)
         {

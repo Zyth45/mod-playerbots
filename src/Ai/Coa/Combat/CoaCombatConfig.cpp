@@ -7,6 +7,7 @@
 // CoA Combat: the session's settings kept in PlayerbotAIConfig. Called by PlayerbotAIConfig::Initialize();
 // a new setting of the session goes here (its member in the "CoA Combat" block of PlayerbotAIConfig.h).
 
+#include <algorithm>
 #include "CoaCombatPurgeRule.h"
 #include "Config.h"
 #include "PlayerbotAIConfig.h"
@@ -34,4 +35,9 @@ void PlayerbotAIConfig::LoadCoaCombatConfig()
     coaCombatBlackwingLairEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaCombat.BlackwingLair.Enable", false);
     coaCombatZulGurubEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaCombat.ZulGurub.Enable", false);
     coaCombatAhnQirajEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaCombat.AhnQiraj.Enable", false);
+    coaCombatLootNeedMinUpgradePct =
+        std::max(0.0f, sConfigMgr->GetOption<float>("AiPlayerbot.CoaCombat.LootNeedMinUpgradePct", 0.0f));
+    coaCombatLootNeedEpicOnly = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaCombat.LootNeedEpicOnly", false);
+    coaCombatCallOfTheGraveEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaCombat.CallOfTheGrave.Enable", false);
+    coaCombatPlayerLedEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaCombat.PlayerLed.Enable", false);
 }

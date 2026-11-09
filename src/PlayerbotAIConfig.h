@@ -744,6 +744,15 @@ public:
     bool coaCombatZulGurubEnable = false;
     // Lot 7: the session's Ahn'Qiraj fixes, AQ20 and AQ40 (Buru, Ossirian, Sartura; docs/AQ-ETAT-3.0.md).
     bool coaCombatAhnQirajEnable = false;
+    // Loot Need refined: Need kept only for an upgrade of at least this many percent over the piece worn (0: off),
+    // and only on epic or better items (off).
+    float coaCombatLootNeedMinUpgradePct = 0.0f;
+    bool coaCombatLootNeedEpicOnly = false;
+    // Call of the Grave (Dire Maul West): the curse removed first, the melee out of its casters' 5 yd.
+    bool coaCombatCallOfTheGraveEnable = false;
+    // "The player leads" (docs/JOUEUR-MENE-3.0.md): the player's Main Tank bar comes first for the raid strategies'
+    // main tank, and the boss stand-down falls back to the boss flags outside a Dungeon Clear run.
+    bool coaCombatPlayerLedEnable = false;
     // ---- end of CoA Combat ----
 
 private:

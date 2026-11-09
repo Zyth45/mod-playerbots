@@ -40,6 +40,19 @@ namespace CoaRollRule
         return wanted == Vote::Need && needRollLevel == 2 && realPlayerStillToVote && waitedMs < WaitCapMs(waitMs);
     }
 
+    // Loot Need refined (AiPlayerbot.CoaCombat.LootNeedEpicOnly, LootNeedMinUpgradePct): whether a Need stays a Need.
+    // The upgrade threshold only applies to gear (a weapon or a piece of armor), where the gain over the piece worn
+    // is known; an empty slot is an upgrade of any size. Both settings off: every Need stays.
+    inline bool KeepNeed(bool epicOrBetter, bool isGear, float upgradePct, bool emptySlot, bool epicOnly,
+                         float minUpgradePct)
+    {
+        if (epicOnly && !epicOrBetter)
+            return false;
+        if (minUpgradePct > 0.0f && isGear && !emptySlot && upgradePct < minUpgradePct)
+            return false;
+        return true;
+    }
+
     inline Vote Polite(Vote wanted, int needRollLevel, bool uniqueAlreadyOwned, bool realPlayerRolledNeed,
                        bool greedAllowed)
     {
