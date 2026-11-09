@@ -218,6 +218,70 @@ inline std::string EveryoneJson(Everyone e, size_t maxZones = 40)
     return out + "]}";
 }
 
+// The start of the realm (health.ramp): the random bots aimed at, and the first time 95 % of them were online. The
+// world tick is measured only from done_at + RAMP_AFTER_S, so its max keeps none of the start's peaks.
+constexpr uint32_t RAMP_AFTER_S = 300;
+
+struct Ramp
+{
+    uint32_t target = 0;
+    int64_t doneAt = -1;  // epoch, -1: not yet
+
+    void Update(uint32_t online, uint32_t aimed, int64_t now)
+    {
+        target = aimed;
+        // No random bot aimed at (a realm without bots): nothing to wait for.
+        if (doneAt < 0 && uint64_t(online) * 100 >= uint64_t(aimed) * 95)
+            doneAt = now;
+    }
+
+    bool Measuring(int64_t now) const { return doneAt >= 0 && now >= doneAt + int64_t(RAMP_AFTER_S); }
+};
+
+// The world ticks since the measure began: the recent ones (avg, p95) and the longest of them all (max).
+class TickStats
+{
+public:
+    explicit TickStats(size_t keep = 3000) : keep_(keep) {}
+
+    void Add(uint32_t ms)
+    {
+        if (recent_.size() < keep_)
+            recent_.push_back(ms);
+        else
+            recent_[next_] = ms;
+        next_ = (next_ + 1) % keep_;
+        max_ = std::max(max_, ms);
+    }
+
+    bool Empty() const { return recent_.empty(); }
+    int64_t Avg() const
+    {
+        if (recent_.empty())
+            return -1;
+        uint64_t sum = 0;
+        for (uint32_t v : recent_)
+            sum += v;
+        return int64_t(sum / recent_.size());
+    }
+    int64_t P95() const
+    {
+        if (recent_.empty())
+            return -1;
+        std::vector<uint32_t> sorted = recent_;
+        size_t const at = (sorted.size() * 95 + 99) / 100 - 1;
+        std::nth_element(sorted.begin(), sorted.begin() + at, sorted.end());
+        return sorted[at];
+    }
+    int64_t Max() const { return recent_.empty() ? -1 : int64_t(max_); }
+
+private:
+    size_t keep_;
+    size_t next_ = 0;
+    std::vector<uint32_t> recent_;
+    uint32_t max_ = 0;
+};
+
 struct Snapshot
 {
     uint32_t online = 0;   // random bots in the world
@@ -232,6 +296,7 @@ struct Snapshot
     int64_t tickAvgMs = -1;  // -1: null
     int64_t tickMaxMs = -1;
     int64_t tickP95Ms = -1;
+    Ramp ramp;
     Everyone everyone;  // every character online ("everyone")
 };
 
@@ -285,7 +350,8 @@ inline std::string Data(Snapshot s, size_t maxZones = 40, size_t maxSurnames = 1
     }
     out += ",\"everyone\":" + EveryoneJson(s.everyone);
     out += ",\"health\":{\"tick_ms\":{\"avg\":" + Num(s.tickAvgMs) + ",\"p95\":" + Num(s.tickP95Ms) + ",\"max\":" + Num(s.tickMaxMs) +
-           "},\"bots_us_per_tick\":null,\"by_strategy_us\":null,\"stuck\":null}}";
+           "},\"ramp\":{\"target\":" + std::to_string(s.ramp.target) + ",\"done_at\":" + Num(s.ramp.doneAt) +
+           ",\"after_s\":" + std::to_string(RAMP_AFTER_S) + "},\"bots_us_per_tick\":null,\"by_strategy_us\":null,\"stuck\":null}}";
     return out;
 }
 

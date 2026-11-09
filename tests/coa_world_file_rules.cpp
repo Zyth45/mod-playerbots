@@ -127,5 +127,34 @@ int main()
         assert(d.find("\"online\":0") != std::string::npos);  // the random-bot fields as before
     }
 
+    // health.ramp and the ticks after it.
+    {
+        Ramp r;
+        r.Update(900, 1000, 100);
+        assert(r.doneAt == -1 && !r.Measuring(1000));
+        r.Update(950, 1000, 200);
+        assert(r.doneAt == 200 && !r.Measuring(499) && r.Measuring(500));
+        r.Update(10, 1000, 900);
+        assert(r.doneAt == 200);  // once over, over
+        Ramp none;
+        none.Update(0, 0, 5);
+        assert(none.doneAt == 5);  // no bots aimed at: nothing to wait for
+
+        TickStats t(100);
+        assert(t.Avg() == -1 && t.P95() == -1 && t.Max() == -1);
+        for (uint32_t v = 1; v <= 100; ++v)
+            t.Add(v);
+        assert(t.Avg() == 50 && t.P95() == 95 && t.Max() == 100);
+        for (int k = 0; k < 100; ++k)
+            t.Add(10);
+        assert(t.Avg() == 10 && t.P95() == 10 && t.Max() == 100);  // the recent ticks, the max of all
+
+        Snapshot h;
+        h.ramp = r;
+        h.ramp.target = 1000;
+        std::string const d = Data(h);
+        assert(d.find("\"ramp\":{\"target\":1000,\"done_at\":200,\"after_s\":300}") != std::string::npos);
+    }
+
     return 0;
 }
