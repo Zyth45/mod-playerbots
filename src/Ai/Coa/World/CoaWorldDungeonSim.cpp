@@ -25,6 +25,8 @@
  */
 
 #include "CoaWorldBots.h"
+#include "CoaWorldState.h"
+#include "CoaWorldStateRules.h"
 
 #include "Chat.h"
 #include "ChatCommand.h"
@@ -47,6 +49,7 @@
 #include "WorldSession.h"
 
 #include <algorithm>
+#include <deque>
 #include <random>
 #include <unordered_map>
 #include <vector>
@@ -138,6 +141,8 @@ namespace
         bool spoke = false;
         std::vector<uint32> killed;
         std::unordered_map<ObjectGuid, Reward> rewards;
+        uint32 level = 0;  // the group's mean level
+        time_t startedAt = 0, enteredAt = 0, insideUntil = 0;
 
         uint32 Owner() const { return BOT_OWNER_DUNGEON_SIM_BASE + id; }
     };
@@ -284,6 +289,10 @@ namespace
                 run.dungeon = dungeon;
                 run.entrance = entrance;
                 run.until = now + settings.gatherMinutes * MINUTE;
+                run.startedAt = now;
+                for (Player* bot : group)
+                    run.level += bot->GetLevel();
+                run.level /= uint32(group.size());
 
                 BorrowRequest request;
                 request.mapId = entrance.GetMapId();
@@ -472,6 +481,8 @@ namespace
             run.members = inside;
             run.phase = Phase::Inside;
             run.until = now + minutes * MINUTE;
+            run.enteredAt = now;
+            run.insideUntil = run.until;
             LOG_INFO("module", "CoA World: {} bots entered {} for {} minutes", inside.size(), run.dungeon->name, minutes);
         }
 
@@ -486,7 +497,10 @@ namespace
                         back.push_back(bot);
 
             if (!run.rolled && !back.empty())
+            {
                 Roll(run, back.front());
+                Record(run, now);
+            }
 
             for (Player* bot : back)
                 Give(run, bot);
@@ -555,6 +569,71 @@ namespace
             for (auto const& item : items)
                 run.rewards[run.members[urand(0, run.members.size() - 1)]].items.push_back(item);
         }
+
+        // For monde.json: today's totals and the last runs, counted when the loot is rolled.
+        void Record(Run const& run, time_t now)
+        {
+            int64 const since = CoaWorldState::TodaySince(now);
+            if (_today.since != since)
+                _today = Today{ since };
+            ++_today.runs;
+            _today.bossKills += uint32(run.killed.size());
+            uint32 items = 0;
+            for (auto const& [guid, reward] : run.rewards)
+                items += uint32(reward.items.size());
+            _today.items += items;
+            _last.push_front({ run.dungeon, uint32(run.members.size()), uint32(run.insideUntil - run.enteredAt),
+                               uint32(run.killed.size()), now });
+            if (_last.size() > 8)
+                _last.pop_back();
+        }
+
+    public:
+        std::string Json(time_t now)
+        {
+            if (!settings.enabled && _runs.empty())
+                return "null";
+            using CoaWorldStateRules::Quote;
+            std::string running = "[";
+            for (Run const& run : _runs)
+            {
+                char const* phase = run.phase == Phase::Gathering ? "gathering" : run.phase == Phase::Inside ? "inside" : "back";
+                time_t const ends = run.phase == Phase::Gathering ? 0 : run.insideUntil;
+                running += std::string(running.size() > 1 ? "," : "") + "{\"dungeon\":" + std::to_string(run.dungeon->mapId) +
+                           ",\"dungeonName\":" + Quote(run.dungeon->name) +
+                           ",\"faction\":" + (run.team == TEAM_ALLIANCE ? "\"alliance\"" : "\"horde\"") +
+                           ",\"level\":" + std::to_string(run.level) + ",\"bots\":" + std::to_string(run.members.size()) +
+                           ",\"phase\":\"" + phase + "\",\"startedAt\":" + std::to_string(int64(run.startedAt)) +
+                           ",\"endsAt\":" + CoaWorldStateRules::DateOrNull(ends) + ",\"bosses\":" + std::to_string(run.killed.size()) + "}";
+            }
+            int64 const since = CoaWorldState::TodaySince(now);
+            if (_today.since != since)
+                _today = Today{ since };
+            std::string last = "[";
+            for (Done const& d : _last)
+                last += std::string(last.size() > 1 ? "," : "") + "{\"dungeon\":" + std::to_string(d.dungeon->mapId) +
+                        ",\"dungeonName\":" + Quote(d.dungeon->name) + ",\"bots\":" + std::to_string(d.bots) +
+                        ",\"durationS\":" + std::to_string(d.durationS) + ",\"bossesKilled\":" + std::to_string(d.bosses) +
+                        ",\"at\":" + std::to_string(int64(d.at)) + "}";
+            return "{\"running\":" + running + "],\"today\":{\"since\":" + std::to_string(_today.since) +
+                   ",\"runs\":" + std::to_string(_today.runs) + ",\"bossKills\":" + std::to_string(_today.bossKills) +
+                   ",\"items\":" + std::to_string(_today.items) + "},\"last\":" + last + "]}";
+        }
+
+    private:
+        struct Today
+        {
+            int64 since = 0;
+            uint32 runs = 0, bossKills = 0, items = 0;
+        };
+        struct Done
+        {
+            DungeonDef const* dungeon;
+            uint32 bots, durationS, bosses;
+            time_t at;
+        };
+        Today _today;
+        std::deque<Done> _last;
 
         void Give(Run& run, Player* bot)
         {
@@ -738,3 +817,5 @@ void AddSC_coa_world_dungeon_sim()
     new CoaWorldDungeonSimWorldScript();
     new CoaWorldDungeonSimCommandScript();
 }
+
+std::string CoaWorld::DungeonSimJson(time_t now) { return DungeonSimManager::Instance().Json(now); }

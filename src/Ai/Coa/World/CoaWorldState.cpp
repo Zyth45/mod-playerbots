@@ -17,6 +17,7 @@
 #include "ObjectAccessor.h"
 #include "Player.h"
 #include "ScriptMgr.h"
+#include "Timer.h"
 #include "WorldSession.h"
 
 #include <algorithm>
@@ -156,7 +157,8 @@ std::string Build(time_t now)
            ",\"guilds\":" + GuildsJson() + ",\"guild_orders\":" + orders + ",\"server_firsts\":" + firsts +
            ",\"recovery_24h\":{\"stuck\":" + std::to_string(stuck) + ",\"unstuck\":" + std::to_string(unstuck) +
            ",\"stuck_events\":" + std::to_string(stuckEvents) + ",\"unstuck_events\":" + std::to_string(unstuckEvents) +
-           ",\"since\":" + std::to_string(std::max<int64>(g_started, int64(now) - 86400)) + "}}";
+           ",\"since\":" + std::to_string(std::max<int64>(g_started, int64(now) - 86400)) +
+           "},\"dungeon_sim\":" + CoaWorld::DungeonSimJson(now) + ",\"bg_sim\":" + CoaWorld::BgSimJson(now) + "}";
 }
 
 void Write(std::string const& text)
@@ -244,6 +246,11 @@ void Recovery(uint32 botLowGuid, bool unstuck)
     list.emplace_back(now, botLowGuid);
     while (!list.empty() && now - list.front().first >= 86400)
         list.pop_front();
+}
+
+int64 TodaySince(time_t now)
+{
+    return std::max<int64>(int64(Acore::Time::GetLocalHourTimestamp(now, 0, false)), g_started);
 }
 
 void First(std::string const& what, std::string const& by, std::string const& guild, time_t at)
