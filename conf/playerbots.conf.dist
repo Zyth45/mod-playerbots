@@ -3334,6 +3334,14 @@ AiPlayerbot.CoaFreshStart.Enable = 0
 AiPlayerbot.CoaSoul.Enable = 0
 AiPlayerbot.CoaSoul.Weights = "20,40,20,10,10"
 
+#    AiPlayerbot.CoaSoul.Addon
+#        Description: SquidBots Lite shows the soul of a bot of your group or of one of your alts
+#                     (archetype and traits) in its tooltip and sheet. Needs AiPlayerbot.CoaSoul.Enable.
+#        Default:     0 - off (no answer)
+#                     1 - on
+
+AiPlayerbot.CoaSoul.Addon = 0
+
 #    AiPlayerbot.CoaPets.AutoBooks
 #        Description: Your alts use their class and craft books by themselves (Pets tab of the
 #                     SquidBots addon, "pet auto on"): after a level up the class book (Book of
