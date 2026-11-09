@@ -17,11 +17,16 @@
 #include "Item.h"
 #include "ObjectMgr.h"
 #include "Player.h"
+#include "ObjectAccessor.h"
+#include "PlayerbotAI.h"
 #include "Random.h"
+#include "RandomPlayerbotMgr.h"
 #include "ScriptMgr.h"
 
 #include <algorithm>
+#include <map>
 #include <unordered_map>
+#include <vector>
 
 namespace CoaEconomy::CraftOrders
 {
@@ -32,6 +37,15 @@ namespace
     uint32 feePercent = 15;
     uint32 orderCooldownSeconds = 5 * MINUTE;
     uint32 tradeOfferPercent = 50;
+    uint32 advertiseMs = 0; // 0 = off
+
+    // The capitals, where artisans advertise in Trade.
+    constexpr uint32 Capitals[] = {1519, 1537, 1657, 3557, 1637, 1497, 1638, 3487};
+
+    // Per capital and faction: who spoke last and of which profession, so the next one is another.
+    struct LastAdvert { ObjectGuid::LowType bot = 0; uint32 skill = 0; };
+    std::map<std::pair<uint32, uint32>, LastAdvert> lastAdvert;
+    uint32 advertiseTimer = 0;
 
     // World thread only: when each artisan took its last order.
     std::unordered_map<ObjectGuid::LowType, uint32> lastOrder;
@@ -42,6 +56,7 @@ namespace
         feePercent = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaEconomy.CraftOrders.FeePercent", 15);
         orderCooldownSeconds = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaEconomy.CraftOrders.OrderCooldownMinutes", 5) * MINUTE;
         tradeOfferPercent = std::min<uint32>(100, sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaEconomy.CraftOrders.TradeOfferPercent", 50));
+        advertiseMs = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaEconomy.CraftOrders.AdvertiseMinutes", 0) * MINUTE * IN_MILLISECONDS;
     }
 
     // The first item link of a (lowered) whisper: "|hitem:12345:..." -> 12345.
@@ -129,11 +144,98 @@ namespace
         return true;
     }
 
+    bool IsCapital(uint32 zoneId)
+    {
+        return std::find(std::begin(Capitals), std::end(Capitals), zoneId) != std::end(Capitals);
+    }
+
+    // In each capital where a real player is, one artisan of that player's faction says it takes orders (Trade,
+    // trade_craft_lfw, with its profession and recipe links): another artisan and another profession than last time.
+    void Advertise()
+    {
+        std::vector<std::pair<uint32, uint32>> heard; // zone, team
+        for (auto const& [guid, player] : ObjectAccessor::GetPlayers())
+            if (player && player->IsInWorld() && IsRealPlayer(player) && IsCapital(player->GetZoneId()))
+            {
+                std::pair<uint32, uint32> const place{player->GetZoneId(), uint32(player->GetTeamId())};
+                if (std::find(heard.begin(), heard.end(), place) == heard.end())
+                    heard.push_back(place);
+            }
+        if (heard.empty())
+            return;
+
+        std::map<std::pair<uint32, uint32>, std::vector<Player*>> artisans;
+        for (auto const& [guid, bot] : sRandomPlayerbotMgr.GetAllBots())
+            if (bot && bot->IsInWorld() && bot->IsAlive() && !bot->IsInCombat())
+            {
+                std::pair<uint32, uint32> const place{bot->GetZoneId(), uint32(bot->GetTeamId())};
+                if (std::find(heard.begin(), heard.end(), place) != heard.end())
+                    artisans[place].push_back(bot);
+            }
+
+        for (auto const& place : heard)
+        {
+            std::vector<Player*>& bots = artisans[place];
+            if (bots.empty())
+                continue;
+            LastAdvert& last = lastAdvert[place];
+            Acore::Containers::RandomShuffle(bots);
+            // The first bot (not the last speaker) with a recipe of another profession; failing that, any recipe.
+            Player* speaker = nullptr;
+            Artisans::Recipe chosen;
+            uint32 tried = 0;
+            for (Player* bot : bots)
+            {
+                if (++tried > 12)
+                    break;
+                if (bot->GetGUID().GetCounter() == last.bot && bots.size() > 1)
+                    continue;
+                std::vector<Artisans::Recipe> recipes = Artisans::KnownRecipes(bot);
+                if (recipes.empty())
+                    continue;
+                Acore::Containers::RandomShuffle(recipes);
+                auto other = std::find_if(recipes.begin(), recipes.end(),
+                                          [&](Artisans::Recipe const& r) { return r.skillId != last.skill; });
+                if (other != recipes.end())
+                {
+                    speaker = bot;
+                    chosen = *other;
+                    break;
+                }
+                if (!speaker)
+                {
+                    speaker = bot;
+                    chosen = recipes.front();
+                }
+            }
+            if (!speaker)
+                continue;
+
+            std::unordered_map<std::string, std::string> slots;
+            slots["item"] = FormatItem(chosen.itemId);
+            slots["profession"] = Artisans::ProfessionLink(speaker, chosen.skillId);
+            slots["recipe"] = Artisans::RecipeLink(speaker, chosen);
+            if (CoaLive::SayLine(speaker, "trade_craft_lfw", slots))
+                last = {speaker->GetGUID().GetCounter(), chosen.skillId};
+        }
+    }
+
     class CoaCraftOrdersWorld : public WorldScript
     {
     public:
-        CoaCraftOrdersWorld() : WorldScript("CoaCraftOrdersWorld", {WORLDHOOK_ON_AFTER_CONFIG_LOAD}) { }
+        CoaCraftOrdersWorld() : WorldScript("CoaCraftOrdersWorld", {WORLDHOOK_ON_AFTER_CONFIG_LOAD, WORLDHOOK_ON_UPDATE}) { }
         void OnAfterConfigLoad(bool /*reload*/) override { LoadSettings(); }
+
+        void OnUpdate(uint32 diff) override
+        {
+            if (!advertiseMs || !Artisans::IsEnabled())
+                return;
+            advertiseTimer += diff;
+            if (advertiseTimer < advertiseMs)
+                return;
+            advertiseTimer = 0;
+            Advertise();
+        }
     };
 }
 
