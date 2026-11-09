@@ -3214,13 +3214,21 @@ AiPlayerbot.CoaLive.Sessions.Enable = 0
 #                     real player of its faction, within 30 yards, may raise them when they lie dead
 #                     (not released), help in a fight they are losing (a heal, or it attacks their
 #                     enemy), cast one of its buffs on them, or ask them to group when they are alone
-#                     and close in level (rarely: once in 30 minutes per player, all bots together).
+#                     and close in level: only out in the wild, never in a city, a village, an inn
+#                     or a sanctuary, and once per player every InviteCooldownMinutes, all bots together.
 #                     Bots also thank a real player who buffs them. Never in a battleground or arena.
 #                     Read again by ".reload config".
 #        Default:     0 - off
 #                     1 - on
 
 AiPlayerbot.CoaLive.Social.Enable = 0
+
+#    AiPlayerbot.CoaLive.Social.InviteCooldownMinutes
+#        Description: At most one group invitation from a bot per player in this time, all bots
+#                     together (minutes, at least 1).
+#        Default:     60
+
+AiPlayerbot.CoaLive.Social.InviteCooldownMinutes = 60
 
 #    AiPlayerbot.CoaLive.City.Enable
 #        Description: City Life. A random bot visiting a capital (AiPlayerbot.RpgStatusProbWeight.GoCity)

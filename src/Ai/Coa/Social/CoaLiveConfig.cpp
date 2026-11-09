@@ -39,6 +39,8 @@ void PlayerbotAIConfig::LoadCoaLiveConfig()
     coaLiveGreetRange = std::min<uint32>(40, sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaLive.GreetRange", 15));
     coaLiveSessionsEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaLive.Sessions.Enable", false);
     coaLiveSocialEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaLive.Social.Enable", false);
+    coaLiveSocialInviteCooldownMinutes =
+        std::max<uint32>(1, sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaLive.Social.InviteCooldownMinutes", 60));
     coaLiveCityEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaLive.City.Enable", false);
     coaLiveImmersionEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaLive.Immersion.Enable", false);
     coaFreshStartEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaFreshStart.Enable", false);

@@ -3561,14 +3561,7 @@ bool PlayerbotAI::SayToChannelNow(std::string const& msg, ChatChannelId chanId)
             // Checks if the channel name contains the current zone
             const auto does_contains = channel->GetName().find(current_str_zone) != std::string::npos ||
                 (!current_str_area.empty() && channel->GetName().find(current_str_area) != std::string::npos);
-            // Trade and GuildRecruitment are "<name> - City" in every capital (the bots join that one at login):
-            // no zone name in it, so in a capital the channel id is enough (CoA Live Trade lines never went out).
-            // With CoA Live only: off, Trade stays as quiet as it was before 3.0 (the stock broadcasts never got there).
-            bool const cityChannel = sPlayerbotAIConfig.coaLiveEnable &&
-                                     (chanId == ChatChannelId::TRADE || chanId == ChatChannelId::GUILD_RECRUITMENT) &&
-                                     (current_zone->flags & AREA_FLAG_CAPITAL);
-            if (chanId != ChatChannelId::LOOKING_FOR_GROUP && chanId != ChatChannelId::WORLD_DEFENSE && !does_contains &&
-                !cityChannel)
+            if (chanId != ChatChannelId::LOOKING_FOR_GROUP && chanId != ChatChannelId::WORLD_DEFENSE && !does_contains)
             {
                 continue;
             }
