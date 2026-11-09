@@ -38,9 +38,8 @@ bool AnswersWhispers(PlayerbotAI* botAI, ObjectGuid from);
 // The bot accepted a resurrection cast by "by".
 void OnResurrectAccepted(Player* bot, ObjectGuid by);
 
-// Sessions (AiPlayerbot.CoaLive.Sessions.Enable, RandomPlayerbotMgr): the random bots wanted now, from the bot count
-// (the count itself when off); a session in the world and a break away, in seconds (0 when off: the old values).
-uint32 SessionTarget(uint32 count);
+// Sessions (AiPlayerbot.CoaLive.Sessions.Enable, RandomPlayerbotMgr): a session in the world and a break away, in
+// seconds (0 when off: the old values). The bots online stay the bot count set: one leaves, another comes in.
 uint32 SessionSeconds();
 uint32 OfflineSeconds();
 bool SessionsEnabled();

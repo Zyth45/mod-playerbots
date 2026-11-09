@@ -9,7 +9,6 @@
 
 #include "PlayerbotAIConfig.h"
 
-#include "CoaSessionRules.h"
 #include "CoaSurnameRules.h"
 #include "Config.h"
 #include "Log.h"
@@ -50,20 +49,6 @@ void PlayerbotAIConfig::LoadCoaLiveConfig()
     // Shared with the other sessions' data files (the Builder adds them to the .dist once).
     coaLiveDataDir = sConfigMgr->GetOption<std::string>("AiPlayerbot.CoaDataDir", "", false);
     coaLiveDataFiles = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaDataFiles", true, false);
-    {
-        std::string const curve = sConfigMgr->GetOption<std::string>("AiPlayerbot.CoaLive.Sessions.HourCurve", "");
-        CoaSessions::Curve parsed;
-        if (!CoaSessions::ParseCurve(curve, parsed))
-            LOG_ERROR("server.loading", "AiPlayerbot.CoaLive.Sessions.HourCurve: 24 numbers 0 to 100 are needed, "
-                      "the default curve is used.");
-        coaLiveSessionsCurve.assign(parsed.begin(), parsed.end());
-    }
-    coaLiveSessionsWeekendBonus =
-        std::min<uint32>(100, sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaLive.Sessions.WeekendBonus", 10));
-    coaLiveSessionsMinPercent =
-        std::min<uint32>(100, sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaLive.Sessions.MinPercent", 20));
-    coaLiveSessionsHourShift =
-        std::clamp<int32>(sConfigMgr->GetOption<int32>("AiPlayerbot.CoaLive.Sessions.HourShift", 0), -23, 23);
     {
         std::vector<std::string> rejected;
         coaBotSurnameList =

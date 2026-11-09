@@ -1466,30 +1466,9 @@ bool IsFishing(Player* bot)
     return fishingUntil.count(bot->GetGUID().GetRawValue()) != 0;
 }
 
-namespace
-{
-uint32 HourPercentNow()
-{
-    time_t const now = GameTime::GetGameTime().count() + time_t(sPlayerbotAIConfig.coaLiveSessionsHourShift) * HOUR;
-    tm const local = Acore::Time::TimeBreakdown(now);
-    CoaSessions::Curve curve = CoaSessions::DefaultCurve();
-    if (sPlayerbotAIConfig.coaLiveSessionsCurve.size() == curve.size())
-        std::copy(sPlayerbotAIConfig.coaLiveSessionsCurve.begin(), sPlayerbotAIConfig.coaLiveSessionsCurve.end(),
-                  curve.begin());
-    return CoaSessions::HourPercent(curve, local.tm_hour, local.tm_min, local.tm_wday,
-                                    sPlayerbotAIConfig.coaLiveSessionsWeekendBonus,
-                                    sPlayerbotAIConfig.coaLiveSessionsMinPercent);
-}
-}  // namespace
-
-uint32 SessionTarget(uint32 count)
-{
-    return SessionsEnabled() ? CoaSessions::Target(count, HourPercentNow()) : count;
-}
-
 uint32 SessionSeconds() { return SessionsEnabled() ? CoaSessions::SessionSeconds(rng.between) : 0; }
 
-uint32 OfflineSeconds() { return SessionsEnabled() ? CoaSessions::OfflineSeconds(HourPercentNow(), rng.between) : 0; }
+uint32 OfflineSeconds() { return SessionsEnabled() ? CoaSessions::OfflineSeconds(rng.between) : 0; }
 
 bool SayLine(Player* bot, std::string const& situation, std::unordered_map<std::string, std::string> const& slots)
 {
