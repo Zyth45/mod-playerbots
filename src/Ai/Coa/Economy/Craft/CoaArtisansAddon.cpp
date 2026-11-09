@@ -18,6 +18,7 @@
 #include "CoaLive.h"
 #include "CoaCraftOrders.h"
 #include "CoaEconomyData.h"
+#include "CoaEconomyDb.h"
 
 #include "Chat.h"
 #include "Config.h"
@@ -25,7 +26,9 @@
 #include "DatabaseEnv.h"
 #include "GameTime.h"
 #include "Item.h"
+#include "Log.h"
 #include "Mail.h"
+#include "ObjectAccessor.h"
 #include "ObjectMgr.h"
 #include "Player.h"
 #include "RandomPlayerbotMgr.h"
@@ -73,18 +76,28 @@ namespace
     std::map<uint32, Quote> quotes;
     uint32 nextQuoteId = 1;
 
-    struct Cod
+    // ---- The player's orders (AMAIL): kept 7 days in coa_economy_orders, read back at start-up ----
+    struct OrderRec
     {
-        uint32 quoteId = 0;
+        uint32 id = 0;                    // the quote id
+        ObjectGuid::LowType player = 0;
         ObjectGuid::LowType bot = 0;
         std::string botName;
         uint32 itemId = 0;
         uint32 qty = 0;
+        uint32 perPiece = 1;              // items a craft makes (memory only: needed while preparing)
         uint32 copper = 0;
-        uint32 at = 0;
-        bool paid = false;
+        std::string state;                // preparing, sent, awaiting, paid, returned, cancelled
+        uint32 changed = 0;               // when the state last changed
+        uint32 eta = 0;                   // when the mail is (or was) in the mailbox
+        uint32 sentAt = 0;
+        uint64 sendAtMs = 0;              // preparing: when the mail goes
     };
-    std::unordered_map<ObjectGuid::LowType, std::deque<Cod>> cods;  // per player, newest last
+    std::map<uint32, OrderRec> orders;    // by id
+    constexpr char const* OrdersTable = "coa_economy_orders";
+    bool ordersTable = false;
+    uint32 trackTimer = 0;
+    constexpr uint32 TrackEveryMs = 2000;
 
     uint32 Now() { return uint32(GameTime::GetGameTime().count()); }
     uint64 NowMs() { return uint64(GameTime::GetGameTimeMS().count()); }
@@ -256,25 +269,89 @@ namespace
         uint32 const quoteId = nextQuoteId++;
         quotes[quoteId] = {player->GetGUID().GetCounter(), bot->GetGUID(), name, itemId, qty, uint32(price), now};
         answer(uint32(price), "ok", quoteId);
+
+        // The artisan whispers its price too, as to a whispered order (craft_quote_addon; the whisper order's lines
+        // when the bank has none).
+        std::unordered_map<std::string, std::string> slots;
+        if (ItemTemplate const* proto = sObjectMgr->GetItemTemplate(itemId))
+            slots["item"] = ChatHelper::FormatItem(proto);
+        slots["price"] = ChatHelper::formatMoney(uint32(price));
+        slots["qty"] = std::to_string(qty);
+        slots["profession"] = Artisans::ProfessionLink(bot, recipe.skillId);
+        slots["recipe"] = Artisans::RecipeLink(bot, recipe);
+        if (!CoaLive::SayLine(bot, "craft_quote_addon", slots, player->GetGUID()))
+            CoaLive::SayLine(bot, "wh_craft_quote", slots, player->GetGUID());
     }
 
-    // Makes `qty` pieces from the reagents (already used) and mails them cash on delivery, one mail.
-    void MailOrder(Player* bot, Player* player, Artisans::Recipe const& recipe, uint32 qty, uint32 copper)
+    std::string OrderLine(OrderRec const& order)
     {
+        return "AM\t" + std::to_string(order.id) + "\t" + Rules::Clean(order.botName) + "\t" + std::to_string(order.itemId) +
+               "\t" + std::to_string(order.qty) + "\t" + std::to_string(order.copper) + "\t" + std::to_string(order.changed) +
+               "\t" + order.state + "\t" + std::to_string(order.eta);
+    }
+
+    void Save(OrderRec const& order)
+    {
+        if (!ordersTable)
+            return;
+        std::string name = order.botName;
+        name.erase(std::remove_if(name.begin(), name.end(), [](char c) { return c == '\'' || c == '\\'; }), name.end());
+        PlayerbotsDatabase.Execute("REPLACE INTO {} (id, player, bot, bot_name, item, qty, copper, state, changed, eta) "
+                                   "VALUES ({}, {}, {}, '{}', {}, {}, {}, '{}', {}, {})", OrdersTable, order.id, order.player,
+                                   order.bot, name, order.itemId, order.qty, order.copper, order.state, order.changed, order.eta);
+    }
+
+    // A new state: saved, and pushed to the player's addon at once (the same AM line, then "-").
+    void SetState(OrderRec& order, std::string const& state)
+    {
+        if (order.state == state)
+            return;
+        order.state = state;
+        order.changed = Now();
+        Save(order);
+        if (Player* player = ObjectAccessor::FindConnectedPlayer(ObjectGuid::Create<HighGuid::Player>(order.player)))
+        {
+            Send(player, OrderLine(order));
+            Send(player, "-");
+            auto asker = askers.find(order.player);
+            if (asker != askers.end() && asker->second.cachedRequest == "AMAIL")
+                asker->second.cachedRequest.clear();
+        }
+    }
+
+    // The artisan has "crafted" it: the pieces go in one CoD mail, no delivery delay (the core's MailDeliveryDelay is
+    // for mail between players; the whispers play the time it takes).
+    void SendOrder(OrderRec& order)
+    {
+        ObjectGuid const receiver = ObjectGuid::Create<HighGuid::Player>(order.player);
         CharacterDatabaseTransaction trans = CharacterDatabase.BeginTransaction();
-        ItemTemplate const* proto = sObjectMgr->GetItemTemplate(recipe.itemId);
+        ItemTemplate const* proto = sObjectMgr->GetItemTemplate(order.itemId);
         MailDraft draft(proto ? proto->Name1 : "", "");
-        for (uint32 i = 0; i < qty; ++i)
-            if (Item* item = Item::CreateItem(recipe.itemId, recipe.count, player, false,
-                                              Item::GenerateItemRandomPropertyId(recipe.itemId)))
+        uint32 made = 0;
+        for (uint32 i = 0; i < order.qty; ++i)
+            if (Item* item = Item::CreateItem(order.itemId, order.perPiece, nullptr, false,
+                                              Item::GenerateItemRandomPropertyId(order.itemId)))
             {
+                item->SetOwnerGUID(receiver);
                 item->SaveToDB(trans);
                 draft.AddItem(item);
+                ++made;
             }
-        draft.AddCOD(copper).SendMailTo(trans, MailReceiver(player), MailSender(bot), MAIL_CHECK_MASK_COPIED,
-                                        sWorld->getIntConfig(CONFIG_MAIL_DELIVERY_DELAY));
-        bot->SaveInventoryAndGoldToDB(trans);
+        if (!made)
+        {
+            CharacterDatabase.CommitTransaction(trans);
+            SetState(order, "cancelled");
+            return;
+        }
+        // Online, the mail must go to the Player object (the core then puts it in its mailbox at once).
+        Player* online = ObjectAccessor::FindConnectedPlayer(receiver);
+        draft.AddCOD(order.copper).SendMailTo(trans, online ? MailReceiver(online) : MailReceiver(order.player),
+                                              MailSender(MAIL_NORMAL, order.bot),
+                                              MAIL_CHECK_MASK_COPIED, 0);
         CharacterDatabase.CommitTransaction(trans);
+        order.sentAt = Now();
+        order.eta = order.sentAt;
+        SetState(order, "sent");
     }
 
     void Order(Player* player, std::vector<std::string> const& fields, std::vector<std::string>& lines)
@@ -309,8 +386,23 @@ namespace
             return answer("mats");
 
         quotes.erase(found);
-        MailOrder(bot, player, recipe, quote.qty, quote.copper);
         CraftOrders::MarkBusy(bot);
+
+        // Taken: "preparing" until the mail goes, a few seconds later.
+        OrderRec& order = orders[quoteId];
+        order.id = quoteId;
+        order.player = player->GetGUID().GetCounter();
+        order.bot = bot->GetGUID().GetCounter();
+        order.botName = quote.botName;
+        order.itemId = quote.itemId;
+        order.qty = quote.qty;
+        order.perPiece = recipe.count;
+        order.copper = quote.copper;
+        order.sendAtMs = NowMs() + Rules::SendDelayMs;
+        order.eta = Now() + Rules::SendDelayMs / IN_MILLISECONDS;
+        order.state = "preparing";
+        order.changed = Now();
+        Save(order);
 
         // As a real artisan: a word that it takes the order, then one that the mail is gone (CoA Live whispers, the
         // rules' typing delay; nothing said when the bank has no such lines).
@@ -325,33 +417,110 @@ namespace
         CoaLive::SayLine(bot, "craft_order_sent", slots, player->GetGUID());
 
         Data::RecordOrder(player->GetName(), bot->GetName(), quote.itemId, quote.copper, "mailed", recipe.skillId, "player");
+        answer("preparing");
+        lines.push_back(OrderLine(order));
+    }
 
-        std::deque<Cod>& log = cods[player->GetGUID().GetCounter()];
-        log.push_back({quoteId, bot->GetGUID().GetCounter(), quote.botName, quote.itemId, quote.qty, quote.copper, Now(), false});
-        while (log.size() > Rules::MaxMails)
-            log.pop_front();
-        answer("mailed");
+    // The CoD mail of an order in the player's mailbox (sender, price and item match), or null.
+    Mail const* FindMail(Player* player, OrderRec const& order)
+    {
+        for (Mail const* mail : player->GetMails())
+            if (mail && mail->state != MAIL_STATE_DELETED && mail->messageType == MAIL_NORMAL && mail->sender == order.bot &&
+                (mail->COD == order.copper || (order.state == "paid" && !mail->COD)))
+                return mail;
+        return nullptr;
+    }
+
+    // Brings a sent order up to date from the player's mailbox (online players only; offline, it waits).
+    void Track(OrderRec& order, Player* player, uint32 now)
+    {
+        if (order.state != "sent" && order.state != "awaiting")
+            return;
+        Mail const* mail = FindMail(player, order);
+        if (mail)
+            order.eta = uint32(mail->deliver_time);
+        SetState(order, Rules::NextState(order.state, false, mail != nullptr, mail && mail->deliver_time <= time_t(now),
+                                         now - order.sentAt));
     }
 
     void Mails(Player* player, std::vector<std::string>& lines)
     {
-        auto found = cods.find(player->GetGUID().GetCounter());
-        if (found == cods.end())
-            return;
         uint32 const now = Now();
-        std::deque<Cod>& log = found->second;
-        while (!log.empty() && log.front().at + Rules::MailDays * DAY < now)
-            log.pop_front();
-        for (auto it = log.rbegin(); it != log.rend(); ++it)
+        std::vector<OrderRec*> mine;
+        for (auto& [id, order] : orders)
+            if (order.player == player->GetGUID().GetCounter() && order.changed + Rules::MailDays * DAY >= now)
+            {
+                Track(order, player, now);
+                mine.push_back(&order);
+            }
+        // Newest first, 20 at most.
+        std::sort(mine.begin(), mine.end(), [](OrderRec const* a, OrderRec const* b) { return a->id > b->id; });
+        for (OrderRec const* order : mine)
         {
-            bool inMailbox = false;
-            for (Mail const* mail : player->GetMails())
-                if (mail && mail->state != MAIL_STATE_DELETED && mail->sender == it->bot && mail->COD == it->copper)
-                    inMailbox = true;
-            lines.push_back("AM\t" + std::to_string(it->quoteId) + "\t" + Rules::Clean(it->botName) + "\t" +
-                            std::to_string(it->itemId) + "\t" + std::to_string(it->qty) + "\t" + std::to_string(it->copper) +
-                            "\t" + std::to_string(it->at) + "\t" + Rules::CodState(it->paid, inMailbox));
+            if (lines.size() >= Rules::MaxMails)
+                break;
+            lines.push_back(OrderLine(*order));
         }
+    }
+
+    // Start-up: the orders of the last 7 days come back; an order caught "preparing" by the stop is cancelled.
+    void LoadOrders()
+    {
+        ordersTable = Db::HasTable(OrdersTable, {"id", "player", "bot", "bot_name", "item", "qty", "copper", "state",
+                                                 "changed", "eta"});
+        if (!ordersTable)
+        {
+            LOG_ERROR("server.loading", "CoA Economy: table {} is missing or out of date in the playerbots database; "
+                      "addon orders are tracked for this session only", OrdersTable);
+            return;
+        }
+        uint32 const now = Now();
+        PlayerbotsDatabase.DirectExecute("DELETE FROM {} WHERE changed < {}", OrdersTable, now - Rules::MailDays * DAY);
+        if (QueryResult result = PlayerbotsDatabase.Query(
+                "SELECT id, player, bot, bot_name, item, qty, copper, state, changed, eta FROM {}", OrdersTable))
+            do
+            {
+                Field* f = result->Fetch();
+                OrderRec order;
+                order.id = f[0].Get<uint32>();
+                order.player = f[1].Get<uint32>();
+                order.bot = f[2].Get<uint32>();
+                order.botName = f[3].Get<std::string>();
+                order.itemId = f[4].Get<uint32>();
+                order.qty = f[5].Get<uint32>();
+                order.copper = f[6].Get<uint32>();
+                order.state = f[7].Get<std::string>();
+                order.changed = f[8].Get<uint32>();
+                order.eta = f[9].Get<uint32>();
+                order.sentAt = order.changed;
+                nextQuoteId = std::max(nextQuoteId, order.id + 1);
+                OrderRec& kept = orders[order.id] = order;
+                if (kept.state == "preparing")
+                    SetState(kept, "cancelled");
+            } while (result->NextRow());
+    }
+
+    // World update: mails that are due, and the online players' sent orders.
+    void UpdateOrders(uint32 diff)
+    {
+        trackTimer += diff;
+        if (trackTimer < TrackEveryMs)
+            return;
+        trackTimer = 0;
+        uint64 const nowMs = NowMs();
+        uint32 const now = Now();
+        for (auto& [id, order] : orders)
+        {
+            if (order.state == "preparing" && nowMs >= order.sendAtMs)
+                SendOrder(order);
+            else if (order.state == "sent" || order.state == "awaiting")
+                if (Player* player = ObjectAccessor::FindConnectedPlayer(ObjectGuid::Create<HighGuid::Player>(order.player)))
+                    Track(order, player, now);
+        }
+        // Forget what is final and older than 7 days.
+        for (auto it = orders.begin(); it != orders.end();)
+            it = Rules::IsFinal(it->second.state) && it->second.changed + Rules::MailDays * DAY < now ? orders.erase(it)
+                                                                                                    : std::next(it);
     }
 
     // ---- The channel ----
@@ -445,16 +614,22 @@ namespace
         {
             if (!draft || !(checked & MAIL_CHECK_MASK_COD_PAYMENT) || sender.GetMailMessageType() != MAIL_NORMAL)
                 return;
-            auto found = cods.find(sender.GetSenderId());
-            if (found == cods.end())
-                return;
-            for (Cod& cod : found->second)
-                if (!cod.paid && cod.bot == receiver.GetPlayerGUIDLow() && cod.copper == draft->GetMoney())
+            for (auto& [id, order] : orders)
+                if ((order.state == "sent" || order.state == "awaiting") && order.player == sender.GetSenderId() &&
+                    order.bot == receiver.GetPlayerGUIDLow() && order.copper == draft->GetMoney())
                 {
-                    cod.paid = true;
+                    SetState(order, "paid");
                     return;
                 }
         }
+    };
+
+    class CoaArtisansAddonWorld : public WorldScript
+    {
+    public:
+        CoaArtisansAddonWorld() : WorldScript("CoaArtisansAddonWorld", {WORLDHOOK_ON_STARTUP, WORLDHOOK_ON_UPDATE}) { }
+        void OnStartup() override { LoadOrders(); }
+        void OnUpdate(uint32 diff) override { UpdateOrders(diff); }
     };
 }
 
@@ -468,4 +643,5 @@ void AddSC_coa_economy_artisans_addon()
         return;
     new CoaEconomy::ArtisansAddon::CoaArtisansAddonPlayer();
     new CoaEconomy::ArtisansAddon::CoaArtisansAddonMail();
+    new CoaEconomy::ArtisansAddon::CoaArtisansAddonWorld();
 }
