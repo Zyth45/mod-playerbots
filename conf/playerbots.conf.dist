@@ -4671,10 +4671,14 @@ AiPlayerbot.CoaEconomy.Artisans.MinProfitPercent = 20
 #    FeePercent            Least margin over the materials (default 15).
 #    OrderCooldownMinutes  Least time between two orders of a bot (default 5).
 #    TradeOfferPercent     Chance to offer a fresh piece in Trade rather than at the auction house (default 50).
+#    AdvertiseMinutes      Every N minutes, in each capital where a real player is, an artisan of that player's
+#                          faction says in Trade that it takes orders, with its profession and recipe links; another
+#                          artisan and profession each time (0 = off, default).
 AiPlayerbot.CoaEconomy.CraftOrders.Enable = 0
 AiPlayerbot.CoaEconomy.CraftOrders.FeePercent = 15
 AiPlayerbot.CoaEconomy.CraftOrders.OrderCooldownMinutes = 5
 AiPlayerbot.CoaEconomy.CraftOrders.TradeOfferPercent = 50
+AiPlayerbot.CoaEconomy.CraftOrders.AdvertiseMinutes = 0
 
 # Recursive craft price: a reagent costs an artisan the least of its market price and what its own reagents cost
 # (a Bolt of Silk Cloth: its price, or four Silk Cloth), down to Depth levels, from the learned prices. Used for the
