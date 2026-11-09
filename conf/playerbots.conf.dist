@@ -3155,6 +3155,15 @@ AiPlayerbot.CoaWorld.Guilds.Charters = 0
 AiPlayerbot.CoaWorld.Guilds.UnguildedPercent = 30
 AiPlayerbot.CoaWorld.Guilds.CharterMinutes = 60
 
+#    AiPlayerbot.CoaWorld.Guilds.Greetings
+#        Description: When a real player says hello in guild chat ("hi", "hey", "bonjour", "re"...), 1 to 3 online
+#                     guildmates answer after 2 to 20 seconds (not again within 10 minutes); when a real player of
+#                     the guild logs in, 1 or 2 of them greet it. Lines from the phrase bank (guild_greet_reply,
+#                     guild_welcome), French fallback with BotTextLocale = 2. Needs Guilds.Enable.
+#        Default:     0 - off
+
+AiPlayerbot.CoaWorld.Guilds.Greetings = 0
+
 #    AiPlayerbot.CoaWorld.Guilds.PlayerGuildOnline
 #    AiPlayerbot.CoaWorld.Guilds.PlayerGuildOnlinePercent
 #        Description: With the online/offline rotation (EnablePeriodicOnlineOffline): while a real member of a guild

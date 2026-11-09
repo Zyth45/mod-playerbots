@@ -95,6 +95,7 @@ namespace
         uint32 gearQuality = ITEM_QUALITY_UNCOMMON;
         bool coaLive = false;  // AiPlayerbot.CoaLive.Enable: CoaLive says the guild reactions
         bool addon = false;    // the SquidBots Lite world protocol (GORD, GLIST), CoaWorldAddon.cpp
+        bool greetings = false;  // guildmates answer a real player's hello and greet it at login
     };
 
     Settings settings;
@@ -105,12 +106,14 @@ namespace
         uint32 guildId;
         std::string text;
         time_t at;
+        std::string situation = {};  // IA MIND's bank first (BotLine), text if it has nothing
+        std::string player = {};
     };
 
     // From map threads: what happened, to be told by the world thread.
     struct GuildEvent
     {
-        enum Kind : uint8 { LEVEL, LOOT, LOGIN, ORDER, HUMAN_LEVEL } kind;
+        enum Kind : uint8 { LEVEL, LOOT, LOGIN, ORDER, HUMAN_LEVEL, GREET } kind;
         ObjectGuid guid;
         uint32 value;  // level, or item entry
     };
@@ -434,7 +437,15 @@ namespace
                     }
                     case GuildEvent::LOGIN:
                         if (IsHuman(player))
+                        {
                             Welcome(player, now);
+                            if (settings.greetings)
+                                Greet(player, now, true);
+                        }
+                        break;
+                    case GuildEvent::GREET:
+                        if (IsHuman(player))
+                            Greet(player, now, false);
                         break;
                     case GuildEvent::ORDER:
                         if (IsHuman(player))
@@ -462,6 +473,8 @@ namespace
                 Player* speaker = ObjectAccessor::FindPlayer(s.speaker);
                 if (!speaker || !speaker->IsInWorld() || speaker->GetGuildId() != s.guildId)
                     continue;
+                if (!s.situation.empty() && BotLine(speaker, s.situation.c_str(), { { "player", s.player } }))
+                    continue;
                 if (PlayerbotAI* botAI = GET_PLAYERBOT_AI(speaker))
                     botAI->SayToGuild(s.text);
             }
@@ -469,6 +482,43 @@ namespace
         }
 
         // A real player of a guild with bots logs in: a guildmate says hello, and now and then sends a gift.
+        // Guildmates answer a real player's hello in guild chat (1 to 3, not again within 10 minutes), or greet it at
+        // login (1 or 2; 0 or 1 more when CoaLive already has one say it). Each after a human delay, never all at once.
+        void Greet(Player* player, time_t now, bool login)
+        {
+            time_t& last = _greeted[player->GetGUID().GetCounter()];
+            if (!login && last && now - last < 10 * MINUTE)
+                return;
+            last = now;
+            std::vector<Player*> mates;
+            for (auto const& [guid, bot] : RandomBots())
+                if (bot && bot->IsInWorld() && bot->GetGuildId() == player->GetGuildId())
+                    mates.push_back(bot);
+            if (mates.empty())
+                return;
+            std::shuffle(mates.begin(), mates.end(), std::mt19937(urand(0, 0x7FFFFFFF)));
+            uint32 const count = login ? (settings.coaLive ? urand(0, 1) : urand(1, 2)) : urand(1, 3);
+            bool const fr = sPlayerbotAIConfig.botTextLocale == 2;
+            static char const* const replyEn[] = { "hey {}", "hi {}!", "o/", "yo {}", "hey hey", "hello {}" };
+            static char const* const replyFr[] = { "salut {}", "coucou {}", "yo", "slt", "bonjour {} !", "o/" };
+            static char const* const welcomeEn[] = { "hey {}", "wb {}", "re", "o/ {}" };
+            static char const* const welcomeFr[] = { "salut {}", "re", "wb {}", "coucou {} !" };
+            std::vector<time_t> delays;
+            for (uint32 i = 0; i < count && i < mates.size(); ++i)
+                delays.push_back(now + urand(2, 20));
+            std::sort(delays.begin(), delays.end());
+            for (size_t i = 0; i < delays.size(); ++i)
+            {
+                char const* const* pool = login ? (fr ? welcomeFr : welcomeEn) : (fr ? replyFr : replyEn);
+                size_t const size = login ? 4 : 6;
+                std::string text = Acore::StringFormat(pool[urand(0, size - 1)], player->GetName());
+                Speech speech{ mates[i]->GetGUID(), mates[i]->GetGuildId(), text, delays[i] + time_t(i) };
+                speech.situation = login ? "guild_welcome" : "guild_greet_reply";
+                speech.player = player->GetName();
+                _speeches.push_back(std::move(speech));
+            }
+        }
+
         void Welcome(Player* player, time_t now)
         {
             Player* bot = OnlineGuildBot(player->GetGuildId(), player->GetGUID());
@@ -476,7 +526,7 @@ namespace
                 return;
 
             static char const* const hi[] = { "hi {}", "hey {}!", "o/ {}", "wb {}" };
-            if (!settings.coaLive && roll_chance_i(60))
+            if (!settings.coaLive && !settings.greetings && roll_chance_i(60))
                 Say(bot, Acore::StringFormat(Pick(hi), player->GetName()), now + urand(4, 12));
 
             GiveGear(player, bot, now);
@@ -855,6 +905,7 @@ namespace
         std::unordered_map<uint32, time_t> _lastMotd;
         std::unordered_map<uint32, time_t> _lastGift;
         std::unordered_map<uint32, std::pair<uint32, uint32>> _orders;  // player -> (day, orders that day)
+        std::unordered_map<uint32, time_t> _greeted;  // real player -> last greeting by the guild
         uint32 _timer = 0;
         uint32 _slow = 0;
         uint32 _recruit = 0;
@@ -881,6 +932,7 @@ namespace
             ITEM_QUALITY_UNCOMMON, ITEM_QUALITY_RARE);
         settings.coaLive = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaLive.Enable", false, false);
         settings.addon = sConfigMgr->GetOption<bool>(key("Addon"), false, false);
+        settings.greetings = sConfigMgr->GetOption<bool>(key("Greetings"), false, false);
         if (settings.enabled)
             LogInit(time(nullptr));
     }
@@ -991,7 +1043,14 @@ public:
     // A real player asks the guild for an item: queued for the world thread (Order).
     bool OnPlayerCanUseChat(Player* player, uint32 /*type*/, uint32 /*language*/, std::string& msg, Guild* guild) override
     {
-        if (!settings.enabled || !settings.orders || !player || !guild || !IsHuman(player))
+        if (!settings.enabled || !player || !guild || !IsHuman(player))
+            return true;
+        if (settings.greetings && CoaWorldGuildRules::IsGreeting(msg))
+        {
+            Push({ GuildEvent::GREET, player->GetGUID(), 0 });
+            return true;
+        }
+        if (!settings.orders)
             return true;
         if (uint32 entry = CoaWorldGuildRules::OrderedItem(msg))
             Push({ GuildEvent::ORDER, player->GetGUID(), entry });
