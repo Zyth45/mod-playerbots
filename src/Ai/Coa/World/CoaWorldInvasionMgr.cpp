@@ -726,7 +726,12 @@ namespace CoaWorld
 
                 // Bags full: it comes by mail instead.
                 CharacterDatabaseTransaction trans = CharacterDatabase.BeginTransaction();
-                MailDraft draft(plan.name, "Your share of the spoils. Your bags were too full to carry it.");
+                MailDraft draft(BotsFrench() ? (plan.key == std::string("scourge") ? "Invasion du Fl\u00e9au"
+                                                 : plan.key == std::string("legion") ? "Incursion de la L\u00e9gion"
+                                                                                     : "Portes d'Ahn'Qiraj")
+                                               : plan.name,
+                                Tr("Your share of the spoils. Your bags were too full to carry it.",
+                                   "Ta part du butin. Tes sacs \u00e9taient trop pleins pour la porter."));
                 if (Item* item = Item::CreateItem(itemId, count, player))
                 {
                     item->SaveToDB(trans);
