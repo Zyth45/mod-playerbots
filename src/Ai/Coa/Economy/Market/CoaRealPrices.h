@@ -9,6 +9,8 @@
 
 #include "Define.h"
 
+#include <string>
+
 struct ItemTemplate;
 
 // CoA Economy: the prices of the real CoA auction house (user, 09/11), from TradeSkillMaster scans of the house
@@ -24,6 +26,21 @@ namespace CoaEconomy::RealPrices
     uint64 Floor(ItemTemplate const* proto);
     // Of() when seen, else Floor().
     uint64 Reference(ItemTemplate const* proto);
+
+    // The scans are the last week of a 7 months old server: relative values. A live server's price is the scanned one
+    // times a factor of the item's quality (user, 09/11: epic about x6).
+    struct Multipliers
+    {
+        float other = 1.0f;   // poor, common: goods and materials
+        float uncommon = 2.0f;
+        float rare = 3.0f;
+        float epic = 6.0f;    // and legendary
+        float For(uint32 quality) const;
+    };
+    // <prefix>.Common, .Uncommon, .Rare, .Epic (e.g. "AuctionHouseBot.CoA.RealPriceMultiplier").
+    Multipliers LoadMultipliers(std::string const& prefix);
+    // The scanned price (or floor) times its quality's factor; 0 when none.
+    uint64 Scaled(uint64 price, ItemTemplate const* proto, Multipliers const& multipliers);
 }
 
 #endif

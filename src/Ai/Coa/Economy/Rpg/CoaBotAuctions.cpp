@@ -56,6 +56,7 @@ namespace
         uint32 durationMinutes = 24 * 60;
         uint32 maxScan = 300;
         bool realHousePrices = false;
+        RealPrices::Multipliers multipliers;
     };
     Settings settings;
 
@@ -92,6 +93,7 @@ namespace
         settings.durationMinutes = (hours <= 12 ? 12 : hours <= 24 ? 24 : 48) * 60;
         settings.maxScan = std::max<uint32>(10, sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaEconomy.BotAuctions.MaxScan", 300));
         settings.realHousePrices = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.BotAuctions.RealHousePrices", false);
+        settings.multipliers = RealPrices::LoadMultipliers("AiPlayerbot.CoaEconomy.BotAuctions.RealPriceMultiplier");
     }
 
     // The price a bot asks for one item: the market's learned price, else the house's, else a vendor-based guess.
@@ -100,7 +102,7 @@ namespace
         // The real CoA auction house first (its market value, else its floor for the quality and level): our own
         // sales, made by bots at bots' prices, would keep a price low.
         if (settings.realHousePrices)
-            if (uint64 real = RealPrices::Of(proto->ItemId))
+            if (uint64 real = RealPrices::Scaled(RealPrices::Of(proto->ItemId), proto, settings.multipliers))
                 return real;
         uint64 price = std::max<uint64>(100, uint64(proto->SellPrice) * 4);
         if (MarketBand const* band = sCoaMarketPrices->GetBand(proto->ItemId); band && band->Usual)
@@ -108,7 +110,8 @@ namespace
         else if (uint64 house = auctionbot->GetReferencePricePerItem(proto))
             price = house;
         // Never under the real house's floor for its quality and level.
-        return settings.realHousePrices ? std::max(price, RealPrices::Floor(proto)) : price;
+        return settings.realHousePrices
+            ? std::max(price, RealPrices::Scaled(RealPrices::Floor(proto), proto, settings.multipliers)) : price;
     }
 
     // Gold of its sales and items it won: the auction mail a bot never opens otherwise.
@@ -346,6 +349,8 @@ namespace
         // (Pilote, 09/11): random bots with BotAuctions.RealHousePrices, the house bot with its own key.
         bool const houseBotReal = sConfigMgr->GetOption<bool>("AuctionHouseBot.CoA.RealHousePrices", false);
         uint32 const houseBotAccount = houseBotReal ? AccountMgr::GetId("AHBOT") : 0;
+        RealPrices::Multipliers const houseBotMultipliers =
+            RealPrices::LoadMultipliers("AuctionHouseBot.CoA.RealPriceMultiplier");
         CharacterDatabaseTransaction trans = CharacterDatabase.BeginTransaction();
         for (AuctionHouseId houseId : {AuctionHouseId::Alliance, AuctionHouseId::Horde, AuctionHouseId::Neutral})
         {
@@ -372,7 +377,8 @@ namespace
                 }
                 if ((randomBot && settings.realHousePrices) || houseBot)
                 {
-                    uint64 const real = RealPrices::Reference(proto);
+                    uint64 const real = RealPrices::Scaled(RealPrices::Reference(proto), proto,
+                        houseBot ? houseBotMultipliers : settings.multipliers);
                     if (real && auction->buyout && auction->itemCount &&
                         CoaEconomyRules::UnderHalf(auction->buyout / auction->itemCount, real))
                     {
