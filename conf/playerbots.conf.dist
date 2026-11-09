@@ -4706,6 +4706,13 @@ AiPlayerbot.CoaEconomy.Artisans.Stock.Enable = 0
 AiPlayerbot.CoaEconomy.Artisans.Stock.MaxStacks = 2
 AiPlayerbot.CoaEconomy.Artisans.Stock.BuyBelowPercent = 90
 
+# Artisans in the SquidBots Lite addon (prefix SQBW): the list of the artisan bots of the player's faction and their
+# recipes, a quote without crafting (held 10 minutes), the order of a quote (crafted and mailed cash on delivery, 1 to
+# 5 pieces) and the player's CoD mails of the last 7 days. The server checks every request; 1 request a second per
+# player, lists cached 10 s. Needs Artisans; quotes and orders also need CraftOrders.
+#    Addon  1 = on, 0 = off (default). Read at start-up (restart to change it).
+AiPlayerbot.CoaEconomy.Artisans.Addon = 0
+
 # Auctions on game time: the core ends an auction at a real date, so a server off for a night found every auction
 # over at start-up. With this on, the world writes a sign of life every minute (table coa_economy_clock of the
 # playerbots database) and at start-up adds the time the server was off to the end of every auction, players'

@@ -1,0 +1,39 @@
+// CoA Economy: the pure rules of the artisans' addon protocol (Craft/CoaArtisansAddonRules.h).
+#include "Craft/CoaArtisansAddonRules.h"
+
+#include <cassert>
+#include <cstdio>
+
+using namespace CoaArtisansAddonRules;
+
+int main()
+{
+    auto f = SplitTabs("AQUOTE\tBob\t2459\t3");
+    assert(f.size() == 4 && f[0] == "AQUOTE" && f[1] == "Bob" && f[3] == "3");
+    assert(SplitTabs("ALIST").size() == 1);
+    assert(SplitTabs("ARCP\t").size() == 2 && SplitTabs("ARCP\t")[1].empty());
+
+    assert(ParseNumber("2459") == 2459);
+    assert(ParseNumber("") == 0 && ParseNumber("3x") == 0 && ParseNumber("-1") == 0 && ParseNumber("1234567890") == 0);
+
+    assert(!QtyOk(0) && QtyOk(1) && QtyOk(5) && !QtyOk(6));
+
+    assert(!QuoteExpired(1000, 1000 + 600) && QuoteExpired(1000, 1000 + 601));
+
+    assert(!PriceRose(1000, 1100) && PriceRose(1000, 1101) && !PriceRose(1000, 900));
+
+    assert(RateAllowed(0, 0, true));
+    assert(!RateAllowed(5000, 5999, false) && RateAllowed(5000, 6000, false));
+    assert(CacheFresh(1000, 10999) && !CacheFresh(1000, 11000));
+
+    std::string const longLine(400, 'x');
+    assert(Wire(longLine).size() == MaxLine && Wire("-") == "SQBW\t-");
+    assert(Clean("a\tb\nc") == "a b c");
+
+    assert(std::string(CodState(true, true)) == "paid");
+    assert(std::string(CodState(false, true)) == "pending");
+    assert(std::string(CodState(false, false)) == "returned");
+
+    std::puts("coa_economy_addon PASS");
+    return 0;
+}

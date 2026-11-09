@@ -7,6 +7,8 @@
 #ifndef COA_ECONOMY_CRAFT_ORDERS_H
 #define COA_ECONOMY_CRAFT_ORDERS_H
 
+#include "CoaArtisans.h"
+
 class Item;
 class Player;
 
@@ -26,6 +28,12 @@ namespace CoaEconomy::CraftOrders
     // An artisan just crafted this piece (auction house visit): offer it in Trade instead of listing it.
     // True when the offer was said (the item then stays in the bags, held for the buyer).
     bool OfferInTrade(Player* bot, Item* crafted, unsigned long long price);
+
+    // The artisan's price for one craft of this recipe (materials, fee, its patience), copper.
+    uint32 QuoteFor(Player* bot, Artisans::Recipe const& recipe);
+    // Within OrderCooldownMinutes of its last order; MarkBusy starts that cooldown.
+    bool IsBusy(Player* bot);
+    void MarkBusy(Player* bot);
 }
 
 void AddSC_coa_economy_craft_orders();
