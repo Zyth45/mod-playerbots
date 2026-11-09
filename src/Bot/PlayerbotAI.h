@@ -708,6 +708,12 @@ protected:
     uint32 coaAncestralCombatCheckedAt = 0;
     uint32 coaGearCheckedAt = 0;
     uint32 coaTeamTimer = 0;
+public:
+    // CoA World (BotOnlyBgPace, Playerbots.cpp OnPlayerAfterUpdate): a bot-only battleground or arena, last checked
+    // coaBgCheckMs ago, and the time its AI has waited.
+    bool coaBgBotOnly = false;
+    uint32 coaBgCheckMs = 0;
+    uint32 coaBgWaitMs = 0;
 };
 
 #endif

@@ -21,6 +21,8 @@ void AddSC_coa_world_events();
 void AddSC_coa_world_leveling();
 void AddSC_coa_world_state();
 void AddSC_coa_world_addon();
+void AddSC_coa_world_bg_pace();
+void AddSC_coa_world_bg_sim();
 
 void AddCoaWorldScripts()
 {
@@ -37,4 +39,6 @@ void AddCoaWorldScripts()
     AddSC_coa_world_events();
     AddSC_coa_world_leveling();
     AddSC_coa_world_addon();
+    AddSC_coa_world_bg_pace();
+    AddSC_coa_world_bg_sim();
 }

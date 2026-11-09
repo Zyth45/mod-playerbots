@@ -4,6 +4,7 @@
  * or (at your option) any later version.
  */
 
+#include "CoaWorldBgPace.h"
 #include "Playerbots.h"
 #include "CoaSpecialization.h"
 #include "BattleGroundTactics.h"
@@ -248,7 +249,34 @@ public:
 
         if (botAI != nullptr)
         {
-            botAI->UpdateAI(diff);
+            // CoA World (BotOnlyBgPace): in a battleground or arena with no real player on the map nor in its queue,
+            // the bot thinks every IntervalMs; back to every tick as soon as one comes (checked every second).
+            if (CoaWorldBgPace::On() && player->InBattleground())
+            {
+                botAI->coaBgCheckMs += diff;
+                if (botAI->coaBgCheckMs >= 1000)
+                {
+                    botAI->coaBgCheckMs = 0;
+                    botAI->coaBgBotOnly = CoaWorldBgPace::BotOnly(player);
+                }
+            }
+            else
+                botAI->coaBgBotOnly = false;
+
+            if (botAI->coaBgBotOnly)
+            {
+                botAI->coaBgWaitMs += diff;
+                if (botAI->coaBgWaitMs >= CoaWorldBgPace::IntervalMs())
+                {
+                    botAI->UpdateAI(botAI->coaBgWaitMs);
+                    botAI->coaBgWaitMs = 0;
+                }
+            }
+            else
+            {
+                botAI->UpdateAI(diff + botAI->coaBgWaitMs);
+                botAI->coaBgWaitMs = 0;
+            }
             CoaLive::OnBotUpdate(player, botAI, diff);
             // CoA World: the packets its AI just queued that are safe in this map thread (BotPacketsInMapThread).
             if (sPlayerbotAIConfig.coaBotPacketsInMapThread && player->IsInWorld() && !player->IsBeingTeleported() &&
