@@ -1,4 +1,5 @@
 #include "CoaEconomyRules.h"
+#include "Ai/Coa/Social/CoaLiveRules.h"
 
 #include <cassert>
 
@@ -39,6 +40,17 @@ int main()
     // Clickable links: a profession rank (spell) and a recipe (trade skill).
     assert(SpellChatLink(3910, "Tailoring", false) == "|cff71d5ff|Hspell:3910|h[Tailoring]|h|r");
     assert(SpellChatLink(3914, "Brown Linen Vest", true) == "|cffffd000|Henchant:3914|h[Brown Linen Vest]|h|r");
+
+    // A line with %recipe is only said when the bot has a recipe to put in it (IA MIND's 3_0_07 lines).
+    {
+        std::map<std::string, std::string> values{{"item", "[Brown Linen Vest]"}, {"profession", "[Tailoring]"}};
+        std::string out;
+        assert(!CoaLive::Fill("LFW %profession, %recipe and more", values, out));
+        values["recipe"] = "";
+        assert(!CoaLive::Fill("LFW %profession, %recipe and more", values, out));
+        values["recipe"] = "[Brown Linen Vest]";
+        assert(CoaLive::Fill("LFW %profession, %recipe and more", values, out) && out == "LFW [Tailoring], [Brown Linen Vest] and more");
+    }
 
     // A bot listing: 85 % (impatient) to 105 % (patient) of the reference, times the stack.
     assert(BotListingPrice(1000, 0.0f, 1) == 850);
