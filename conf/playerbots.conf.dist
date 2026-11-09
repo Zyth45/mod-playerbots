@@ -4947,3 +4947,21 @@ AiPlayerbot.CoaCombat.ZulGurub.Enable = 0
 #                  1 - (Enabled)
 
 AiPlayerbot.CoaCombat.AhnQiraj.Enable = 0
+
+#
+# AiPlayerbot.CoaCombat.LootNeedMinUpgradePct
+#     Description: Only where bots may roll Need (AiPlayerbot.LootNeedRollLevel = 2). A bot keeps its Need on a
+#                  weapon or a piece of armor only when it scores at least this many percent above the piece it
+#                  wears in that slot (gear score); a smaller upgrade is rolled Greed. An empty slot always counts.
+#     Default:     0 - (Off: any upgrade is a Need)
+
+AiPlayerbot.CoaCombat.LootNeedMinUpgradePct = 0
+
+#
+# AiPlayerbot.CoaCombat.LootNeedEpicOnly
+#     Description: Only where bots may roll Need (AiPlayerbot.LootNeedRollLevel = 2). Bots roll Need only on epic or
+#                  better items; anything below is rolled Greed.
+#     Default:     0 - (Disabled)
+#                  1 - (Enabled)
+
+AiPlayerbot.CoaCombat.LootNeedEpicOnly = 0

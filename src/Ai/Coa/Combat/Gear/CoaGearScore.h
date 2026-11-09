@@ -30,6 +30,9 @@ namespace CoaGearScore
     // trinkets), in the same unit; 0 when it is no upgrade or the bot cannot wear it. Weapons are compared slot for slot
     // (a two-hander against the main hand alone). For ranking upgrades, not a promise of equipping.
     float UpgradeGain(Player* bot, uint32_t itemId, int32_t randomPropertyId = 0);
+    // The same gain in percent of the piece worn in that slot; `emptySlot` tells that nothing is worn there (the
+    // gain is then not a percentage). 0 when the item is not an upgrade.
+    float UpgradePct(Player* bot, uint32_t itemId, int32_t randomPropertyId, bool& emptySlot);
 
     // The set bonuses a piece unlocks in `equipSlot` (0 when the option is off or the item is in no set).
     float SetBonusMarginal(Player* bot, ItemTemplate const* proto, int32_t equipSlot);

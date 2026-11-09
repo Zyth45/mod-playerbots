@@ -172,6 +172,43 @@ float CoaGearScore::UpgradeGain(Player* bot, uint32_t itemId, int32_t randomProp
     return best;
 }
 
+float CoaGearScore::UpgradePct(Player* bot, uint32_t itemId, int32_t randomPropertyId, bool& emptySlot)
+{
+    emptySlot = false;
+    ItemTemplate const* proto = bot ? sObjectMgr->GetItemTemplate(itemId) : nullptr;
+    PlayerbotAI* botAI = bot ? GET_PLAYERBOT_AI(bot) : nullptr;
+    if (!proto || !botAI || !IsGear(proto) || bot->BotCanUseItem(proto) != EQUIP_ERR_OK)
+        return 0.0f;
+
+    uint8 const first = botAI->FindEquipSlot(proto, NULL_SLOT, true);
+    if (first == NULL_SLOT)
+        return 0.0f;
+    std::vector<uint8> slots{first};
+    if (first == EQUIPMENT_SLOT_FINGER1 || first == EQUIPMENT_SLOT_FINGER2)
+        slots = {EQUIPMENT_SLOT_FINGER1, EQUIPMENT_SLOT_FINGER2};
+    else if (first == EQUIPMENT_SLOT_TRINKET1 || first == EQUIPMENT_SLOT_TRINKET2)
+        slots = {EQUIPMENT_SLOT_TRINKET1, EQUIPMENT_SLOT_TRINKET2};
+
+    float best = 0.0f;
+    for (uint8 slot : slots)
+    {
+        Item* worn = bot->GetItemByPos(INVENTORY_SLOT_BAG_0, slot);
+        if (worn && worn->GetEntry() == itemId)
+            return 0.0f;  // already worn
+        if (!worn)
+        {
+            emptySlot = true;
+            return 0.0f;
+        }
+        float const candidate = ItemScore(bot, itemId, randomPropertyId, slot);
+        float const current =
+            ItemScore(bot, worn->GetEntry(), worn->GetInt32Value(ITEM_FIELD_RANDOM_PROPERTIES_ID), slot);
+        if (current > 0.0f)
+            best = std::max(best, (candidate - current) * 100.0f / current);
+    }
+    return best;
+}
+
 bool CoaGearScore::IsToken(uint32_t itemId)
 {
     return Tokens().count(itemId) != 0;

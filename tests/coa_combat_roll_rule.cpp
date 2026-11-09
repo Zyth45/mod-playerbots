@@ -4,6 +4,7 @@
 #include <cassert>
 
 using CoaRollRule::HoldVote;
+using CoaRollRule::KeepNeed;
 using CoaRollRule::Polite;
 using CoaRollRule::Vote;
 
@@ -37,5 +38,17 @@ int main()
     // Capped under the roll's 60 s: a 90 s setting still votes at 50 s.
     assert(HoldVote(Vote::Need, 2, true, 49999, 90000));
     assert(!HoldVote(Vote::Need, 2, true, 50000, 90000));
+    // Loot Need refined: both settings off keep every Need.
+    assert(KeepNeed(false, true, 1.0f, false, false, 0.0f));
+    // Epic only: a blue loses its Need, a purple keeps it.
+    assert(!KeepNeed(false, true, 50.0f, false, true, 0.0f));
+    assert(KeepNeed(true, true, 50.0f, false, true, 0.0f));
+    // Threshold 10 %: a 4 % upgrade is a Greed, a 12 % one a Need, an empty slot always a Need.
+    assert(!KeepNeed(true, true, 4.0f, false, false, 10.0f));
+    assert(KeepNeed(true, true, 12.0f, false, false, 10.0f));
+    assert(KeepNeed(true, true, 0.0f, true, false, 10.0f));
+    // The threshold only judges gear: a token or a recipe keeps its Need.
+    assert(KeepNeed(true, false, 0.0f, false, false, 10.0f));
+
     return 0;
 }

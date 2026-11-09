@@ -744,6 +744,10 @@ public:
     bool coaCombatZulGurubEnable = false;
     // Lot 7: the session's Ahn'Qiraj fixes, AQ20 and AQ40 (Buru, Ossirian, Sartura; docs/AQ-ETAT-3.0.md).
     bool coaCombatAhnQirajEnable = false;
+    // Loot Need refined: Need kept only for an upgrade of at least this many percent over the piece worn (0: off),
+    // and only on epic or better items (off).
+    float coaCombatLootNeedMinUpgradePct = 0.0f;
+    bool coaCombatLootNeedEpicOnly = false;
     // ---- end of CoA Combat ----
 
 private:
