@@ -32,6 +32,7 @@
 #include "ScriptMgr.h"
 #include "SharedDefines.h"
 #include "SpellInfo.h"
+#include "SpellMgr.h"
 #include "World.h"
 #include "WorldPacket.h"
 
@@ -88,20 +89,21 @@ namespace
     uint32 Now() { return uint32(GameTime::GetGameTime().count()); }
     uint64 NowMs() { return uint64(GameTime::GetGameTimeMS().count()); }
 
-    // The profession skill lines a bot may craft with (primary and secondary, not fishing), from the client data.
-    std::vector<uint32> const& ProfessionSkills()
+    // The crafting professions (checked with coa-local, SkillLine.dbc): blacksmithing, leatherworking, alchemy,
+    // tailoring, engineering, enchanting, jewelcrafting, inscription, CoA's fletching, woodworking and bushcraft,
+    // cooking and first aid. Not the gathering ones (mining, herbalism, skinning, fishing, woodcutting), riding or
+    // racials. A profession is listed only when the bot knows a sellable recipe of it.
+    constexpr uint32 CraftingSkills[] = {164, 165, 171, 197, 202, 333, 755, 773, 806, 757, 505, 185, 129};
+
+    bool IsCrafting(uint32 skill)
     {
-        static std::vector<uint32> skills = []
-        {
-            std::vector<uint32> list;
-            for (uint32 i = 0; i < sSkillLineStore.GetNumRows(); ++i)
-                if (SkillLineEntry const* skill = sSkillLineStore.LookupEntry(i))
-                    if ((skill->categoryId == SKILL_CATEGORY_PROFESSION || skill->categoryId == SKILL_CATEGORY_SECONDARY) &&
-                        skill->id != SKILL_FISHING)
-                        list.push_back(skill->id);
-            return list;
-        }();
-        return skills;
+        return std::find(std::begin(CraftingSkills), std::end(CraftingSkills), skill) != std::end(CraftingSkills);
+    }
+
+    std::string ZoneName(uint32 zoneId)
+    {
+        AreaTableEntry const* area = sAreaTableStore.LookupEntry(zoneId);
+        return area && area->area_name[0] ? Rules::Clean(area->area_name[0]) : "";
     }
 
     void Send(Player* player, std::string const& line)
@@ -136,30 +138,52 @@ namespace
     // ---- The requests ----
     void List(Player* player, std::vector<std::string>& lines)
     {
-        struct Candidate { Player* bot; uint32 best; std::string skills; };
+        // The best-ranked crafters of the faction first (a cheap skill read), then their real recipes.
+        struct Candidate { Player* bot; uint32 best; };
         std::vector<Candidate> candidates;
         for (auto const& [guid, bot] : sRandomPlayerbotMgr.GetAllBots())
         {
             if (!bot || !bot->IsInWorld() || bot->GetTeamId() != player->GetTeamId())
                 continue;
-            Candidate candidate{bot, 0, ""};
-            for (uint32 skill : ProfessionSkills())
-                if (uint16 value = bot->GetSkillValue(skill))
-                {
-                    candidate.skills += (candidate.skills.empty() ? "" : ",") + std::to_string(skill) + ":" + std::to_string(value);
-                    candidate.best = std::max<uint32>(candidate.best, value);
-                }
-            if (candidate.best)
-                candidates.push_back(std::move(candidate));
+            uint32 best = 0;
+            for (uint32 skill : CraftingSkills)
+                best = std::max<uint32>(best, bot->GetSkillValue(skill));
+            if (best)
+                candidates.push_back({bot, best});
         }
         std::sort(candidates.begin(), candidates.end(), [](Candidate const& a, Candidate const& b) { return a.best > b.best; });
+
+        struct Entry { uint32 mainSkill; uint32 mainRank; std::string line; };
+        std::vector<Entry> entries;
         for (Candidate const& candidate : candidates)
         {
-            if (lines.size() >= Rules::MaxArtisans)
+            if (entries.size() >= Rules::MaxArtisans)
                 break;
-            if (!Artisans::KnownRecipes(candidate.bot).empty())
-                lines.push_back("AB\t" + Rules::Clean(candidate.bot->GetName()) + "\t" + candidate.skills);
+            std::vector<uint32> skills;
+            for (Artisans::Recipe const& recipe : Artisans::KnownRecipes(candidate.bot))
+                if (IsCrafting(recipe.skillId) && std::find(skills.begin(), skills.end(), recipe.skillId) == skills.end())
+                    skills.push_back(recipe.skillId);
+            if (skills.empty())
+                continue;
+            // Highest rank first; the first is the artisan's main profession.
+            std::sort(skills.begin(), skills.end(), [&](uint32 a, uint32 b)
+            {
+                return candidate.bot->GetSkillValue(a) > candidate.bot->GetSkillValue(b);
+            });
+            std::string list;
+            for (uint32 skill : skills)
+                list += (list.empty() ? "" : ",") + std::to_string(skill) + ":" + std::to_string(candidate.bot->GetSkillValue(skill));
+            entries.push_back({skills.front(), candidate.bot->GetSkillValue(skills.front()),
+                               "AB	" + Rules::Clean(candidate.bot->GetName()) + "	" + std::to_string(candidate.bot->GetLevel()) +
+                               "	" + ZoneName(candidate.bot->GetZoneId()) + "	" + list});
         }
+        // By profession, then by rank.
+        std::sort(entries.begin(), entries.end(), [](Entry const& a, Entry const& b)
+        {
+            return a.mainSkill != b.mainSkill ? a.mainSkill < b.mainSkill : a.mainRank > b.mainRank;
+        });
+        for (Entry const& entry : entries)
+            lines.push_back(entry.line);
     }
 
     void Recipes(Player* player, std::vector<std::string> const& fields, std::vector<std::string>& lines)
@@ -180,8 +204,16 @@ namespace
                 continue;
             seen.push_back(recipe.itemId);
             ItemTemplate const* proto = sObjectMgr->GetItemTemplate(recipe.itemId);
+            // The rank the recipe needs (to sort by tier) and the English name (the client may not have the item cached).
+            uint32 rank = 0;
+            SkillLineAbilityMapBounds const bounds = sSpellMgr->GetSkillLineAbilityMapBounds(recipe.spell->Id);
+            for (auto it = bounds.first; it != bounds.second; ++it)
+                if (it->second->SkillLine == recipe.skillId)
+                    rank = it->second->MinSkillLineRank ? it->second->MinSkillLineRank : it->second->TrivialSkillLineRankLow;
+            // The name is last: Wire() cuts the line, so only the name can be cut.
             lines.push_back("AR\t" + name + "\t" + std::to_string(recipe.itemId) + "\t" + std::to_string(recipe.spell->Id) +
-                            "\t" + std::to_string(recipe.skillId) + "\t" + std::to_string(proto ? proto->Quality : 0));
+                            "\t" + std::to_string(recipe.skillId) + "\t" + std::to_string(proto ? proto->Quality : 0) +
+                            "\t" + std::to_string(rank) + "\t" + (proto ? Rules::Clean(proto->Name1) : std::string()));
         }
     }
 
