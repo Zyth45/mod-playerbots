@@ -17,4 +17,20 @@ public:
     Aq20MoveToCrystalTrigger(PlayerbotAI* botAI) : Trigger(botAI, "aq20 move to crystal") {}
     bool IsActive() override;
 };
+// CoA Combat (BU2): Buru casts Devastate and the bot stands in its cone.
+class Aq20BuruDevastateTrigger : public Trigger
+{
+public:
+    Aq20BuruDevastateTrigger(PlayerbotAI* botAI) : Trigger(botAI, "aq20 buru devastate") {}
+    bool IsActive() override;
+};
+
+// CoA Combat (OS1): Ossirian is up and the bot is out of every active obelisk's shelter.
+class Aq20OssirianShelterTrigger : public Trigger
+{
+public:
+    Aq20OssirianShelterTrigger(PlayerbotAI* botAI) : Trigger(botAI, "aq20 ossirian shelter") {}
+    bool IsActive() override;
+};
+
 #endif

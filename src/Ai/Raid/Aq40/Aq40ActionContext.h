@@ -9,6 +9,8 @@
 
 #include "Action.h"
 #include "Aq40Actions.h"
+#include "Aq40Triggers.h"
+#include "RaidBossScripts.h"
 #include "NamedObjectContext.h"
 
 class RaidAq40ActionContext : public NamedObjectContext<Action>
@@ -20,6 +22,12 @@ public:
         creators["aq40 cthun dodge glare"] = &RaidAq40ActionContext::dodge_glare;
         creators["aq40 cthun look away"] = &RaidAq40ActionContext::look_away;
         creators["aq40 cthun avoid devour"] = &RaidAq40ActionContext::avoid_devour;
+        creators["aq40 sartura avoid dancer"] = &RaidAq40ActionContext::sartura_avoid_dancer;
+        creators["aq40 sartura mark"] = &RaidAq40ActionContext::sartura_mark;
+        creators["aq40 viscidus frost"] = &RaidAq40ActionContext::viscidus_frost;
+        creators["aq40 viscidus shatter"] = &RaidAq40ActionContext::viscidus_shatter;
+        creators["aq40 twin emperors apart"] = &RaidAq40ActionContext::twin_emperors_apart;
+        creators["aq40 cthun join devour"] = &RaidAq40ActionContext::cthun_join_devour;
         creators["aq40 cthun spit out"] = &RaidAq40ActionContext::spit_out;
         creators["aq40 cthun move to spot"] = &RaidAq40ActionContext::move_to_spot;
         creators["aq40 cthun attack"] = &RaidAq40ActionContext::attack;
@@ -41,6 +49,15 @@ private:
     static Action* skeram_stop_attack(PlayerbotAI* ai) { return new Aq40SkeramStopAttackAction(ai); }
     static Action* skeram_avoid_psychic_shock(PlayerbotAI* ai) { return new Aq40SkeramAvoidPsychicShockAction(ai); }
     static Action* skeram_gaze_spread(PlayerbotAI* ai) { return new Aq40SkeramGazeSpreadAction(ai); }
+    static Action* sartura_avoid_dancer(PlayerbotAI* ai) { return new Aq40SarturaAvoidDancerAction(ai); }
+    static Action* sartura_mark(PlayerbotAI* ai)
+    {
+        return new RaidKillOrderMarkAction(ai, "aq40 sartura mark", "battleguard sartura", {CoaAq40::NPC_PHANTOM_DANCER});
+    }
+    static Action* viscidus_frost(PlayerbotAI* ai) { return new Aq40ViscidusFrostAction(ai); }
+    static Action* viscidus_shatter(PlayerbotAI* ai) { return new Aq40ViscidusShatterAction(ai); }
+    static Action* twin_emperors_apart(PlayerbotAI* ai) { return new Aq40TwinEmperorsApartAction(ai); }
+    static Action* cthun_join_devour(PlayerbotAI* ai) { return new Aq40CthunJoinDevourAction(ai); }
 };
 
 #endif

@@ -7,6 +7,7 @@
 #include "ZGTriggers.h"
 #include "Playerbots.h"
 #include "ZGHelpers.h"
+#include "MovementActions.h"
 
 using namespace ZulGurubHelpers;
 
@@ -36,6 +37,24 @@ bool VenoxisVenomSpitTrigger::IsActiveInEncounter()
 
 bool HakkarBloodPoolTrigger::IsActiveInEncounter()
 {
+    // CoA Combat (HK2): during Blood Siphon the poison pool is the counter, not a danger.
+    if (ZgCoaFixesOn() && CoaHakkarSiphon(bot))
+        return bot->HasAura(static_cast<uint32>(ZulGurubSpells::SPELL_POOL_OF_CORRUPTED_BLOOD));
     return bot->HasAura(static_cast<uint32>(ZulGurubSpells::SPELL_POOL_OF_CORRUPTED_BLOOD)) ||
            bot->HasAura(static_cast<uint32>(ZulGurubSpells::SPELL_POOL_OF_POISONED_BLOOD));
+}
+
+// ---- CoA Combat (lot 7, docs/ZG-ETAT-3.0.md) ----
+
+bool HakkarSiphonPoolTrigger::IsActiveInEncounter()
+{
+    return ZgCoaFixesOn() && CoaHakkarSiphon(bot) && LacksPoisonousBlood(bot) && FindPoisonPool(bot, 60.0f);
+}
+
+bool GrilekPursuitTrigger::IsActiveInEncounter()
+{
+    if (!ZgCoaFixesOn() || !bot->HasAura(SPELL_GRILEK_PURSUIT))
+        return false;
+    Unit* boss = AI_VALUE2(Unit*, "find target", "gri'lek");
+    return boss && boss->IsAlive() && bot->GetDistance2d(boss) < GRILEK_PREY_KEEP_YARDS;
 }

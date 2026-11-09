@@ -8,6 +8,7 @@
 #define PLAYERBOTS_ZGTRIGGERS_H
 
 #include "EncounterHelpers.h"
+#include "RaidBossScripts.h"
 #include "Trigger.h"
 #include "ZGHelpers.h"
 #include <string>
@@ -66,6 +67,37 @@ public:
         : ZulGurubEncounterTrigger(botAI, "bloodlord mandokir threatening gaze")
     {
     }
+
+protected:
+    bool IsActiveInEncounter() override;
+};
+
+// CoA Combat (lot 7): a kill order the session added (Thekal's zealots, Jin'do's totems), behind the option.
+class ZulGurubCoaKillOrderTrigger : public RaidKillOrderMarkTrigger
+{
+public:
+    ZulGurubCoaKillOrderTrigger(PlayerbotAI* botAI, std::string const name, std::string const bossName)
+        : RaidKillOrderMarkTrigger(botAI, name, bossName)
+    {
+    }
+    bool IsActive() override { return ZulGurubHelpers::ZgCoaFixesOn() && RaidKillOrderMarkTrigger::IsActive(); }
+};
+
+// CoA Combat (HK2): Blood Siphon is on and the bot carries no Poisonous Blood: it steps into a poison pool.
+class HakkarSiphonPoolTrigger : public ZulGurubEncounterTrigger
+{
+public:
+    HakkarSiphonPoolTrigger(PlayerbotAI* botAI) : ZulGurubEncounterTrigger(botAI, "hakkar siphon pool") {}
+
+protected:
+    bool IsActiveInEncounter() override;
+};
+
+// CoA Combat (EM1): the bot is Gri'lek's prey and he is close.
+class GrilekPursuitTrigger : public ZulGurubEncounterTrigger
+{
+public:
+    GrilekPursuitTrigger(PlayerbotAI* botAI) : ZulGurubEncounterTrigger(botAI, "grilek pursuit") {}
 
 protected:
     bool IsActiveInEncounter() override;

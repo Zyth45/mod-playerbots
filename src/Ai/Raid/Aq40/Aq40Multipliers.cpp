@@ -5,6 +5,11 @@
  */
 
 #include "Aq40Multipliers.h"
+#include "Aq20Utils.h"
+#include "Aq40Triggers.h"
+#include "GenericSpellActions.h"
+#include "SpellAuras.h"
+#include "SpellMgr.h"
 #include "Aq40Helpers.h"
 #include "AttackAction.h"
 #include "GenericSpellActions.h"
@@ -57,4 +62,20 @@ float Aq40SkeramMultiplier::GetValue(Action* action)
         return 0.0f;
 
     return 1.0f;
+}
+
+float Aq40SarturaInterruptMultiplier::GetValue(Action* action)
+{
+    auto* cast = dynamic_cast<CastSpellAction*>(action);
+    if (!cast || !AqCoaFixesOn())
+        return 1.0f;
+    Unit* target = cast->GetTarget();
+    if (!target || target->GetEntry() != CoaAq40::NPC_SARTURA)
+        return 1.0f;
+    Aura const* frustration = target->GetAura(CoaAq40::SPELL_FRUSTRATION);
+    if (!frustration || frustration->GetStackAmount() < CoaAq40::FRUSTRATION_HOLD_STACKS)
+        return 1.0f;
+    uint32 const spellId = AI_VALUE2(uint32, "spell id", cast->getSpell());
+    SpellInfo const* info = spellId ? sSpellMgr->GetSpellInfo(spellId) : nullptr;
+    return info && info->HasEffect(SPELL_EFFECT_INTERRUPT_CAST) ? 0.0f : 1.0f;
 }

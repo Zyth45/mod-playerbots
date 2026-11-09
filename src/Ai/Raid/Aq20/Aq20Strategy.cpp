@@ -13,4 +13,12 @@ void RaidAq20Strategy::InitTriggers(std::vector<TriggerNode*>& triggers)
         new TriggerNode("aq20 move to crystal",
             { NextAction("aq20 use crystal", ACTION_RAID) }));
 
+    // CoA Combat (lot 7, docs/AQ-ETAT-3.0.md): Buru's Devastate (BU2), Ossirian's obelisks (OS1).
+    triggers.push_back(
+        new TriggerNode("aq20 buru devastate",
+            { NextAction("aq20 buru avoid devastate", ACTION_EMERGENCY + 3) }));
+    triggers.push_back(
+        new TriggerNode("aq20 ossirian shelter",
+            { NextAction("aq20 ossirian shelter", ACTION_RAID + 2) }));
+
 }

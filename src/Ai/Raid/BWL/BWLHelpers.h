@@ -117,6 +117,19 @@ namespace BlackwingLairHelpers
 
     // N1: a Dominion clone (9780021) within `range` of the unit; every hit on the clone lands on its owner.
     bool IsDominionCloneNear(Unit const* unit, float range);
+
+    // B1: the ranged stand outside Broodlord's Blast Wave, 20 yd on CoA (2101040): 23 yd with the fixes on, the stock
+    // 18 yd otherwise.
+    float BroodlordSafeDistance();
+
+    // C4 / P1-a: standing in a fire, acid or fog patch of Chromaggus, or in Nefarius' Burning Ground.
+    bool IsInBwlGroundEffect(Unit const* unit);
+
+    // G2: Flamegor's Combustion (2110858..61) explodes on the carrier's group when dispelled or when it ends.
+    constexpr float COMBUSTION_CLEAR_YARDS = 10.0f;
+    bool HasCombustion(Unit const* unit);
+    // The closest living raid member within `range` of the bot, or nullptr.
+    Player* NearestRaidMemberWithin(Player* bot, float range);
 }
 
 #endif

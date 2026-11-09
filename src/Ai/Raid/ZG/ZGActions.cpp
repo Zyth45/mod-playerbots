@@ -10,6 +10,7 @@
 
 #include "Playerbots.h"
 #include "ZGHelpers.h"
+#include "DynamicObject.h"
 
 using namespace ZulGurubHelpers;
 
@@ -51,4 +52,23 @@ bool ZulGurubMoveToBossFlankAction::Execute(Event /*event*/)
                                                                      bot->GetPositionZ(), x, y, z);
 
     return MoveTo(boss->GetMapId(), x, y, z, false, false, false, exact, MovementPriority::MOVEMENT_COMBAT);
+}
+
+// ---- CoA Combat (lot 7, docs/ZG-ETAT-3.0.md) ----
+
+bool HakkarMoveToSiphonPoolAction::Execute(Event /*event*/)
+{
+    DynamicObject* pool = FindPoisonPool(bot, 60.0f);
+    if (!pool)
+        return false;
+    return MoveTo(bot->GetMapId(), pool->GetPositionX(), pool->GetPositionY(), pool->GetPositionZ(), false, false,
+                  false, true, MovementPriority::MOVEMENT_FORCED);
+}
+
+bool GrilekPreyRunAction::Execute(Event /*event*/)
+{
+    Unit* boss = AI_VALUE2(Unit*, "find target", "gri'lek");
+    if (!boss)
+        return false;
+    return MoveAway(boss, GRILEK_PREY_KEEP_YARDS + 4.0f - bot->GetDistance2d(boss));
 }

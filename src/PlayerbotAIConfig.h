@@ -742,6 +742,10 @@ public:
     bool coaCombatMoltenCoreEnable = false;
     // Lot 7: the session's Blackwing Lair fixes (drake tank swaps, Chromaggus, Dominion; docs/BWL-ETAT-3.0.md).
     bool coaCombatBlackwingLairEnable = false;
+    // Lot 7: the session's Zul'Gurub fixes (Mandokir's gaze, Hakkar's heart and siphon, kill orders; docs/ZG-ETAT-3.0.md).
+    bool coaCombatZulGurubEnable = false;
+    // Lot 7: the session's Ahn'Qiraj fixes, AQ20 and AQ40 (Buru, Ossirian, Sartura; docs/AQ-ETAT-3.0.md).
+    bool coaCombatAhnQirajEnable = false;
     // ---- end of CoA Combat ----
 
 private:

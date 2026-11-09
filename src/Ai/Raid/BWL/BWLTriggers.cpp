@@ -102,7 +102,7 @@ bool BwlBroodlordRangedTooCloseTrigger::IsActive()
     {
         // In case the bot pulled aggro, prevent it from kiting the boss through the room.
         if (boss->GetVictim() != bot)
-            return bot->GetDistance2d(boss) < BROODLORD_SAFE_DISTANCE;
+            return bot->GetDistance2d(boss) < BroodlordSafeDistance();
     }
     return false;
 }
@@ -218,4 +218,40 @@ bool BwlChromaggusRedAfflictionTrigger::IsActive()
             return true;
     }
     return false;
+}
+
+bool BwlGroundEffectTrigger::IsActive()
+{
+    return BwlCoaFixesOn() && IsInBwlGroundEffect(bot);
+}
+
+namespace
+{
+    Player* NearestRaidMember(Player* bot, float range)
+    {
+        Group* group = bot->GetGroup();
+        if (!group)
+            return nullptr;
+        Player* nearest = nullptr;
+        for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
+        {
+            Player* member = itr->GetSource();
+            if (!member || member == bot || !member->IsAlive() || !member->IsInWorld() ||
+                member->GetMapId() != bot->GetMapId() || bot->GetDistance2d(member) >= range)
+                continue;
+            if (!nearest || bot->GetDistance2d(member) < bot->GetDistance2d(nearest))
+                nearest = member;
+        }
+        return nearest;
+    }
+}
+
+Player* BlackwingLairHelpers::NearestRaidMemberWithin(Player* bot, float range)
+{
+    return NearestRaidMember(bot, range);
+}
+
+bool BwlFlamegorCombustionTrigger::IsActive()
+{
+    return BwlCoaFixesOn() && HasCombustion(bot) && NearestRaidMember(bot, COMBUSTION_CLEAR_YARDS);
 }

@@ -51,4 +51,20 @@ public:
     VenoxisAvoidVenomSpitAction(PlayerbotAI* botAI);
 };
 
+// CoA Combat (HK2): walk into the closest poison pool during Blood Siphon.
+class HakkarMoveToSiphonPoolAction : public MovementAction
+{
+public:
+    HakkarMoveToSiphonPoolAction(PlayerbotAI* botAI) : MovementAction(botAI, "hakkar move to siphon pool") {}
+    bool Execute(Event event) override;
+};
+
+// CoA Combat (EM1): Gri'lek's prey keeps away from him.
+class GrilekPreyRunAction : public MovementAction
+{
+public:
+    GrilekPreyRunAction(PlayerbotAI* botAI) : MovementAction(botAI, "grilek prey run") {}
+    bool Execute(Event event) override;
+};
+
 #endif
