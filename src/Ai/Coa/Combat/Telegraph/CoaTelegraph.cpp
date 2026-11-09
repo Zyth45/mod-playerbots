@@ -7,6 +7,10 @@
 #include "CoaTelegraph.h"
 
 #include "AttackAction.h"
+#include "CoaGardesCombat.h"
+#include "CoaGardesSoins.h"
+#include "CoaTankFightAssist.h"
+#include "FollowActions.h"
 #include "CoaTelegraphRule.h"
 #include "DynamicObject.h"
 #include "Player.h"
@@ -105,12 +109,45 @@ DynamicObject* CoaTelegraph::MarkerUnderCaster(Unit* target, float& safeDistance
     return nullptr;
 }
 
+DynamicObject* CoaTelegraph::MarkerToHoldFor(Player* bot, Unit* target, GuidVector const& attackers)
+{
+    if (!bot || !sPlayerbotAIConfig.coaCombatTelegraphEnable)
+        return nullptr;
+    auto const heldBy = [bot](Unit* caster) -> DynamicObject*
+    {
+        if (!caster || !caster->IsAlive())
+            return nullptr;
+        for (CoaTelegraphRule::Telegraph const& telegraph : CoaTelegraphRule::TELEGRAPHS)
+        {
+            DynamicObject* marker = caster->GetDynObject(telegraph.spellId);
+            if (marker && marker->IsInWorld() &&
+                CoaTelegraphRule::HoldApproach(telegraph, marker->GetRadius(), bot->GetDistance2d(marker)))
+                return marker;
+        }
+        return nullptr;
+    };
+    if (DynamicObject* marker = heldBy(target))
+        return marker;
+    for (ObjectGuid const& guid : attackers)
+        if (DynamicObject* marker = heldBy(ObjectAccessor::GetUnit(*bot, guid)))
+            return marker;
+    return nullptr;
+}
+
 float CoaTelegraphMeleeMultiplier::GetValue(Action* action)
 {
     if (!sPlayerbotAIConfig.coaCombatTelegraphEnable || PlayerbotAI::IsTank(bot))
         return 1.0f;
-    if (!dynamic_cast<ReachMeleeAction*>(action) && !dynamic_cast<MeleeAction*>(action))
+    bool const melee = dynamic_cast<ReachMeleeAction*>(action) || dynamic_cast<MeleeAction*>(action);
+    bool const approach = melee || dynamic_cast<ReachTargetAction*>(action) || dynamic_cast<AttackAction*>(action) ||
+                          dynamic_cast<FollowAction*>(action) || dynamic_cast<CoaCombatRegroupAction*>(action) ||
+                          dynamic_cast<CoaTankFightAssistAction*>(action) ||
+                          dynamic_cast<CoaHealRepositionAction*>(action);
+    if (!approach)
         return 1.0f;
+    Unit* target = AI_VALUE(Unit*, "current target");
     float safeDistance = 0.0f;
-    return CoaTelegraph::MarkerUnderCaster(AI_VALUE(Unit*, "current target"), safeDistance) ? 0.0f : 1.0f;
+    if (melee && CoaTelegraph::MarkerUnderCaster(target, safeDistance))
+        return 0.0f;
+    return CoaTelegraph::MarkerToHoldFor(bot, target, AI_VALUE(GuidVector, "attackers")) ? 0.0f : 1.0f;
 }
