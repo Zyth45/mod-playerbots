@@ -2884,9 +2884,11 @@ AiPlayerbot.CoaWorld.Recovery.QuarantineMinutes = 30
 #    AiPlayerbot.CoaWorld.Recovery.NoProgressSeconds
 #        Description: Seconds a travelling bot may walk without getting nearer its destination before it picks
 #                     another (back and forth; 30 to 1800, 0 never). Nothing while Recovery.Enable is 0.
-#        Default:     30
+#                     A bot fighting, looting, eating, drinking or casting is not stuck, nor for 30 s after; the
+#                     third detection within 10 minutes sends it home by hearthstone (Recovery.Hearth).
+#        Default:     120
 
-AiPlayerbot.CoaWorld.Recovery.NoProgressSeconds = 30
+AiPlayerbot.CoaWorld.Recovery.NoProgressSeconds = 120
 
 #    AiPlayerbot.CoaWorld.Recovery.OutOfRangeMinutes
 #        Description: Minutes a random bot may walk in a zone far below its level (a level 55 in Elwynn) before it

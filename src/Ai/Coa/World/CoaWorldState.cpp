@@ -27,6 +27,7 @@
 #include <fstream>
 #include <map>
 #include <mutex>
+#include <set>
 #include <sstream>
 #include <vector>
 
@@ -58,7 +59,8 @@ struct FirstRow
     time_t at;
 };
 std::deque<FirstRow> g_firsts;
-std::deque<int64> g_stuck, g_unstuck;
+std::deque<std::pair<int64, uint32>> g_stuck, g_unstuck;  // (when, bot)
+int64 g_started = 0;
 
 bool WatchAsks()
 {
@@ -122,7 +124,7 @@ std::string GuildsJson()
 std::string Build(time_t now)
 {
     std::string orders = "[", firsts = "[";
-    uint32 stuck, unstuck;
+    uint32 stuck, unstuck, stuckEvents = 0, unstuckEvents = 0;
     {
         std::lock_guard<std::mutex> lock(g_lock);
         uint32 n = 0;
@@ -134,14 +136,27 @@ std::string Build(time_t now)
         for (auto f = g_firsts.rbegin(); f != g_firsts.rend(); ++f)
             firsts += std::string(n++ ? "," : "") + "{\"what\":" + Quote(f->what) + ",\"by\":" + Quote(f->by) +
                       ",\"guild\":" + Quote(f->guild) + ",\"at\":" + DateOrNull(f->at) + "}";
-        stuck = LastDay(g_stuck, now);
-        unstuck = LastDay(g_unstuck, now);
+        // Bots, not detections; over 24 h, or since the start when the server runs for less ("since").
+        auto distinct = [now](std::deque<std::pair<int64, uint32>>& list, uint32& events)
+        {
+            while (!list.empty() && now - list.front().first >= 86400)
+                list.pop_front();
+            events = uint32(list.size());
+            std::set<uint32> bots;
+            for (auto const& [when, bot] : list)
+                bots.insert(bot);
+            return uint32(bots.size());
+        };
+        stuck = distinct(g_stuck, stuckEvents);
+        unstuck = distinct(g_unstuck, unstuckEvents);
     }
     orders += "]";
     firsts += "]";
     return "{\"invasions\":" + CoaWorld::InvasionsJson(now) + ",\"rushes\":" + CoaWorld::RushesJson(now) +
            ",\"guilds\":" + GuildsJson() + ",\"guild_orders\":" + orders + ",\"server_firsts\":" + firsts +
-           ",\"recovery_24h\":{\"stuck\":" + std::to_string(stuck) + ",\"unstuck\":" + std::to_string(unstuck) + "}}";
+           ",\"recovery_24h\":{\"stuck\":" + std::to_string(stuck) + ",\"unstuck\":" + std::to_string(unstuck) +
+           ",\"stuck_events\":" + std::to_string(stuckEvents) + ",\"unstuck_events\":" + std::to_string(unstuckEvents) +
+           ",\"since\":" + std::to_string(std::max<int64>(g_started, int64(now) - 86400)) + "}}";
 }
 
 void Write(std::string const& text)
@@ -165,6 +180,7 @@ public:
 
     void OnStartup() override
     {
+        g_started = int64(time(nullptr));
         g_on = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaWorld.StateFile.Enable", false, false) &&
                sConfigMgr->GetOption<bool>("AiPlayerbot.CoaDataFiles", true, false);
         std::string dir = sConfigMgr->GetOption<std::string>("AiPlayerbot.CoaDataDir", "", false);
@@ -218,14 +234,16 @@ void Order(std::string const& guild, uint32 item, uint32 count, char const* stat
         g_orders.pop_front();
 }
 
-void Recovery(bool unstuck)
+void Recovery(uint32 botLowGuid, bool unstuck)
 {
     if (!g_on)
         return;
     std::lock_guard<std::mutex> lock(g_lock);
-    std::deque<int64>& dates = unstuck ? g_unstuck : g_stuck;
-    dates.push_back(int64(time(nullptr)));
-    LastDay(dates, int64(time(nullptr)));
+    int64 const now = int64(time(nullptr));
+    auto& list = unstuck ? g_unstuck : g_stuck;
+    list.emplace_back(now, botLowGuid);
+    while (!list.empty() && now - list.front().first >= 86400)
+        list.pop_front();
 }
 
 void First(std::string const& what, std::string const& by, std::string const& guild, time_t at)

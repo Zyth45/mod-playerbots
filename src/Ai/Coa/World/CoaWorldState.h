@@ -23,7 +23,7 @@ namespace CoaWorldState
 {
 // Kept only while the file is on; cheap no-ops otherwise. Any thread.
 void Order(std::string const& guild, uint32 item, uint32 count, char const* state, std::string const& by);
-void Recovery(bool unstuck);
+void Recovery(uint32 botLowGuid, bool unstuck);
 void First(std::string const& what, std::string const& by, std::string const& guild, time_t at);
 }  // namespace CoaWorldState
 
