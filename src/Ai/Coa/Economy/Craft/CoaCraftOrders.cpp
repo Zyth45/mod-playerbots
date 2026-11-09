@@ -142,6 +142,26 @@ bool IsEnabled()
     return enabled;
 }
 
+uint32 QuoteFor(Player* bot, Artisans::Recipe const& recipe)
+{
+    return bot ? Quote(bot, recipe) : 0;
+}
+
+bool IsBusy(Player* bot)
+{
+    if (!bot)
+        return true;
+    auto found = lastOrder.find(bot->GetGUID().GetCounter());
+    uint32 const now = uint32(GameTime::GetGameTime().count());
+    return found != lastOrder.end() && found->second && now < found->second + orderCooldownSeconds;
+}
+
+void MarkBusy(Player* bot)
+{
+    if (bot)
+        lastOrder[bot->GetGUID().GetCounter()] = uint32(GameTime::GetGameTime().count());
+}
+
 bool OfferInTrade(Player* bot, Item* crafted, unsigned long long price)
 {
     if (!enabled || !bot || !crafted || urand(1, 100) > tradeOfferPercent)

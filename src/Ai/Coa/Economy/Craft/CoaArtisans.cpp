@@ -266,6 +266,47 @@ bool PickProfitable(Player* bot, Recipe& out)
     return true;
 }
 
+uint64 MissingCost(Player* bot, Recipe const& recipe, uint32 times)
+{
+    uint64 toPay = 0;
+    if (!bot || !recipe.spell)
+        return toPay;
+    for (uint8 i = 0; i < MAX_SPELL_REAGENTS; ++i)
+    {
+        if (recipe.spell->Reagent[i] <= 0 || !recipe.spell->ReagentCount[i])
+            continue;
+        uint32 const reagent = uint32(recipe.spell->Reagent[i]);
+        uint32 const need = recipe.spell->ReagentCount[i] * times;
+        uint32 const held = std::min(need, bot->GetItemCount(reagent));
+        toPay += ReagentCost(reagent) * (need - held);
+    }
+    return toPay;
+}
+
+bool Consume(Player* bot, Recipe const& recipe, uint32 times)
+{
+    if (!enabled || !bot || !recipe.spell || !times)
+        return false;
+    uint64 const toPay = MissingCost(bot, recipe, times);
+    if (toPay > bot->GetMoney())
+        return false;
+
+    for (uint8 i = 0; i < MAX_SPELL_REAGENTS; ++i)
+    {
+        if (recipe.spell->Reagent[i] <= 0 || !recipe.spell->ReagentCount[i])
+            continue;
+        uint32 const reagent = uint32(recipe.spell->Reagent[i]);
+        uint32 const held = std::min<uint32>(recipe.spell->ReagentCount[i] * times, bot->GetItemCount(reagent));
+        if (held)
+            bot->DestroyItemCount(reagent, held, true);
+    }
+    if (toPay)
+        bot->ModifyMoney(-int32(std::min<uint64>(toPay, uint64(INT32_MAX))));
+    Data::RecordCraft(recipe.skillId, recipe.itemId, recipe.count * times,
+                      (int64(recipe.productValue) - int64(recipe.materialCost)) * int64(times));
+    return true;
+}
+
 Item* Craft(Player* bot, Recipe const& recipe)
 {
     if (!enabled || !bot || !recipe.spell)
@@ -274,37 +315,9 @@ Item* Craft(Player* bot, Recipe const& recipe)
     ItemPosCountVec dest;
     if (bot->CanStoreNewItem(NULL_BAG, NULL_SLOT, dest, recipe.itemId, recipe.count) != EQUIP_ERR_OK)
         return nullptr;
-
-    // What the missing reagents cost, bought at market price.
-    uint64 toPay = 0;
-    for (uint8 i = 0; i < MAX_SPELL_REAGENTS; ++i)
-    {
-        if (recipe.spell->Reagent[i] <= 0 || !recipe.spell->ReagentCount[i])
-            continue;
-        uint32 const reagent = uint32(recipe.spell->Reagent[i]);
-        uint32 const need = recipe.spell->ReagentCount[i];
-        uint32 const held = std::min(need, bot->GetItemCount(reagent));
-        toPay += ReagentCost(reagent) * (need - held);
-    }
-    if (toPay > bot->GetMoney())
+    if (!Consume(bot, recipe, 1))
         return nullptr;
-
-    for (uint8 i = 0; i < MAX_SPELL_REAGENTS; ++i)
-    {
-        if (recipe.spell->Reagent[i] <= 0 || !recipe.spell->ReagentCount[i])
-            continue;
-        uint32 const reagent = uint32(recipe.spell->Reagent[i]);
-        uint32 const held = std::min<uint32>(recipe.spell->ReagentCount[i], bot->GetItemCount(reagent));
-        if (held)
-            bot->DestroyItemCount(reagent, held, true);
-    }
-    if (toPay)
-        bot->ModifyMoney(-int32(std::min<uint64>(toPay, uint64(INT32_MAX))));
-
-    Item* item = bot->StoreNewItem(dest, recipe.itemId, true, Item::GenerateItemRandomPropertyId(recipe.itemId));
-    if (item)
-        Data::RecordCraft(recipe.skillId, recipe.itemId, recipe.count, int64(recipe.productValue) - int64(recipe.materialCost));
-    return item;
+    return bot->StoreNewItem(dest, recipe.itemId, true, Item::GenerateItemRandomPropertyId(recipe.itemId));
 }
 
 } // namespace CoaEconomy::Artisans
