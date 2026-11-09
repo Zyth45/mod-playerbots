@@ -34,6 +34,7 @@
 
 #include "CoaWorldGuilds.h"
 #include "CoaWorldGuildRules.h"
+#include "CoaWorldState.h"
 
 #include "CoaLive.h"
 #include "CoaWorldBots.h"
@@ -494,6 +495,12 @@ namespace
 
         // A real player asked the guild for an item: from a guildmate's bags, from one who can craft it, or from
         // the auction house; the first that can.
+        static std::string GuildName(Player* player)
+        {
+            Guild* guild = sGuildMgr->GetGuildById(player->GetGuildId());
+            return guild ? guild->GetName() : std::string();
+        }
+
         void Order(Player* player, uint32 entry, time_t now)
         {
             ItemTemplate const* proto = sObjectMgr->GetItemTemplate(entry);
@@ -528,6 +535,7 @@ namespace
                 Answer(bot, "guild_order_share", slots, Acore::StringFormat("{} I have one, sending it", player->GetName()),
                        now + urand(5, 15));
                 LogEvent("guild", bot->GetName(), Acore::StringFormat("sent {} to {}", proto->Name1, player->GetName()));
+                CoaWorldState::Order(GuildName(player), entry, item->GetCount(), "shared", bot->GetName());
                 return;
             }
 
@@ -560,6 +568,8 @@ namespace
                                                    Money(cost)), now + urand(5, 15));
                         LogEvent("guild", bot->GetName(), Acore::StringFormat("crafts {} for {}", proto->Name1,
                                                                                player->GetName()));
+                        CoaWorldState::Order(GuildName(player), entry, std::min<uint32>(made, proto->GetMaxStackSize()),
+                                             "crafted", bot->GetName());
                         return;
                     }
 
@@ -569,6 +579,7 @@ namespace
                 ++count.second;
                 return;
             }
+            CoaWorldState::Order(GuildName(player), entry, 1, "none", "");
 
             if (roll_chance_i(50))
                 Answer(mates.front(), "guild_order_none", slots,
@@ -627,6 +638,7 @@ namespace
                    now + urand(5, 15));
             LogEvent("guild", buyer->GetName(), Acore::StringFormat("bought {} at the auction house for {}", proto->Name1,
                                                                      player->GetName()));
+            CoaWorldState::Order(GuildName(player), proto->ItemId, item->GetCount(), "bought", buyer->GetName());
             return true;
         }
 

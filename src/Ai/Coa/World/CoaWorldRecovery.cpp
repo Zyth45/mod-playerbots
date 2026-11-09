@@ -32,6 +32,7 @@
 
 #include "CityDuels.h"
 #include "CoaWorldBots.h"
+#include "CoaWorldState.h"
 #include "CoaWorldZoneLevels.h"
 #include "RandomBotLevelMgr.h"
 
@@ -238,7 +239,7 @@ namespace
                 {
                     track.deaths.clear();
                     ++_counters.deaths;
-                    CoaWorld::LogEvent("stuck", bot->GetName(), "dying over and over");
+                    CoaWorldState::Recovery(false), CoaWorld::LogEvent("stuck", bot->GetName(), "dying over and over");
                     track.wasDead = dead;
                     // Back home once it is up again.
                     track.lastRecovery = now - RELAPSE_SECONDS / 2;
@@ -335,7 +336,7 @@ namespace
             if (!still && !loop && !pacing)
                 return;
 
-            CoaWorld::LogEvent("stuck", bot->GetName(), still ? "standing still on its way"
+            CoaWorldState::Recovery(false), CoaWorld::LogEvent("stuck", bot->GetName(), still ? "standing still on its way"
                                                        : loop ? "going round in circles" : "back and forth, no nearer");
             if (still)
                 ++_counters.stuck;
@@ -387,7 +388,7 @@ namespace
             track.outSince = 0;
             track.samples.clear();
             track.bestAt = 0;
-            CoaWorld::LogEvent("stuck", bot->GetName(), Acore::StringFormat("level {} in a zone far below it ({})",
+            CoaWorldState::Recovery(false), CoaWorld::LogEvent("stuck", bot->GetName(), Acore::StringFormat("level {} in a zone far below it ({})",
                 bot->GetLevel(), zone));
             if (seen)
             {
@@ -398,7 +399,7 @@ namespace
             bot->GetMotionMaster()->Clear();
             bot->StopMoving();
             sRandomPlayerbotMgr.RandomTeleportForLevel(bot);
-            CoaWorld::LogEvent("unstuck", bot->GetName(), "sent to a place of its level");
+            CoaWorldState::Recovery(true), CoaWorld::LogEvent("unstuck", bot->GetName(), "sent to a place of its level");
             return true;
         }
 
@@ -417,7 +418,7 @@ namespace
                 TRIGGERED_IGNORE_POWER_AND_REAGENT_COST | TRIGGERED_IGNORE_CAST_ITEM));
             botAI->rpgInfo.ChangeToRest();
             ++_counters.hearths;
-            CoaWorld::LogEvent("unstuck", bot->GetName(), "hearthstone home");
+            CoaWorldState::Recovery(true), CoaWorld::LogEvent("unstuck", bot->GetName(), "hearthstone home");
         }
 
         std::unordered_map<uint32, BotTrack> _tracks;

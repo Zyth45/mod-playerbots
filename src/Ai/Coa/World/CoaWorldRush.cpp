@@ -18,6 +18,8 @@
  */
 
 #include "CoaWorldBots.h"
+#include "CoaWorldState.h"
+#include "CoaWorldStateRules.h"
 
 #include "Chat.h"
 #include "ChatCommand.h"
@@ -166,6 +168,20 @@ namespace
         }
 
         bool Running() const { return _running; }
+
+        // monde.json (CoaWorldState): the running rush.
+        std::string Json(time_t now) const
+        {
+            if (!_running)
+                return "[]";
+            int64 const left = std::max<int64>(0, _timer) / IN_MILLISECONDS;
+            return "[{\"what\":\"gathering nodes\",\"zone\":" + std::to_string(_zoneId) + ",\"map\":" +
+                   std::to_string(_mapId) + ",\"area\":" + CoaWorldStateRules::Quote(AreaName(_areaId)) +
+                   ",\"level\":" + std::to_string(_level) + ",\"nodes\":" + std::to_string(_nodes.size()) +
+                   ",\"since\":" + std::to_string(int64(now) - (int64(settings.duration) * MINUTE - left)) +
+                   ",\"ends\":" + std::to_string(int64(now) + left) + ",\"bots\":" +
+                   std::to_string(BorrowedCount(BOT_OWNER_RUSH)) + "}]";
+        }
 
         // gm: a GM start, on the GM's own spot.
         bool Start(Player* gm)
@@ -497,6 +513,8 @@ public:
         return true;
     }
 };
+
+std::string CoaWorld::RushesJson(time_t now) { return Rush().Json(now); }
 
 void AddSC_coa_world_rush()
 {

@@ -3094,6 +3094,15 @@ AiPlayerbot.CoaWorld.IdleBotAI.IntervalMs = 2000
 
 AiPlayerbot.CoaWorld.SmartScaleAverage.Enable = 0
 
+#    AiPlayerbot.CoaWorld.StateFile.Enable
+#        Description: monde.json for the CoA Dashboard: the current invasions, gathering rushes, guilds online,
+#                     last guild orders, last server firsts and the recovery counts of the last 24 hours. Written
+#                     every 30 seconds, only while the dashboard asks for it (squidbot/watch.json, "monde"), in
+#                     AiPlayerbot.CoaDataDir. Needs AiPlayerbot.CoaDataFiles. Read at start-up.
+#        Default:     0 - off
+
+AiPlayerbot.CoaWorld.StateFile.Enable = 0
+
 # Quality a looted item must reach to be written to the "playerbots.loot" logger:
 # 3 rare (blue), 4 epic, 5 legendary. Nothing is written unless worldserver.conf
 # points that logger at an appender, and only bots are ever logged.

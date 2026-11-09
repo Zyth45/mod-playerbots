@@ -20,9 +20,11 @@ void AddSC_coa_world_density();
 void AddSC_coa_world_events();
 void AddSC_coa_world_leveling();
 void AddSC_coa_world_active_zones();
+void AddSC_coa_world_state();
 
 void AddCoaWorldScripts()
 {
+    AddSC_coa_world_state();  // first: its start-up is read by the others' (ServerFirst)
     AddSC_coa_world_invasions();
     AddSC_coa_world_rush();
     AddSC_coa_world_dungeon_sim();
