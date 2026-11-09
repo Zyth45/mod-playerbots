@@ -97,5 +97,35 @@ int main()
     std::string const env = Envelope(1762600000, 10, 420, 1762500000, "{}");
     assert(env == "{\"schema\":\"squidbot.world/1\",\"at\":1762600000,\"every\":10,\"build_us\":420,"
                   "\"server_start\":1762500000,\"module\":null,\"data\":{}}");
+    // "everyone": players, alts and bots by place, faction and zone.
+    {
+        assert(PlaceOf(false, true, false, false, false) == Place::Arena);
+        assert(PlaceOf(true, false, false, false, true) == Place::Battleground);
+        assert(PlaceOf(false, false, true, true, false) == Place::Raid);
+        assert(PlaceOf(false, false, false, true, false) == Place::Dungeon);
+        assert(PlaceOf(false, false, false, false, true) == Place::Capital);
+        assert(PlaceOf(false, false, false, false, false) == Place::World);
+        Snapshot e;
+        e.everyone.total.Add(Kind::Player);
+        e.everyone.total.Add(Kind::Alt);
+        e.everyone.total.Add(Kind::Bot);
+        e.everyone.total.Add(Kind::Bot);
+        e.everyone.places[uint8_t(Place::Dungeon)].Add(Kind::Player);
+        e.everyone.alliance.Add(Kind::Player);
+        EveryoneZone z;
+        z.map = 0;
+        z.zone = 1519;
+        z.capital = true;
+        z.mix.Add(Kind::Alt);
+        e.everyone.zones.push_back(z);
+        std::string const d = Data(e);
+        assert(d.find("\"everyone\":{\"total\":{\"players\":1,\"alts\":1,\"bots\":2}") != std::string::npos);
+        assert(d.find("\"dungeon\":{\"players\":1,\"alts\":0,\"bots\":0}") != std::string::npos);
+        assert(d.find("\"alliance\":{\"players\":1,\"alts\":0,\"bots\":0}") != std::string::npos);
+        assert(d.find("\"zones\":[{\"map\":0,\"zone\":1519,\"capital\":true,\"players\":0,\"alts\":1,\"bots\":0}]") !=
+               std::string::npos);
+        assert(d.find("\"online\":0") != std::string::npos);  // the random-bot fields as before
+    }
+
     return 0;
 }
