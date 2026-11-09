@@ -3264,7 +3264,8 @@ AiPlayerbot.CoaLive.CleanWorld.Enable = 0
 #    AiPlayerbot.CoaLive.NightBank.Enable
 #        Description: The night bank of CoA Live (table playerbots_coa_night_lines): more chatter
 #                     in the zone channel and the world channel, short conversations between two
-#                     or three bots, and lines in a dungeon group (big pull, boss down, level up),
+#                     or three bots, and lines in a dungeon group (entering, big pull, boss down,
+#                     praise, fine loot, wipe, level up, leaving, a chat between bots),
 #                     in English or French, by race, class, zone and level. Needs
 #                     AiPlayerbot.CoaLive.Enable = 1. Read again by ".reload config".
 #        Default:     0 - off

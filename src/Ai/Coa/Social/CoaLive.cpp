@@ -1146,6 +1146,51 @@ void PlayThread(std::vector<Player*> const& bots, uint8 channel, std::string con
     }
 }
 
+// A dungeon group as the night bank sees it: its random bots on this map, and one of its real players there.
+struct DungeonGroup
+{
+    std::vector<Player*> bots;
+    Player* real = nullptr;
+    std::string scope;
+};
+
+bool InDungeonGroup(Player* member, DungeonGroup& out)
+{
+    Group* group = member ? member->GetGroup() : nullptr;
+    if (!group || !member->IsInWorld() || !member->GetMap()->IsDungeon())
+        return false;
+    uint32 const mapId = member->GetMapId();
+    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+        if (Player* p = ref->GetSource(); p && p->IsInWorld() && p->GetMapId() == mapId)
+        {
+            if (IsRandom(p))
+                out.bots.push_back(p);
+            else if (IsRealPlayer(p))
+                out.real = p;
+        }
+    out.scope = "g" + std::to_string(group->GetGUID().GetCounter());
+    return !out.bots.empty() && out.real;
+}
+
+std::unordered_map<uint64, uint32> dungeonOf;  // random bot -> the dungeon it is in (night bank, under liveLock)
+
+// Night bank: a fine drop (rare or better) in a dungeon group with a real player: the bot that got it shows it off,
+// or a bot nods at the player's, with the item's real link.
+void NightLoot(Player* looter, Item* item)
+{
+    if (!Enabled() || !NightOn() || !item || !item->GetTemplate() || item->GetTemplate()->Quality < ITEM_QUALITY_RARE)
+        return;
+    DungeonGroup g;
+    if (!InDungeonGroup(looter, g))
+        return;
+    ReactOptions opt;
+    opt.extra["item"] = ChatHelper::FormatItem(item->GetTemplate());
+    if (IsRandom(looter))
+        React(looter, "night_dgn_loot_self", g.real, g.scope, opt);
+    else if (looter == g.real)
+        React(g.bots[urand(0, g.bots.size() - 1)], "night_dgn_loot_good", g.real, g.scope, opt);
+}
+
 void ChannelTimers(uint64 nowMs)
 {
     if (nowMs < nextChannelTick)
@@ -1448,7 +1493,7 @@ void Load()
                 ++singles;
             } while (r->NextRow());
         for (auto& [key, t] : threads)
-            if (std::get<0>(key) == CH_GENERAL || std::get<0>(key) == CH_WORLD)
+            if (std::get<0>(key) == CH_GENERAL || std::get<0>(key) == CH_WORLD || std::get<0>(key) == CH_PARTY)
                 loaded->threads[std::get<0>(key)][std::get<1>(key)].push_back(std::move(t));
         AddNightRules(*loaded);
         LOG_INFO("server.loading", ">> CoA Live night bank: {} lines, {} conversations", singles, threads.size());
@@ -1471,7 +1516,8 @@ public:
         : PlayerScript("CoaLivePlayerScript",
                        {PLAYERHOOK_ON_LEVEL_CHANGED, PLAYERHOOK_ON_DUEL_END, PLAYERHOOK_ON_PLAYER_ENTER_COMBAT,
                         PLAYERHOOK_ON_LOGIN, PLAYERHOOK_ON_LOGOUT, PLAYERHOOK_ON_LOOT_ITEM, PLAYERHOOK_ON_GIVE_EXP,
-                        PLAYERHOOK_ON_CREATURE_KILL})
+                        PLAYERHOOK_ON_CREATURE_KILL, PLAYERHOOK_ON_PLAYER_KILLED_BY_CREATURE,
+                        PLAYERHOOK_ON_MAP_CHANGED})
     {
     }
 
@@ -1569,6 +1615,7 @@ public:
     // A guild member loots a rare item or better.
     void OnPlayerLootItem(Player* player, Item* item, uint32 /*count*/, ObjectGuid /*lootguid*/) override
     {
+        NightLoot(player, item);
         if (!Enabled() || !player || !item || !player->GetGuildId() || !item->GetTemplate() ||
             item->GetTemplate()->Quality < ITEM_QUALITY_RARE)
             return;
@@ -1602,30 +1649,76 @@ public:
             React(player, "night_dgn_pull_big", nullptr, scope, opt);
     }
 
-    // Night bank: a boss down in a group with a real player: one random bot of the group says it.
+    // Night bank: a boss down in a group with a real player: a bot says it, another may praise the player's role,
+    // and now and then two or three bots chat a while (a group conversation).
     void OnPlayerCreatureKill(Player* killer, Creature* killed) override
     {
-        if (!Enabled() || !NightOn() || !killer || !killed || !(killed->IsDungeonBoss() || killed->isWorldBoss()))
+        if (!Enabled() || !NightOn() || !killed || !(killed->IsDungeonBoss() || killed->isWorldBoss()))
             return;
-        Group* group = killer->GetGroup();
-        if (!group)
-            return;
-        std::vector<Player*> bots;
-        Player* real = nullptr;
-        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
-            if (Player* member = ref->GetSource(); member && member->IsInWorld())
-            {
-                if (IsRandom(member) && member->IsAlive())
-                    bots.push_back(member);
-                else if (IsRealPlayer(member))
-                    real = member;
-            }
-        if (bots.empty() || !real)
+        DungeonGroup g;
+        if (!InDungeonGroup(killer, g))
             return;
         ReactOptions opt;
         opt.boss = killed;
-        React(bots[urand(0, bots.size() - 1)], "night_dgn_boss_kill", real,
-              "g" + std::to_string(group->GetGUID().GetCounter()), opt);
+        Player* speaker = g.bots[urand(0, g.bots.size() - 1)];
+        React(speaker, "night_dgn_boss_kill", g.real, g.scope, opt);
+        Player* other = g.bots[urand(0, g.bots.size() - 1)];
+        char const* praise = PlayerbotAI::IsTank(g.real)   ? "night_dgn_praise_tank"
+                             : PlayerbotAI::IsHeal(g.real) ? "night_dgn_praise_heal"
+                                                           : "night_dgn_praise_dps";
+        React(other, praise, g.real, g.scope, opt);
+        PlayThread(g.bots, CH_PARTY, g.scope, 1.0f);
+    }
+
+    // Night bank: a death in a dungeon group. Everyone down there: a wipe; the real player alone: a tease.
+    void OnPlayerKilledByCreature(Creature* /*killer*/, Player* killed) override
+    {
+        if (!Enabled() || !NightOn())
+            return;
+        DungeonGroup g;
+        if (!InDungeonGroup(killed, g))
+            return;
+        bool everyone = !g.real->IsAlive();
+        for (Player* bot : g.bots)
+            everyone = everyone && !bot->IsAlive();
+        Player* speaker = g.bots[urand(0, g.bots.size() - 1)];
+        if (everyone)
+            React(speaker, "night_dgn_wipe", g.real, g.scope);
+        else if (killed == g.real && speaker->IsAlive())
+            React(speaker, "night_dgn_tease", g.real, g.scope);
+    }
+
+    // Night bank: a random bot of a group with a real player enters a dungeon (the group's hello) or leaves it (the
+    // goodbye). One line per group, the pace of the scope keeps the others quiet.
+    void OnPlayerMapChanged(Player* player) override
+    {
+        if (!Enabled() || !NightOn() || !player || !IsRandom(player))
+            return;
+        uint64 const key = player->GetGUID().GetRawValue();
+        bool const inDungeon = player->GetMap() && player->GetMap()->IsDungeon();
+        bool wasIn = false;
+        {
+            std::lock_guard<std::mutex> guard(liveLock);
+            auto it = dungeonOf.find(key);
+            wasIn = it != dungeonOf.end() && it->second != player->GetMapId();
+            if (inDungeon)
+                dungeonOf[key] = player->GetMapId();
+            else if (it != dungeonOf.end())
+                dungeonOf.erase(it);
+            if (dungeonOf.size() > 20000)
+                dungeonOf.clear();
+        }
+        Group* group = player->GetGroup();
+        if (!group || !GroupHasRealPlayer(player))
+            return;
+        std::string const scope = "g" + std::to_string(group->GetGUID().GetCounter());
+        if (inDungeon)
+        {
+            DungeonGroup g;
+            React(player, "night_dgn_enter", InDungeonGroup(player, g) ? g.real : nullptr, scope);
+        }
+        else if (wasIn)
+            React(player, "night_dgn_end", nullptr, scope);
     }
 };
 
