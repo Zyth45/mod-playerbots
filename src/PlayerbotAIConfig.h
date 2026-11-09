@@ -702,7 +702,9 @@ public:
     // ---- end of CoA Live ----
 
     // ---- CoA World (LoadCoaWorldConfig, CoaWorldConfig.cpp) ----
-    // No member yet: AiPlayerbot.CoaWorld.* are read by the invasion manager (CoaWorldInvasionMgr.cpp).
+    // Most AiPlayerbot.CoaWorld.* are read by their own bricks (src/Ai/Coa/World).
+    // AiPlayerbot.CoaWorld.BotPacketsInMapThread: the bots' thread-safe packets are handled in their map's thread.
+    bool coaBotPacketsInMapThread = false;
     // ---- end of CoA World ----
 
     // ---- CoA Economy (LoadCoaEconomyConfig, CoaEconomyConfig.cpp) ----

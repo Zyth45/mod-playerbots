@@ -35,6 +35,7 @@
 #include "ScriptMgr.h"
 #include "SharedDefines.h"
 #include "Timer.h"
+#include "CoaBotPacketRules.h"  // CoA World: BotPacketsInMapThread
 #include "WorldSession.h"
 #include "WorldSessionMgr.h"
 #include <algorithm>
@@ -321,7 +322,11 @@ void PlayerbotHolder::UpdateSessions()
         }
         else if (bot->IsInWorld())
         {
-            HandleBotPackets(bot->GetSession());
+            // CoA World: the thread-safe ones are handled in the bot's map thread (HandleBotPacketsSplit).
+            if (sPlayerbotAIConfig.coaBotPacketsInMapThread)
+                HandleBotPacketsSplit(bot->GetSession(), false);
+            else
+                HandleBotPackets(bot->GetSession());
         }
     }
 }
@@ -343,6 +348,54 @@ static bool IsLootOrGameObjectOpcode(OpcodeClient opcode)
             return false;
     }
 }
+
+// --- CoA World (CoA Monde session) ---
+namespace
+{
+// The core's MapSessionFilter and WorldSessionFilter (WorldSession.cpp), for a bot session.
+struct BotPacketFilter
+{
+    WorldSession* session;
+    bool mapThread;
+
+    bool Process(WorldPacket* packet) const
+    {
+        ClientOpcodeHandler const* opHandle = opcodeTable[static_cast<OpcodeClient>(packet->GetOpcode())];
+        if (!opHandle)
+            return !mapThread;  // dropped by the world thread, as before
+        Player* player = session->GetPlayer();
+        CoaBotPackets::Place const place = opHandle->ProcessingPlace == PROCESS_INPLACE ? CoaBotPackets::PLACE_INPLACE
+            : opHandle->ProcessingPlace == PROCESS_THREADUNSAFE ? CoaBotPackets::PLACE_THREADUNSAFE
+            : CoaBotPackets::PLACE_THREADSAFE;
+        return CoaBotPackets::HandleHere(place, player && player->IsInWorld(), mapThread);
+    }
+};
+}
+
+void PlayerbotHolder::HandleBotPacketsSplit(WorldSession* session, bool mapThread)
+{
+    BotPacketFilter filter{ session, mapThread };
+    WorldPacket* packet;
+    while (session->GetPacketQueue().next(packet, filter))
+    {
+        OpcodeClient opcode = static_cast<OpcodeClient>(packet->GetOpcode());
+        ClientOpcodeHandler const* opHandle = opcodeTable[opcode];
+        if (!opHandle)
+        {
+            LOG_ERROR("playerbots", "Unhandled opcode {} queued for bot session {}. Packet dropped.", static_cast<uint32>(opcode), session->GetAccountId());
+            delete packet;
+            continue;
+        }
+        if (IsLootOrGameObjectOpcode(opcode) && !sScriptMgr->CanPacketReceive(session, *packet))
+        {
+            delete packet;
+            continue;
+        }
+        opHandle->Call(session, *packet);
+        delete packet;
+    }
+}
+// --- end CoA World ---
 
 void PlayerbotHolder::HandleBotPackets(WorldSession* session)
 {
