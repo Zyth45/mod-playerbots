@@ -26,6 +26,7 @@ void AddSC_coa_world_bg_sim();
 void AddSC_coa_world_charters();
 void AddSC_coa_world_guild_presence();
 void AddSC_coa_world_ai_budget();
+void AddSC_coa_world_guild_activities();
 
 void AddCoaWorldScripts()
 {
@@ -47,4 +48,5 @@ void AddCoaWorldScripts()
     AddSC_coa_world_charters();
     AddSC_coa_world_guild_presence();
     AddSC_coa_world_ai_budget();
+    AddSC_coa_world_guild_activities();
 }
