@@ -25,6 +25,8 @@
 
 #include "CoaWorldBgSimRules.h"
 #include "CoaWorldBots.h"
+#include "CoaWorldState.h"
+#include "CoaWorldStateRules.h"
 #include "CoaWorldGuildRules.h"
 
 #include "Config.h"
@@ -46,6 +48,7 @@
 #include "WorldSession.h"
 
 #include <algorithm>
+#include <deque>
 #include <random>
 #include <unordered_map>
 #include <vector>
@@ -93,6 +96,9 @@ struct Match
     TeamId winner = TEAM_ALLIANCE;
     time_t until = 0;
     bool returning = false;
+    time_t startedAt = 0, playUntil = 0;
+    uint32 sides[2] = { 0, 0 };  // Alliance, Horde
+    uint32 honorTotal = 0;
 };
 
 // A piece a real player can buy today for honor: a spawned vendor's item with an honor-only extended cost.
@@ -218,6 +224,10 @@ private:
         match.maxLevel = bracket.maxLevel;
         uint32 const minutes = MatchMinutes(bg.minMinutes, bg.maxMinutes, urand(0, 100));
         match.until = now + minutes * MINUTE;
+        match.startedAt = now;
+        match.playUntil = match.until;
+        match.sides[0] = uint32(sides[0].size());
+        match.sides[1] = uint32(sides[1].size());
 
         float levels[2] = { 0.0f, 0.0f };
         for (int s = 0; s < 2; ++s)
@@ -278,6 +288,7 @@ private:
                 else
                     endKills = sWorld->getIntConfig(first ? CONFIG_BG_REWARD_LOSER_HONOR_FIRST : CONFIG_BG_REWARD_LOSER_HONOR_LAST);
                 match.honor[bot->GetGUID()] = MatchHonor(maxLevel, endKills, objectives[s], urand(1, 10), urand(2, 5));
+                match.honorTotal += match.honor[bot->GetGUID()];
             }
         }
     }
@@ -307,6 +318,7 @@ private:
             for (ObjectGuid const& guid : match.members)
                 ReleaseHold(guid.GetCounter());  // RandomPlayerbotMgr logs them back in
             match.returning = true;
+            Record(match, now);
             match.until = now + RETURN_WAIT_SECONDS;
             return true;
         }
@@ -416,11 +428,76 @@ private:
         if (bot->CanStoreNewItem(NULL_BAG, NULL_SLOT, dest, best->item, 1) != EQUIP_ERR_OK)
             return;
         bot->ModifyHonorPoints(-int32(best->honor));
+        ++Day(time(nullptr)).purchases;
         bot->StoreNewItem(dest, best->item, true);
         LOG_INFO("module", "CoA World: {} bought item {} for {} honor", bot->GetName(), best->item, best->honor);
         LogEvent("pvp", bot->GetName(), Acore::StringFormat("bought {} for {} honor",
                                                              sObjectMgr->GetItemTemplate(best->item)->Name1, best->honor));
     }
+
+public:
+    std::string Json(time_t now)
+    {
+        if (!settings.enabled && _matches.empty())
+            return "null";
+        using CoaWorldStateRules::Quote;
+        auto side = [](TeamId team) { return team == TEAM_ALLIANCE ? std::string("\"alliance\"") : std::string("\"horde\""); };
+        std::string running = "[";
+        for (Match const& m : _matches)
+            running += std::string(running.size() > 1 ? "," : "") + "{\"bg\":" + std::to_string(m.bg->mapId) +
+                       ",\"bgName\":" + Quote(m.bg->name) + ",\"levelMin\":" + std::to_string(m.minLevel) +
+                       ",\"levelMax\":" + std::to_string(m.maxLevel) + ",\"alliance\":" + std::to_string(m.sides[0]) +
+                       ",\"horde\":" + std::to_string(m.sides[1]) + ",\"phase\":\"" + (m.returning ? "back" : "playing") +
+                       "\",\"startedAt\":" + std::to_string(int64(m.startedAt)) + ",\"endsAt\":" + std::to_string(int64(m.playUntil)) + "}";
+        Today const& t = Day(now);
+        std::string last = "[";
+        for (Done const& d : _last)
+            last += std::string(last.size() > 1 ? "," : "") + "{\"bg\":" + std::to_string(d.bg->mapId) + ",\"bgName\":" +
+                    Quote(d.bg->name) + ",\"levelMin\":" + std::to_string(d.minLevel) + ",\"levelMax\":" +
+                    std::to_string(d.maxLevel) + ",\"bots\":" + std::to_string(d.bots) + ",\"winner\":" + side(d.winner) +
+                    ",\"durationS\":" + std::to_string(d.durationS) + ",\"honor\":" + std::to_string(d.honor) +
+                    ",\"at\":" + std::to_string(int64(d.at)) + "}";
+        return "{\"running\":" + running + "],\"today\":{\"since\":" + std::to_string(t.since) + ",\"matches\":" +
+               std::to_string(t.matches) + ",\"allianceWins\":" + std::to_string(t.wins[0]) + ",\"hordeWins\":" +
+               std::to_string(t.wins[1]) + ",\"honor\":" + std::to_string(t.honor) + ",\"purchases\":" +
+               std::to_string(t.purchases) + "},\"last\":" + last + "]}";
+    }
+
+private:
+    struct Today
+    {
+        int64 since = 0;
+        uint32 matches = 0, wins[2] = { 0, 0 }, honor = 0, purchases = 0;
+    };
+    struct Done
+    {
+        BgDef const* bg;
+        uint32 minLevel, maxLevel, bots;
+        TeamId winner;
+        uint32 durationS, honor;
+        time_t at;
+    };
+    Today& Day(time_t now)
+    {
+        int64 const since = CoaWorldState::TodaySince(now);
+        if (_today.since != since)
+            _today = Today{ since };
+        return _today;
+    }
+    // For monde.json: counted when the match ends (the winner is known from its start, shown only then).
+    void Record(Match const& m, time_t now)
+    {
+        Today& t = Day(now);
+        ++t.matches;
+        ++t.wins[m.winner == TEAM_ALLIANCE ? 0 : 1];
+        t.honor += m.honorTotal;
+        _last.push_front({ m.bg, m.minLevel, m.maxLevel, uint32(m.members.size()), m.winner,
+                           uint32(m.playUntil - m.startedAt), m.honorTotal, now });
+        if (_last.size() > 8)
+            _last.pop_back();
+    }
+    Today _today;
+    std::deque<Done> _last;
 
     std::vector<Match> _matches;
     std::unordered_map<uint32, time_t> _cooldown;
@@ -494,3 +571,5 @@ void AddSC_coa_world_bg_sim()
     new CoaWorldBgSimWorldScript();
     new CoaWorldBgSimPlayerScript();
 }
+
+std::string CoaWorld::BgSimJson(time_t now) { return BgSimManager::Instance().Json(now); }
