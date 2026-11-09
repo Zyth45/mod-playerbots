@@ -28,6 +28,7 @@ enum Channel : uint8_t
     CH_NEAR = 0,     // /say or /emote next to the bot
     CH_GENERAL = 1,
     CH_TRADE = 2,
+    CH_WORLD = 3,    // the world channel of the CoA client (ChatChannels id 1, "Ascension")
     CH_LFG = 4,
     CH_GUILD = 5,
     CH_WHISPER = 6,
@@ -57,6 +58,17 @@ struct Line
     std::string text;       // empty: the emote alone
     uint8_t weight[ARCH_COUNT] = {10, 10, 10, 10, 10};
     bool rare = false;
+    uint8_t race = 0;   // night bank filters (0: any): the bot's race, class, zone
+    uint8_t cls = 0;
+    uint32_t zone = 0;
+};
+
+// The bot a line is drawn for (the night bank's filters).
+struct Who
+{
+    uint8_t race = 0;
+    uint8_t cls = 0;
+    uint32_t zone = 0;
 };
 
 struct Rule
@@ -440,8 +452,34 @@ inline std::vector<std::string> WhereSubjects(std::string const& normalized, std
 
 // ---------------------------------------------------------------- bank
 
+// A conversation of the night bank: its steps in order, said by 2 or 3 different bots (speaker 1, 2, 3).
+struct ThreadStep
+{
+    uint8_t speaker = 1;
+    std::string text;
+};
+
+struct Thread
+{
+    uint8_t levelBand = 0;
+    uint8_t race = 0;
+    uint8_t cls = 0;
+    uint32_t zone = 0;
+    std::vector<ThreadStep> steps;
+
+    uint8_t Speakers() const
+    {
+        uint8_t n = 0;
+        for (ThreadStep const& s : steps)
+            n = std::max(n, s.speaker);
+        return n;
+    }
+};
+
 struct Bank
 {
+    // channel -> locale -> conversations (night bank)
+    std::map<uint8_t, std::map<uint8_t, std::vector<Thread>>> threads;
     std::map<std::string, Rule> rules;
     // situation -> locale -> lines
     std::map<std::string, std::map<uint8_t, std::vector<Line>>> lines;
@@ -548,7 +586,7 @@ struct Pick
 // skipped and the draw goes on with the others.
 inline Pick Draw(Bank const& bank, std::string const& situation, uint8_t locale, uint8_t levelBand, Archetype soul,
                  bool rareRoll, Ring const* botRing, Ring const* channelRing,
-                 std::map<std::string, std::string> const& values, Rng const& rng)
+                 std::map<std::string, std::string> const& values, Rng const& rng, Who const& who = Who{})
 {
     Pick pick;
     std::vector<Line> const* all = bank.LinesOf(situation, locale);
@@ -559,6 +597,9 @@ inline Pick Draw(Bank const& bank, std::string const& situation, uint8_t locale,
     for (Line const& line : *all)
     {
         if (line.levelBand && line.levelBand != levelBand)
+            continue;
+        if ((line.race && line.race != who.race) || (line.cls && line.cls != who.cls) ||
+            (line.zone && line.zone != who.zone))
             continue;
         if (line.rare && !rareRoll)
             continue;
@@ -594,6 +635,66 @@ inline Pick Draw(Bank const& bank, std::string const& situation, uint8_t locale,
         pool.erase(std::find(pool.begin(), pool.end(), line));
     }
     return pick;
+}
+
+// ---------------------------------------------------------------- night bank
+
+// The night bank (playerbots_coa_night_lines, AiPlayerbot.CoaLive.NightBank.Enable) speaks on CoA Live's channels
+// (1 zone, 3 world, 10 group). Its single lines go into the bank under a situation of their own; "": not used.
+inline std::string NightSituation(uint8_t channel, std::string const& event)
+{
+    if (event == "thread")
+        return "";
+    if (channel == CH_GENERAL)
+        return "night_zone";
+    if (channel == CH_WORLD)
+        return "night_world";
+    if (channel == CH_PARTY && event.rfind("dgn_", 0) == 0)
+        return "night_" + event;
+    return "";
+}
+
+// The pace of the night situations: the bank's rule when it has one, else the zone chatter's ("general_chat") for
+// the channels and the boss pull's for the group.
+inline void AddNightRules(Bank& bank)
+{
+    Rule chatter{100, 2000, 6000, 600, 120, 0, true};
+    if (Rule const* r = bank.RuleOf("general_chat"))
+        chatter = *r;
+    Rule party{50, 1500, 4000, 300, 60, 0, true};
+    if (Rule const* r = bank.RuleOf("boss_pull"))
+        party = *r;
+    for (char const* s : {"night_zone", "night_world", "night_thread"})
+        bank.rules.emplace(s, chatter);
+    for (auto const& [situation, byLocale] : bank.lines)
+        if (situation.rfind("night_dgn_", 0) == 0)
+            bank.rules.emplace(situation, party);
+}
+
+// A conversation for these bots: their locale (else English), their band, zone, race and class, no more speakers
+// than bots at hand. Null: none.
+inline Thread const* DrawThread(Bank const& bank, uint8_t channel, uint8_t locale, uint8_t levelBand, Who const& who,
+                                size_t bots, Rng const& rng)
+{
+    auto c = bank.threads.find(channel);
+    if (c == bank.threads.end())
+        return nullptr;
+    auto l = c->second.find(locale);
+    if (l == c->second.end() || l->second.empty())
+        l = c->second.find(0);
+    if (l == c->second.end())
+        return nullptr;
+    std::vector<Thread const*> pool;
+    for (Thread const& t : l->second)
+    {
+        if (t.steps.empty() || t.Speakers() < 1 || t.Speakers() > bots)
+            continue;
+        if ((t.levelBand && t.levelBand != levelBand) || (t.zone && t.zone != who.zone) ||
+            (t.race && t.race != who.race) || (t.cls && t.cls != who.cls))
+            continue;
+        pool.push_back(&t);
+    }
+    return pool.empty() ? nullptr : pool[rng.between(0, uint32_t(pool.size() - 1))];
 }
 
 // The human touch on a line template: slang, then at most one typo, then the placeholders filled. False when a

@@ -192,5 +192,56 @@ int main()
     assert(FormatMoney(125000) == "12g 50s" && FormatMoney(120000) == "12g" && FormatMoney(7500) == "75s" &&
            FormatMoney(8) == "8c" && FormatMoney(0) == "0c" && FormatMoney(10099) == "1g");
     assert(LevelBand(1) == 1 && LevelBand(19) == 1 && LevelBand(20) == 2 && LevelBand(59) == 3 && LevelBand(60) == 4);
+    // Night bank: situations, filters, rules, conversations.
+    {
+        assert(NightSituation(CH_GENERAL, "idle_class") == "night_zone");
+        assert(NightSituation(CH_WORLD, "idle_lfg") == "night_world");
+        assert(NightSituation(CH_PARTY, "dgn_boss_kill") == "night_dgn_boss_kill");
+        assert(NightSituation(CH_GENERAL, "thread").empty() && NightSituation(7, "idle_general").empty());
+
+        Bank night;
+        Line mage = L(900001, "night_zone", 2, "Les mages ont froid");
+        mage.channel = CH_GENERAL;
+        mage.cls = 8;
+        night.Add(mage);
+        Line elwynn = L(900002, "night_zone", 2, "Encore les kobolds de %zone");
+        elwynn.channel = CH_GENERAL;
+        elwynn.zone = 12;
+        night.Add(elwynn);
+        Who const warriorInDurotar{2, 1, 14};
+        assert(!Draw(night, "night_zone", 2, 1, ARCH_NONE, false, nullptr, nullptr, {{"zone", "Durotar"}}, rng,
+                     warriorInDurotar).line);
+        Who const mageInElwynn{1, 8, 12};
+        std::set<uint32_t> got;
+        for (int i = 0; i < 50; ++i)
+            got.insert(Draw(night, "night_zone", 2, 1, ARCH_NONE, false, nullptr, nullptr, {{"zone", "Elwynn"}}, rng,
+                            mageInElwynn).line->id);
+        assert(got.size() == 2);
+        // Without a Who (the old callers), the filtered lines stay out.
+        assert(!Draw(night, "night_zone", 2, 1, ARCH_NONE, false, nullptr, nullptr, {{"zone", "Elwynn"}}, rng).line);
+
+        Line pull = L(900003, "night_dgn_pull_big", 0, "big pull");
+        pull.channel = CH_PARTY;
+        night.Add(pull);
+        night.rules["general_chat"] = Rule{40, 1, 2, 3, 4, 0, true};
+        night.rules["night_world"] = Rule{5, 1, 2, 3, 4, 0, true};  // the bank's own rule wins
+        AddNightRules(night);
+        assert(night.RuleOf("night_zone")->chancePct == 40 && night.RuleOf("night_thread")->chancePct == 40);
+        assert(night.RuleOf("night_world")->chancePct == 5 && night.RuleOf("night_dgn_pull_big"));
+
+        Thread tank;
+        tank.levelBand = 1;
+        tank.steps = {{1, "Je cherche un tank pour Deadmines"}, {2, "je peux tanker"}};
+        night.threads[CH_GENERAL][2].push_back(tank);
+        Thread trio;
+        trio.steps = {{1, "a"}, {2, "b"}, {3, "c"}};
+        night.threads[CH_GENERAL][0].push_back(trio);
+        assert(DrawThread(night, CH_GENERAL, 2, 1, mageInElwynn, 2, rng)->Speakers() == 2);
+        assert(!DrawThread(night, CH_GENERAL, 2, 3, mageInElwynn, 5, rng));  // the French one is of band 1
+        assert(DrawThread(night, CH_GENERAL, 0, 3, mageInElwynn, 3, rng) == &night.threads[CH_GENERAL][0][0]);
+        assert(!DrawThread(night, CH_GENERAL, 0, 3, mageInElwynn, 2, rng));  // three speakers, two bots
+        assert(!DrawThread(night, CH_WORLD, 0, 3, mageInElwynn, 3, rng));
+    }
+
     return 0;
 }

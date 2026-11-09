@@ -71,6 +71,7 @@
 #include <memory>
 #include <mutex>
 #include <shared_mutex>
+#include <tuple>
 #include <unordered_set>
 #include <vector>
 
@@ -303,8 +304,9 @@ bool React(Player* bot, std::string const& situation, Player* subject, std::stri
     Ring& botRing = botRings.try_emplace(botKey, sPlayerbotAIConfig.coaLiveNoRepeatBot).first->second;
     Ring& channelRing = channelRings.try_emplace(channelScope, sPlayerbotAIConfig.coaLiveNoRepeatChannel).first->second;
     bool const rareRoll = rng.Roll(sPlayerbotAIConfig.coaLiveRareChance);
+    Who const who{bot->getRace(), bot->getClass(), bot->GetZoneId()};
     Pick const pick = Draw(*current, situation, locale, LevelBand(bot->GetLevel()), soulArch, rareRoll, &botRing,
-                           &channelRing, values, rng);
+                           &channelRing, values, rng, who);
     if (!pick.line)
         return false;
 
@@ -372,24 +374,26 @@ std::unordered_map<std::string, WhisperHandler> whisperHandlers;  // other sessi
 // The Trade channel of the CoA client: ChatChannels.dbc id 4, named "Trade" (id 2 is "Newcomers" there, not the
 // "Trade - City" of the stock client, so the stock Trade code never reached the players' /4). World thread.
 constexpr uint32 COA_TRADE_CHANNEL_ID = 4;
+constexpr uint32 COA_WORLD_CHANNEL_ID = 1;  // "Ascension", the world channel of the CoA client (night bank)
 std::unordered_set<uint64> tradeJoined;  // bot raw guid -> joined Trade by CoA Live (world thread only)
+std::unordered_set<uint64> worldJoined;  // the same for the world channel
 
-bool SayInTrade(Player* bot, std::string const& text)
+bool SayInChannel(Player* bot, uint32 channelId, std::unordered_set<uint64>& joined, std::string const& text)
 {
     ChannelMgr* cMgr = ChannelMgr::forTeam(bot->GetTeamId());
     if (!cMgr)
         return false;
     for (auto const& [key, channel] : cMgr->GetChannels())
     {
-        if (!channel || channel->GetChannelId() != COA_TRADE_CHANNEL_ID || channel->GetName().empty())
+        if (!channel || channel->GetChannelId() != channelId || channel->GetName().empty())
             continue;
         uint64 const k = bot->GetGUID().GetRawValue();
-        if (!tradeJoined.count(k))
+        if (!joined.count(k))
         {
             channel->JoinChannel(bot, "");
-            tradeJoined.insert(k);
-            if (tradeJoined.size() > 20000)
-                tradeJoined.clear();
+            joined.insert(k);
+            if (joined.size() > 20000)
+                joined.clear();
         }
         channel->Say(bot->GetGUID(), text, LANG_UNIVERSAL);
         if (PlayerbotAI* botAI = GET_PLAYERBOT_AI(bot))  // into Chat.log, as the other channels' lines
@@ -398,6 +402,8 @@ bool SayInTrade(Player* bot, std::string const& text)
     }
     return false;  // no player has the channel open: nobody would read it
 }
+
+bool SayInTrade(Player* bot, std::string const& text) { return SayInChannel(bot, COA_TRADE_CHANNEL_ID, tradeJoined, text); }
 
 // World thread: plays the lines the filter takes out of the queue.
 template <class Due>
@@ -456,6 +462,9 @@ void Play(Due isDue)
                     break;
                 case CH_TRADE:
                     SayInTrade(bot, p.text);
+                    break;
+                case CH_WORLD:
+                    SayInChannel(bot, COA_WORLD_CHANNEL_ID, worldJoined, p.text);
                     break;
                 case CH_LFG:
                     if (botAI)
@@ -1070,6 +1079,118 @@ bool FreeRandomBot(Player* p)
 // World thread, every CHANNEL_TICK_MS: in each zone with real players, one free random bot may talk in General,
 // in Trade (capitals), in LookingForGroup; in each guild with real players online, one bot may talk in the guild.
 // The rules of the bank pace them; the population factor keeps an empty channel calm.
+bool NightOn() { return sPlayerbotAIConfig.coaLiveNightBankEnable; }
+
+// A conversation of the night bank on a channel: 2 or 3 different bots of the zone (or the faction) answer each other,
+// one step after another, each typing at its own pace. Paced as one line of the first bot ("night_thread").
+void PlayThread(std::vector<Player*> const& bots, uint8 channel, std::string const& scope, float populationFactor)
+{
+    if (bots.size() < 2)
+        return;
+    std::shared_ptr<Bank const> current;
+    {
+        std::lock_guard<std::mutex> guard(liveLock);
+        current = bank;
+    }
+    Rule const* rule = current ? current->RuleOf("night_thread") : nullptr;
+    if (!rule || !rng.Roll(ReactPct(*rule, -1, populationFactor)))
+        return;
+
+    uint8 const locale = BotLocale();
+    Player* first = bots[urand(0, bots.size() - 1)];
+    Who const who{first->getRace(), first->getClass(), first->GetZoneId()};
+    Thread const* thread = DrawThread(*current, channel, locale, LevelBand(first->GetLevel()), who, bots.size(), rng);
+    if (!thread)
+        return;
+    std::vector<Player*> cast{first};
+    for (uint32 tries = 0; cast.size() < thread->Speakers() && tries < 20; ++tries)
+    {
+        Player* other = bots[urand(0, bots.size() - 1)];
+        if (std::find(cast.begin(), cast.end(), other) == cast.end())
+            cast.push_back(other);
+    }
+    if (cast.size() < thread->Speakers())
+        return;
+
+    // Every step typed first: a placeholder that does not fill drops the whole conversation.
+    std::vector<std::pair<Player*, std::string>> said;
+    for (ThreadStep const& step : thread->steps)
+    {
+        Player* speaker = cast[std::min<size_t>(step.speaker, cast.size()) - 1];
+        Player* other = speaker == cast[0] ? cast[1] : cast[0];  // %player: the one answered
+        std::string text;
+        if (!Humanize(step.text, Values(speaker, other, nullptr, locale), current->SlangOf(locale),
+                      sPlayerbotAIConfig.coaLiveAbbrevChance, sPlayerbotAIConfig.coaLiveTypoChance,
+                      locale == LOCALE_frFR, rng, text))
+            return;
+        said.emplace_back(speaker, std::move(text));
+    }
+
+    uint64 const nowMs = GameTime::GetGameTimeMS().count();
+    uint64 const firstKey = first->GetGUID().GetRawValue();
+    std::lock_guard<std::mutex> guard(liveLock);
+    if (!pacer.Allowed(*rule, firstKey, "night_thread", scope, channel, nowMs / 1000) ||
+        liveQueue.size() + said.size() > QUEUE_MAX)
+        return;
+    pacer.Said(firstKey, "night_thread", scope, channel, nowMs / 1000);
+    uint64 due = nowMs;
+    for (auto& [speaker, text] : said)
+    {
+        due += TypingMs(*rule, text.size(), MsPerChar(speaker), rng);
+        Pending p;
+        p.dueMs = due;
+        p.bot = speaker->GetGUID();
+        p.channel = channel;
+        p.text = std::move(text);
+        liveQueue.push_back(std::move(p));
+    }
+}
+
+// A dungeon group as the night bank sees it: its random bots on this map, and one of its real players there.
+struct DungeonGroup
+{
+    std::vector<Player*> bots;
+    Player* real = nullptr;
+    std::string scope;
+};
+
+bool InDungeonGroup(Player* member, DungeonGroup& out)
+{
+    Group* group = member ? member->GetGroup() : nullptr;
+    if (!group || !member->IsInWorld() || !member->GetMap()->IsDungeon())
+        return false;
+    uint32 const mapId = member->GetMapId();
+    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+        if (Player* p = ref->GetSource(); p && p->IsInWorld() && p->GetMapId() == mapId)
+        {
+            if (IsRandom(p))
+                out.bots.push_back(p);
+            else if (IsRealPlayer(p))
+                out.real = p;
+        }
+    out.scope = "g" + std::to_string(group->GetGUID().GetCounter());
+    return !out.bots.empty() && out.real;
+}
+
+std::unordered_map<uint64, uint32> dungeonOf;  // random bot -> the dungeon it is in (night bank, under liveLock)
+
+// Night bank: a fine drop (rare or better) in a dungeon group with a real player: the bot that got it shows it off,
+// or a bot nods at the player's, with the item's real link.
+void NightLoot(Player* looter, Item* item)
+{
+    if (!Enabled() || !NightOn() || !item || !item->GetTemplate() || item->GetTemplate()->Quality < ITEM_QUALITY_RARE)
+        return;
+    DungeonGroup g;
+    if (!InDungeonGroup(looter, g))
+        return;
+    ReactOptions opt;
+    opt.extra["item"] = ChatHelper::FormatItem(item->GetTemplate());
+    if (IsRandom(looter))
+        React(looter, "night_dgn_loot_self", g.real, g.scope, opt);
+    else if (looter == g.real)
+        React(g.bots[urand(0, g.bots.size() - 1)], "night_dgn_loot_good", g.real, g.scope, opt);
+}
+
 void ChannelTimers(uint64 nowMs)
 {
     if (nowMs < nextChannelTick)
@@ -1078,6 +1199,8 @@ void ChannelTimers(uint64 nowMs)
 
     std::unordered_map<uint32, uint32> realByZone, realByGuild;
     std::unordered_map<uint32, std::vector<Player*>> botsByZone, botsByGuild;
+    std::unordered_map<uint32, uint32> realByTeam;              // night bank: the world channel
+    std::unordered_map<uint32, std::vector<Player*>> botsByTeam;
     std::shared_lock<std::shared_mutex> playersLock(*HashMapHolder<Player>::GetLock());
     for (auto const& [guid, player] : ObjectAccessor::GetPlayers())
     {
@@ -1086,12 +1209,15 @@ void ChannelTimers(uint64 nowMs)
         if (IsRealPlayer(player))
         {
             ++realByZone[player->GetZoneId()];
+            ++realByTeam[player->GetTeamId()];
             if (player->GetGuildId())
                 ++realByGuild[player->GetGuildId()];
         }
         else if (FreeRandomBot(player))
         {
             botsByZone[player->GetZoneId()].push_back(player);
+            if (NightOn())
+                botsByTeam[player->GetTeamId()].push_back(player);
             if (player->GetGuildId())
                 botsByGuild[player->GetGuildId()].push_back(player);
         }
@@ -1117,6 +1243,11 @@ void ChannelTimers(uint64 nowMs)
         std::string const scope = "z" + std::to_string(zone);
 
         React(pick(it->second), "general_chat", nullptr, scope, opt);
+        if (NightOn())
+        {
+            React(pick(it->second), "night_zone", nullptr, scope, opt);
+            PlayThread(it->second, CH_GENERAL, scope, opt.populationFactor);
+        }
 
         Player* bot = pick(it->second);
         if (InCapital(bot))
@@ -1145,6 +1276,19 @@ void ChannelTimers(uint64 nowMs)
         ReactOptions lfg = opt;
         if (LfgValues(bot, locale, lfg.extra))
             React(bot, urand(0, 1) ? "lfg_lfm" : "lfg_lfg", nullptr, "lfg" + std::to_string(bot->GetTeamId()), lfg);
+    }
+
+    // Night bank: the world channel of each faction that has a real player online (or the bench key).
+    for (auto const& [team, bots] : botsByTeam)
+    {
+        auto real = realByTeam.find(team);
+        if (bots.empty() || (real == realByTeam.end() && !sPlayerbotAIConfig.coaLiveDebugIgnoreRealPlayer))
+            continue;
+        ReactOptions opt;
+        opt.populationFactor = PopulationFactor((real == realByTeam.end() ? 1 : real->second) + uint32(bots.size()) / 10);
+        std::string const scope = "w" + std::to_string(team);
+        React(pick(bots), "night_world", nullptr, scope, opt);
+        PlayThread(bots, CH_WORLD, scope, opt.populationFactor);
     }
 
     for (auto const& [guildId, real] : realByGuild)
@@ -1301,6 +1445,60 @@ void Load()
             loaded->AddSlang(f[0].Get<uint8>(), f[1].Get<std::string>(), f[2].Get<std::string>());
         } while (r->NextRow());
 
+    // The night bank (AiPlayerbot.CoaLive.NightBank.Enable): its single lines into the bank, its conversations aside.
+    if (sPlayerbotAIConfig.coaLiveNightBankEnable &&
+        CoaDbCheck::Require("CoA Live night bank", "playerbots_coa_night_lines",
+                            {"id", "channel", "event", "locale", "race", "class", "level_band", "zone", "thread", "step",
+                             "speaker", "weight", "text"}))
+    {
+        uint32 singles = 0;
+        std::map<std::tuple<uint8, uint8, uint32>, Thread> threads;  // (channel, locale, thread) -> steps in order
+        if (QueryResult r = PlayerbotsDatabase.Query(
+                "SELECT id, channel, event, locale, race, class, level_band, zone, thread, step, speaker, weight, text "
+                "FROM playerbots_coa_night_lines ORDER BY thread, step"))
+            do
+            {
+                Field* f = r->Fetch();
+                uint8 const channel = f[1].Get<uint8>();
+                std::string const event = f[2].Get<std::string>();
+                uint8 const locale = f[3].Get<uint8>();
+                uint32 const thread = f[8].Get<uint32>();
+                if (thread)
+                {
+                    Thread& t = threads[{channel, locale, thread}];
+                    t.race = f[4].Get<uint8>();
+                    t.cls = f[5].Get<uint8>();
+                    t.levelBand = f[6].Get<uint8>();
+                    t.zone = f[7].Get<uint32>();
+                    t.steps.push_back({std::max<uint8>(1, f[10].Get<uint8>()), f[12].Get<std::string>()});
+                    continue;
+                }
+                std::string const situation = NightSituation(channel, event);
+                if (situation.empty())
+                    continue;
+                Line line;
+                line.id = 0x80000000u | f[0].Get<uint32>();  // apart from the live lines' ids (the no-repeat rings)
+                line.situation = situation;
+                line.channel = channel;
+                line.locale = locale;
+                line.race = f[4].Get<uint8>();
+                line.cls = f[5].Get<uint8>();
+                line.levelBand = f[6].Get<uint8>();
+                line.zone = f[7].Get<uint32>();
+                line.text = f[12].Get<std::string>();
+                uint8 const weight = f[11].Get<uint8>();
+                for (uint8 i = 0; i < ARCH_COUNT; ++i)
+                    line.weight[i] = weight;
+                loaded->Add(std::move(line));
+                ++singles;
+            } while (r->NextRow());
+        for (auto& [key, t] : threads)
+            if (std::get<0>(key) == CH_GENERAL || std::get<0>(key) == CH_WORLD || std::get<0>(key) == CH_PARTY)
+                loaded->threads[std::get<0>(key)][std::get<1>(key)].push_back(std::move(t));
+        AddNightRules(*loaded);
+        LOG_INFO("server.loading", ">> CoA Live night bank: {} lines, {} conversations", singles, threads.size());
+    }
+
     LOG_INFO("server.loading", ">> CoA Live: {} lines, {} situations{}", loaded->LineCount(), loaded->rules.size(),
              sPlayerbotAIConfig.coaLiveEnable ? "" : " (off: AiPlayerbot.CoaLive.Enable = 0)");
 
@@ -1317,7 +1515,9 @@ public:
     CoaLivePlayerScript()
         : PlayerScript("CoaLivePlayerScript",
                        {PLAYERHOOK_ON_LEVEL_CHANGED, PLAYERHOOK_ON_DUEL_END, PLAYERHOOK_ON_PLAYER_ENTER_COMBAT,
-                        PLAYERHOOK_ON_LOGIN, PLAYERHOOK_ON_LOGOUT, PLAYERHOOK_ON_LOOT_ITEM, PLAYERHOOK_ON_GIVE_EXP})
+                        PLAYERHOOK_ON_LOGIN, PLAYERHOOK_ON_LOGOUT, PLAYERHOOK_ON_LOOT_ITEM, PLAYERHOOK_ON_GIVE_EXP,
+                        PLAYERHOOK_ON_CREATURE_KILL, PLAYERHOOK_ON_PLAYER_KILLED_BY_CREATURE,
+                        PLAYERHOOK_ON_MAP_CHANGED})
     {
     }
 
@@ -1334,6 +1534,10 @@ public:
             NoteGuildEvent({"guild_levelup", guildId, player->GetGUID(), 0});
         if (IsRandom(player))
         {
+            // Night bank: a ding in a dungeon group with a real player is said to the group.
+            if (NightOn() && player->GetMap()->IsDungeon() && GroupHasRealPlayer(player) &&
+                React(player, "night_dgn_levelup", nullptr, scope))
+                return;
             if (!RealPlayersNear(player, HEAR_RANGE).empty())
                 React(player, "levelup_self", nullptr, scope);
             return;
@@ -1396,7 +1600,8 @@ public:
             fishingUntil.erase(player->GetGUID().GetRawValue());  // a bot gone is no longer at the water
         }
         if (player)
-            tradeJoined.erase(player->GetGUID().GetRawValue());  // its channels are left with it: join again next time
+            tradeJoined.erase(player->GetGUID().GetRawValue());
+            worldJoined.erase(player->GetGUID().GetRawValue());  // its channels are left with it: join again next time
         if (!Enabled() || !player || !player->GetGuildId() || !IsRandom(player) ||
             !RealOnlineInGuild(player->GetGuildId(), nullptr))
             return;
@@ -1410,6 +1615,7 @@ public:
     // A guild member loots a rare item or better.
     void OnPlayerLootItem(Player* player, Item* item, uint32 /*count*/, ObjectGuid /*lootguid*/) override
     {
+        NightLoot(player, item);
         if (!Enabled() || !player || !item || !player->GetGuildId() || !item->GetTemplate() ||
             item->GetTemplate()->Quality < ITEM_QUALITY_RARE)
             return;
@@ -1438,7 +1644,81 @@ public:
             return;
         ReactOptions opt;
         opt.boss = creature;
-        React(player, "boss_pull", nullptr, "g" + std::to_string(player->GetGroup()->GetGUID().GetCounter()), opt);
+        std::string const scope = "g" + std::to_string(player->GetGroup()->GetGUID().GetCounter());
+        if (!React(player, "boss_pull", nullptr, scope, opt) && NightOn())
+            React(player, "night_dgn_pull_big", nullptr, scope, opt);
+    }
+
+    // Night bank: a boss down in a group with a real player: a bot says it, another may praise the player's role,
+    // and now and then two or three bots chat a while (a group conversation).
+    void OnPlayerCreatureKill(Player* killer, Creature* killed) override
+    {
+        if (!Enabled() || !NightOn() || !killed || !(killed->IsDungeonBoss() || killed->isWorldBoss()))
+            return;
+        DungeonGroup g;
+        if (!InDungeonGroup(killer, g))
+            return;
+        ReactOptions opt;
+        opt.boss = killed;
+        Player* speaker = g.bots[urand(0, g.bots.size() - 1)];
+        React(speaker, "night_dgn_boss_kill", g.real, g.scope, opt);
+        Player* other = g.bots[urand(0, g.bots.size() - 1)];
+        char const* praise = PlayerbotAI::IsTank(g.real)   ? "night_dgn_praise_tank"
+                             : PlayerbotAI::IsHeal(g.real) ? "night_dgn_praise_heal"
+                                                           : "night_dgn_praise_dps";
+        React(other, praise, g.real, g.scope, opt);
+        PlayThread(g.bots, CH_PARTY, g.scope, 1.0f);
+    }
+
+    // Night bank: a death in a dungeon group. Everyone down there: a wipe; the real player alone: a tease.
+    void OnPlayerKilledByCreature(Creature* /*killer*/, Player* killed) override
+    {
+        if (!Enabled() || !NightOn())
+            return;
+        DungeonGroup g;
+        if (!InDungeonGroup(killed, g))
+            return;
+        bool everyone = !g.real->IsAlive();
+        for (Player* bot : g.bots)
+            everyone = everyone && !bot->IsAlive();
+        Player* speaker = g.bots[urand(0, g.bots.size() - 1)];
+        if (everyone)
+            React(speaker, "night_dgn_wipe", g.real, g.scope);
+        else if (killed == g.real && speaker->IsAlive())
+            React(speaker, "night_dgn_tease", g.real, g.scope);
+    }
+
+    // Night bank: a random bot of a group with a real player enters a dungeon (the group's hello) or leaves it (the
+    // goodbye). One line per group, the pace of the scope keeps the others quiet.
+    void OnPlayerMapChanged(Player* player) override
+    {
+        if (!Enabled() || !NightOn() || !player || !IsRandom(player))
+            return;
+        uint64 const key = player->GetGUID().GetRawValue();
+        bool const inDungeon = player->GetMap() && player->GetMap()->IsDungeon();
+        bool wasIn = false;
+        {
+            std::lock_guard<std::mutex> guard(liveLock);
+            auto it = dungeonOf.find(key);
+            wasIn = it != dungeonOf.end() && it->second != player->GetMapId();
+            if (inDungeon)
+                dungeonOf[key] = player->GetMapId();
+            else if (it != dungeonOf.end())
+                dungeonOf.erase(it);
+            if (dungeonOf.size() > 20000)
+                dungeonOf.clear();
+        }
+        Group* group = player->GetGroup();
+        if (!group || !GroupHasRealPlayer(player))
+            return;
+        std::string const scope = "g" + std::to_string(group->GetGUID().GetCounter());
+        if (inDungeon)
+        {
+            DungeonGroup g;
+            React(player, "night_dgn_enter", InDungeonGroup(player, g) ? g.real : nullptr, scope);
+        }
+        else if (wasIn)
+            React(player, "night_dgn_end", nullptr, scope);
     }
 };
 
