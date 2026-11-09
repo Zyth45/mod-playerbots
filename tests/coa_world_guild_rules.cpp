@@ -37,6 +37,11 @@ int main()
     assert(GiftDue(20000, 0, 3) && GiftDue(20003, 20000, 3) && !GiftDue(20002, 20000, 3));
     assert(GiftLevelFits(30, 30) && GiftLevelFits(26, 30) && !GiftLevelFits(25, 30) && !GiftLevelFits(31, 30));
 
+    // Cold-Iron Scepter (spell power only) is no gift for a physical spec, a strength piece none for a caster.
+    assert(!RoleFits(false, 0, 1) && RoleFits(true, 0, 1));
+    assert(!RoleFits(true, 2, 0) && RoleFits(false, 2, 0));
+    assert(RoleFits(true, 0, 0) && RoleFits(false, 0, 0) && RoleFits(false, 1, 1) && RoleFits(true, 1, 1));
+
     assert(IsGreeting("hello") && IsGreeting("Hi all!") && IsGreeting("bonjour la guilde") && IsGreeting("re"));
     assert(IsGreeting("cc tout le monde") && IsGreeting("o/") && IsGreeting("hey guys :)"));
     assert(!IsGreeting("hi can someone help me with this quest please"));

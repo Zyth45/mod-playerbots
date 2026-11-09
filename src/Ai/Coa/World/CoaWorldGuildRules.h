@@ -80,6 +80,16 @@ namespace CoaWorldGuildRules
         return requiredLevel <= playerLevel && requiredLevel + 4 >= playerLevel;
     }
 
+    // A gift fits the player's role: a caster or healer gets no piece that only has physical stats (strength,
+    // agility, attack power), a physical spec none that only has caster stats (intellect, spirit, spell power,
+    // mana regeneration). Pieces with neither (stamina, armor, plain weapon damage) fit everyone.
+    inline bool RoleFits(bool caster, int physicalStats, int casterStats)
+    {
+        if (caster)
+            return !(physicalStats > 0 && casterStats == 0);
+        return !(casterStats > 0 && physicalStats == 0);
+    }
+
     // A hello in guild chat: a short line (4 words at most) with a greeting word ("hi", "hey", "bonjour", "re"...).
     inline bool IsGreeting(std::string text)
     {

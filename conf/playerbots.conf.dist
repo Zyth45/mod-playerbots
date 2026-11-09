@@ -3173,6 +3173,22 @@ AiPlayerbot.CoaWorld.Guilds.CharterMinutes = 60
 
 AiPlayerbot.CoaWorld.Guilds.Greetings = 0
 
+#    AiPlayerbot.CoaWorld.Guilds.GearAsk
+#        Description: With Guilds.Gear: the guild's gift of gear is offered first (a whisper from the bot, and the
+#                     SquidBots Lite addon's Gifts view with Guilds.Addon); it is mailed only if the player accepts
+#                     (whisper yes/no). An offer lasts 24 hours; a refused item is not offered again for 30 days.
+#        Default:     0 - off (gifts mailed at once, as before)
+
+AiPlayerbot.CoaWorld.Guilds.GearAsk = 0
+
+#    AiPlayerbot.CoaWorld.Guilds.Catalog
+#        Description: With Guilds.Orders and Guilds.Addon: the SquidBots Lite addon can search what the guild's online
+#                     bots can send (in their bags, or crafted from a recipe they know, at the materials' cost) and
+#                     order it in one click. Built when asked, kept 5 minutes per guild.
+#        Default:     0 - off
+
+AiPlayerbot.CoaWorld.Guilds.Catalog = 0
+
 #    AiPlayerbot.CoaWorld.Guilds.PlayerGuildOnline
 #    AiPlayerbot.CoaWorld.Guilds.PlayerGuildOnlinePercent
 #        Description: With the online/offline rotation (EnablePeriodicOnlineOffline): while a real member of a guild
