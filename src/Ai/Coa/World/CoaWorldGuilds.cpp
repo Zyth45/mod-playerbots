@@ -600,7 +600,9 @@ namespace
 
             auto [potion, bandage] = GiftFor(player->GetLevel());
             CharacterDatabaseTransaction trans = CharacterDatabase.BeginTransaction();
-            MailDraft draft("From the guild", Acore::StringFormat("Had some spare, thought you could use them. - {}", bot->GetName()));
+            MailDraft draft(Tr("From the guild", "De la part de la guilde"),
+                            Acore::StringFormat(Tr("Had some spare, thought you could use them. - {}",
+                                                   "J'en avais en trop, je me suis dit que \u00e7a te servirait. - {}"), bot->GetName()));
             if (Item* item = Item::CreateItem(potion, 5, player))
             {
                 item->SaveToDB(trans);
@@ -626,7 +628,7 @@ namespace
             item->SetOwnerGUID(to->GetGUID());
             item->SetState(ITEM_CHANGED);  // as MailHandler: saved standalone, in no player's update queue
             item->SaveToDB(trans);
-            MailDraft draft(item->GetTemplate()->Name1, "From the guild.");
+            MailDraft draft(item->GetTemplate()->Name1, Tr("From the guild.", "De la part de la guilde."));
             draft.AddItem(item);
             if (cod)
                 draft.AddCOD(uint32(cod));
@@ -735,7 +737,7 @@ namespace
                 if (qty && sent > qty)
                 {
                     // Part of a stack (one Silverleaf out of twenty): the rest stays in the bot's bags.
-                    if (!MailNew(bot, player, entry, qty, 0, 0, "From the guild."))
+                    if (!MailNew(bot, player, entry, qty, 0, 0, Tr("From the guild.", "De la part de la guilde.")))
                         continue;
                     item->SetCount(sent - qty);
                     item->SetState(ITEM_CHANGED, bot);
@@ -774,7 +776,8 @@ namespace
                                 made = uint32(std::max<int32>(1, info->Effects[e].CalcValue(bot)));
                         uint32 const sent = std::min<uint32>(std::min<uint32>(made, proto->GetMaxStackSize()), qty ? qty : made);
                         if (!MailNew(bot, player, entry, sent, cost, 0,
-                                     "Made it for you, you only pay the materials."))
+                                     Tr("Made it for you, you only pay the materials.",
+                                        "Fait pour toi, tu ne paies que les composants.")))
                             continue;
                         ++count.second;
                         slots["price"] = Money(cost);
@@ -849,7 +852,8 @@ namespace
             item->SetOwnerGUID(player->GetGUID());
             item->SetState(ITEM_CHANGED);  // the new owner reaches item_instance (an auction item is saved as unchanged)
             item->SaveToDB(trans);
-            MailDraft(proto->Name1, "Got it at the auction house, you pay what I paid.")
+            MailDraft(proto->Name1, Tr("Got it at the auction house, you pay what I paid.",
+                                       "Trouv\u00e9 \u00e0 l'h\u00f4tel des ventes, tu paies ce que j'ai pay\u00e9."))
                 .AddItem(item)
                 .AddCOD(price)
                 .SendMailTo(trans, MailReceiver(player), MailSender(buyer), MAIL_CHECK_MASK_COPIED, 0);
@@ -929,7 +933,7 @@ namespace
             }
             if (bot && proto &&
                 MailNew(bot, player, offer.item, 1, 0, 0,
-                        Acore::StringFormat("Here it is. - {}", offer.botName), offer.random))
+                        Acore::StringFormat(Tr("Here it is. - {}", "Le voil\u00e0. - {}"), offer.botName), offer.random))
             {
                 LogEvent("guild", offer.botName, Acore::StringFormat("gave {} to {}", proto->Name1, player->GetName()));
                 LogRow(player, LOG_GIFT, offer.item, 1, "gift", offer.botName, now, 0, "");
@@ -1039,7 +1043,7 @@ namespace
                 return;
             }
             if (!MailNew(bot, player, bestEntry, 1, 0, 0,
-                         Acore::StringFormat("Found this, it should suit you better. - {}", bot->GetName()), bestRandom))
+                         Acore::StringFormat(Tr("Found this, it should suit you better. - {}", "Trouv\u00e9 \u00e7a, \u00e7a devrait mieux t'aller. - {}"), bot->GetName()), bestRandom))
                 return;
             player->UpdatePlayerSetting(GEAR_SETTING, GEAR_SETTING_LAST_DAY, today);
             Answer(bot, "guild_gear_gift", { { "player", player->GetName() }, { "item", Link(proto, player->GetLevel()) } },
