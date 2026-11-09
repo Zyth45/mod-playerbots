@@ -38,6 +38,9 @@
 #include "Creature.h"
 #include "DBCStores.h"
 #include "CoaDbCheck.h"
+#include "CoaSurnameRules.h"
+#include "CharacterCache.h"
+#include "ChatCommand.h"
 #include "PlayerbotFactory.h"
 #include "CoaSoulAddonRules.h"
 #include "CoaSpecialization.h"
@@ -2106,6 +2109,49 @@ public:
     }
 };
 
+// A bot's full name in any GM command (".guild invite \"Tianor Bot\" ..."): the core turned it into "Tianorbot",
+// nobody. The quoted name of a character becomes its guid, which every player argument takes, and the command runs
+// again with it; any other command goes on untouched.
+class CoaBotNameCommandScript : public AllCommandScript
+{
+public:
+    CoaBotNameCommandScript() : AllCommandScript("CoaBotNameCommandScript", {ALLCOMMANDHOOK_ON_TRY_EXECUTE_COMMAND}) {}
+
+    bool OnTryExecuteCommand(ChatHandler& handler, std::string_view cmdStr) override
+    {
+        if (cmdStr.find('"') == std::string_view::npos)
+            return true;
+        std::string const rewritten = CoaQuotedNamesToGuids(std::string(cmdStr), [](std::string const& name) -> uint64_t
+        {
+            ObjectGuid guid = sCharacterCache->GetCharacterGuidByName(name);
+            if (guid.IsEmpty())
+            {
+                // "tianor bot": each word with a capital, as the bots' names are written.
+                std::string capitals = name;
+                bool start = true;
+                for (char& c : capitals)
+                {
+                    if (c == ' ')
+                        start = true;
+                    else if (start)
+                    {
+                        c = char(std::toupper(static_cast<unsigned char>(c)));
+                        start = false;
+                    }
+                    else
+                        c = char(std::tolower(static_cast<unsigned char>(c)));
+                }
+                guid = sCharacterCache->GetCharacterGuidByName(capitals);
+            }
+            return guid.IsEmpty() ? 0 : guid.GetCounter();
+        });
+        if (rewritten.empty())
+            return true;
+        Acore::ChatCommands::TryExecuteCommand(handler, rewritten);
+        return false;  // done with the guid
+    }
+};
+
 class CoaSoulCommandScript : public CommandScript
 {
 public:
@@ -2268,6 +2314,7 @@ public:
 void AddSC_coa_live()
 {
     new CoaSoulCommandScript();
+    new CoaBotNameCommandScript();
     new CoaSoulAddonScript();
     new CoaLivePlayerScript();
     new CoaLiveWorldScript();
