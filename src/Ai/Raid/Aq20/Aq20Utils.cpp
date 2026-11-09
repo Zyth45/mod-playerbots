@@ -5,6 +5,7 @@
  */
 
 #include "Aq20Utils.h"
+#include "Creature.h"
 #include "SpellAuras.h"
 
 uint32 const OSSIRIAN_BUFF = 25176;
@@ -52,4 +53,19 @@ GameObject* RaidAq20Utils::GetNearestCrystal(Unit* ossirian)
 bool RaidAq20Utils::IsCoaOssirian(Unit* ossirian)
 {
     return ossirian && ossirian->HasAura(OSSIRIAN_COA_SUN_DISC);
+}
+
+Unit* RaidAq20Utils::GetNearestActiveObelisk(Unit* from)
+{
+    std::list<Creature*> triggers;
+    from->GetCreatureListWithEntryInGrid(triggers, CoaAq20::NPC_WORLD_TRIGGER, 200.0f);
+    Unit* best = nullptr;
+    for (Creature* trigger : triggers)
+    {
+        if (!trigger || !trigger->HasAura(CoaAq20::SPELL_OBELISK_ACTIVE))
+            continue;
+        if (!best || from->GetExactDist2d(trigger) < from->GetExactDist2d(best))
+            best = trigger;
+    }
+    return best;
 }

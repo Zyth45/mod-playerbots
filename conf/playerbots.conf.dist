@@ -4932,3 +4932,14 @@ AiPlayerbot.CoaCombat.BlackwingLair.Enable = 0
 #                  1 - (Enabled)
 
 AiPlayerbot.CoaCombat.ZulGurub.Enable = 0
+
+#
+# AiPlayerbot.CoaCombat.AhnQiraj.Enable
+#     Description: The CoA Combat fixes to the bots' Ahn'Qiraj strategies (AQ20 and AQ40): out of Buru's Devastate,
+#                  everyone inside an active obelisk's shelter against Ossirian's Fury of the Sands, Sartura's
+#                  Phantom Dancers killed first and kept at a distance. The stock strategies are unchanged when this
+#                  is 0.
+#     Default:     0 - (Disabled)
+#                  1 - (Enabled)
+
+AiPlayerbot.CoaCombat.AhnQiraj.Enable = 0

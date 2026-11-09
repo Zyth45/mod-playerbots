@@ -6,6 +6,7 @@
 
 #include "Aq20Triggers.h"
 #include "Aq20Utils.h"
+#include "Playerbots.h"
 
 bool Aq20MoveToCrystalTrigger::IsActive()
 {
@@ -38,4 +39,27 @@ bool Aq20MoveToCrystalTrigger::IsActive()
         }
     }
     return false;
+}
+
+// ---- CoA Combat (lot 7, docs/AQ-ETAT-3.0.md) ----
+
+bool Aq20BuruDevastateTrigger::IsActive()
+{
+    if (!AqCoaFixesOn())
+        return false;
+    Unit* buru = bot->FindNearestCreature(CoaAq20::NPC_BURU, 40.0f);
+    if (!buru || !buru->IsAlive() || !buru->FindCurrentSpellBySpellId(CoaAq20::SPELL_DEVASTATE))
+        return false;
+    return bot->GetDistance2d(buru) < CoaAq20::DEVASTATE_YARDS + 1.0f && buru->HasInArc(float(M_PI) / 2.0f + 0.3f, bot);
+}
+
+bool Aq20OssirianShelterTrigger::IsActive()
+{
+    if (!AqCoaFixesOn() || !bot->IsInCombat())
+        return false;
+    Unit* ossirian = AI_VALUE2(Unit*, "find target", "ossirian the unscarred");
+    if (!ossirian || !ossirian->IsAlive() || !RaidAq20Utils::IsCoaOssirian(ossirian))
+        return false;
+    Unit* obelisk = RaidAq20Utils::GetNearestActiveObelisk(bot);
+    return obelisk && bot->GetExactDist2d(obelisk) > CoaAq20::OBELISK_KEEP_YARDS + 2.0f;
 }

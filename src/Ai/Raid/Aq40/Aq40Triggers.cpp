@@ -7,6 +7,7 @@
 #include "Aq40Triggers.h"
 #include "Aq40Helpers.h"
 #include "Playerbots.h"
+#include "Aq20Utils.h"
 
 using namespace Aq40Helpers;
 
@@ -107,4 +108,31 @@ bool Aq40SkeramPsychicShockTrigger::IsActive()
 bool Aq40SkeramGazeSpreadTrigger::IsActive()
 {
     return IsSkeramEncounter(bot) && botAI->CanMove() && ShouldSpreadFromGaze(bot);
+}
+
+// ---- CoA Combat (lot 7, docs/AQ-ETAT-3.0.md) ----
+
+Creature* CoaAq40::FindDangerousDancer(Unit* bot)
+{
+    std::list<Creature*> dancers;
+    bot->GetCreatureListWithEntryInGrid(dancers, NPC_PHANTOM_DANCER, DANCER_DEATH_YARDS + 2.0f);
+    for (Creature* dancer : dancers)
+    {
+        if (!dancer || !dancer->IsAlive())
+            continue;
+        float const reach = dancer->HasAura(SPELL_DANCE_OF_DEATH) ? DANCER_DEATH_YARDS : DANCER_BLADE_YARDS;
+        if (bot->GetDistance2d(dancer) < reach)
+            return dancer;
+    }
+    return nullptr;
+}
+
+bool Aq40SarturaDancersTrigger::IsActive()
+{
+    return AqCoaFixesOn() && !PlayerbotAI::IsTank(bot) && CoaAq40::FindDangerousDancer(bot);
+}
+
+bool Aq40SarturaMarkTrigger::IsActive()
+{
+    return AqCoaFixesOn() && RaidKillOrderMarkTrigger::IsActive();
 }

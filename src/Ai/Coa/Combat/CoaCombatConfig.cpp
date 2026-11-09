@@ -33,4 +33,5 @@ void PlayerbotAIConfig::LoadCoaCombatConfig()
     coaCombatMoltenCoreEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaCombat.MoltenCore.Enable", false);
     coaCombatBlackwingLairEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaCombat.BlackwingLair.Enable", false);
     coaCombatZulGurubEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaCombat.ZulGurub.Enable", false);
+    coaCombatAhnQirajEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaCombat.AhnQiraj.Enable", false);
 }

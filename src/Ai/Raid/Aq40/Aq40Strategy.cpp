@@ -50,6 +50,12 @@ void RaidAq40Strategy::InitTriggers(std::vector<TriggerNode*>& triggers)
     // Below critical heals.
     triggers.push_back(new TriggerNode(
         "aq40 skeram gaze spread", { NextAction("aq40 skeram gaze spread", ACTION_HIGH + 5) }));
+
+    // CoA Combat (lot 7, docs/AQ-ETAT-3.0.md): Sartura's Phantom Dancers first, and out of their blades (SA2).
+    triggers.push_back(new TriggerNode(
+        "aq40 sartura mark", { NextAction("aq40 sartura mark", ACTION_RAID) }));
+    triggers.push_back(new TriggerNode(
+        "aq40 sartura dancers", { NextAction("aq40 sartura avoid dancer", ACTION_EMERGENCY + 3) }));
 }
 
 void RaidAq40Strategy::InitMultipliers(std::vector<Multiplier*>& multipliers)

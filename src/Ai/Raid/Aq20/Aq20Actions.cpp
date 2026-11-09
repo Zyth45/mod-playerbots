@@ -6,6 +6,7 @@
 
 #include "Aq20Actions.h"
 #include "Aq20Utils.h"
+#include <cmath>
 
 bool Aq20UseCrystalAction::Execute(Event /*event*/)
 {
@@ -49,4 +50,34 @@ bool Aq20UseCrystalAction::Execute(Event /*event*/)
         }
     }
     return false;
+}
+
+// ---- CoA Combat (lot 7, docs/AQ-ETAT-3.0.md) ----
+
+bool Aq20BuruAvoidDevastateAction::Execute(Event /*event*/)
+{
+    Unit* buru = bot->FindNearestCreature(CoaAq20::NPC_BURU, 40.0f);
+    if (!buru)
+        return false;
+    return MoveAway(buru, CoaAq20::DEVASTATE_YARDS + 3.0f - bot->GetDistance2d(buru));
+}
+
+bool Aq20OssirianShelterAction::Execute(Event /*event*/)
+{
+    Unit* obelisk = RaidAq20Utils::GetNearestActiveObelisk(bot);
+    if (!obelisk)
+        return false;
+    float const dx = bot->GetPositionX() - obelisk->GetPositionX();
+    float const dy = bot->GetPositionY() - obelisk->GetPositionY();
+    float const length = std::sqrt(dx * dx + dy * dy);
+    float const keep = CoaAq20::OBELISK_KEEP_YARDS - 4.0f;
+    float x = obelisk->GetPositionX();
+    float y = obelisk->GetPositionY();
+    if (length > 0.1f)
+    {
+        x += dx / length * keep;
+        y += dy / length * keep;
+    }
+    return MoveTo(bot->GetMapId(), x, y, obelisk->GetPositionZ(), false, false, false, true,
+                  MovementPriority::MOVEMENT_FORCED);
 }

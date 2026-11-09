@@ -95,4 +95,12 @@ public:
     bool Execute(Event event) override;
 };
 
+// CoA Combat (SA2): step out of the reach of the Phantom Dancer whose blades reach the bot.
+class Aq40SarturaAvoidDancerAction : public MovementAction
+{
+public:
+    Aq40SarturaAvoidDancerAction(PlayerbotAI* botAI) : MovementAction(botAI, "aq40 sartura avoid dancer") {}
+    bool Execute(Event event) override;
+};
+
 #endif

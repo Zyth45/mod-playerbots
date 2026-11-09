@@ -8,6 +8,7 @@
 #include "Aq40Helpers.h"
 #include "ObjectMgr.h"
 #include "Playerbots.h"
+#include "Aq40Triggers.h"
 #include "Timer.h"
 
 using namespace Aq40Helpers;
@@ -155,4 +156,16 @@ bool Aq40SkeramAvoidPsychicShockAction::Execute(Event /*event*/)
 bool Aq40SkeramGazeSpreadAction::Execute(Event /*event*/)
 {
     return MoveFromGroup(GAZE_SPREAD_DISTANCE + 1.0f);
+}
+
+// ---- CoA Combat (lot 7, SA2) ----
+
+bool Aq40SarturaAvoidDancerAction::Execute(Event /*event*/)
+{
+    Creature* dancer = CoaAq40::FindDangerousDancer(bot);
+    if (!dancer)
+        return false;
+    float const reach =
+        dancer->HasAura(CoaAq40::SPELL_DANCE_OF_DEATH) ? CoaAq40::DANCER_DEATH_YARDS : CoaAq40::DANCER_BLADE_YARDS;
+    return MoveAway(dancer, reach + 3.0f - bot->GetDistance2d(dancer));
 }
