@@ -45,6 +45,8 @@ void PlayerbotAIConfig::LoadCoaLiveConfig()
     coaLiveSheathEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaLive.Sheath.Enable", false);
     coaLiveCleanWorldEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaLive.CleanWorld.Enable", false);
     coaLiveNightBankEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaLive.NightBank.Enable", false);
+    coaLiveTradeMessagesPerMinute =
+        std::min<uint32>(6, sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaLive.TradeMessagesPerMinute", 0));
     coaLiveTrainerDedup = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaLive.TrainerDedup", false);
     coaLiveTalentsPerUpdate = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaLive.TalentsPerUpdate", 2);
     // Hidden test key (not in the .conf.dist nor in the launcher): the channels speak as if a real player stood
