@@ -3472,6 +3472,16 @@ AiPlayerbot.CoaLive.CleanWorld.Enable = 0
 
 AiPlayerbot.CoaLive.NightBank.Enable = 0
 
+#    AiPlayerbot.CoaLive.TradeMessagesPerMinute
+#        Description: The pace of the Trade channel while a real player is in a capital of the
+#                     faction: at least this many lines a minute, everything counted (sales, buys,
+#                     artisans, chatter, the players' own lines), 30 to 90 s apart for 1, from
+#                     different bots, no line again among the last 30. Up to 6. Needs
+#                     AiPlayerbot.CoaLive.Enable = 1.
+#        Default:     0 - the bank's own pace, as before
+
+AiPlayerbot.CoaLive.TradeMessagesPerMinute = 0
+
 #    AiPlayerbot.CoaLive.TalentsPerUpdate
 #        Description: Performance. A random bot of a CoA class rebuilt at a new level takes at most
 #                     this many talent entries at once, then the rest a few a second on its own

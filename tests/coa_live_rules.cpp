@@ -243,5 +243,23 @@ int main()
         assert(!DrawThread(night, CH_WORLD, 0, 3, mageInElwynn, 3, rng));
     }
 
+    // Trade pace: 30 to 90 s for one a minute, never under 5 s; a speaker not heard lately.
+    {
+        assert(TradeGapMs(0, rng) == 0);
+        for (int k = 0; k < 200; ++k)
+        {
+            uint32_t const gap = TradeGapMs(1, rng);
+            assert(gap >= 30000 && gap <= 90000);
+            uint32_t const g3 = TradeGapMs(3, rng);
+            assert(g3 >= 10000 && g3 <= 30000);
+        }
+        assert(TradeGapMs(100, rng) >= 5000);
+        std::vector<uint64_t> const ids{11, 22, 33};
+        for (int k = 0; k < 50; ++k)
+            assert(PickSpeaker(3, ids, {11, 33}, rng) == 1);
+        assert(PickSpeaker(3, ids, {11, 22, 33}, rng) < 3);  // everyone heard lately: anyone
+        assert(PickSpeaker(0, {}, {}, rng) == SIZE_MAX);
+    }
+
     return 0;
 }

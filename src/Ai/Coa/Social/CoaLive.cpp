@@ -259,6 +259,7 @@ struct ReactOptions
     float populationFactor = 1.0f;                 // the channel timers (1, 2, 4, 5)
     std::map<std::string, std::string> extra;      // %item, %price, %dungeon, %need...
     bool now = false;                              // no typing delay (a bot logging out)
+    bool force = false;                            // the Trade pace: no roll, no scope limit (bot cooldown kept)
     ObjectGuid codItem;                            // mail this item to the subject, cash on delivery
     uint32 cod = 0;
 };
@@ -285,8 +286,16 @@ bool React(Player* bot, std::string const& situation, Player* subject, std::stri
         soulArch = Archetype(soul.archetype);
         sociability = soul.sociability;
     }
-    if (!rule || !rng.Roll(ReactPct(*rule, sociability, opt.populationFactor)))
+    if (!rule || (!opt.force && !rng.Roll(ReactPct(*rule, sociability, opt.populationFactor))))
         return false;
+    Rule forced;
+    if (opt.force)
+    {
+        forced = *rule;
+        forced.scopeCdS = 0;
+        forced.scopePer10Min = 0;
+        rule = &forced;
+    }
 
     uint8 const locale = BotLocale();
     std::map<std::string, std::string> values = Values(bot, subject, opt.boss, locale);
@@ -315,7 +324,10 @@ bool React(Player* bot, std::string const& situation, Player* subject, std::stri
         return false;
 
     Ring& botRing = botRings.try_emplace(botKey, sPlayerbotAIConfig.coaLiveNoRepeatBot).first->second;
-    Ring& channelRing = channelRings.try_emplace(channelScope, sPlayerbotAIConfig.coaLiveNoRepeatChannel).first->second;
+    uint32 const ringSize = channel == CH_TRADE && sPlayerbotAIConfig.coaLiveTradeMessagesPerMinute
+                                ? std::max<uint32>(sPlayerbotAIConfig.coaLiveNoRepeatChannel, 30)
+                                : sPlayerbotAIConfig.coaLiveNoRepeatChannel;
+    Ring& channelRing = channelRings.try_emplace(channelScope, ringSize).first->second;
     bool const rareRoll = rng.Roll(sPlayerbotAIConfig.coaLiveRareChance);
     Who const who{bot->getRace(), bot->getClass(), bot->GetZoneId()};
     Pick const pick = Draw(*current, situation, locale, LevelBand(bot->GetLevel()), soulArch, rareRoll, &botRing,
@@ -417,7 +429,32 @@ bool SayInChannel(Player* bot, uint32 channelId, std::unordered_set<uint64>& joi
     return false;  // no player has the channel open: nobody would read it
 }
 
-bool SayInTrade(Player* bot, std::string const& text) { return SayInChannel(bot, COA_TRADE_CHANNEL_ID, tradeJoined, text); }
+// The Trade pace (AiPlayerbot.CoaLive.TradeMessagesPerMinute): when each faction's Trade last heard a line, who
+// said the last ones. World thread.
+std::unordered_map<uint32, uint64> tradeLastMs;
+std::unordered_map<uint32, uint64> tradeGapMs;
+std::unordered_map<uint32, std::vector<uint64>> tradeSpeakers;
+
+void NoteTrade(Player* speaker)
+{
+    if (!speaker)
+        return;
+    uint32 const team = speaker->GetTeamId();
+    tradeLastMs[team] = GameTime::GetGameTimeMS().count();
+    tradeGapMs[team] = TradeGapMs(sPlayerbotAIConfig.coaLiveTradeMessagesPerMinute, rng);
+    std::vector<uint64>& last = tradeSpeakers[team];
+    last.push_back(speaker->GetGUID().GetRawValue());
+    if (last.size() > 5)
+        last.erase(last.begin());
+}
+
+bool SayInTrade(Player* bot, std::string const& text)
+{
+    if (!SayInChannel(bot, COA_TRADE_CHANNEL_ID, tradeJoined, text))
+        return false;
+    NoteTrade(bot);
+    return true;
+}
 
 // World thread: plays the lines the filter takes out of the queue.
 template <class Due>
@@ -1205,6 +1242,95 @@ void NightLoot(Player* looter, Item* item)
         React(g.bots[urand(0, g.bots.size() - 1)], "night_dgn_loot_good", g.real, g.scope, opt);
 }
 
+// One Trade line of a bot in a capital: a sale or a buy that follows the auction house (an offer a player can answer),
+// or chatter. False: nothing said.
+bool TradeLine(Player* bot, std::string const& scope, ReactOptions const& opt, uint64 nowMs)
+{
+    ReactOptions trade = opt;
+    Offer offer;
+    uint32 const roll = urand(0, 2);
+    bool offered = false;
+    bool said = false;
+    if (roll == 0 && WtsValues(bot, trade.extra, offer))
+        said = offered = React(bot, "trade_wts", nullptr, scope, trade);
+    else if (roll == 1 && WtbValues(bot, trade.extra, offer))
+        said = offered = React(bot, "trade_wtb", nullptr, scope, trade);
+    if (!said)
+    {
+        ReactOptions chat = opt;
+        said = React(bot, "trade_chat", nullptr, scope, chat);
+    }
+    if (offered)
+    {
+        offer.expiresMs = nowMs + OFFER_MS;
+        std::lock_guard<std::mutex> guard(liveLock);
+        offers[bot->GetGUID().GetRawValue()] = offer;
+        if (offers.size() > 4096)
+            offers.clear();
+    }
+    return said;
+}
+
+// The Trade pace (AiPlayerbot.CoaLive.TradeMessagesPerMinute): while a real player stands in a capital of a faction
+// (or the bench key), its Trade never stays quiet longer than the gap drawn after the last line, whoever said it.
+// The world is looked at only when a faction's gap is over. World thread.
+void TradePace(uint64 nowMs)
+{
+    uint32 const perMinute = sPlayerbotAIConfig.coaLiveTradeMessagesPerMinute;
+    if (!perMinute)
+        return;
+    bool due = false;
+    for (uint32 team : {uint32(TEAM_ALLIANCE), uint32(TEAM_HORDE)})
+    {
+        if (!tradeGapMs.count(team))
+            tradeGapMs[team] = TradeGapMs(perMinute, rng);
+        if (nowMs >= tradeLastMs[team] + tradeGapMs[team])
+            due = true;
+    }
+    if (!due)
+        return;
+
+    std::unordered_map<uint32, bool> realInCapital;
+    std::unordered_map<uint32, std::vector<Player*>> capitalBots;
+    {
+        std::shared_lock<std::shared_mutex> playersLock(*HashMapHolder<Player>::GetLock());
+        for (auto const& [guid, player] : ObjectAccessor::GetPlayers())
+        {
+            if (!player || !player->IsInWorld() || !InCapital(player))
+                continue;
+            if (IsRealPlayer(player))
+                realInCapital[player->GetTeamId()] = true;
+            else if (FreeRandomBot(player))
+                capitalBots[player->GetTeamId()].push_back(player);
+        }
+    }
+    for (auto& [team, bots] : capitalBots)
+    {
+        if (bots.empty() || nowMs < tradeLastMs[team] + tradeGapMs[team])
+            continue;
+        if (!realInCapital[team] && !sPlayerbotAIConfig.coaLiveDebugIgnoreRealPlayer)
+            continue;
+        std::vector<uint64> ids;
+        for (Player* b : bots)
+            ids.push_back(b->GetGUID().GetRawValue());
+        ReactOptions opt;
+        opt.force = true;
+        // A few tries: a bot still in its own cooldown, or with nothing to say, hands over to another.
+        for (int tries = 0; tries < 4; ++tries)
+        {
+            size_t const i = PickSpeaker(bots.size(), ids, tradeSpeakers[team], rng);
+            if (i == SIZE_MAX)
+                break;
+            if (TradeLine(bots[i], "z" + std::to_string(bots[i]->GetZoneId()), opt, nowMs))
+            {
+                // Counted when it is said (SayInTrade); until then, no second line is forced.
+                tradeLastMs[team] = nowMs + 15000;
+                break;
+            }
+        }
+    }
+}
+
 void ChannelTimers(uint64 nowMs)
 {
     if (nowMs < nextChannelTick)
@@ -1265,26 +1391,7 @@ void ChannelTimers(uint64 nowMs)
 
         Player* bot = pick(it->second);
         if (InCapital(bot))
-        {
-            ReactOptions trade = opt;
-            Offer offer;
-            uint32 const roll = urand(0, 2);
-            bool offered = false;
-            if (roll == 0 && WtsValues(bot, trade.extra, offer))
-                offered = React(bot, "trade_wts", nullptr, scope, trade);
-            else if (roll == 1 && WtbValues(bot, trade.extra, offer))
-                offered = React(bot, "trade_wtb", nullptr, scope, trade);
-            else
-                React(bot, "trade_chat", nullptr, scope, trade);
-            if (offered)
-            {
-                offer.expiresMs = nowMs + OFFER_MS;
-                std::lock_guard<std::mutex> guard(liveLock);
-                offers[bot->GetGUID().GetRawValue()] = offer;
-                if (offers.size() > 4096)
-                    offers.clear();
-            }
-        }
+            TradeLine(bot, scope, opt, nowMs);
 
         bot = pick(it->second);
         ReactOptions lfg = opt;
@@ -1531,7 +1638,7 @@ public:
                        {PLAYERHOOK_ON_LEVEL_CHANGED, PLAYERHOOK_ON_DUEL_END, PLAYERHOOK_ON_PLAYER_ENTER_COMBAT,
                         PLAYERHOOK_ON_LOGIN, PLAYERHOOK_ON_LOGOUT, PLAYERHOOK_ON_LOOT_ITEM, PLAYERHOOK_ON_GIVE_EXP,
                         PLAYERHOOK_ON_CREATURE_KILL, PLAYERHOOK_ON_PLAYER_KILLED_BY_CREATURE,
-                        PLAYERHOOK_ON_MAP_CHANGED})
+                        PLAYERHOOK_ON_MAP_CHANGED, PLAYERHOOK_CAN_PLAYER_USE_CHANNEL_CHAT})
     {
     }
 
@@ -1663,6 +1770,16 @@ public:
             React(player, "night_dgn_pull_big", nullptr, scope, opt);
     }
 
+    // The Trade pace counts the players' own Trade lines too (they are let through as before).
+    bool OnPlayerCanUseChat(Player* player, uint32 /*type*/, uint32 /*lang*/, std::string& /*msg*/, ::Channel* channel) override
+    {
+        if (Enabled() && player && channel && channel->GetChannelId() == COA_TRADE_CHANNEL_ID && IsRealPlayer(player))
+            NoteTrade(player);
+        return true;
+    }
+
+    using PlayerScript::OnPlayerCanUseChat;
+
     // Night bank: a boss down in a group with a real player: a bot says it, another may praise the player's role,
     // and now and then two or three bots chat a while (a group conversation).
     void OnPlayerCreatureKill(Player* killer, Creature* killed) override
@@ -1779,6 +1896,7 @@ public:
             Play([nowMs](Pending const& p) { return p.dueMs <= nowMs; });
             PlayGuildEvents();
             ChannelTimers(nowMs);
+            TradePace(nowMs);
         }
     }
 };

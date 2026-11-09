@@ -637,6 +637,34 @@ inline Pick Draw(Bank const& bank, std::string const& situation, uint8_t locale,
     return pick;
 }
 
+// ---------------------------------------------------------------- Trade pace
+
+// AiPlayerbot.CoaLive.TradeMessagesPerMinute: the gap before the next Trade line, 30 to 90 s for one a minute (the
+// mean is 60 s / rate), never under 5 s.
+inline uint32_t TradeGapMs(uint32_t perMinute, Rng const& rng)
+{
+    if (!perMinute)
+        return 0;
+    uint32_t const lo = std::max<uint32_t>(5000, 30000 / perMinute);
+    uint32_t const hi = std::max<uint32_t>(lo, 90000 / perMinute);
+    return rng.between(lo, hi);
+}
+
+// A speaker for the next Trade line: not one of the last ones heard (recent, newest last), else anyone.
+inline size_t PickSpeaker(size_t candidates, std::vector<uint64_t> const& ids, std::vector<uint64_t> const& recent,
+                          Rng const& rng)
+{
+    if (!candidates)
+        return SIZE_MAX;
+    std::vector<size_t> fresh;
+    for (size_t i = 0; i < candidates && i < ids.size(); ++i)
+        if (std::find(recent.begin(), recent.end(), ids[i]) == recent.end())
+            fresh.push_back(i);
+    if (fresh.empty())
+        return rng.between(0, uint32_t(candidates - 1));
+    return fresh[rng.between(0, uint32_t(fresh.size() - 1))];
+}
+
 // ---------------------------------------------------------------- night bank
 
 // The night bank (playerbots_coa_night_lines, AiPlayerbot.CoaLive.NightBank.Enable) speaks on CoA Live's channels
