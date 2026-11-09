@@ -18,6 +18,7 @@ void AddSC_coa_world_server_first();
 void AddSC_coa_world_guilds();
 void AddSC_coa_world_density();
 void AddSC_coa_world_events();
+void AddSC_coa_world_leveling();
 
 void AddCoaWorldScripts()
 {
@@ -31,4 +32,5 @@ void AddCoaWorldScripts()
     AddSC_coa_world_guilds();
     AddSC_coa_world_density();
     AddSC_coa_world_events();
+    AddSC_coa_world_leveling();
 }

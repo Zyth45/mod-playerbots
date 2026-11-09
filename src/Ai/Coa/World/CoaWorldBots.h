@@ -135,6 +135,10 @@ bool CoaWorldHearthInstead(Player* bot);
 // quarantine ends (CoaWorldRecovery). With nothing in quarantine: an atomic bool, false.
 bool CoaWorldQuestQuarantined(uint32 botLowGuid, uint32 questId);
 
+// For RandomPlayerbotMgr::RandomTeleportForLevel (map threads): narrows the spots of the bot's level to the zones of
+// its side's levelling route, mostly on its continent (CoaWorldLeveling). Off, or no spot on the route: unchanged.
+void CoaWorldLevelingFilter(Player* bot, std::vector<WorldLocation>& locs);
+
 // For RandomPlayerbotMgr::AddRandomBots: the accounts with a character in a real player's zone go first
 // (AiPlayerbot.CoaWorld.Density). Off: returns at once.
 void CoaWorldDensityOrderAccounts(std::vector<uint32>& accounts);

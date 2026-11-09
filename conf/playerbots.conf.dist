@@ -2998,6 +2998,21 @@ AiPlayerbot.CoaWorld.Density.NearRange = 800
 
 AiPlayerbot.CoaWorld.Events.Enable = 0
 
+#    AiPlayerbot.CoaWorld.Leveling.Enable
+#        Description: Credible levelling routes. When a random bot is sent to a place of its level (after a
+#                     revive or a level-up), it goes to a zone its side levels in at that level (Westfall or Loch
+#                     Modan for the Alliance at 10-20, the Barrens or Silverpine for the Horde, Stranglethorn for
+#                     both at 30-45...), most of the time on the continent it is on. No spot on the route: as before.
+#        Default:     0 - off
+
+AiPlayerbot.CoaWorld.Leveling.Enable = 0
+
+#    AiPlayerbot.CoaWorld.Leveling.SameContinentPct
+#        Description: Chance in percent that the next zone is on the bot's continent, when one fits (0-100).
+#        Default:     70
+
+AiPlayerbot.CoaWorld.Leveling.SameContinentPct = 70
+
 # Quality a looted item must reach to be written to the "playerbots.loot" logger:
 # 3 rare (blue), 4 epic, 5 legendary. Nothing is written unless worldserver.conf
 # points that logger at an appender, and only bots are ever logged.
