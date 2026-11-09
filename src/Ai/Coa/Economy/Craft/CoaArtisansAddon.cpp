@@ -211,7 +211,7 @@ namespace
         std::vector<uint32> seen;
         for (Artisans::Recipe const& recipe : Artisans::KnownRecipes(bot))
         {
-            if (lines.size() >= Rules::MaxRecipes)
+            if (seen.size() >= Rules::MaxRecipes)
                 break;
             if (std::find(seen.begin(), seen.end(), recipe.itemId) != seen.end())
                 continue;
@@ -227,6 +227,14 @@ namespace
             lines.push_back("AR\t" + name + "\t" + std::to_string(recipe.itemId) + "\t" + std::to_string(recipe.spell->Id) +
                             "\t" + std::to_string(recipe.skillId) + "\t" + std::to_string(proto ? proto->Quality : 0) +
                             "\t" + std::to_string(rank) + "\t" + (proto ? Rules::Clean(proto->Name1) : std::string()));
+            // Its reagents (the client cannot read those of a spell it does not know).
+            std::string reagents;
+            for (uint8 i = 0; i < MAX_SPELL_REAGENTS; ++i)
+                if (recipe.spell->Reagent[i] > 0 && recipe.spell->ReagentCount[i])
+                    reagents += (reagents.empty() ? "" : ",") + std::to_string(recipe.spell->Reagent[i]) + ":" +
+                                std::to_string(recipe.spell->ReagentCount[i]);
+            if (!reagents.empty())
+                lines.push_back("ARR\t" + name + "\t" + std::to_string(recipe.itemId) + "\t" + reagents);
         }
     }
 
