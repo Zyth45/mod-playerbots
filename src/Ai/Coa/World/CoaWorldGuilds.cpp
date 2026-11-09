@@ -58,6 +58,7 @@
 #include "StatsWeightCalculator.h"
 #include "ScriptMgr.h"
 #include "StringFormat.h"
+#include "WorldSession.h"
 
 #include <algorithm>
 #include <mutex>
@@ -129,6 +130,13 @@ namespace
         return player && GET_PLAYERBOT_AI(player);
     }
 
+    // A real player. At a bot's login its PlayerbotAI is not attached yet: the session says it is a bot (a9 on the
+    // LAPTOP-mini gave gear to bots, by mail to online bots).
+    bool IsHuman(Player* player)
+    {
+        return player && player->GetSession() && !player->GetSession()->IsBot() && !GET_PLAYERBOT_AI(player);
+    }
+
     bool IsRandomBot(Player* player)
     {
         PlayerbotAI* botAI = player ? GET_PLAYERBOT_AI(player) : nullptr;
@@ -170,8 +178,34 @@ namespace
         return recipes;
     }
 
+    // Items a player can get on this realm: dropped (creature, object or reference loot) or sold by a vendor.
+    std::unordered_set<uint32> Obtainable()
+    {
+        std::unordered_set<uint32> items;
+        if (QueryResult result = WorldDatabase.Query(
+                "SELECT Item FROM creature_loot_template UNION SELECT Item FROM reference_loot_template "
+                "UNION SELECT Item FROM gameobject_loot_template UNION SELECT item FROM npc_vendor"))
+        {
+            do
+                items.insert(result->Fetch()[0].Get<uint32>());
+            while (result->NextRow());
+        }
+        return items;
+    }
+
+    bool LooksLikeTestItem(std::string const& name)
+    {
+        static char const* const marks[] = { "Test", "TEST", "Monster", "Deprecated", "DEPRECATED", "[PH]", "OLD",
+                                             "BT48", "Unused", "UNUSED", "zz" };
+        for (char const* mark : marks)
+            if (name.find(mark) != std::string::npos)
+                return true;
+        return false;
+    }
+
     // The gear the guild may give, by required level (1 to 80), found once: armour and weapons, uncommon or rare,
-    // not bound on pickup, among the items the bots' gear code knows (RandomItemMgr), when it knows any.
+    // not bound on pickup, that drop or are sold on the realm (a9 gave "BT48 Cloth Spell Bracer3"), among the items
+    // the bots' gear code knows (RandomItemMgr), when it knows any.
     std::vector<std::vector<uint32>> const& GearPool()
     {
         static std::vector<std::vector<uint32>> pool;
@@ -180,8 +214,11 @@ namespace
         pool.resize(81);
         std::vector<std::vector<uint32>> unchecked(81);
         bool anyKnown = false;
+        std::unordered_set<uint32> const obtainable = Obtainable();
         for (auto const& [id, proto] : *sObjectMgr->GetItemTemplateStore())
         {
+            if (!obtainable.count(id) || LooksLikeTestItem(proto.Name1))
+                continue;
             if ((proto.Class != ITEM_CLASS_ARMOR && proto.Class != ITEM_CLASS_WEAPON) ||
                 proto.Quality < ITEM_QUALITY_UNCOMMON || proto.Quality > ITEM_QUALITY_RARE ||
                 proto.Bonding == BIND_WHEN_PICKED_UP || proto.Bonding == BIND_QUEST_ITEM ||
@@ -337,14 +374,17 @@ namespace
                         break;
                     }
                     case GuildEvent::LOGIN:
-                        Welcome(player, now);
+                        if (IsHuman(player))
+                            Welcome(player, now);
                         break;
                     case GuildEvent::ORDER:
-                        Order(player, e.value, now);
+                        if (IsHuman(player))
+                            Order(player, e.value, now);
                         break;
                     case GuildEvent::HUMAN_LEVEL:
-                        if (Player* bot = OnlineGuildBot(player->GetGuildId(), player->GetGUID()))
-                            GiveGear(player, bot, now);
+                        if (IsHuman(player))
+                            if (Player* bot = OnlineGuildBot(player->GetGuildId(), player->GetGUID()))
+                                GiveGear(player, bot, now);
                         break;
                 }
             }
@@ -758,7 +798,7 @@ public:
         if (!settings.enabled || !player || !player->GetGuildId())
             return;
         // A real player levels up: the guild may have gear for them.
-        if (!IsBot(player))
+        if (IsHuman(player))
         {
             if (settings.gear)
                 Push({ GuildEvent::HUMAN_LEVEL, player->GetGUID(), player->GetLevel() });
@@ -781,7 +821,7 @@ public:
 
     void OnPlayerLogin(Player* player) override
     {
-        if (!settings.enabled || !player || !player->GetGuildId() || IsBot(player))
+        if (!settings.enabled || !player || !player->GetGuildId() || !IsHuman(player))
             return;
         Push({ GuildEvent::LOGIN, player->GetGUID(), 0 });
     }
@@ -789,7 +829,7 @@ public:
     // A real player asks the guild for an item: queued for the world thread (Order).
     bool OnPlayerCanUseChat(Player* player, uint32 /*type*/, uint32 /*language*/, std::string& msg, Guild* guild) override
     {
-        if (!settings.enabled || !settings.orders || !player || !guild || IsBot(player))
+        if (!settings.enabled || !settings.orders || !player || !guild || !IsHuman(player))
             return true;
         if (uint32 entry = CoaWorldGuildRules::OrderedItem(msg))
             Push({ GuildEvent::ORDER, player->GetGUID(), entry });
