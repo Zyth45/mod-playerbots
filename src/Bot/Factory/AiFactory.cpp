@@ -442,7 +442,8 @@ void AiFactory::AddDefaultCombatStrategies(Player* player, PlayerbotAI* const fa
         // Random bots take a specialization from level 10; its role picks the rotation.
         EnsureCoaSpecialization(player);
         // Catch up on points earned before bots spent talents (or while this build was not live).
-        ApplyCoaTalents(player);
+        // Capped by AiPlayerbot.CoaLive.TalentsPerUpdate (0: all now, as before); the rest on its next updates.
+        ApplyCoaTalents(player, CoaTalentsPerUpdate());
         switch (GetCoaRole(player))
         {
             case CoaRole::Tank:

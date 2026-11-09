@@ -3273,6 +3273,17 @@ AiPlayerbot.CoaLive.CleanWorld.Enable = 0
 
 AiPlayerbot.CoaLive.NightBank.Enable = 0
 
+#    AiPlayerbot.CoaLive.TalentsPerUpdate
+#        Description: Performance. A random bot of a CoA class rebuilt at a new level takes at most
+#                     this many talent entries at once, then the rest a few a second on its own
+#                     updates, in the same order: the same talents in the end, without a 200 ms
+#                     pause of the world for each rebuild (each entry makes the core check the
+#                     whole Character Advancement again).
+#        Default:     0 - all at once, as before
+#                     2 - suggested
+
+AiPlayerbot.CoaLive.TalentsPerUpdate = 0
+
 #    AiPlayerbot.CoaLive.Immersion.Enable
 #        Description: Immersion. A random bot idling with water close by (60 yd), a capital's
 #                     canals included, now and then goes to the shore and fishes for 4 to 15

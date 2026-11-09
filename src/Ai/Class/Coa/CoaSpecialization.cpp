@@ -31,6 +31,7 @@
 #include "Log.h"
 #include "Player.h"
 #include "Playerbots.h"
+#include "GameTime.h"
 #include "PlayerbotAIConfig.h"
 #include "PlayerbotFactory.h"
 #include "Random.h"
@@ -413,12 +414,41 @@ bool EnsureCoaSpecialization(Player* bot)
     return true;
 }
 
+namespace
+{
+// The entries by id and the free-choice groups by entry, built once (InitTalents: a linear search per build pick
+// and per entry made every refresh scan the whole table hundreds of times). Rebuilt if the data ever changes.
+std::mutex coaIndexLock;
+std::unordered_map<uint32, AscensionCompatData::CoATalentEntry const*> coaEntryIndex;
+std::unordered_map<uint32, uint32> coaFreeGroupIndex;
+void const* coaIndexedData = nullptr;
+size_t coaIndexedSize = 0;
+size_t coaIndexedFree = 0;
+
+void IndexCoaEntries()
+{
+    auto const& entries = AscensionCompatData::CoATalentEntries;
+    auto const& free = AscensionCompatData::CoASelectableFreeEntries;
+    if (coaIndexedData == entries.data() && coaIndexedSize == entries.size() && coaIndexedFree == free.size())
+        return;
+    coaEntryIndex.clear();
+    for (AscensionCompatData::CoATalentEntry const& entry : entries)
+        coaEntryIndex.emplace(entry.EntryId, &entry);  // the first of an id wins, as the linear search did
+    coaFreeGroupIndex.clear();
+    for (AscensionCompatData::CoASelectableFreeEntry const& f : free)
+        coaFreeGroupIndex.emplace(f.EntryId, f.GroupId);
+    coaIndexedData = entries.data();
+    coaIndexedSize = entries.size();
+    coaIndexedFree = free.size();
+}
+}  // namespace
+
 AscensionCompatData::CoATalentEntry const* FindCoaEntry(uint32 entryId)
 {
-    for (AscensionCompatData::CoATalentEntry const& entry : AscensionCompatData::CoATalentEntries)
-        if (entry.EntryId == entryId)
-            return &entry;
-    return nullptr;
+    std::lock_guard<std::mutex> guard(coaIndexLock);
+    IndexCoaEntries();
+    auto it = coaEntryIndex.find(entryId);
+    return it == coaEntryIndex.end() ? nullptr : it->second;
 }
 
 namespace
@@ -478,10 +508,10 @@ namespace
 // when one is set.
 uint32 FreeGroupOf(uint32 entryId)
 {
-    for (AscensionCompatData::CoASelectableFreeEntry const& free : AscensionCompatData::CoASelectableFreeEntries)
-        if (free.EntryId == entryId)
-            return free.GroupId;
-    return 0;
+    std::lock_guard<std::mutex> guard(coaIndexLock);
+    IndexCoaEntries();
+    auto it = coaFreeGroupIndex.find(entryId);
+    return it == coaFreeGroupIndex.end() ? 0 : it->second;
 }
 
 // Rank each entry should hold at the bot's level, in the order of the build: the build's picks up to that level,
@@ -534,7 +564,13 @@ uint32 CoaFreeGroupOf(uint32 entryId)
     return FreeGroupOf(entryId);
 }
 
-uint32 ApplyCoaTalents(Player* bot)
+namespace
+{
+std::mutex pendingTalentsLock;
+std::unordered_map<uint64, uint64> pendingTalents;  // bot -> next try (ms): raises left for its next updates
+}  // namespace
+
+uint32 ApplyCoaTalents(Player* bot, uint32 maxRaises)
 {
     if (!bot || !IsAscensionCustomClassId(bot->getClass()) || !sRandomPlayerbotMgr.IsRandomBot(bot))
         return 0;
@@ -608,19 +644,75 @@ uint32 ApplyCoaTalents(Player* bot)
     if (lowered)
         PlayerbotFactory::ReactivateHighestRanks(bot);
 
+    // Each raise is a full SynchronizeProgression of the core (2 to 5 ms): a bot rebuilt 40 levels higher made
+    // 30 to 50 of them in one go on the world thread. With a cap (AiPlayerbot.CoaLive.TalentsPerUpdate), the rest
+    // is raised on the bot's next updates, in the same order, to the same end.
     uint32 raised = 0;
+    bool more = false;
     for (auto const& [entryId, rank] : wanted)
-        if (!belowSpecialization && GetAscensionTalentRank(bot, entryId) < rank && SetAscensionTalentRank(bot, entryId, rank) &&
-            GetAscensionTalentRank(bot, entryId) >= rank)
+    {
+        if (belowSpecialization || GetAscensionTalentRank(bot, entryId) >= rank)
+            continue;
+        if (maxRaises && raised >= maxRaises)
+        {
+            more = true;
+            break;
+        }
+        if (SetAscensionTalentRank(bot, entryId, rank) && GetAscensionTalentRank(bot, entryId) >= rank)
         {
             ++raised;
             changes += " +" + std::to_string(entryId);
         }
+    }
+    {
+        std::lock_guard<std::mutex> guard(pendingTalentsLock);
+        if (more)
+        {
+            if (pendingTalents.size() > 20000)  // bots logged out mid-way: they rebuild again anyway
+                pendingTalents.clear();
+            pendingTalents[bot->GetGUID().GetRawValue()] = 0;
+        }
+        else
+            pendingTalents.erase(bot->GetGUID().GetRawValue());
+    }
 
     if (raised || lowered)
         LOG_INFO("playerbots", "coa: {} (class {}, level {}, specialization {}) raised {}, lowered {} talent entries ({} orphan ranks):{}",
                  bot->GetName(), bot->getClass(), bot->GetLevel(), specializationId, raised, lowered, orphans, changes);
     return raised;
+}
+
+uint32 CoaTalentsPerUpdate() { return sPlayerbotAIConfig.coaLiveTalentsPerUpdate; }
+
+void CoaTalentsTick(Player* bot)
+{
+    if (!bot || !CoaTalentsPerUpdate())
+        return;
+    uint64 const key = bot->GetGUID().GetRawValue();
+    uint64 const now = GameTime::GetGameTimeMS().count();
+    {
+        std::lock_guard<std::mutex> guard(pendingTalentsLock);
+        auto it = pendingTalents.find(key);
+        if (it == pendingTalents.end() || now < it->second)
+            return;
+        it->second = now + 1000;  // a few raises a second, never all on one update
+    }
+    if (bot->IsInWorld() && !bot->IsInCombat())
+        ApplyCoaTalents(bot, CoaTalentsPerUpdate());
+}
+
+uint32 CoaTalentsMissing(Player* bot)
+{
+    if (!bot || !IsAscensionCustomClassId(bot->getClass()) || bot->GetLevel() < SpecializationLevel)
+        return 0;
+    uint32 const specializationId = GetAscensionActiveSpecialization(bot);
+    if (!specializationId)
+        return 0;
+    uint32 missing = 0;
+    for (auto const& [entryId, rank] : BuildRanksAtLevel(bot, specializationId))
+        if (GetAscensionTalentRank(bot, entryId) < rank)
+            ++missing;
+    return missing;
 }
 
 uint32 SpendCoaTalentPoints(Player* bot)
