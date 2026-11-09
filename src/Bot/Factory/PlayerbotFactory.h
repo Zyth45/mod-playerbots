@@ -73,6 +73,9 @@ public:
     static void InitTalentsBySpecNo(Player* bot, int specNo, bool reset);
     static void InitTalentsByParsedSpecLink(Player* bot, std::vector<std::vector<uint32>> parsedSpecLink, bool reset);
     void InitAvailableSpells();
+    // The trainer spells InitAvailableSpells would still teach this bot now, without teaching them (the check of
+    // AiPlayerbot.CoaLive.TrainerDedup, ".bot trainercheck"). 0 when the class's trainers are not cached yet.
+    static uint32 CountTeachableSpells(Player* bot);
     static bool IsTrainerSpellAllowedForBot(Player* bot, Trainer::Trainer const* trainer,
                                              Trainer::Spell const* trainerSpell);
     void InitClassSpells();

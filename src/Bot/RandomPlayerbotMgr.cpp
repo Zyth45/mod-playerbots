@@ -65,6 +65,8 @@
 #include <random>
 #include <set>
 #include <utility>
+#include <mutex>
+#include <unordered_map>
 
 // --- CoA World (CoA Monde session) ---
 static void CoaSyncBotRulesetPvp(Player* bot);
@@ -2167,6 +2169,45 @@ void RandomPlayerbotMgr::Revive(Player* player)
     RandomTeleportGrindForLevel(player);
 }
 
+namespace
+{
+// What RandomTeleportByLocations reads of a location: the same for every bot of one phase and one collision height.
+struct TeleportSpot
+{
+    uint32 zoneId = 0;
+    uint32 areaId = 0;
+    bool inWater = false;
+    float ground = INVALID_HEIGHT;
+};
+
+std::mutex teleportSpotsLock;
+std::unordered_map<std::string, TeleportSpot> teleportSpots;  // map, x, y, z, phase, collision height -> spot
+
+TeleportSpot SpotOf(Map* map, Player* bot, float x, float y, float z)
+{
+    uint32 const phase = bot->GetPhaseMask();
+    float const height = bot->GetCollisionHeight();
+    std::string const key = std::to_string(map->GetId()) + ":" + std::to_string(x) + ":" + std::to_string(y) + ":" +
+                            std::to_string(z) + ":" + std::to_string(phase) + ":" + std::to_string(height);
+    {
+        std::lock_guard<std::mutex> guard(teleportSpotsLock);
+        auto it = teleportSpots.find(key);
+        if (it != teleportSpots.end())
+            return it->second;
+    }
+    TeleportSpot spot;
+    spot.zoneId = map->GetZoneId(phase, x, y, z);
+    spot.areaId = map->GetAreaId(phase, x, y, z);
+    spot.inWater = map->IsInWater(phase, x, y, z, height);
+    spot.ground = map->GetHeight(phase, x, y, z + 0.5f);
+    std::lock_guard<std::mutex> guard(teleportSpotsLock);
+    if (teleportSpots.size() > 200000)
+        teleportSpots.clear();
+    teleportSpots.emplace(key, spot);
+    return spot;
+}
+}  // namespace
+
 void RandomPlayerbotMgr::RandomTeleport(Player* bot, std::vector<WorldLocation>& locs, bool hearth)
 {
     // ignore when alrdy teleported or not in the world yet.
@@ -2256,11 +2297,14 @@ void RandomPlayerbotMgr::RandomTeleport(Player* bot, std::vector<WorldLocation>&
         if (!map)
             continue;
 
-        AreaTableEntry const* zone = sAreaTableStore.LookupEntry(map->GetZoneId(bot->GetPhaseMask(), x, y, z));
+        // CoA: the zone, area, water and ground of a location never change, but each lookup loaded the map cell from
+        // disk when no one stood there (up to 128 ms a call, bench a10). Read once per location, then remembered.
+        TeleportSpot const spot = SpotOf(map, bot, x, y, z);
+        AreaTableEntry const* zone = sAreaTableStore.LookupEntry(spot.zoneId);
         if (!zone)
             continue;
 
-        AreaTableEntry const* area = sAreaTableStore.LookupEntry(map->GetAreaId(bot->GetPhaseMask(), x, y, z));
+        AreaTableEntry const* area = sAreaTableStore.LookupEntry(spot.areaId);
         if (!area)
             continue;
 
@@ -2278,10 +2322,10 @@ void RandomPlayerbotMgr::RandomTeleport(Player* bot, std::vector<WorldLocation>&
                 continue;
         }
 
-        if (map->IsInWater(bot->GetPhaseMask(), x, y, z, bot->GetCollisionHeight()))
+        if (spot.inWater)
             continue;
 
-        float ground = map->GetHeight(bot->GetPhaseMask(), x, y, z + 0.5f);
+        float ground = spot.ground;
         if (ground <= INVALID_HEIGHT)
             continue;
 
