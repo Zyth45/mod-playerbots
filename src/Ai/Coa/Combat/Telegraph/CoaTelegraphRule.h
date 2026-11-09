@@ -7,6 +7,7 @@
 #ifndef PLAYERBOTS_COA_TELEGRAPH_RULE_H
 #define PLAYERBOTS_COA_TELEGRAPH_RULE_H
 
+#include <cmath>
 #include <cstdint>
 
 // Telegraphs (CoA Combat, Targorr): a ground marker that announces a hit. CoA's kits put a persistent area aura of type
@@ -47,6 +48,21 @@ namespace CoaTelegraphRule
     inline bool MustLeave(Telegraph const& t, float markerRadius, float distance)
     {
         return markerRadius > 0.0f && distance < SafeDistance(t, markerRadius);
+    }
+
+    // Where the bot steps to: straight out from the marker's centre, through its own position, `distance` yards from
+    // the centre (bench a12: the stock flee sends a melee bot left or right of its target, around the circle rather
+    // than out of it). A bot on the centre itself leaves along `fallbackAngle`; `turn` rotates the way out (radians)
+    // when a wall blocks the straight one.
+    inline void ExitPoint(float centreX, float centreY, float botX, float botY, float fallbackAngle, float turn,
+                          float distance, float& x, float& y)
+    {
+        float const dx = botX - centreX;
+        float const dy = botY - centreY;
+        float angle = (dx * dx + dy * dy) > 0.01f ? std::atan2(dy, dx) : fallbackAngle;
+        angle += turn;
+        x = centreX + std::cos(angle) * distance;
+        y = centreY + std::sin(angle) * distance;
     }
 }
 
