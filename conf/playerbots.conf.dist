@@ -3242,6 +3242,25 @@ AiPlayerbot.CoaLive.Social.InviteCooldownMinutes = 60
 
 AiPlayerbot.CoaLive.City.Enable = 0
 
+#    AiPlayerbot.CoaLive.Sheath.Enable
+#        Description: Bots draw their weapon in a fight (the ranged one for a ranged bot) and put it
+#                     away out of it, on a mount and in flight, as a player's client does (#11610).
+#                     Every bot, random or yours. Read again by ".reload config".
+#        Default:     0 - off
+#                     1 - on
+
+AiPlayerbot.CoaLive.Sheath.Enable = 0
+
+#    AiPlayerbot.CoaLive.CleanWorld.Enable
+#        Description: A clean world. A random bot's ghost does not take its body back in the middle of
+#                     the monsters that killed it: it revives at a safe spot within reach (30 yd), or at
+#                     the spirit healer when there is none. A random bot idling in the water for 30 s
+#                     swims to the nearest shore. Read again by ".reload config".
+#        Default:     0 - off
+#                     1 - on
+
+AiPlayerbot.CoaLive.CleanWorld.Enable = 0
+
 #    AiPlayerbot.CoaLive.Immersion.Enable
 #        Description: Immersion. A random bot idling with water close by (60 yd), a capital's
 #                     canals included, now and then goes to the shore and fishes for 4 to 15

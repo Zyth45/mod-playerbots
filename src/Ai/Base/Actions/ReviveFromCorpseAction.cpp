@@ -5,6 +5,7 @@
  */
 
 #include "ReviveFromCorpseAction.h"
+#include "CoaCleanWorld.h"
 #include "Corpse.h"
 #include "DBCStores.h"
 #include "Event.h"
@@ -91,6 +92,11 @@ bool ReviveFromCorpseAction::Execute(Event event)
         if (dCount >= 5)
             return botAI->DoSpecificAction("spirit healer");
     }
+
+    // CoA Live clean world: not in the middle of the monsters that killed it (a safe spot within reach, else the
+    // spirit healer). Off: as before.
+    if (CoaCleanWorld::PrepareRevive(botAI))
+        return true;
 
     LOG_DEBUG("playerbots", "Bot {} {}:{} <{}> revives at body", bot->GetGUID().ToString().c_str(),
               bot->GetTeamId() == TEAM_ALLIANCE ? "A" : "H", bot->GetLevel(), bot->GetName().c_str());

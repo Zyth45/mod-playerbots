@@ -16,7 +16,9 @@
 #include "AttackAction.h"
 #include "CoaFreshStartRules.h"
 #include "CoaImmersionRules.h"
+#include "CoaCleanWorld.h"
 #include "CoaLiveRules.h"
+#include "CoaSheathRules.h"
 #include "Chat.h"
 #include "ChatCommand.h"
 #include "CoaSoul.h"
@@ -1393,7 +1395,18 @@ void LoadBank()
 
 void OnBotUpdate(Player* bot, PlayerbotAI* botAI, uint32 diff)
 {
-    if ((!Enabled() && !ImmersionEnabled()) || !bot || !botAI || diff == 0)
+    if (!bot || !botAI || diff == 0)
+        return;
+    // The weapon drawn in a fight, put away out of it (#11610): every update, a compare when nothing changes.
+    if (sPlayerbotAIConfig.coaLiveSheathEnable && bot->IsInWorld() && !IsSelfBot(bot))
+    {
+        Item* rangedItem = bot->GetItemByPos(INVENTORY_SLOT_BAG_0, EQUIPMENT_SLOT_RANGED);
+        uint8 const wanted = CoaSheath::Wanted(bot->IsInCombat(), bot->IsMounted(), bot->IsFlying() || bot->IsInFlight(),
+                                               PlayerbotAI::IsRanged(bot), rangedItem != nullptr);
+        if (bot->GetSheath() != SheathState(wanted))
+            bot->SetSheath(SheathState(wanted));
+    }
+    if (!Enabled() && !ImmersionEnabled() && !sPlayerbotAIConfig.coaLiveCleanWorldEnable)
         return;
     // About every SCAN_MS per bot, spread over the bots, with no state: the bot's turn comes when the clock,
     // shifted by its guid, crosses a multiple of SCAN_MS during this update.
@@ -1402,6 +1415,8 @@ void OnBotUpdate(Player* bot, PlayerbotAI* botAI, uint32 diff)
         return;
     if (ImmersionEnabled())
         Fish(bot, botAI);
+    if (!IsFishing(bot))
+        CoaCleanWorld::LeaveWater(bot, botAI);
     if (Enabled())
         LookAround(bot, botAI);
 }
