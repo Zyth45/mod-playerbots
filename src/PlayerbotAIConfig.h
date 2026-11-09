@@ -695,7 +695,8 @@ public:
     bool coaSoulEnable;           // AiPlayerbot.CoaSoul.Enable (souls of the bots)
     std::string coaSoulWeights;   // AiPlayerbot.CoaSoul.Weights: lazy, quester, wanderer, trader, pvp
     bool coaFreshStartEnable;  // AiPlayerbot.CoaFreshStart.Enable (launch of a new living realm)
-    bool coaLiveImmersionEnable;  // AiPlayerbot.CoaLive.Immersion.Enable (L2 fishing)
+    bool coaLiveImmersionEnable;
+    uint32 coaLiveImmersionFishingPerThousand;  // AiPlayerbot.CoaLive.Immersion.FishingPerThousand  // AiPlayerbot.CoaLive.Immersion.Enable (L2 fishing)
     bool coaLiveCityEnable;  // AiPlayerbot.CoaLive.City.Enable (L2 City Life)
     bool coaLiveSocialEnable;
     uint32 coaLiveSocialInviteCooldownMinutes;  // AiPlayerbot.CoaLive.Social.InviteCooldownMinutes  // AiPlayerbot.CoaLive.Social.Enable (L2 social bots)

@@ -59,6 +59,7 @@
 #include "WorldPacket.h"
 #include "WorldSession.h"
 
+#include <atomic>
 #include <cctype>
 #include <cstdlib>
 #include <list>
@@ -630,9 +631,25 @@ bool Social(Player* bot, PlayerbotAI* botAI, std::list<Player*> const& nearby)
 
 // ---------------------------------------------------------------- Immersion (L2): fishing on the shore
 
+std::atomic<uint32> onlineRandomBots{0};  // refreshed by the world thread every 5 s while Immersion is on
+uint64 nextOnlineCount = 0;
 std::unordered_map<uint64, uint64> fishingUntil;  // bot -> end of its time at the water (map threads, under liveLock)
 
 bool ImmersionEnabled() { return sPlayerbotAIConfig.coaLiveImmersionEnable; }
+
+// The random bots online, for the fishing cap: one pass every 5 s on the world thread, only while Immersion is on.
+void CountOnlineRandomBots(uint64 nowMs)
+{
+    if (!ImmersionEnabled() || nowMs < nextOnlineCount)
+        return;
+    nextOnlineCount = nowMs + 5000;
+    uint32 n = 0;
+    std::shared_lock<std::shared_mutex> playersLock(*HashMapHolder<Player>::GetLock());
+    for (auto const& [guid, player] : ObjectAccessor::GetPlayers())
+        if (player && player->IsInWorld() && IsRandom(player))
+            ++n;
+    onlineRandomBots.store(n, std::memory_order_relaxed);
+}
 
 // The "new rpg" holds the bot (REST, only the clock is reset: it does not sit) while the fishing strategy works.
 void Fish(Player* bot, PlayerbotAI* botAI)
@@ -677,6 +694,12 @@ void Fish(Player* bot, PlayerbotAI* botAI)
     view.knowsFishing = bot->HasSkill(SKILL_FISHING);
     if (!CoaImmersion::MayStartFishing(view) || urand(1, 1000) > CoaImmersion::START_CHANCE_PER_MILLE)
         return;
+    {
+        std::lock_guard<std::mutex> guard(liveLock);
+        if (!CoaImmersion::FishingRoom(uint32(fishingUntil.size()), onlineRandomBots.load(std::memory_order_relaxed),
+                                       sPlayerbotAIConfig.coaLiveImmersionFishingPerThousand))
+            return;  // enough bots at the water already
+    }
 
     // Water close by: the costly look, last.
     WorldPosition water = FindWaterRadial(bot, bot->GetPositionX(), bot->GetPositionY(), bot->GetPositionZ(),
@@ -1261,6 +1284,11 @@ public:
     void OnPlayerLogout(Player* player) override
     {
         if (player)
+        {
+            std::lock_guard<std::mutex> guard(liveLock);
+            fishingUntil.erase(player->GetGUID().GetRawValue());  // a bot gone is no longer at the water
+        }
+        if (player)
             tradeJoined.erase(player->GetGUID().GetRawValue());  // its channels are left with it: join again next time
         if (!Enabled() || !player || !player->GetGuildId() || !IsRandom(player) ||
             !RealOnlineInGuild(player->GetGuildId(), nullptr))
@@ -1341,6 +1369,7 @@ public:
     void OnUpdate(uint32 /*diff*/) override
     {
         CoaWorldFile::Tick(GameTime::GetGameTimeMS().count());  // world.json, only while the dashboard watches
+        CountOnlineRandomBots(GameTime::GetGameTimeMS().count());
         CoaSoul::Flush(GameTime::GetGameTimeMS().count());       // new souls into their table
         if (Enabled())
         {

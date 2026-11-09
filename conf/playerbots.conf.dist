@@ -3255,6 +3255,13 @@ AiPlayerbot.CoaLive.City.Enable = 0
 
 AiPlayerbot.CoaLive.Immersion.Enable = 0
 
+#    AiPlayerbot.CoaLive.Immersion.FishingPerThousand
+#        Description: At most this many bots at the water at once for every 1000 random bots
+#                     online (at least one). 0 stops new fishing.
+#        Default:     25 (25 bots for 1000)
+
+AiPlayerbot.CoaLive.Immersion.FishingPerThousand = 25
+
 #    AiPlayerbot.CoaFreshStart.Enable
 #        Description: Launch of a new realm ("New living server" of the launcher, with the Solo
 #                     self-found preset). Every random bot starts at the level it was made at (1), never
