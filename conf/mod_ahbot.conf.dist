@@ -97,6 +97,10 @@ AuctionHouseBot.CoA.ObtainableItemsOnly = true
 # Keeps Netherweave Cloth, Fel Iron Ore and the like off the auction house.
 AuctionHouseBot.CoA.VanillaItemsOnly = true
 
+# CoA: list only items that players really sold on the CoA auction house (17,121 item ids from scans of the real house,
+# 2026). Keeps off what CoA never had for sale: arrows and bullets, unused templates and the like. Default false in the code.
+AuctionHouseBot.CoA.SeenOnCoAHouseOnly = true
+
 AuctionHouseBot.DEBUG = false
 AuctionHouseBot.DEBUG_FILTERS = false
 AuctionHouseBot.MinutesBetweenBuyCycle = 1:3

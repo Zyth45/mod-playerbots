@@ -945,6 +945,12 @@ void AuctionHouseBot::PopulateItemCandidatesAndProportions()
             LOG_ERROR("module", "AuctionHouseBot: No original-world item sources loaded; later expansions' goods are not filtered");
     }
     uint32 laterExpansionItems = 0;
+    // CoA: only what players really sold on the CoA auction house (user, 09/11), from the scans of the real house.
+    bool const coaSeenOnly = sConfigMgr->GetOption<bool>("AuctionHouseBot.CoA.SeenOnCoAHouseOnly", false);
+    static std::unordered_set<uint32> const seenOnCoAHouse = {
+#include "CoaAhSeenItems.inc"
+    };
+    uint32 unseenItems = 0;
     CoaSellableFilter coaFilter;
     coaFilter.Load();
 
@@ -965,6 +971,12 @@ void AuctionHouseBot::PopulateItemCandidatesAndProportions()
         // Ammunition is of no use on CoA (user, 08/11): never in the house, whatever the filter keys.
         if (CoaEconomyRules::IsAmmo(itr->second.Class))
             continue;
+
+        if (coaSeenOnly && !seenOnCoAHouse.count(itr->second.ItemId))
+        {
+            ++unseenItems;
+            continue;
+        }
 
         if (coaFilter.enabled && !coaFilter.Keeps(itr->second))
             continue;
@@ -1185,6 +1197,9 @@ void AuctionHouseBot::PopulateItemCandidatesAndProportions()
             candidateCount += qualityCandidates.second.size();
     LOG_INFO("module", "AuctionHouseBot: {} eligible item templates (CoA source filter: {}, {} later expansion items left out)",
         candidateCount, coaSourcesOnly, laterExpansionItems);
+    if (coaSeenOnly)
+        LOG_INFO("module", "AuctionHouseBot: {} items never seen on the CoA auction house left out ({} ids seen there)",
+            unseenItems, seenOnCoAHouse.size());
     if (coaFilter.enabled)
         LOG_INFO("module", "AuctionHouseBot: CoA sellable filter left out {} deprecated, {} Bloodforged, {} Worldforged and {} scaled items",
             coaFilter.deprecatedOut, coaFilter.bloodforgedOut, coaFilter.worldforgedOut, coaFilter.scaledOut);
