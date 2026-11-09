@@ -38,6 +38,7 @@
 #include "Creature.h"
 #include "DBCStores.h"
 #include "CoaDbCheck.h"
+#include "CoaSellable.h"
 #include "CoaSurnameRules.h"
 #include "CharacterCache.h"
 #include "ChatCommand.h"
@@ -1006,6 +1007,10 @@ uint64 PriceOf(Player* bot, ItemTemplate const* proto)
 
 // Something the bot really carries and could sell: tradable, not a quest item, worth something, green or better
 // (any trade good).
+// An item worth naming in Trade: the rule of CoA Economy's bot auctions (one rule everywhere): never ammunition or a
+// quiver (no use in CoA), an item of a later expansion CoA does not have, or a vendor good.
+bool TradeWorthy(ItemTemplate const* proto) { return CoaEconomy::Sellable::BotMayList(proto, true); }
+
 bool WtsValues(Player* bot, std::map<std::string, std::string>& extra, Offer& offer)
 {
     std::vector<Item*> items;
@@ -1015,6 +1020,8 @@ bool WtsValues(Player* bot, std::map<std::string, std::string>& extra, Offer& of
             return;
         ItemTemplate const* proto = item->GetTemplate();
         if (!proto || proto->Bonding == BIND_QUEST_ITEM || proto->Class == ITEM_CLASS_QUEST || !proto->SellPrice)
+            return;
+        if (!TradeWorthy(proto))
             return;
         if (proto->Quality >= ITEM_QUALITY_UNCOMMON || proto->Class == ITEM_CLASS_TRADE_GOODS)
             items.push_back(item);
@@ -1050,7 +1057,7 @@ bool WtbValues(Player* bot, std::map<std::string, std::string>& extra, Offer& of
             continue;
         ItemTemplate const* proto = sObjectMgr->GetItemTemplate(auction->item_template);
         if (proto && proto->RequiredLevel <= bot->GetLevel() + 5 && proto->Quality >= ITEM_QUALITY_NORMAL &&
-            proto->Quality <= ITEM_QUALITY_EPIC)
+            proto->Quality <= ITEM_QUALITY_EPIC && TradeWorthy(proto))
             fit.push_back(auction);
         if (fit.size() >= 200)
             break;
