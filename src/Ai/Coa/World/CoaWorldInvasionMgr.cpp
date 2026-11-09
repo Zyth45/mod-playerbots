@@ -25,6 +25,8 @@
 #include "CoaWorldInvasion.h"
 
 #include "CoaWorldBots.h"
+#include "CoaWorldState.h"
+#include "CoaWorldStateRules.h"
 
 #include "Chat.h"
 #include "ChatCommand.h"
@@ -788,6 +790,32 @@ namespace CoaWorld
     {
         if (creature)
             Mgr().QueueDeath(creature->GetGUID(), creature->GetEntry());
+    }
+
+    // monde.json (CoaWorldState): the announced and running invasions.
+    std::string InvasionsJson(time_t now)
+    {
+        std::string out = "[";
+        bool first = true;
+        for (Slot const& slot : Mgr().Slots())
+        {
+            if (slot.state == State::Idle)
+                continue;
+            InvasionSite const& site = slot.Site();
+            int64 const left = std::max<int64>(0, slot.timer) / IN_MILLISECONDS;
+            bool const running = slot.state == State::Running;
+            int64 const since = running ? int64(now) - (int64(settings.duration) * MINUTE - left) : 0;
+            out += std::string(first ? "" : ",") + "{\"zone\":" + std::to_string(site.zoneId) + ",\"map\":" +
+                   std::to_string(site.mapId) + ",\"kind\":" + CoaWorldStateRules::Quote(slot.plan->key) +
+                   ",\"site\":" + CoaWorldStateRules::Quote(site.name) + ",\"state\":" +
+                   CoaWorldStateRules::Quote(StateName(slot.state)) + ",\"level\":" + std::to_string(slot.level) +
+                   ",\"wave\":" + std::to_string(slot.wave) + ",\"since\":" + CoaWorldStateRules::DateOrNull(since) +
+                   ",\"starts\":" + CoaWorldStateRules::DateOrNull(running ? 0 : int64(now) + left) +
+                   ",\"ends\":" + CoaWorldStateRules::DateOrNull(running ? int64(now) + left : 0) +
+                   ",\"bots\":" + std::to_string(BorrowedCount(slot.Owner())) + "}";
+            first = false;
+        }
+        return out + "]";
     }
 }
 

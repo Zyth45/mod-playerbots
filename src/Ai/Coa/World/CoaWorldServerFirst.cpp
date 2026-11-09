@@ -18,6 +18,7 @@
  */
 
 #include "CoaWorldBots.h"
+#include "CoaWorldState.h"
 
 #include "Chat.h"
 #include "Config.h"
@@ -29,6 +30,7 @@
 #include "Log.h"
 #include "Map.h"
 #include "ObjectAccessor.h"
+#include "ObjectMgr.h"
 #include "Player.h"
 #include "ScriptMgr.h"
 #include "StringFormat.h"
@@ -105,6 +107,30 @@ namespace
                     "`guild`, `at`) VALUES ({}, {}, {}, 0, '', '', UNIX_TIMESTAMP())", uint32(FIRST_LEVEL), top, uint32(team));
             } while (result->NextRow());
         }
+        // monde.json: the last firsts taken by someone, oldest first.
+        if (QueryResult result = PlayerbotsDatabase.Query("SELECT `kind`, `entry`, `team`, `name`, `guild`, `at` FROM "
+                                                          "`coa_world_server_first` WHERE `guid` <> 0 ORDER BY `at` DESC LIMIT 20"))
+        {
+            std::vector<std::tuple<std::string, std::string, std::string, time_t>> rows;
+            do
+            {
+                Field* f = result->Fetch();
+                uint8 const kind = f[0].Get<uint8>();
+                uint32 const entry = f[1].Get<uint32>();
+                char const* side = f[2].Get<uint8>() == TEAM_ALLIANCE ? "the Alliance" : "the Horde";
+                std::string what;
+                if (kind == FIRST_LEVEL)
+                    what = Acore::StringFormat("level {} ({})", entry, side);
+                else
+                {
+                    CreatureTemplate const* boss = sObjectMgr->GetCreatureTemplate(entry);
+                    what = Acore::StringFormat("{} ({})", boss ? boss->Name : std::to_string(entry), side);
+                }
+                rows.emplace_back(what, f[3].Get<std::string>(), f[4].Get<std::string>(), time_t(f[5].Get<uint32>()));
+            } while (result->NextRow());
+            for (auto r = rows.rbegin(); r != rows.rend(); ++r)
+                CoaWorldState::First(std::get<0>(*r), std::get<1>(*r), std::get<2>(*r), std::get<3>(*r));
+        }
         g_loaded = true;
     }
 
@@ -137,6 +163,9 @@ namespace
                 : Acore::StringFormat("|cffff8000[Server First]|r {} has slain {}, a first for {}!", who, p.what, side);
             ChatHandler(nullptr).SendWorldText(text);
             LOG_INFO("module", "CoA World: server first ({}): {}", side, text);
+            CoaWorldState::First(p.kind == FIRST_LEVEL ? Acore::StringFormat("level {} ({})", p.entry, side)
+                                                      : Acore::StringFormat("{} ({})", p.what, side),
+                                 p.name, p.guild, time(nullptr));
             CoaWorld::LogEvent("server_first", p.name, p.kind == FIRST_LEVEL
                 ? Acore::StringFormat("first of {} to level {}", side, p.entry)
                 : Acore::StringFormat("first kill of {} for {}", p.what, side));
