@@ -71,6 +71,10 @@ std::vector<std::string> WorldLife(Player* player)
         CoaWorldAddon::Rushes(player, out);
     if (CoaWorldAddon::FirstsOn())
         CoaWorldAddon::Firsts(out);
+    // A game master (what .coaworld invasion/rush start and stop need): the addon shows its GM buttons. The commands'
+    // own checks stay the guard.
+    if (player->GetSession() && player->GetSession()->GetSecurity() >= SEC_GAMEMASTER)
+        out.push_back("WGM\t1");
     return out;
 }
 
