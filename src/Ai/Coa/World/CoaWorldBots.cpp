@@ -92,6 +92,10 @@ namespace CoaWorld
                 // Near: walks there through its usual travel.
                 botAI->rpgInfo.ChangeToGoGrind(goal);
             }
+            else if (request.holdFar && !request.teleport)
+            {
+                // Far, held: stays where it is until the event brings it (BringBot).
+            }
             else
             {
                 // Far: brought to the rally point, never under the eyes of a real player.
@@ -245,6 +249,35 @@ namespace CoaWorld
             return false;
         float dist = bot->GetMapId() == request.mapId ? bot->GetExactDist(&request.goal) : 1e9f;
         return SendOne(owner, bot, request, dist, RealPlayerNear(request.mapId, request.rally, ARRIVAL_UNSEEN_RANGE));
+    }
+
+    bool BringBot(uint32 owner, ObjectGuid guid, uint32 mapId, Position const& at, Position const& goal)
+    {
+        auto itr = g_borrowed.find(owner);
+        if (itr == g_borrowed.end())
+            return false;
+        auto b = std::find_if(itr->second.begin(), itr->second.end(), [guid](Borrowed const& x) { return x.guid == guid; });
+        if (b == itr->second.end())
+            return false;
+        Player* bot = ObjectAccessor::FindPlayer(guid);
+        if (!bot || !bot->IsInWorld() || !bot->IsAlive() || bot->IsInCombat() || bot->IsInFlight() ||
+            bot->IsBeingTeleported())
+            return false;
+        if (bot->GetGroup() || bot->InBattleground() || bot->InArena() || !bot->GetMap() || bot->GetMap()->Instanceable())
+            return false;
+        PlayerbotAI* botAI = GET_PLAYERBOT_AI(bot);
+        if (!botAI || botAI->GetMaster() || botAI->HasPlayerNearby(UNSEEN_RANGE))
+            return false;
+
+        float const facing = std::atan2(goal.GetPositionY() - at.GetPositionY(), goal.GetPositionX() - at.GetPositionX());
+        bot->GetMotionMaster()->Clear();
+        botAI->Reset(true);
+        bot->RemoveAurasWithInterruptFlags(AURA_INTERRUPT_FLAG_TELEPORTED | AURA_INTERRUPT_FLAG_CHANGE_MAP);
+        if (!bot->TeleportTo(mapId, at.GetPositionX(), at.GetPositionY(), at.GetPositionZ(), facing))
+            return false;
+        botAI->rpgInfo.ChangeToGoGrind(WorldPosition(mapId, goal.GetPositionX(), goal.GetPositionY(), goal.GetPositionZ()));
+        b->teleported = true;
+        return true;
     }
 
     void ForgetBot(uint32 owner, ObjectGuid guid)
