@@ -337,7 +337,12 @@ namespace
             else if (word == "AQUOTE")
                 QuoteRequest(player, fields, lines);
             else if (word == "AORDER")
+            {
                 Order(player, fields, lines);
+                // The addon asks AMAIL right after an order: the new mail must be in it.
+                if (asker.cachedRequest == "AMAIL")
+                    asker.cachedRequest.clear();
+            }
             else
                 Mails(player, lines);
             if (isList)
