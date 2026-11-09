@@ -14,6 +14,7 @@
 #include <functional>
 #include "RaceMgr.h"
 #include "CoaSpecialization.h"
+#include "AutoMaintenanceOnLevelupAction.h"
 #include "CoaWildcard.h"
 #include "CoaReborn.h"
 #include "CoaMissionMgr.h"
@@ -570,6 +571,8 @@ void PlayerbotAI::UpdateAI(uint32 elapsed, bool minimal)
     CoaPet::Tick(this);
     // The CoA talents left by a capped rebuild (AiPlayerbot.CoaLive.TalentsPerUpdate).
     CoaTalentsTick(bot);
+    // The level-up maintenance spread over the next updates (AiPlayerbot.CoaLive.MaintenanceSpread).
+    AutoMaintenanceOnLevelupAction::Tick(this);
     // Totems put away after the fight (AiPlayerbot.CoaTotemRecall).
     CoaTotemRecallTick(this);
 

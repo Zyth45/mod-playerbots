@@ -701,6 +701,7 @@ public:
     bool coaLiveCleanWorldEnable;  // AiPlayerbot.CoaLive.CleanWorld.Enable
     bool coaLiveSheathEnable;  // AiPlayerbot.CoaLive.Sheath.Enable (#11610)
     uint32 coaLiveTradeMessagesPerMinute;  // AiPlayerbot.CoaLive.TradeMessagesPerMinute (0: the bank's own pace)
+    bool coaLiveMaintenanceSpread;  // AiPlayerbot.CoaLive.MaintenanceSpread: level-up maintenance a step a second
     bool coaLiveTrainerDedup;  // AiPlayerbot.CoaLive.TrainerDedup: each trainer's spell list walked once a round
     uint32 coaLiveTalentsPerUpdate;  // AiPlayerbot.CoaLive.TalentsPerUpdate (0: all CoA talents at once)
     bool coaLiveNightBankEnable;  // AiPlayerbot.CoaLive.NightBank.Enable (playerbots_coa_night_lines)

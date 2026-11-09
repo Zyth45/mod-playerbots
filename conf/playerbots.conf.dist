@@ -3511,6 +3511,15 @@ AiPlayerbot.CoaLive.TalentsPerUpdate = 2
 
 AiPlayerbot.CoaLive.TrainerDedup = 0
 
+#    AiPlayerbot.CoaLive.MaintenanceSpread
+#        Description: Performance. A random bot's level-up maintenance (new spells, a teleport to
+#                     its level, consumables, equipment) is done a step a second after its talents,
+#                     in the same order, instead of all at once: the same bot in the end.
+#        Default:     0 - all at once, as before
+#                     1 - on
+
+AiPlayerbot.CoaLive.MaintenanceSpread = 0
+
 #    AiPlayerbot.CoaLive.Immersion.Enable
 #        Description: Immersion. A random bot idling with water close by (60 yd), a capital's
 #                     canals included, now and then goes to the shore and fishes for 4 to 15
