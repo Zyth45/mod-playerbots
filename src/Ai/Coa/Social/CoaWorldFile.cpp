@@ -42,6 +42,9 @@ constexpr uint32 EVERY_S = 10;           // world.json every 10 s while watched
 
 uint64 nextWatchCheck = 0;
 uint64 nextBuild = 0;
+Ramp ramp;                 // the realm's start (health.ramp), world thread
+TickStats ticks;           // the world ticks once the start is over
+uint64 nextRampCheck = 0;
 bool watched = false;
 std::atomic<bool> writing{false};
 
@@ -173,9 +176,11 @@ Snapshot Build()
     s.soulsOn = CoaSoul::Enabled();
     s.surnameMode = int32(surnameMode);
     s.surnameListSize = uint32(sPlayerbotAIConfig.coaBotSurnameList.size());
-    s.tickAvgMs = sWorldUpdateTime.GetAverageUpdateTime();
-    s.tickMaxMs = sWorldUpdateTime.GetMaxUpdateTime();
-    s.tickP95Ms = sWorldUpdateTime.GetPercentile(95);
+    // Null until the start is over (95 % of the bots online, then 5 min): the start's peaks stay out.
+    s.ramp = ramp;
+    s.tickAvgMs = ticks.Avg();
+    s.tickMaxMs = ticks.Max();
+    s.tickP95Ms = ticks.P95();
     return s;
 }
 
@@ -211,6 +216,24 @@ void Tick(uint64 nowMs)
 {
     if (!sPlayerbotAIConfig.coaLiveDataFileEnable || !sPlayerbotAIConfig.coaLiveDataFiles)
         return;
+    // The start of the realm, looked at every 10 s until it is over; then each world tick is kept.
+    int64 const now = int64(time(nullptr));
+    if (ramp.doneAt < 0 && nowMs >= nextRampCheck)
+    {
+        nextRampCheck = nowMs + 10000;
+        uint32 online = 0;
+        {
+            std::shared_lock<std::shared_mutex> lock(*HashMapHolder<Player>::GetLock());
+            for (auto const& [guid, player] : ObjectAccessor::GetPlayers())
+                if (player && player->IsInWorld() && sRandomPlayerbotMgr.IsRandomBot(player))
+                    ++online;
+        }
+        ramp.Update(online, sRandomPlayerbotMgr.GetMaxAllowedBotCount(), now);
+    }
+    else if (ramp.doneAt >= 0)
+        ramp.target = sRandomPlayerbotMgr.GetMaxAllowedBotCount();
+    if (ramp.Measuring(now))
+        ticks.Add(sWorldUpdateTime.GetLastUpdateTime());
     if (nowMs >= nextWatchCheck)
     {
         nextWatchCheck = nowMs + WATCH_CHECK_MS;
