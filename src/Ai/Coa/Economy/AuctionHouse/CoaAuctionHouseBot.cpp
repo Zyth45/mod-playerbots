@@ -926,6 +926,17 @@ void AuctionHouseBot::PopulateItemCandidatesAndProportions()
             } while (sources->NextRow());
         else
             LOG_ERROR("module", "AuctionHouseBot: No CoA item sources loaded; only profession items are eligible");
+        // Quest rewards are obtainable too.
+        if (QueryResult rewards = WorldDatabase.Query(
+                "SELECT RewardItem1, RewardItem2, RewardItem3, RewardItem4, RewardChoiceItemID1, RewardChoiceItemID2, "
+                "RewardChoiceItemID3, RewardChoiceItemID4, RewardChoiceItemID5, RewardChoiceItemID6 FROM quest_template"))
+            do
+            {
+                Field* fields = rewards->Fetch();
+                for (uint8 i = 0; i < 10; ++i)
+                    if (uint32 id = fields[i].Get<uint32>())
+                        obtainableItems.insert(id);
+            } while (rewards->NextRow());
     }
 
     // Blizzard items of the later expansions (ids 21000 to 56806) that ask for level 55 or more, or are item level 58
@@ -945,6 +956,14 @@ void AuctionHouseBot::PopulateItemCandidatesAndProportions()
             LOG_ERROR("module", "AuctionHouseBot: No original-world item sources loaded; later expansions' goods are not filtered");
     }
     uint32 laterExpansionItems = 0;
+    // CoA: what players sold on the real CoA auction house (scans of the house, incomplete) counts as obtainable too,
+    // with ObtainableItemsOnly (user, 09/11: the scans are a guide, not a whitelist).
+    bool const coaSeenAdds = sConfigMgr->GetOption<bool>("AuctionHouseBot.CoA.SeenOnCoAHouse", false);
+    static std::unordered_set<uint32> const seenOnCoAHouse = {
+#include "CoaAhSeenItems.inc"
+    };
+    uint32 addedBySeen = 0;
+    uint32 obtainableUnseen = 0;
     CoaSellableFilter coaFilter;
     coaFilter.Load();
 
@@ -952,7 +971,9 @@ void AuctionHouseBot::PopulateItemCandidatesAndProportions()
     ItemTemplateContainer const* its = sObjectMgr->GetItemTemplateStore();
     for (ItemTemplateContainer::const_iterator itr = its->begin(); itr != its->end(); ++itr)
     {
-        if (coaSourcesOnly && !obtainableItems.count(itr->second.ItemId))
+        bool const seen = coaSeenAdds && seenOnCoAHouse.count(itr->second.ItemId);
+        bool const fromSources = !coaSourcesOnly || obtainableItems.count(itr->second.ItemId);
+        if (!fromSources && !seen)
             continue;
 
         if (coaVanillaOnly && !vanillaItems.empty() && itr->second.ItemId >= 21000 && itr->second.ItemId <= 56806 &&
@@ -965,6 +986,7 @@ void AuctionHouseBot::PopulateItemCandidatesAndProportions()
         // Ammunition is of no use on CoA (user, 08/11): never in the house, whatever the filter keys.
         if (CoaEconomyRules::IsAmmo(itr->second.Class))
             continue;
+
 
         if (coaFilter.enabled && !coaFilter.Keeps(itr->second))
             continue;
@@ -1177,6 +1199,10 @@ void AuctionHouseBot::PopulateItemCandidatesAndProportions()
 
         // Store the item ID
         ItemCandidatesByItemClassAndQuality[itr->second.Class][itr->second.Quality].push_back(itr->second.ItemId);
+        if (!fromSources)
+            ++addedBySeen;
+        else if (coaSeenAdds && !seen)
+            ++obtainableUnseen;
     }
 
     std::size_t candidateCount = 0;
@@ -1185,6 +1211,9 @@ void AuctionHouseBot::PopulateItemCandidatesAndProportions()
             candidateCount += qualityCandidates.second.size();
     LOG_INFO("module", "AuctionHouseBot: {} eligible item templates (CoA source filter: {}, {} later expansion items left out)",
         candidateCount, coaSourcesOnly, laterExpansionItems);
+    if (coaSeenAdds)
+        LOG_INFO("module", "AuctionHouseBot: CoA auction house scans: {} items kept only because they were seen there, {} "
+            "obtainable items never seen there ({} ids in the scans)", addedBySeen, obtainableUnseen, seenOnCoAHouse.size());
     if (coaFilter.enabled)
         LOG_INFO("module", "AuctionHouseBot: CoA sellable filter left out {} deprecated, {} Bloodforged, {} Worldforged and {} scaled items",
             coaFilter.deprecatedOut, coaFilter.bloodforgedOut, coaFilter.worldforgedOut, coaFilter.scaledOut);
