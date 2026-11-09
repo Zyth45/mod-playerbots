@@ -39,6 +39,7 @@
 #include "Chat.h"
 #include "ChatCommand.h"
 #include "Config.h"
+#include "GameTime.h"
 #include "Log.h"
 #include "MotionMaster.h"
 #include "ObjectAccessor.h"
@@ -68,6 +69,7 @@ namespace
     constexpr uint32 SPELL_HEARTHSTONE = 8690;
     constexpr time_t RELAPSE_SECONDS = 10 * MINUTE;
     constexpr time_t BUSY_SECONDS = 30;
+    constexpr uint32 LOGIN_GRACE_SECONDS = 120;  // nothing in the first 2 minutes after a login
     constexpr uint32 HEARTH_AT = 3;  // detections within RELAPSE_SECONDS
 
     struct Settings
@@ -271,7 +273,10 @@ namespace
             // BUSY_SECONDS after (the laptop's a31 counted 1108 detections on 639 of 976 bots in 34 min).
             if (bot->IsInCombat() || !bot->GetLootGUID().IsEmpty() || bot->IsSitState() || bot->IsNonMeleeSpellCast(false))
                 track.busyAt = now;
-            if (bot->IsInCombat() || !IsTravelling(status) || now - track.busyAt < BUSY_SECONDS)
+            // Just logged in (a34 on monde4: 130 of 251 detections in the first 5 minutes, bots waiting at login).
+            bool const justIn = getMSTimeDiff(bot->GetInGameTime(), GameTime::GetGameTimeMS().count()) <
+                                LOGIN_GRACE_SECONDS * IN_MILLISECONDS;
+            if (bot->IsInCombat() || !IsTravelling(status) || now - track.busyAt < BUSY_SECONDS || justIn)
             {
                 track.samples.clear();
                 track.bestAt = 0;
