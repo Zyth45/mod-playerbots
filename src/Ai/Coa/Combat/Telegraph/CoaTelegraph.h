@@ -22,10 +22,14 @@ namespace CoaTelegraph
     DynamicObject* MarkerToLeave(Player* bot, float& safeDistance);
     // A live marker `target` cast and stands within (Targorr leaps on his own spot, SmartAI target self), or nullptr.
     DynamicObject* MarkerUnderCaster(Unit* target, float& safeDistance);
+    // A live marker cast by the bot's target or one of its attackers whose hold range (CoaTelegraphRule::HoldApproach)
+    // covers the bot, or nullptr.
+    DynamicObject* MarkerToHoldFor(Player* bot, Unit* target, GuidVector const& attackers);
 }
 
 // While such a marker lies under the bot's target, no melee approach: melee reach of the boss ends inside the 4 yd
-// slam, so a bot that stepped out walked straight back in (bench a20, Targorr).
+// slam, so a bot that stepped out walked straight back in (bench a20, Targorr). Bench a39: no approach move at all
+// (reach, attack, follow, regroup, tank assist, heal reposition) while a live marker is near the bot (MarkerToHoldFor).
 class CoaTelegraphMeleeMultiplier : public Multiplier
 {
 public:

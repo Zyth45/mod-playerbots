@@ -50,6 +50,18 @@ namespace CoaTelegraphRule
         return markerRadius > 0.0f && distance < SafeDistance(t, markerRadius);
     }
 
+    // Bench a39 (Targorr, positions): the leap lands on its marker, yet the victims still stood within 2 yd of the
+    // centre at the impact, the exit leaving them a second's walk out of 3.5 s. The approach moves (reach, melee,
+    // follow, regroup, heal reposition) brought them back once the exit's forced move ended. They now wait while a live
+    // marker lies within this much beyond its safe distance.
+    inline constexpr float HOLD_RANGE = 10.0f;
+
+    // Whether a bot `distance` yards from the centre of a live marker holds its approach moves.
+    inline bool HoldApproach(Telegraph const& t, float markerRadius, float distance)
+    {
+        return markerRadius > 0.0f && distance < SafeDistance(t, markerRadius) + HOLD_RANGE;
+    }
+
     // Where the bot steps to: straight out from the marker's centre, through its own position, `distance` yards from
     // the centre (bench a12: the stock flee sends a melee bot left or right of its target, around the circle rather
     // than out of it). A bot on the centre itself leaves along `fallbackAngle`; `turn` rotates the way out (radians)
