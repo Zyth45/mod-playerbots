@@ -38,6 +38,7 @@
 #include "Creature.h"
 #include "DBCStores.h"
 #include "CoaDbCheck.h"
+#include "CoaSoulAddonRules.h"
 #include "CoaSpecialization.h"
 #include "AscensionSpecialization.h"
 #include "DatabaseEnv.h"
@@ -2048,6 +2049,56 @@ void OnResurrectAccepted(Player* bot, ObjectGuid by)
 using Acore::ChatCommands::ChatCommandTable;
 using Acore::ChatCommands::Console;
 
+// SquidBots Lite asks the soul of a bot (WORLD-PROTOCOLE-3.0 §0, §3): "SQBW\tSOUL?" whispered (addon) to the bot,
+// or "SQBW\tSOUL?\t<name>" whispered to oneself. Only a bot of the asker's group, of the asker's account or under the
+// asker's command; anyone else gets "notyours". Only this request word is stopped; any other SQBW word goes on to
+// the other bricks' handlers.
+std::mutex soulAddonLock;
+CoaSoulAddon::Throttle soulAddonThrottle;
+
+class CoaSoulAddonScript : public PlayerScript
+{
+public:
+    CoaSoulAddonScript() : PlayerScript("CoaSoulAddonScript", {PLAYERHOOK_CAN_PLAYER_USE_PRIVATE_CHAT}) {}
+
+    bool OnPlayerCanUseChat(Player* player, uint32 type, uint32 lang, std::string& msg, Player* receiver) override
+    {
+        std::string name;
+        if (type != CHAT_MSG_WHISPER || lang != LANG_ADDON || !player || !receiver ||
+            !CoaSoulAddon::ParseRequest(msg, name))
+            return true;
+        // Off: as before, no answer (the addon takes the feature as off after 6 s).
+        if (!sPlayerbotAIConfig.coaSoulEnable || !sPlayerbotAIConfig.coaSoulAddon)
+            return true;
+
+        bool const toSelf = receiver == player;
+        Player* bot = toSelf ? (name.empty() ? nullptr : ObjectAccessor::FindPlayerByName(name, true)) : receiver;
+        {
+            std::lock_guard<std::mutex> guard(soulAddonLock);
+            if (!soulAddonThrottle.Allow(player->GetGUID().GetRawValue(), bot ? bot->GetGUID().GetRawValue() : 0,
+                                         GameTime::GetGameTimeMS().count()))
+                return false;  // too many: dropped, no answer
+        }
+
+        PlayerbotAI* botAI = bot ? GET_PLAYERBOT_AI(bot) : nullptr;
+        bool mine = false;
+        if (botAI && bot != player)
+        {
+            Group* group = player->GetGroup();
+            mine = (group && group == bot->GetGroup()) || botAI->GetMaster() == player ||
+                   (bot->GetSession() && player->GetSession() &&
+                    bot->GetSession()->GetAccountId() == player->GetSession()->GetAccountId());
+        }
+
+        // The answer comes from where the question went: the bot, or the asker itself.
+        Player* from = toSelf ? player : receiver;
+        std::string const line = mine ? CoaSoulAddon::Line(bot->GetName(), CoaSoul::Get(bot)) : CoaSoulAddon::NotYours();
+        from->Whisper(std::string(CoaSoulAddon::PREFIX) + line, LANG_ADDON, player);
+        from->Whisper(std::string(CoaSoulAddon::PREFIX) + "-", LANG_ADDON, player);
+        return false;
+    }
+};
+
 class CoaSoulCommandScript : public CommandScript
 {
 public:
@@ -2187,6 +2238,7 @@ public:
 void AddSC_coa_live()
 {
     new CoaSoulCommandScript();
+    new CoaSoulAddonScript();
     new CoaLivePlayerScript();
     new CoaLiveWorldScript();
     new CoaLiveUnitScript();

@@ -55,6 +55,7 @@ void PlayerbotAIConfig::LoadCoaLiveConfig()
     coaFreshStartEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaFreshStart.Enable", false);
     coaSoulEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaSoul.Enable", false);
     coaPetsAutoBooks = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaPets.AutoBooks", false);
+    coaSoulAddon = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaSoul.Addon", false);
     coaSoulWeights = sConfigMgr->GetOption<std::string>("AiPlayerbot.CoaSoul.Weights", "20,40,20,10,10");
     coaLiveDataFileEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaLive.DataFile.Enable", false);
     // Shared with the other sessions' data files (the Builder adds them to the .dist once).

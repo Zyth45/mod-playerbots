@@ -693,6 +693,7 @@ public:
     bool coaLiveDataFiles;           // AiPlayerbot.CoaDataFiles (shared: 0 stops every data file)
     bool coaPetsAutoBooks;        // AiPlayerbot.CoaPets.AutoBooks: alts use their class and craft books by themselves
     bool coaSoulEnable;           // AiPlayerbot.CoaSoul.Enable (souls of the bots)
+    bool coaSoulAddon;            // AiPlayerbot.CoaSoul.Addon: SquidBots Lite asks a bot's soul (SQBW SOUL?)
     std::string coaSoulWeights;   // AiPlayerbot.CoaSoul.Weights: lazy, quester, wanderer, trader, pvp
     bool coaFreshStartEnable;  // AiPlayerbot.CoaFreshStart.Enable (launch of a new living realm)
     bool coaLiveImmersionEnable;
