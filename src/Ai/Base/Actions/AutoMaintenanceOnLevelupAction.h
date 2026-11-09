@@ -21,11 +21,18 @@ public:
 
     bool Execute(Event event);
 
+    // AiPlayerbot.CoaLive.MaintenanceSpread: the steps after the talents, one a second on the bot's next updates
+    // (spells, teleport for the level, consumables, equipment), in the same order. Bot update (map thread).
+    static void Tick(PlayerbotAI* botAI);
+
 protected:
+    void RunStep(uint32 step);
     void AutoTeleportForLevel();
     void AutoPickTalents();
     void AutoLearnSpell();
     void AutoUpgradeEquip();
+    void AutoUpgradeEquipConsumables();
+    void AutoUpgradeEquipGear();
     void LearnSpells(std::ostringstream* out);
     void LearnTrainerSpells(std::ostringstream* out);
     void LearnQuestSpells(std::ostringstream* out);

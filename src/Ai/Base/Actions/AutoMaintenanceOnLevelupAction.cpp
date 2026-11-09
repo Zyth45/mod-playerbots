@@ -15,6 +15,18 @@
 #include "RandomPlayerbotMgr.h"
 #include "SharedDefines.h"
 #include "SpellMgr.h"
+#include "GameTime.h"
+
+#include <mutex>
+#include <unordered_map>
+
+namespace
+{
+// AiPlayerbot.CoaLive.MaintenanceSpread: the step a bot does next and when (ms). Each level-up starts again at 1.
+std::mutex maintenanceLock;
+std::unordered_map<uint64, std::pair<uint32, uint64>> maintenancePending;
+constexpr uint32 MAINTENANCE_LAST_STEP = 4;
+}  // namespace
 
 bool AutoMaintenanceOnLevelupAction::Execute(Event /*event*/)
 {
@@ -45,11 +57,61 @@ bool AutoMaintenanceOnLevelupAction::Execute(Event /*event*/)
         ApplyWcrBuild(bot);
 
     AutoPickTalents();
-    AutoLearnSpell();
-    AutoTeleportForLevel();
-    AutoUpgradeEquip();
+
+    // The rest of the maintenance cost 55 to 69 ms in one go (bench a15): spread, it runs a step a second on the bot's
+    // next updates, in the same order.
+    if (sPlayerbotAIConfig.coaLiveMaintenanceSpread)
+    {
+        std::lock_guard<std::mutex> guard(maintenanceLock);
+        if (maintenancePending.size() > 20000)
+            maintenancePending.clear();
+        maintenancePending[bot->GetGUID().GetRawValue()] = {1, GameTime::GetGameTimeMS().count() + 1000};
+        return true;
+    }
+    for (uint32 step = 1; step <= MAINTENANCE_LAST_STEP; ++step)
+        RunStep(step);
 
     return true;
+}
+
+void AutoMaintenanceOnLevelupAction::RunStep(uint32 step)
+{
+    switch (step)
+    {
+        case 1: AutoLearnSpell(); break;
+        case 2: AutoTeleportForLevel(); break;
+        case 3: AutoUpgradeEquipConsumables(); break;
+        case 4: AutoUpgradeEquipGear(); break;
+        default: break;
+    }
+}
+
+void AutoMaintenanceOnLevelupAction::Tick(PlayerbotAI* botAI)
+{
+    Player* bot = botAI ? botAI->GetBot() : nullptr;
+    if (!bot || !bot->IsInWorld())
+        return;
+    uint64 const key = bot->GetGUID().GetRawValue();
+    uint64 const now = GameTime::GetGameTimeMS().count();
+    uint32 step = 0;
+    {
+        std::lock_guard<std::mutex> guard(maintenanceLock);
+        auto it = maintenancePending.find(key);
+        if (it == maintenancePending.end() || now < it->second.second)
+            return;
+        if (bot->IsInCombat())
+        {
+            it->second.second = now + 1000;  // after the fight, as the whole maintenance waited for it before
+            return;
+        }
+        step = it->second.first;
+        if (step >= MAINTENANCE_LAST_STEP)
+            maintenancePending.erase(it);
+        else
+            it->second = {step + 1, now + 1000};
+    }
+    AutoMaintenanceOnLevelupAction action(botAI);
+    action.RunStep(step);
 }
 
 void AutoMaintenanceOnLevelupAction::AutoTeleportForLevel()
@@ -199,6 +261,32 @@ std::string const AutoMaintenanceOnLevelupAction::FormatSpell(SpellInfo const* s
 
 void AutoMaintenanceOnLevelupAction::AutoUpgradeEquip()
 {
+    AutoUpgradeEquipConsumables();
+    AutoUpgradeEquipGear();
+}
+
+void AutoMaintenanceOnLevelupAction::AutoUpgradeEquipConsumables()
+{
+    if (!sRandomPlayerbotMgr.IsRandomBot(bot))
+        return;
+    // The same factory as the gear's (autogear limits for a player's bot), as when both were one step.
+    bool const playersBot = botAI->HasGameClientMaster();
+    uint32 const quality = playersBot ? static_cast<uint32>(sPlayerbotAIConfig.autoGearQualityLimit) : 0;
+    uint32 const gearScore = playersBot && sPlayerbotAIConfig.autoGearScoreLimit
+                                 ? PlayerbotFactory::CalcMixedGearScore(sPlayerbotAIConfig.autoGearScoreLimit,
+                                                                        sPlayerbotAIConfig.autoGearQualityLimit)
+                                 : 0;
+    PlayerbotFactory factory(bot, bot->GetLevel(), quality, gearScore);
+    factory.CleanupConsumables();
+    factory.InitAmmo();
+    factory.InitReagents();
+    factory.InitFood();
+    factory.InitConsumables();
+    factory.InitPotions();
+}
+
+void AutoMaintenanceOnLevelupAction::AutoUpgradeEquipGear()
+{
     if (!sRandomPlayerbotMgr.IsRandomBot(bot))
         return;
 
@@ -211,14 +299,6 @@ void AutoMaintenanceOnLevelupAction::AutoUpgradeEquip()
                                                                         sPlayerbotAIConfig.autoGearQualityLimit)
                                  : 0;
     PlayerbotFactory factory(bot, bot->GetLevel(), quality, gearScore);
-
-    factory.CleanupConsumables();
-
-    factory.InitAmmo();
-    factory.InitReagents();
-    factory.InitFood();
-    factory.InitConsumables();
-    factory.InitPotions();
 
     if (sPlayerbotAIConfig.autoUpgradeEquip && PlayerbotFactory::MayGearItself(bot))
         factory.InitEquipment(true);
