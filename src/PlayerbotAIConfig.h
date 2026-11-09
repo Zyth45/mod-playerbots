@@ -703,8 +703,6 @@ public:
 
     // ---- CoA World (LoadCoaWorldConfig, CoaWorldConfig.cpp) ----
     // Most AiPlayerbot.CoaWorld.* are read by their own bricks (src/Ai/Coa/World).
-    // AiPlayerbot.CoaWorld.BotPacketsInMapThread: the bots' thread-safe packets are handled in their map's thread.
-    bool coaBotPacketsInMapThread = false;
     // AiPlayerbot.CoaWorld.DpsTargetCache: the "dps target" value is kept for one AI pass (100 ms).
     bool coaDpsTargetCache = false;
     // ---- end of CoA World ----

@@ -3061,14 +3061,6 @@ AiPlayerbot.CoaWorld.Leveling.Enable = 0
 
 AiPlayerbot.CoaWorld.Leveling.SameContinentPct = 70
 
-#    AiPlayerbot.CoaWorld.BotPacketsInMapThread
-#        Description: Performance. The bots' packets the core marks thread-safe are handled in the thread of the
-#                     bot's map, as a real player's are, instead of all of them in the world thread. Lighter world
-#                     thread with many bots; the others (thread-unsafe, out of the world) stay in the world thread.
-#        Default:     0 - off
-
-AiPlayerbot.CoaWorld.BotPacketsInMapThread = 0
-
 #    AiPlayerbot.CoaWorld.DpsTargetCache
 #        Description: Performance. The bots' "dps target" (the enemy a damage dealer picks) is kept for one AI pass
 #                     (100 ms) instead of being searched again on every call; a target that dies or leaves is
