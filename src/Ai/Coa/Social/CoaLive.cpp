@@ -1882,7 +1882,18 @@ public:
 class CoaLiveWorldScript : public WorldScript
 {
 public:
-    CoaLiveWorldScript() : WorldScript("CoaLiveWorldScript", {WORLDHOOK_ON_UPDATE}) {}
+    CoaLiveWorldScript() : WorldScript("CoaLiveWorldScript", {WORLDHOOK_ON_UPDATE, WORLDHOOK_ON_AFTER_CONFIG_LOAD}) {}
+
+    // ".reload config" reads the CoA Live keys and the bank again (the conf.dist says so of each of them); before,
+    // only ".playerbots bot reload", in game, did.
+    void OnAfterConfigLoad(bool reload) override
+    {
+        if (!reload)
+            return;
+        sPlayerbotAIConfig.LoadCoaLiveConfig();
+        LoadBank();
+        LOG_INFO("server.loading", ">> CoA Live: settings read again (.reload config)");
+    }
 
     void OnUpdate(uint32 /*diff*/) override
     {
