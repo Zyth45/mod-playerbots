@@ -100,6 +100,7 @@ Snapshot Build()
 {
     Snapshot s;
     std::map<std::pair<uint32, uint32>, ZoneCount> zones;
+    std::map<std::pair<uint32, uint32>, EveryoneZone> everyoneZones;
     uint32 const surnameMode = sPlayerbotAIConfig.coaBotSurname;
     {
         std::shared_lock<std::shared_mutex> lock(*HashMapHolder<Player>::GetLock());
@@ -107,6 +108,21 @@ Snapshot Build()
         {
             if (!player || !player->IsInWorld())
                 continue;
+            // "everyone": every character, on this same pass.
+            {
+                bool const random = sRandomPlayerbotMgr.IsRandomBot(player);
+                Kind const kind = IsRealPlayer(player) ? Kind::Player : random ? Kind::Bot : Kind::Alt;
+                Map* const map = player->GetMap();
+                bool const capital = Capital(player->GetZoneId());
+                Place const place = PlaceOf(player->InBattleground(), player->InArena(), map && map->IsRaid(),
+                                            map && map->IsDungeon(), capital);
+                s.everyone.total.Add(kind);
+                s.everyone.places[uint8(place)].Add(kind);
+                (player->GetTeamId() == TEAM_ALLIANCE ? s.everyone.alliance : s.everyone.horde).Add(kind);
+                EveryoneZone& z = everyoneZones[{player->GetMapId(), player->GetZoneId()}];
+                z.capital = capital;
+                z.mix.Add(kind);
+            }
             if (IsRealPlayer(player))
             {
                 ++s.players;
@@ -147,6 +163,12 @@ Snapshot Build()
         zone.zone = key.second;
         zone.capital = Capital(key.second);
         s.zones.push_back(zone);
+    }
+    for (auto& [key, z] : everyoneZones)
+    {
+        z.map = key.first;
+        z.zone = key.second;
+        s.everyone.zones.push_back(z);
     }
     s.soulsOn = CoaSoul::Enabled();
     s.surnameMode = int32(surnameMode);

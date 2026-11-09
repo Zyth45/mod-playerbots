@@ -128,6 +128,96 @@ struct ZoneCount
     uint32_t horde = 0;
 };
 
+// "everyone": every character online, by kind: real players, alts and other bots of players, random bots.
+enum class Kind : uint8_t
+{
+    Player,
+    Alt,
+    Bot,
+};
+
+struct Mix
+{
+    uint32_t players = 0;
+    uint32_t alts = 0;
+    uint32_t bots = 0;
+
+    void Add(Kind k) { ++(k == Kind::Player ? players : k == Kind::Alt ? alts : bots); }
+    uint32_t Total() const { return players + alts + bots; }
+};
+
+// Where a character is, for "everyone": the first that applies.
+enum class Place : uint8_t
+{
+    Battleground,
+    Arena,
+    Raid,
+    Dungeon,
+    Capital,
+    World,
+    Count,
+};
+
+inline char const* PlaceName(Place p)
+{
+    static char const* const names[] = {"battleground", "arena", "raid", "dungeon", "capital", "world"};
+    return p < Place::Count ? names[uint8_t(p)] : "world";
+}
+
+inline Place PlaceOf(bool battleground, bool arena, bool raid, bool dungeon, bool capital)
+{
+    if (arena)
+        return Place::Arena;
+    if (battleground)
+        return Place::Battleground;
+    if (raid)
+        return Place::Raid;
+    if (dungeon)
+        return Place::Dungeon;
+    return capital ? Place::Capital : Place::World;
+}
+
+struct EveryoneZone
+{
+    uint32_t map = 0;
+    uint32_t zone = 0;
+    bool capital = false;
+    Mix mix;
+};
+
+struct Everyone
+{
+    Mix total;
+    Mix places[uint8_t(Place::Count)];
+    Mix alliance;
+    Mix horde;
+    std::vector<EveryoneZone> zones;
+};
+
+inline std::string MixJson(Mix const& m)
+{
+    return "{\"players\":" + std::to_string(m.players) + ",\"alts\":" + std::to_string(m.alts) + ",\"bots\":" +
+           std::to_string(m.bots) + "}";
+}
+
+// The "everyone" object: totals, places, factions, the busiest zones (all characters together).
+inline std::string EveryoneJson(Everyone e, size_t maxZones = 40)
+{
+    std::sort(e.zones.begin(), e.zones.end(), [](EveryoneZone const& a, EveryoneZone const& b)
+              { return a.mix.Total() != b.mix.Total() ? a.mix.Total() > b.mix.Total() : a.zone < b.zone; });
+    if (e.zones.size() > maxZones)
+        e.zones.resize(maxZones);
+    std::string out = "{\"total\":" + MixJson(e.total) + ",\"places\":{";
+    for (uint8_t p = 0; p < uint8_t(Place::Count); ++p)
+        out += std::string(p ? "," : "") + Quote(PlaceName(Place(p))) + ":" + MixJson(e.places[p]);
+    out += "},\"factions\":{\"alliance\":" + MixJson(e.alliance) + ",\"horde\":" + MixJson(e.horde) + "},\"zones\":[";
+    for (size_t i = 0; i < e.zones.size(); ++i)
+        out += std::string(i ? "," : "") + "{\"map\":" + std::to_string(e.zones[i].map) + ",\"zone\":" +
+               std::to_string(e.zones[i].zone) + ",\"capital\":" + (e.zones[i].capital ? "true" : "false") + "," +
+               MixJson(e.zones[i].mix).substr(1);
+    return out + "]}";
+}
+
 struct Snapshot
 {
     uint32_t online = 0;   // random bots in the world
@@ -142,6 +232,7 @@ struct Snapshot
     int64_t tickAvgMs = -1;  // -1: null
     int64_t tickMaxMs = -1;
     int64_t tickP95Ms = -1;
+    Everyone everyone;  // every character online ("everyone")
 };
 
 inline std::string Num(int64_t v) { return v < 0 ? "null" : std::to_string(v); }
@@ -192,6 +283,7 @@ inline std::string Data(Snapshot s, size_t maxZones = 40, size_t maxSurnames = 1
                    std::to_string(top[i].second) + "}";
         out += "]}";
     }
+    out += ",\"everyone\":" + EveryoneJson(s.everyone);
     out += ",\"health\":{\"tick_ms\":{\"avg\":" + Num(s.tickAvgMs) + ",\"p95\":" + Num(s.tickP95Ms) + ",\"max\":" + Num(s.tickMaxMs) +
            "},\"bots_us_per_tick\":null,\"by_strategy_us\":null,\"stuck\":null}}";
     return out;
