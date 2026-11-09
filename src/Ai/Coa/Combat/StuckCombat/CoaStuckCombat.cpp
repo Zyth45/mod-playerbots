@@ -9,6 +9,7 @@
  */
 
 #include "CoaStuckCombat.h"
+#include "Ai/Coa/Combat/PlayerLed/CoaPlayerLedRule.h"
 
 #include <limits>
 
@@ -117,9 +118,14 @@ bool CoaStuckCombat::Acts(Player* bot)
 {
     if (!bot || !CoaGroupTank::ModuleGuardActs(bot, CoaStuckCombatGuard))
         return false;
-    if (CoaGroupTank::InDungeonClearRun(bot))
-        return !RunAllowsHook || RunAllowsHook(bot);
-    return sPlayerbotAIConfig.coaCombatStuckCombatEnable;
+    // In a Dungeon Clear run its hook decides, except with a real player as reference tank, where the hook always
+    // said no: the module key decides then (CoaPlayerLedRule::StuckCombatAllowed).
+    bool const inRun = CoaGroupTank::InDungeonClearRun(bot);
+    Player* reference = inRun ? CoaGroupTank::Reference(bot) : nullptr;
+    bool const referenceHuman = reference && !GET_PLAYERBOT_AI(reference);
+    return CoaPlayerLedRule::StuckCombatAllowed(inRun, referenceHuman,
+                                                inRun && (!RunAllowsHook || RunAllowsHook(bot)),
+                                                sPlayerbotAIConfig.coaCombatStuckCombatEnable);
 }
 
 void CoaBreakStuckCombatTrigger::ResetClocks()

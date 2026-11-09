@@ -4976,3 +4976,14 @@ AiPlayerbot.CoaCombat.LootNeedEpicOnly = 0
 #                  1 - (Enabled)
 
 AiPlayerbot.CoaCombat.CallOfTheGrave.Enable = 0
+
+#
+# AiPlayerbot.CoaCombat.PlayerLed.Enable
+#     Description: A real player leads a group of bots in a dungeon or a raid, without Dungeon Clear. The player who
+#                  opened the "Main Tank" bar is the main tank of the bots' raid strategies (before the raid frame's
+#                  main tank and the first bot tank), and the bots stand down on a boss by its own boss flags when no
+#                  Dungeon Clear run is going.
+#     Default:     0 - (Disabled)
+#                  1 - (Enabled)
+
+AiPlayerbot.CoaCombat.PlayerLed.Enable = 0

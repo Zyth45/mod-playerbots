@@ -11,6 +11,8 @@
 #include "CoaBossStandDown.h"
 
 #include "CoaGroupTank.h"
+#include "Ai/Coa/Combat/PlayerLed/CoaPlayerLedRule.h"
+#include "PlayerbotAIConfig.h"
 #include "CombatManager.h"
 #include "Creature.h"
 #include "Group.h"
@@ -46,7 +48,10 @@ namespace
     {
         if (!unit || unit->GetTypeId() != TYPEID_UNIT)
             return false;
-        if (RosterBoss)
+        // CoA Combat, the player leads (CoaPlayerLedRule::UseRosterProvider): Dungeon Clear's roster answers only in
+        // its runs; outside one, the creature's own boss flags.
+        if (CoaPlayerLedRule::UseRosterProvider(bool(RosterBoss), CoaGroupTank::InDungeonClearRun(at),
+                                                sPlayerbotAIConfig.coaCombatPlayerLedEnable))
             return RosterBoss(at, unit->GetEntry());
         Creature* creature = unit->ToCreature();
         return creature && (creature->IsDungeonBoss() || creature->isWorldBoss());

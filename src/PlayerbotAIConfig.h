@@ -750,6 +750,9 @@ public:
     bool coaCombatLootNeedEpicOnly = false;
     // Call of the Grave (Dire Maul West): the curse removed first, the melee out of its casters' 5 yd.
     bool coaCombatCallOfTheGraveEnable = false;
+    // "The player leads" (docs/JOUEUR-MENE-3.0.md): the player's Main Tank bar comes first for the raid strategies'
+    // main tank, and the boss stand-down falls back to the boss flags outside a Dungeon Clear run.
+    bool coaCombatPlayerLedEnable = false;
     // ---- end of CoA Combat ----
 
 private:

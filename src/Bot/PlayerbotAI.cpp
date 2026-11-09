@@ -3030,6 +3030,16 @@ ObjectGuid PlayerbotAI::GetMainTankGuid(Group* group)
     if (!group)
         return ObjectGuid::Empty;
 
+    // CoA Combat, the player leads (AiPlayerbot.CoaCombat.PlayerLed.Enable, CoaPlayerLedRule::ChooseMainTank): the
+    // player who opened the Main Tank bar is the main tank, as for CoaGroupTank::Reference; then the stock order.
+    if (sPlayerbotAIConfig.coaCombatPlayerLedEnable)
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+        {
+            Player* member = ref->GetSource();
+            if (member && member->IsAlive() && member->IsInWorld() && CoaPlayerMainTank::IsSet(member))
+                return member->GetGUID();
+        }
+
     Group::MemberSlotList const& slots = group->GetMemberSlots();
     for (Group::member_citerator itr = slots.begin(); itr != slots.end(); ++itr)
     {
