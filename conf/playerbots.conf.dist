@@ -4531,6 +4531,13 @@ AiPlayerbot.SummonAtInnkeepersEnabled = 1
 # Default: 0
 AiPlayerbot.CoaEconomy.AHBot.Enable = 0
 
+# Once, at the first start in 3.0: the old auction house module's stock goes. Every auction of its seller characters
+# (AuctionHouseBot.GUIDs and the characters of the AHBOT account) is removed, as ".ahbot empty" does: a bidder gets
+# its money back by mail, the item is destroyed. Players' and alts' auctions are never touched. Done once (row
+# 'ahbot_old_emptied' of the playerbots table coa_economy_clock), whether SquidBots-AH is on or off.
+#    EmptyOldAuctions  1 = do it at the next start if not done yet, 0 = never (default). Read at start-up.
+AiPlayerbot.CoaEconomy.AHBot.EmptyOldAuctions = 0
+
 # Auction house bot, CoA sellable filter: the bot only lists goods a CoA player could really sell.
 # Read again by ".ahbot reload". Each rule below only counts when Filter.Enable = 1.
 #    Enable            1 = on, 0 = off (default).
