@@ -65,6 +65,25 @@ namespace CoaWorld
 {
     namespace
     {
+
+    // The invaders' yells in the bots' language (AiPlayerbot.BotTextLocale).
+    std::string YellText(char const* en)
+    {
+        if (!BotsFrench())
+            return en;
+        static std::unordered_map<std::string, char const*> const fr = {
+            { "Burn them! Burn them all!", "Br\u00fblez-les ! Br\u00fblez-les tous !" },
+            { "The Lich King sends his regards. This city will join his army!",
+              "Le roi-liche vous salue. Cette cit\u00e9 rejoindra son arm\u00e9e !" },
+            { "Your world is ripe for conquest. The Legion has come to harvest it!",
+              "Votre monde est m\u00fbr pour la conqu\u00eate. La L\u00e9gion est venue le moissonner !" },
+            { "Kneel before the Burning Legion! Every one of you will burn!",
+              "Agenouillez-vous devant la L\u00e9gion ardente ! Vous br\u00fblerez tous !" },
+            { "The Qiraji will not be denied. Crush them!", "Rien n'arr\u00eatera les Qiraji. \u00c9crasez-les !" },
+        };
+        auto const itr = fr.find(en);
+        return itr == fr.end() ? std::string(en) : std::string(itr->second);
+    }
         constexpr uint32 MINUTE_MS = MINUTE * IN_MILLISECONDS;
         constexpr uint32 CORPSE_DESPAWN_MS = 60 * IN_MILLISECONDS;
         constexpr char const* PREFIX = "AiPlayerbot.CoaWorld.Invasions.";
@@ -570,7 +589,7 @@ namespace CoaWorld
                     {
                         slot.boss = boss->GetGUID();
                         if (plan.bossYell && *plan.bossYell)
-                            boss->Yell(plan.bossYell, LANG_UNIVERSAL);
+                            boss->Yell(YellText(plan.bossYell), LANG_UNIVERSAL);
                         SendTo(boss, site.target, false);
                     }
                     else
@@ -601,7 +620,7 @@ namespace CoaWorld
                         if (Creature* lieutenant = Spawn(slot, plan.lieutenant, Ground(site.spawn)))
                         {
                             if (plan.lieutenantYell && *plan.lieutenantYell)
-                                lieutenant->Yell(plan.lieutenantYell, LANG_UNIVERSAL);
+                                lieutenant->Yell(YellText(plan.lieutenantYell), LANG_UNIVERSAL);
                             SendTo(lieutenant, site.target, false);
                         }
                 }
