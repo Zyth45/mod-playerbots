@@ -3069,6 +3069,15 @@ AiPlayerbot.CoaWorld.Leveling.SameContinentPct = 70
 
 AiPlayerbot.CoaWorld.DpsTargetCache = 0
 
+#    AiPlayerbot.CoaWorld.SlowIdleTriggers
+#        Description: Performance. Out of combat, a bot that nothing forces to stay active (no real player near, no
+#                     group with a player, no queue, not in an instance: the rules of BotActiveAlone) checks its
+#                     triggers of relevance under 100 once a second instead of on every AI pass. Combat and bots
+#                     near real players are not touched.
+#        Default:     0 - off
+
+AiPlayerbot.CoaWorld.SlowIdleTriggers = 0
+
 #    AiPlayerbot.CoaWorld.BotOnlyBgPace.Enable
 #    AiPlayerbot.CoaWorld.BotOnlyBgPace.IntervalMs
 #        Description: Performance. A bot in a battleground or arena where no real player is, and that no real player

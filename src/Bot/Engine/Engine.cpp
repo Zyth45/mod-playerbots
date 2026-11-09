@@ -450,6 +450,11 @@ void Engine::ProcessTriggers(bool minimal)
 {
     std::unordered_map<Trigger*, Event> fires;
     uint32 now = getMSTime();
+    // CoA World (SlowIdleTriggers): out of combat, for a bot nothing forces to stay active (AllowActive), the
+    // triggers of relevance under 100 are checked once a second at most. The combat engine is not touched.
+    Player* const self = botAI ? botAI->GetBot() : nullptr;
+    bool const slow = sPlayerbotAIConfig.coaSlowIdleTriggers && self && !self->IsInCombat() &&
+                      botAI->GetState() == BOT_STATE_NON_COMBAT && !botAI->coaForcedActive;
     for (std::vector<TriggerNode*>::iterator i = triggers.begin(); i != triggers.end(); i++)
     {
         TriggerNode* node = *i;
@@ -473,6 +478,13 @@ void Engine::ProcessTriggers(bool minimal)
         {
             if (minimal && node->getFirstRelevance() < 100)
                 continue;
+
+            if (slow && node->getFirstRelevance() < 100)
+            {
+                if (trigger->coaSlowCheckedAt && now - trigger->coaSlowCheckedAt < 1000)
+                    continue;
+                trigger->coaSlowCheckedAt = now;
+            }
 
             PerfMonitorOperation* pmo =
                 sPerfMonitor.start(PERF_MON_TRIGGER, trigger->getName(), &aiObjectContext->performanceStack);

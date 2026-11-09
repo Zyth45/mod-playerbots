@@ -39,6 +39,9 @@ public:
 
     bool needCheck(uint32 now);
 
+    // CoA World (SlowIdleTriggers, Engine::ProcessTriggers): last check while slowed.
+    uint32_t coaSlowCheckedAt = 0;
+
 protected:
     int32_t checkInterval;
     uint32_t lastCheckTime;

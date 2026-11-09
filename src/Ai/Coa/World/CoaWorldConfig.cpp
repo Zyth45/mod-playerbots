@@ -14,4 +14,5 @@
 void PlayerbotAIConfig::LoadCoaWorldConfig()
 {
     coaDpsTargetCache = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaWorld.DpsTargetCache", false, false);
+    coaSlowIdleTriggers = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaWorld.SlowIdleTriggers", false, false);
 }

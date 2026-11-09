@@ -705,6 +705,8 @@ public:
     // Most AiPlayerbot.CoaWorld.* are read by their own bricks (src/Ai/Coa/World).
     // AiPlayerbot.CoaWorld.DpsTargetCache: the "dps target" value is kept for one AI pass (100 ms).
     bool coaDpsTargetCache = false;
+    // AiPlayerbot.CoaWorld.SlowIdleTriggers: out of combat, an unforced bot checks its low-relevance triggers once a second.
+    bool coaSlowIdleTriggers = false;
     // ---- end of CoA World ----
 
     // ---- CoA Economy (LoadCoaEconomyConfig, CoaEconomyConfig.cpp) ----
