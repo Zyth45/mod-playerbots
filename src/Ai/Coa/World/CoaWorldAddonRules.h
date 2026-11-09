@@ -50,7 +50,8 @@ inline std::vector<std::string> Request(std::string const& msg)
 // The words this session answers; the others (artisans, soul) are left to their owners.
 inline bool Mine(std::string const& word)
 {
-    return word == "GORD" || word == "GLIST" || word == "WEV?" || word == "GOFF" || word == "GACC" || word == "GREF";
+    return word == "GORD" || word == "GLIST" || word == "WEV?" || word == "GOFF" || word == "GACC" || word == "GREF" ||
+           word == "GCAT";
 }
 
 inline bool RateOk(uint64_t lastMs, uint64_t nowMs) { return lastMs == 0 || nowMs - lastMs >= MIN_GAP_MS; }

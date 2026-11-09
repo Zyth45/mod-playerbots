@@ -29,6 +29,9 @@ std::vector<std::string> CoaWorldGuildAddonList(Player* player);
 bool CoaWorldGuildGiftsOn();
 std::vector<std::string> CoaWorldGuildGiftList(Player* player);
 std::vector<std::string> CoaWorldGuildGiftAnswer(Player* player, std::vector<std::string> const& args, bool accept);
+// Guilds.Catalog: GCAT <search> <page> (args[0] is the word): GC lines (30 a page) and GCN <total> <page>.
+bool CoaWorldGuildCatalogOn();
+std::vector<std::string> CoaWorldGuildCatalog(Player* player, std::vector<std::string> const& args);
 // A whisper "yes"/"no" (oui/non) to the bot that made the player an offer. True: taken.
 bool CoaWorldGuildGiftWhisper(Player* player, Player* bot, std::string const& msg);
 // Sends lines to the player's addon (SQBW), then "-" (CoaWorldAddon.cpp).

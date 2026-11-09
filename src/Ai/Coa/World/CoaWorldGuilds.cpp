@@ -97,6 +97,7 @@ namespace
         bool addon = false;    // the SquidBots Lite world protocol (GORD, GLIST), CoaWorldAddon.cpp
         bool greetings = false;  // guildmates answer a real player's hello and greet it at login
         bool gearAsk = false;    // a gift of gear is offered first (accept or refuse), mailed only if accepted
+        bool catalog = false;    // the addon's searchable list of what the guild's bots can send (GCAT)
     };
 
     Settings settings;
@@ -1083,6 +1084,7 @@ namespace
         settings.addon = sConfigMgr->GetOption<bool>(key("Addon"), false, false);
         settings.greetings = sConfigMgr->GetOption<bool>(key("Greetings"), false, false);
         settings.gearAsk = sConfigMgr->GetOption<bool>(key("GearAsk"), false, false);
+        settings.catalog = sConfigMgr->GetOption<bool>(key("Catalog"), false, false);
         if (settings.enabled)
             LogInit(time(nullptr));
     }
@@ -1158,6 +1160,156 @@ std::vector<std::string> CoaWorldGuildGiftAnswer(Player* player, std::vector<std
     if (!id || !GuildLife::Instance().AnswerOffer(player, id, accept))
         return { std::string("ERR\t") + (accept ? "GACC" : "GREF") + "\toffer" };
     return CoaWorldGuildGiftList(player);
+}
+
+// --- Guilds.Catalog: what the guild's online bots can send, for the addon's search (GCAT). ---
+namespace
+{
+    struct CatalogEntry
+    {
+        uint32 item;
+        bool craft;
+        std::string bot;
+        uint32 amount;  // stock: count; craft: skill rank
+        uint64 price;   // craft: the materials' cost (cash on delivery); stock: 0
+        uint32 skill;
+        std::string lower;  // English name, lower case, for the search
+    };
+    struct CatalogCache
+    {
+        time_t at = 0;
+        std::vector<CatalogEntry> entries;
+    };
+    std::unordered_map<uint32, CatalogCache> g_catalogs;
+    constexpr time_t CATALOG_SECONDS = 5 * MINUTE;
+
+    // What an order may ask for (Order's own checks).
+    bool Orderable(ItemTemplate const* proto)
+    {
+        return proto && proto->Bonding != BIND_QUEST_ITEM && proto->Quality <= settings.orderMaxQuality;
+    }
+
+    std::unordered_map<uint32, uint32> const& SpellToItem()
+    {
+        static std::unordered_map<uint32, uint32> map;
+        static bool built = false;
+        if (built)
+            return map;
+        built = true;
+        for (auto const& [item, spells] : Recipes())
+            for (uint32 spell : spells)
+                map.emplace(spell, item);
+        return map;
+    }
+
+    uint64 MaterialsCost(SpellInfo const* info)
+    {
+        uint64 cost = 0;
+        for (uint8 r = 0; r < MAX_SPELL_REAGENTS; ++r)
+            if (info->Reagent[r] > 0 && info->ReagentCount[r])
+                if (ItemTemplate const* reagent = sObjectMgr->GetItemTemplate(info->Reagent[r]))
+                    cost += CoaWorldGuildRules::ReagentPrice(reagent->BuyPrice, reagent->SellPrice) * info->ReagentCount[r];
+        return cost;
+    }
+
+    std::vector<CatalogEntry> BuildCatalog(uint32 guildId)
+    {
+        std::unordered_map<uint64, CatalogEntry> best;  // (item, craft) -> the best offer
+        auto keep = [&best](CatalogEntry entry)
+        {
+            uint64 const key = (uint64(entry.item) << 1) | (entry.craft ? 1 : 0);
+            auto itr = best.find(key);
+            bool const better = itr == best.end() || (entry.craft ? entry.price < itr->second.price : entry.amount > itr->second.amount);
+            if (better)
+                best[key] = std::move(entry);
+        };
+        auto lower = [](std::string text)
+        {
+            std::transform(text.begin(), text.end(), text.begin(), [](unsigned char c) { return char(std::tolower(c)); });
+            return text;
+        };
+        for (auto const& [guid, bot] : RandomBots())
+        {
+            if (!bot || !bot->IsInWorld() || bot->GetGuildId() != guildId)
+                continue;
+            // In stock: what the bot may mail (as the share of an order).
+            auto stock = [&](Item* item)
+            {
+                if (!item || item->IsEquipped() || item->IsInTrade() || item->IsBag() || !item->CanBeTraded(true))
+                    return;
+                ItemTemplate const* proto = item->GetTemplate();
+                if (Orderable(proto))
+                    keep({ proto->ItemId, false, bot->GetName(), item->GetCount(), 0, 0, lower(proto->Name1) });
+            };
+            for (uint8 slot = INVENTORY_SLOT_ITEM_START; slot < INVENTORY_SLOT_ITEM_END; ++slot)
+                stock(bot->GetItemByPos(INVENTORY_SLOT_BAG_0, slot));
+            for (uint8 bagSlot = INVENTORY_SLOT_BAG_START; bagSlot < INVENTORY_SLOT_BAG_END; ++bagSlot)
+                if (Bag* bag = bot->GetBagByPos(bagSlot))
+                    for (uint32 slot = 0; slot < bag->GetBagSize(); ++slot)
+                        stock(bag->GetItemByPos(uint8(slot)));
+            // Crafted: the recipes it knows (as the craft of an order: no soulbound result).
+            for (auto const& [spellId, spell] : bot->GetSpellMap())
+            {
+                auto const itr = SpellToItem().find(spellId);
+                if (itr == SpellToItem().end() || !spell || spell->State == PLAYERSPELL_REMOVED)
+                    continue;
+                ItemTemplate const* proto = sObjectMgr->GetItemTemplate(itr->second);
+                SpellInfo const* info = sSpellMgr->GetSpellInfo(spellId);
+                if (!Orderable(proto) || !info || proto->Bonding == BIND_WHEN_PICKED_UP)
+                    continue;
+                uint32 skill = 0;
+                auto const bounds = sSpellMgr->GetSkillLineAbilityMapBounds(spellId);
+                if (bounds.first != bounds.second)
+                    skill = bounds.first->second->SkillLine;
+                keep({ proto->ItemId, true, bot->GetName(), skill ? uint32(bot->GetSkillValue(skill)) : 0, MaterialsCost(info), skill,
+                       lower(proto->Name1) });
+            }
+        }
+        std::vector<CatalogEntry> out;
+        out.reserve(best.size());
+        for (auto& [key, entry] : best)
+            out.push_back(std::move(entry));
+        std::sort(out.begin(), out.end(), [](CatalogEntry const& a, CatalogEntry const& b)
+                  { return a.lower != b.lower ? a.lower < b.lower : a.craft < b.craft; });
+        return out;
+    }
+}
+
+bool CoaWorldGuildCatalogOn() { return settings.enabled && settings.orders && settings.catalog && settings.addon; }
+
+std::vector<std::string> CoaWorldGuildCatalog(Player* player, std::vector<std::string> const& args)
+{
+    using namespace CoaWorldAddonRules;
+    if (!IsHuman(player) || !player->GetGuildId())
+        return { "ERR\tGCAT\tnoguild" };
+    std::string search = args.size() > 1 ? args[1] : std::string();
+    std::transform(search.begin(), search.end(), search.begin(), [](unsigned char c) { return char(std::tolower(c)); });
+    uint32 const page = std::max<uint32>(1, args.size() > 2 ? Number(args[2]) : 1);
+
+    time_t const now = time(nullptr);
+    CatalogCache& cache = g_catalogs[player->GetGuildId()];
+    if (!cache.at || now - cache.at >= CATALOG_SECONDS)
+        cache = { now, BuildCatalog(player->GetGuildId()) };
+
+    std::vector<CatalogEntry const*> found;
+    for (CatalogEntry const& e : cache.entries)
+        if (search.empty() || e.lower.find(search) != std::string::npos)
+            found.push_back(&e);
+    constexpr uint32 PER_PAGE = 30;
+    std::vector<std::string> out;
+    for (uint32 i = (page - 1) * PER_PAGE; i < found.size() && i < page * PER_PAGE; ++i)
+    {
+        CatalogEntry const& e = *found[i];
+        ItemTemplate const* proto = sObjectMgr->GetItemTemplate(e.item);
+        if (!proto)
+            continue;
+        out.push_back(Cut(Acore::StringFormat("GC\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}", e.item,
+                                              e.craft ? "craft" : "stock", Text(e.bot), e.amount, e.price, proto->Quality,
+                                              proto->ItemLevel, proto->RequiredLevel, proto->InventoryType, e.skill,
+                                              Text(proto->Name1))));
+    }
+    out.push_back(Acore::StringFormat("GCN\t{}\t{}", found.size(), page));
+    return out;
 }
 
 bool CoaWorldGuildGiftWhisper(Player* player, Player* bot, std::string const& msg)
