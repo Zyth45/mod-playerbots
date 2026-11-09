@@ -13,6 +13,8 @@
 #include "Playerbots.h"
 #include "SpellAuras.h"
 
+#include <cmath>
+
 DynamicObject* CoaTelegraph::MarkerToLeave(Player* bot, float& safeDistance)
 {
     if (!bot || !bot->IsAlive() || !sPlayerbotAIConfig.coaCombatTelegraphEnable)
@@ -51,8 +53,24 @@ bool CoaTelegraphAction::Execute(Event /*event*/)
     DynamicObject* marker = CoaTelegraph::MarkerToLeave(bot, safeDistance);
     if (!marker)
         return false;
-    // Forced, and no repeat floor: the hit falls within seconds, and a combat move in flight must not hold the step
-    // back.
+    // Straight out from the centre, half a yard past the safe distance; a wall turns the way out by up to 90 degrees.
+    // Forced: the hit falls within seconds, and a combat move in flight must not hold the step back.
+    float const fallback = bot->GetOrientation() + float(M_PI);
+    for (float turn : {0.0f, 0.5f, -0.5f, 1.0f, -1.0f, 1.5708f, -1.5708f})
+    {
+        float x = 0.0f;
+        float y = 0.0f;
+        CoaTelegraphRule::ExitPoint(marker->GetPositionX(), marker->GetPositionY(), bot->GetPositionX(),
+                                    bot->GetPositionY(), fallback, turn, safeDistance + 0.5f, x, y);
+        float z = bot->GetPositionZ();
+        if (!bot->GetMap()->CheckCollisionAndGetValidCoords(bot, bot->GetPositionX(), bot->GetPositionY(),
+                                                            bot->GetPositionZ(), x, y, z))
+            continue;
+        if (std::hypot(x - marker->GetPositionX(), y - marker->GetPositionY()) < safeDistance)
+            continue;  // the wall stopped it short, still inside
+        if (MoveTo(bot->GetMapId(), x, y, z, false, false, true, false, MovementPriority::MOVEMENT_FORCED))
+            return true;
+    }
     return FleePosition(marker->GetPosition(), safeDistance, 0, MovementPriority::MOVEMENT_FORCED);
 }
 
