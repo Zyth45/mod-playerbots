@@ -14,4 +14,8 @@
 void PlayerbotAIConfig::LoadCoaWorldConfig()
 {
     coaBotPacketsInMapThread = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaWorld.BotPacketsInMapThread", false, false);
+    coaActiveZones = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaWorld.ActiveZones.Enable", false, false);
+    coaIdleBotAI = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaWorld.IdleBotAI.Enable", false, false);
+    coaIdleBotAIIntervalMs = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaWorld.IdleBotAI.IntervalMs", 2000, false);
+    coaSmartScaleAverage = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaWorld.SmartScaleAverage.Enable", false, false);
 }

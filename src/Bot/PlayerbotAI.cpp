@@ -4,6 +4,7 @@
  * or (at your option) any later version.
  */
 
+#include "CoaWorldActiveZones.h"
 #include "PlayerbotAI.h"
 
 #include "CoaLive.h"
@@ -5524,6 +5525,16 @@ bool PlayerbotAI::AllowActive(ActivityType activityType)
     bool checkMap = sPlayerbotAIConfig.BotActiveAloneForceWhenInMap;
     bool checkZone = sPlayerbotAIConfig.BotActiveAloneForceWhenInZone;
     bool checkRadius = sPlayerbotAIConfig.BotActiveAloneForceWhenInRadius > 0;
+    // CoA World (ActiveZones): the map and zone checks read the sets refreshed every 10 s; only the radius
+    // check still walks the players.
+    if (sPlayerbotAIConfig.coaActiveZones && CoaWorldActiveZones::Ready() && (checkMap || checkZone))
+    {
+        if (checkMap && CoaWorldActiveZones::OnMap(bot->GetMapId()))
+            return true;
+        if (checkZone && CoaWorldActiveZones::InZone(bot->GetMapId(), bot->GetZoneId()))
+            return true;
+        checkMap = checkZone = false;
+    }
     if (checkMap || checkZone || checkRadius)
     {
         uint32 botMapId = bot->GetMapId();
@@ -5686,7 +5697,9 @@ bool PlayerbotAI::AllowActivity(ActivityType activityType, bool checkNow)
 uint32 PlayerbotAI::AutoScaleActivity(uint32 mod)
 {
     // Current max server update time (ms), and the configured floor/ceiling values for bot scaling
-    uint32 maxDiff = sWorldUpdateTime.GetMaxUpdateTimeOfCurrentTable();
+    // CoA World (SmartScaleAverage): the average of the recent ticks, steadier than one slow tick.
+    uint32 maxDiff = sPlayerbotAIConfig.coaSmartScaleAverage ? sWorldUpdateTime.GetAverageUpdateTime()
+                                                             : sWorldUpdateTime.GetMaxUpdateTimeOfCurrentTable();
     uint32 diffLimitFloor = sPlayerbotAIConfig.botActiveAloneSmartScaleDiffLimitfloor;
     uint32 diffLimitCeiling = sPlayerbotAIConfig.botActiveAloneSmartScaleDiffLimitCeiling;
 
