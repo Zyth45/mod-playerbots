@@ -4,6 +4,7 @@
  * or (at your option) any later version.
  */
 
+#include "CoaWorldCharters.h"
 #include "PlayerbotGuildMgr.h"
 
 #include "CoaWorldGuilds.h"  // CoA World: CoaWorldGuildSideMayCreate
@@ -92,6 +93,10 @@ bool PlayerbotGuildMgr::SetGuildEmblem(uint32 guildId)
 std::string PlayerbotGuildMgr::AssignToGuild(Player* player)
 {
     if (!player)
+        return "";
+
+    // CoA World (Guilds.UnguildedPercent): some bots stay without a guild, for players to meet and sign with.
+    if (!CoaWorldGuildMayJoin())
         return "";
 
     uint8_t playerFaction = player->GetTeamId();

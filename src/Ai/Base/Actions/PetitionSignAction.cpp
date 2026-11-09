@@ -5,6 +5,7 @@
  */
 
 #include "PetitionSignAction.h"
+#include "CoaWorldCharters.h"
 #include "ArenaTeam.h"
 #include "Event.h"
 #include "Playerbots.h"
@@ -72,6 +73,11 @@ bool PetitionSignAction::Execute(Event event)
 
     if (_inviter == bot)
         return false;
+
+    // CoA World (Guilds.Charters): a real player's guild charter offered to a random bot of its own without a guild
+    // is signed after a few seconds (or refused now and then). Only this request skips the security check below.
+    if (!isArena && accept && CoaWorldCharterOffered(bot, petitionGuid, _inviter, true))
+        return true;
 
     if (!accept || !botAI->GetSecurity()->CheckLevelFor(PLAYERBOT_SECURITY_INVITE, false, _inviter, true))
     {

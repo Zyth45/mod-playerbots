@@ -3135,6 +3135,25 @@ AiPlayerbot.CoaWorld.StateFile.Enable = 0
 #        Default:     0 - off
 
 AiPlayerbot.CoaWorld.Guilds.Addon = 0
+
+#    AiPlayerbot.CoaWorld.Guilds.Charters
+#        Description: Guild charters (needs Guilds.Enable). A random bot without a guild offered a real player's
+#                     guild charter signs it after a few seconds (now and then it refuses). A player holding a charter
+#                     who asks aloud for signatures ("sign", "charter") gets the guildless bots around to sign it.
+#                     Now and then a guildless bot in a capital buys a charter, gathers signatures from bots passing
+#                     by (rarely asks a real player near, once an hour per player) and founds its own guild.
+#        Default:     0 - off
+#    AiPlayerbot.CoaWorld.Guilds.UnguildedPercent
+#        Description: With Charters on: no bot charter and no bot joining a bot guild while the random bots without
+#                     a guild would fall under this share. Signing a real player's charter is always allowed.
+#        Default:     30
+#    AiPlayerbot.CoaWorld.Guilds.CharterMinutes
+#        Description: Minutes between two bot charters of a side.
+#        Default:     60
+
+AiPlayerbot.CoaWorld.Guilds.Charters = 0
+AiPlayerbot.CoaWorld.Guilds.UnguildedPercent = 30
+AiPlayerbot.CoaWorld.Guilds.CharterMinutes = 60
 AiPlayerbot.CoaWorld.Events.Addon = 0
 
 # Quality a looted item must reach to be written to the "playerbots.loot" logger:
