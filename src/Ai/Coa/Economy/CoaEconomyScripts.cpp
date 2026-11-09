@@ -15,6 +15,8 @@ void AddSC_coa_economy_artisans(); // Craft/CoaArtisans.cpp
 void AddSC_coa_economy_craft_orders(); // Craft/CoaCraftOrders.cpp
 void AddSC_coa_economy_data(); // Data/CoaEconomyData.cpp
 void AddSC_coa_economy_sellable(); // Market/CoaSellable.cpp
+void AddSC_coa_economy_auction_clock(); // Market/CoaAuctionClock.cpp
+void AddSC_coa_economy_materials(); // Craft/CoaMaterials.cpp
 
 void AddCoaEconomyScripts()
 {
@@ -26,4 +28,6 @@ void AddCoaEconomyScripts()
     AddSC_coa_economy_artisans();
     AddSC_coa_economy_craft_orders();
     AddSC_coa_economy_data();
+    AddSC_coa_economy_auction_clock();
+    AddSC_coa_economy_materials();
 }
