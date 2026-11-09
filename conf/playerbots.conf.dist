@@ -3069,31 +3069,6 @@ AiPlayerbot.CoaWorld.Leveling.SameContinentPct = 70
 
 AiPlayerbot.CoaWorld.BotPacketsInMapThread = 0
 
-#    AiPlayerbot.CoaWorld.ActiveZones.Enable
-#        Description: Performance. The maps and zones with a real player are found every 10 seconds, and the
-#                     bots' "a real player is on my map / in my zone" check reads them instead of walking every
-#                     player for every bot. A player entering a zone wakes its bots up to 10 seconds later.
-#        Default:     0 - off
-
-AiPlayerbot.CoaWorld.ActiveZones.Enable = 0
-
-#    AiPlayerbot.CoaWorld.IdleBotAI.Enable
-#    AiPlayerbot.CoaWorld.IdleBotAI.IntervalMs
-#        Description: Performance. A bot asleep (BotActiveAlone), out of combat, with no real player in its zone,
-#                     runs its AI every IntervalMs instead of every server tick. It wakes at once when attacked.
-#        Default:     0 - off; IntervalMs 2000
-
-AiPlayerbot.CoaWorld.IdleBotAI.Enable = 0
-AiPlayerbot.CoaWorld.IdleBotAI.IntervalMs = 2000
-
-#    AiPlayerbot.CoaWorld.SmartScaleAverage.Enable
-#        Description: Performance. SmartScale (BotActiveAloneSmartScale) follows the average of the recent server
-#                     update times instead of the slowest one: fewer bots fall asleep after a single slow tick.
-#                     With the same floor and ceiling, more bots stay active.
-#        Default:     0 - off
-
-AiPlayerbot.CoaWorld.SmartScaleAverage.Enable = 0
-
 #    AiPlayerbot.CoaWorld.StateFile.Enable
 #        Description: monde.json for the CoA Dashboard: the current invasions, gathering rushes, guilds online,
 #                     last guild orders, last server firsts and the recovery counts of the last 24 hours. Written
