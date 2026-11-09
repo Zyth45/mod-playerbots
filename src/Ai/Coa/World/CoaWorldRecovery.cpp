@@ -67,6 +67,8 @@ namespace
     constexpr uint32 SAMPLE_MS = 15 * IN_MILLISECONDS;
     constexpr uint32 SPELL_HEARTHSTONE = 8690;
     constexpr time_t RELAPSE_SECONDS = 10 * MINUTE;
+    constexpr time_t BUSY_SECONDS = 30;
+    constexpr uint32 HEARTH_AT = 3;  // detections within RELAPSE_SECONDS
 
     struct Settings
     {
@@ -106,6 +108,10 @@ namespace
         // Far above the zone it is in: since when, and in which zone.
         uint32 outZone = 0;
         time_t outSince = 0;
+        // Busy where it stands (fighting, looting, eating or drinking, casting): not stuck for a while after.
+        time_t busyAt = 0;
+        // Detections within RELAPSE_SECONDS of each other: the hearthstone only at the third.
+        uint32 detections = 0;
     };
 
     struct Counters
@@ -239,7 +245,7 @@ namespace
                 {
                     track.deaths.clear();
                     ++_counters.deaths;
-                    CoaWorldState::Recovery(false), CoaWorld::LogEvent("stuck", bot->GetName(), "dying over and over");
+                    CoaWorldState::Recovery(bot->GetGUID().GetCounter(), false), CoaWorld::LogEvent("stuck", bot->GetName(), "dying over and over");
                     track.wasDead = dead;
                     // Back home once it is up again.
                     track.lastRecovery = now - RELAPSE_SECONDS / 2;
@@ -261,7 +267,11 @@ namespace
                 return;
 
             NewRpgStatus status = botAI->rpgInfo.GetStatus();
-            if (bot->IsInCombat() || !IsTravelling(status))
+            // Fighting, looting, eating or drinking, casting (a gathering, a long spell): busy, not stuck; nor for
+            // BUSY_SECONDS after (the laptop's a31 counted 1108 detections on 639 of 976 bots in 34 min).
+            if (bot->IsInCombat() || !bot->GetLootGUID().IsEmpty() || bot->IsSitState() || bot->IsNonMeleeSpellCast(false))
+                track.busyAt = now;
+            if (bot->IsInCombat() || !IsTravelling(status) || now - track.busyAt < BUSY_SECONDS)
             {
                 track.samples.clear();
                 track.bestAt = 0;
@@ -336,7 +346,7 @@ namespace
             if (!still && !loop && !pacing)
                 return;
 
-            CoaWorldState::Recovery(false), CoaWorld::LogEvent("stuck", bot->GetName(), still ? "standing still on its way"
+            CoaWorldState::Recovery(bot->GetGUID().GetCounter(), false), CoaWorld::LogEvent("stuck", bot->GetName(), still ? "standing still on its way"
                                                        : loop ? "going round in circles" : "back and forth, no nearer");
             if (still)
                 ++_counters.stuck;
@@ -349,9 +359,13 @@ namespace
 
             Quarantine(bot, botAI);
 
-            // Again within ten minutes: home. Otherwise something else to do.
-            if (track.lastRecovery && now - track.lastRecovery < RELAPSE_SECONDS)
+            // The third time within ten minutes of each other: home. Before: something else to do.
+            track.detections = track.lastRecovery && now - track.lastRecovery < RELAPSE_SECONDS ? track.detections + 1 : 1;
+            if (track.detections >= HEARTH_AT)
+            {
+                track.detections = 0;
                 Hearth(bot, botAI, track, now);
+            }
             else
             {
                 botAI->rpgInfo.ChangeToIdle();
@@ -388,7 +402,7 @@ namespace
             track.outSince = 0;
             track.samples.clear();
             track.bestAt = 0;
-            CoaWorldState::Recovery(false), CoaWorld::LogEvent("stuck", bot->GetName(), Acore::StringFormat("level {} in a zone far below it ({})",
+            CoaWorldState::Recovery(bot->GetGUID().GetCounter(), false), CoaWorld::LogEvent("stuck", bot->GetName(), Acore::StringFormat("level {} in a zone far below it ({})",
                 bot->GetLevel(), zone));
             if (seen)
             {
@@ -399,7 +413,7 @@ namespace
             bot->GetMotionMaster()->Clear();
             bot->StopMoving();
             sRandomPlayerbotMgr.RandomTeleportForLevel(bot);
-            CoaWorldState::Recovery(true), CoaWorld::LogEvent("unstuck", bot->GetName(), "sent to a place of its level");
+            CoaWorldState::Recovery(bot->GetGUID().GetCounter(), true), CoaWorld::LogEvent("unstuck", bot->GetName(), "sent to a place of its level");
             return true;
         }
 
@@ -418,7 +432,7 @@ namespace
                 TRIGGERED_IGNORE_POWER_AND_REAGENT_COST | TRIGGERED_IGNORE_CAST_ITEM));
             botAI->rpgInfo.ChangeToRest();
             ++_counters.hearths;
-            CoaWorldState::Recovery(true), CoaWorld::LogEvent("unstuck", bot->GetName(), "hearthstone home");
+            CoaWorldState::Recovery(bot->GetGUID().GetCounter(), true), CoaWorld::LogEvent("unstuck", bot->GetName(), "hearthstone home");
         }
 
         std::unordered_map<uint32, BotTrack> _tracks;
@@ -440,7 +454,7 @@ namespace
         settings.deathsWindowMinutes = std::clamp<uint32>(sConfigMgr->GetOption<uint32>(key("DeathsWindowMinutes"), 15, false), 1, 120);
         settings.hearth = sConfigMgr->GetOption<bool>(key("Hearth"), true, false);
         settings.quarantineMinutes = std::min<uint32>(1440, sConfigMgr->GetOption<uint32>(key("QuarantineMinutes"), 30, false));
-        uint32 noProgress = sConfigMgr->GetOption<uint32>(key("NoProgressSeconds"), 30, false);
+        uint32 noProgress = sConfigMgr->GetOption<uint32>(key("NoProgressSeconds"), 120, false);
         settings.noProgressSeconds = noProgress ? std::clamp<uint32>(noProgress, 30, 1800) : 0;
         settings.outOfRangeMinutes = std::min<uint32>(120, sConfigMgr->GetOption<uint32>(key("OutOfRangeMinutes"), 5, false));
         settings.outOfRangeLevels = std::clamp<uint32>(sConfigMgr->GetOption<uint32>(key("OutOfRangeLevels"), 8, false), 3, 40);
