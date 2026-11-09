@@ -88,7 +88,7 @@
 # Master switch; the seller or buyer and an auction character (GUIDs or AutoCharacter) are also required.
 AuctionHouseBot.Enable = true
 
-# CoA: only list items found in world loot, vendors or profession crafting.
+# CoA: only list items found in world loot, vendors, profession crafting or quest rewards.
 # Existing binding, quality, name and level filters still apply.
 AuctionHouseBot.CoA.ObtainableItemsOnly = true
 
@@ -97,9 +97,10 @@ AuctionHouseBot.CoA.ObtainableItemsOnly = true
 # Keeps Netherweave Cloth, Fel Iron Ore and the like off the auction house.
 AuctionHouseBot.CoA.VanillaItemsOnly = true
 
-# CoA: list only items that players really sold on the CoA auction house (17,121 item ids from scans of the real house,
-# 2026). Keeps off what CoA never had for sale: arrows and bullets, unused templates and the like. Default false in the code.
-AuctionHouseBot.CoA.SeenOnCoAHouseOnly = true
+# CoA: items that players sold on the real CoA auction house (17,121 item ids from scans of the house, 2026; the scans
+# are incomplete) count as obtainable too, next to the sources above (loot, vendors, recipes, quest rewards).
+# Default false in the code.
+AuctionHouseBot.CoA.SeenOnCoAHouse = true
 
 AuctionHouseBot.DEBUG = false
 AuctionHouseBot.DEBUG_FILTERS = false

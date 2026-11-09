@@ -15,6 +15,7 @@
 #include "CoaMarketPrices.h"
 #include "CoaMaterials.h"
 #include "CoaSellable.h"
+#include "CharacterCache.h"
 #include "Config.h"
 #include "Creature.h"
 #include "DatabaseEnv.h"
@@ -324,12 +325,55 @@ namespace
         }
     }
 
+    // Start-up: a random bot's auction of what a bot may not list (ammunition, an item CoA does not have, a vendor
+    // good) goes back to it by mail, as when it ends unsold; a bidder gets its money back. Listings made before the
+    // rules (the auction clock keeps them alive across restarts) are cleaned this way; nothing is destroyed.
+    void TakeBackForbiddenListings()
+    {
+        uint32 taken = 0;
+        CharacterDatabaseTransaction trans = CharacterDatabase.BeginTransaction();
+        for (AuctionHouseId houseId : {AuctionHouseId::Alliance, AuctionHouseId::Horde, AuctionHouseId::Neutral})
+        {
+            AuctionHouseObject* house = sAuctionMgr->GetAuctionsMapByHouseId(houseId);
+            if (!house)
+                continue;
+            std::vector<AuctionEntry*> forbidden;
+            for (auto const& [id, auction] : house->GetAuctions())
+            {
+                if (!auction)
+                    continue;
+                ItemTemplate const* proto = sObjectMgr->GetItemTemplate(auction->item_template);
+                if (!proto || Sellable::BotMayList(proto, true))
+                    continue;
+                if (!sPlayerbotAIConfig.IsInRandomAccountList(sCharacterCache->GetCharacterAccountIdByGuid(auction->owner)))
+                    continue;
+                forbidden.push_back(auction);
+            }
+            for (AuctionEntry* auction : forbidden)
+            {
+                if (auction->bidder)
+                    sAuctionMgr->SendAuctionCancelledToBidderMail(auction, trans);
+                sAuctionMgr->SendAuctionExpiredMail(auction, trans, false);
+                auction->DeleteFromDB(trans);
+                sAuctionMgr->RemoveAItem(auction->item_guid);
+                house->RemoveAuction(auction);
+                ++taken;
+            }
+        }
+        CharacterDatabase.CommitTransaction(trans);
+        if (taken)
+            LOG_INFO("server.loading", "CoA Economy: {} random bots' auctions of items a bot may not list went back to "
+                     "them by mail", taken);
+    }
+
     class CoaBotAuctionsWorld : public WorldScript
     {
     public:
-        CoaBotAuctionsWorld() : WorldScript("CoaBotAuctionsWorld", {WORLDHOOK_ON_AFTER_CONFIG_LOAD, WORLDHOOK_ON_UPDATE}) { }
+        CoaBotAuctionsWorld()
+            : WorldScript("CoaBotAuctionsWorld", {WORLDHOOK_ON_AFTER_CONFIG_LOAD, WORLDHOOK_ON_STARTUP, WORLDHOOK_ON_UPDATE}) { }
 
         void OnAfterConfigLoad(bool /*reload*/) override { LoadSettings(); }
+        void OnStartup() override { TakeBackForbiddenListings(); }
         // World thread, between two map updates: no bot is being updated meanwhile.
         void OnUpdate(uint32 /*diff*/) override { ProcessQueue(); }
     };
