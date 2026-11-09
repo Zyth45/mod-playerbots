@@ -391,6 +391,8 @@ bool SayInTrade(Player* bot, std::string const& text)
                 tradeJoined.clear();
         }
         channel->Say(bot->GetGUID(), text, LANG_UNIVERSAL);
+        if (PlayerbotAI* botAI = GET_PLAYERBOT_AI(bot))  // into Chat.log, as the other channels' lines
+            botAI->LogChat("tells channel " + channel->GetName(), text);
         return true;
     }
     return false;  // no player has the channel open: nobody would read it
