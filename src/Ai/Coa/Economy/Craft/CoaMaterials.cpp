@@ -5,6 +5,7 @@
  */
 
 #include "CoaMaterials.h"
+#include "CoaEconomyData.h"
 
 #include "AuctionHouseMgr.h"
 #include "CoaArtisans.h"
@@ -153,6 +154,8 @@ namespace
                 break;
             bot->DestroyItem(item->GetBagSlot(), item->GetSlot(), true);
             StoreLoot(bot, loot);
+            for (LootItem const& made : loot.items)
+                Data::RecordBreak(true, made.itemid, made.count, 1);
             ++done;
         }
         return done;
@@ -184,6 +187,8 @@ namespace
                     break;
                 bot->DestroyItemCount(ore, ProspectStack, true);
                 StoreLoot(bot, loot);
+                for (LootItem const& made : loot.items)
+                    Data::RecordBreak(false, made.itemid, made.count, ProspectStack);
                 ++done;
             }
         return done;

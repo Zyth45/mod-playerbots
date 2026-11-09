@@ -10,6 +10,7 @@
 // off is added to the end of every auction, in memory and in the characters database.
 
 #include "CoaEconomyDb.h"
+#include "CoaEconomyData.h"
 #include "AuctionHouseMgr.h"
 #include "CoaEconomyRules.h"
 #include "Config.h"
@@ -56,9 +57,9 @@ namespace
 
         uint32 const maxDays = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaEconomy.AuctionClock.MaxPauseDays", 30);
         uint32 const pause = CoaEconomyRules::AuctionPause(lastAlive, Now(), 5 * MINUTE, maxDays * DAY);
+        uint32 moved = 0;
         if (pause)
         {
-            uint32 moved = 0;
             for (AuctionHouseId house : {AuctionHouseId::Alliance, AuctionHouseId::Horde, AuctionHouseId::Neutral})
                 if (AuctionHouseObject* auctions = sAuctionMgr->GetAuctionsMapByHouseId(house))
                     for (auto const& [id, auction] : auctions->GetAuctions())
@@ -71,6 +72,7 @@ namespace
             LOG_INFO("server.loading", "CoA Economy: the server was off {} min; {} auctions resume where they stopped",
                      pause / MINUTE, moved);
         }
+        Data::RecordClock(pause, moved);
         Beat();
     }
 

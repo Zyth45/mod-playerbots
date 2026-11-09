@@ -104,7 +104,7 @@ namespace
         uint32& last = lastOrder[bot->GetGUID().GetCounter()];
         if (last && now < last + orderCooldownSeconds)
         {
-            Data::RecordOrder(from->GetName(), bot->GetName(), itemId, 0, "busy");
+            Data::RecordOrder(from->GetName(), bot->GetName(), itemId, 0, "busy", recipe.skillId);
             return CoaLive::SayLine(bot, "wh_craft_busy", slots, from->GetGUID()), true;
         }
 
@@ -112,7 +112,7 @@ namespace
         Item* crafted = Artisans::Craft(bot, recipe);
         if (!crafted)
         {
-            Data::RecordOrder(from->GetName(), bot->GetName(), itemId, price, "busy");
+            Data::RecordOrder(from->GetName(), bot->GetName(), itemId, price, "busy", recipe.skillId);
             return CoaLive::SayLine(bot, "wh_craft_busy", slots, from->GetGUID()), true;
         }
         last = now;
@@ -123,7 +123,7 @@ namespace
         CoaLive::SayLine(bot, "wh_craft_quote", slots, from->GetGUID());
         if (CoaLive::MailCod(bot, from, crafted->GetGUID(), price))
         {
-            Data::RecordOrder(from->GetName(), bot->GetName(), itemId, price, "mailed");
+            Data::RecordOrder(from->GetName(), bot->GetName(), itemId, price, "mailed", recipe.skillId);
             CoaLive::SayLine(bot, "wh_craft_cod", slots, from->GetGUID());
         }
         return true;

@@ -48,12 +48,28 @@ namespace
     // ---- What the bricks report (world thread) ----
     struct Sale { uint32 at; uint32 item; uint32 count; uint64 price; };
     struct Craft { uint32 at; uint32 skill; uint32 item; uint32 count; int64 profit; };
-    struct Order { uint32 id; uint32 at; std::string buyer; std::string bot; uint32 item; uint32 price; std::string state; };
+    struct Order { uint32 id; uint32 at; std::string buyer; std::string bot; uint32 item; uint32 price; std::string state;
+                   uint32 skill; std::string kind; };
+    struct Break { uint32 at; bool disenchant; uint32 item; uint32 count; uint32 from; };
+    // Counters merged per minute, so a busy AHBot costs one entry a minute.
+    struct AhBotTick { uint32 at; uint32 listed; uint32 bought; uint64 in; uint64 out; };
+    struct Tick { uint32 at; uint32 n; };
 
     std::deque<Sale> sales;
     std::deque<Craft> crafts;
     std::deque<Order> orders;
+    std::deque<Break> breaks;
+    std::deque<AhBotTick> ahbot;
+    std::deque<Tick> expired;
+    std::deque<Tick> sold;
     uint32 nextOrderId = 1;
+
+    // The auction clock (null in the file until it reports at start-up).
+    bool clockKnown = false;
+    uint32 clockOffline = 0;
+    uint32 clockResumed = 0;
+
+    constexpr uint32 SkillMining = 186;
 
     uint32 Now() { return uint32(GameTime::GetGameTime().count()); }
 
@@ -62,6 +78,22 @@ namespace
     {
         while (!list.empty() && list.front().at + Day < now)
             list.pop_front();
+    }
+
+    void Count(std::deque<Tick>& list, uint32 now)
+    {
+        if (!list.empty() && list.back().at / MINUTE == now / MINUTE)
+            ++list.back().n;
+        else
+            list.push_back({now, 1});
+    }
+
+    uint32 Sum(std::deque<Tick> const& list)
+    {
+        uint32 total = 0;
+        for (Tick const& tick : list)
+            total += tick.n;
+        return total;
     }
 
     // ---- Settings ----
@@ -275,6 +307,10 @@ namespace
             Forget(sales, now);
             Forget(crafts, now);
             Forget(orders, now);
+            Forget(breaks, now);
+            Forget(ahbot, now);
+            Forget(expired, now);
+            Forget(sold, now);
 
             // One pass over the three auction houses.
             std::map<std::pair<uint32, uint32>, CategoryStats> categories;
@@ -403,9 +439,63 @@ namespace
                 Escape(out, it->bot);
                 out += ",\"item\":" + std::to_string(it->item) + ",\"price\":" + std::to_string(it->price) + ",\"state\":";
                 Escape(out, it->state);
-                out += ",\"at\":" + std::to_string(it->at) + "}";
+                out += ",\"at\":" + std::to_string(it->at) + ",\"skill\":" + std::to_string(it->skill) + ",\"kind\":";
+                Escape(out, it->kind);
+                out += "}";
             }
-            out += "]}}";
+
+            // Smelting is the Mining crafts; disenchanting and prospecting the broken items.
+            out += "],\"smelt_24h\":[";
+            first = true;
+            for (auto const& [key, total] : crafted)
+            {
+                if (key.first != SkillMining)
+                    continue;
+                out += first ? "" : ",";
+                first = false;
+                out += "{\"item\":" + std::to_string(key.second) + ",\"count\":" + std::to_string(total.first) + "}";
+            }
+            std::map<uint32, std::pair<uint32, uint32>> disenchanted, prospected; // item -> count, from
+            for (Break const& made : breaks)
+            {
+                auto& total = (made.disenchant ? disenchanted : prospected)[made.item];
+                total.first += made.count;
+                total.second += made.from;
+            }
+            for (auto const& [name, list] : {std::make_pair("disenchant_24h", &disenchanted), std::make_pair("prospect_24h", &prospected)})
+            {
+                out += std::string("],\"") + name + "\":[";
+                first = true;
+                for (auto const& [item, total] : *list)
+                {
+                    out += first ? "" : ",";
+                    first = false;
+                    out += "{\"item\":" + std::to_string(item) + ",\"count\":" + std::to_string(total.first) +
+                           ",\"from\":" + std::to_string(total.second) + "}";
+                }
+            }
+            out += "]";
+
+            // Auctions on game time: the downtime added at start-up, and what ended in the last 24 h.
+            out += ",\"clock\":{\"enabled\":";
+            out += clockKnown ? "1" : "0";
+            out += ",\"offline_added_s\":" + (clockKnown ? std::to_string(clockOffline) : std::string("null"));
+            out += ",\"resumed\":" + (clockKnown ? std::to_string(clockResumed) : std::string("null"));
+            out += ",\"expired_24h\":" + std::to_string(Sum(expired));
+            out += ",\"sold_24h\":" + std::to_string(Sum(sold)) + ",\"relisted_24h\":null}";
+
+            AhBotTick total{0, 0, 0, 0, 0};
+            for (AhBotTick const& tick : ahbot)
+            {
+                total.listed += tick.listed;
+                total.bought += tick.bought;
+                total.in += tick.in;
+                total.out += tick.out;
+            }
+            out += ",\"ahbot_24h\":{\"listed\":" + std::to_string(total.listed) + ",\"bought\":" +
+                   std::to_string(total.bought) + ",\"gold_in\":" + std::to_string(total.in) + ",\"gold_out\":" +
+                   std::to_string(total.out) + "}";
+            out += "}}";
 
             _lastBuildUs = uint32(std::chrono::duration_cast<std::chrono::microseconds>(Clock::now() - start).count());
             _writer.Post((std::filesystem::path(dir) / "economy.json").string(), std::move(out));
@@ -425,6 +515,17 @@ namespace
     };
 
     Economy economy;
+
+    // Every auction that ends, sold or expired, whoever listed it.
+    class CoaEconomyDataAuctions : public AuctionHouseScript
+    {
+    public:
+        CoaEconomyDataAuctions()
+            : AuctionHouseScript("CoaEconomyDataAuctions", {AUCTIONHOUSEHOOK_ON_AUCTION_SUCCESSFUL, AUCTIONHOUSEHOOK_ON_AUCTION_EXPIRE}) { }
+
+        void OnAuctionSuccessful(AuctionHouseObject* /*ah*/, AuctionEntry* /*entry*/) override { Count(sold, Now()); }
+        void OnAuctionExpire(AuctionHouseObject* /*ah*/, AuctionEntry* /*entry*/) override { Count(expired, Now()); }
+    };
 
     class CoaEconomyDataWorld : public WorldScript
     {
@@ -456,13 +557,47 @@ void RecordCraft(uint32 skillId, uint32 itemId, uint32 count, int64 profit)
     crafts.push_back({now, skillId, itemId, count, profit});
 }
 
-void RecordOrder(std::string const& buyer, std::string const& bot, uint32 itemId, uint32 price, char const* state)
+void RecordOrder(std::string const& buyer, std::string const& bot, uint32 itemId, uint32 price, char const* state,
+                 uint32 skillId, char const* kind)
 {
     if (!enabled)
         return;
-    orders.push_back({nextOrderId++, Now(), buyer, bot, itemId, price, state ? state : ""});
+    orders.push_back({nextOrderId++, Now(), buyer, bot, itemId, price, state ? state : "", skillId, kind ? kind : "player"});
     while (orders.size() > MaxOrders)
         orders.pop_front();
+}
+
+void RecordBreak(bool disenchant, uint32 itemId, uint32 count, uint32 from)
+{
+    if (!enabled)
+        return;
+    uint32 const now = Now();
+    Forget(breaks, now);
+    breaks.push_back({now, disenchant, itemId, count, from});
+}
+
+void RecordAhBot(uint32 listed, uint32 bought, uint64 goldIn, uint64 goldOut)
+{
+    if (!enabled)
+        return;
+    uint32 const now = Now();
+    if (ahbot.empty() || ahbot.back().at / MINUTE != now / MINUTE)
+    {
+        Forget(ahbot, now);
+        ahbot.push_back({now, 0, 0, 0, 0});
+    }
+    AhBotTick& tick = ahbot.back();
+    tick.listed += listed;
+    tick.bought += bought;
+    tick.in += goldIn;
+    tick.out += goldOut;
+}
+
+void RecordClock(uint32 offlineSeconds, uint32 resumed)
+{
+    clockKnown = true;
+    clockOffline = offlineSeconds;
+    clockResumed = resumed;
 }
 
 } // namespace CoaEconomy::Data
@@ -474,4 +609,5 @@ void AddSC_coa_economy_data()
         return;
     CoaEconomy::Data::LoadSettings();
     new CoaEconomy::Data::CoaEconomyDataWorld();
+    new CoaEconomy::Data::CoaEconomyDataAuctions();
 }
