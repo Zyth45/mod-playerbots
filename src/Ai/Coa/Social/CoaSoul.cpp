@@ -6,6 +6,7 @@
 
 #include "CoaSoul.h"
 
+#include "CoaDbCheck.h"
 #include "DatabaseEnv.h"
 #include "GameTime.h"
 #include "Log.h"
@@ -92,12 +93,11 @@ void Load()
     // Off: nothing read (a database without the table starts as before).
     if (!sPlayerbotAIConfig.coaSoulEnable)
         return;
-    if (!PlayerbotsDatabase.Query("SHOW TABLES LIKE 'playerbots_coa_soul'"))
-    {
-        LOG_ERROR("server.loading", ">> CoA souls: table playerbots_coa_soul missing (data/sql/playerbots/custom not "
-                                    "applied): souls are drawn but not kept.");
+    // Every column written by Flush: a missing one would abort the server (souls are then drawn but not kept).
+    if (!CoaDbCheck::Require("CoA souls", "playerbots_coa_soul",
+                             {"bot_guid", "archetype", "pace", "sociability", "curiosity", "greed", "aggression",
+                              "seed", "source", "version", "persona", "created_at", "updated_at"}))
         return;
-    }
     tableExists = true;
     if (QueryResult r = PlayerbotsDatabase.Query(
             "SELECT bot_guid, archetype, pace, sociability, curiosity, greed, aggression, seed FROM playerbots_coa_soul"))
