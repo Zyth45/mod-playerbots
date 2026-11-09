@@ -8,6 +8,7 @@
 
 #include "CoaLive.h"
 
+#include "CoaRulesetPvpRules.h"  // CoA World: High Risk / War Mode bots keep PvP on
 #include "CoaWorldBots.h"  // CoA World: CoaWorldIsBotHeld, CoaWorldHearthInstead, CoaWorldDensityOrderAccounts
 #include "AscensionRulesets.h"
 #include "BattlegroundUtils.h"
@@ -64,6 +65,11 @@
 #include <random>
 #include <set>
 #include <utility>
+
+// --- CoA World (CoA Monde session) ---
+static void CoaSyncBotRulesetPvp(Player* bot);
+static void CoaResetBotPvp(Player* bot);
+// --- end CoA World ---
 
 struct GuidClassRaceInfo
 {
@@ -2862,7 +2868,10 @@ void RandomPlayerbotMgr::Refresh(Player* bot)
 
     bot->DurabilityRepairAll(false, 1.0f, false);
     bot->SetFullHealth();
-    bot->SetPvP(sWorld->IsPvPRealm());
+    // --- CoA World (CoA Monde session) ---
+    // A High Risk / War Mode bot keeps PvP on after its revive (Discord: High Risk aura, no PvP flag).
+    CoaResetBotPvp(bot);
+    // --- end CoA World ---
 
     // The full-bags clean-up belongs to the "maintenance" strategy, which no random bot is given: run it
     // here, with the repair. It does nothing below 90% of the bag space.
@@ -3505,6 +3514,35 @@ constexpr uint32 COA_RULESET_PVE = 9931032;
 constexpr uint8 COA_RULESET_HIGH_RISK_MIN_LEVEL = 15;
 }
 
+// --- CoA World (CoA Monde session) ---
+// The PvP flag follows the ruleset auras the bot has, as the core does at login and map change
+// (AscensionRulesets.cpp, SyncRulesetPvP): the bot code resets PvP to the realm's default after a revive or a random
+// teleport, which left High Risk bots unflagged on a PvE realm until their next ruleset check.
+static void CoaSyncBotRulesetPvp(Player* bot)
+{
+    if (!bot || !bot->IsInWorld())
+        return;
+    bool const pveMarker = bot->HasAura(COA_RULESET_PVE);
+    bool const inPvp = CoaInPvpRuleset(bot->HasAura(COA_RULESET_HIGH_RISK), bot->HasAura(COA_RULESET_WAR_MODE), pveMarker);
+    int const change = CoaRulesetPvpFlagChange(inPvp, pveMarker, bot->HasPlayerFlag(PLAYER_FLAGS_IN_PVP));
+    if (change > 0)
+        bot->SetPlayerFlag(PLAYER_FLAGS_IN_PVP);
+    else if (change < 0)
+        bot->RemovePlayerFlag(PLAYER_FLAGS_IN_PVP);
+    if (inPvp && !bot->IsPvP())
+        bot->UpdatePvP(true, true);
+}
+
+// The realm's default PvP state for a random bot being reset, never off under a PvP ruleset.
+static void CoaResetBotPvp(Player* bot)
+{
+    bool const inPvp = CoaInPvpRuleset(bot->HasAura(COA_RULESET_HIGH_RISK), bot->HasAura(COA_RULESET_WAR_MODE),
+                                       bot->HasAura(COA_RULESET_PVE));
+    bot->SetPvP(CoaBotPvpAfterReset(sWorld->IsPvPRealm(), inPvp));
+    CoaSyncBotRulesetPvp(bot);
+}
+// --- end CoA World ---
+
 // The core puts every character without a ruleset in PvE at login, bots included. With
 // AiPlayerbot.CoaRulesetForBots, a share of the random bots is put in High Risk or War Mode instead: the bucket
 // comes from the guid, so a bot keeps its ruleset from one login to the next, and changing the shares moves
@@ -3513,6 +3551,8 @@ void RandomPlayerbotMgr::CoaApplyRuleset(Player* bot)
 {
     if (!sPlayerbotAIConfig.coaRulesetForBots || !bot || !bot->IsInWorld() || !IsRandomBot(bot))
         return;
+    // CoA World: the flag is kept right in combat too (a High Risk bot fighting without it could not be attacked).
+    CoaSyncBotRulesetPvp(bot);
     if (bot->InBattleground() || bot->InArena() || bot->IsInCombat() || !bot->IsAlive())
         return;
 
@@ -3545,14 +3585,9 @@ void RandomPlayerbotMgr::CoaApplyRuleset(Player* bot)
     }
 
     // The core only puts the aura: on a PvE realm a High Risk or War Mode character was never flagged for PvP.
-    // These bots keep the PvP flag on, as the rulesets mean on Ascension; PvE bots let it run out.
-    bool const pvp = wanted != COA_RULESET_PVE;
-    if (pvp && !bot->HasPlayerFlag(PLAYER_FLAGS_IN_PVP))
-        bot->SetPlayerFlag(PLAYER_FLAGS_IN_PVP);
-    else if (!pvp && bot->HasPlayerFlag(PLAYER_FLAGS_IN_PVP))
-        bot->RemovePlayerFlag(PLAYER_FLAGS_IN_PVP);
-    if (pvp && !bot->IsPvP())
-        bot->UpdatePvP(true, true);
+    // These bots keep the PvP flag on, as the rulesets mean on Ascension; PvE bots let it run out. CoA World: from
+    // the auras the bot has, not the wanted ruleset, so a change the core refused never leaves High Risk unflagged.
+    CoaSyncBotRulesetPvp(bot);
 }
 
 void RandomPlayerbotMgr::CoaUpdateGear(Player* bot)
@@ -3913,7 +3948,7 @@ void RandomPlayerbotMgr::OnPlayerLogin(Player* player)
     {
         // ObjectGuid::LowType guid = player->GetGUID().GetCounter(); //not used, conditional could be rewritten for
         // simplicity. line marked for removal.
-        player->SetPvP(sWorld->IsPvPRealm());
+        CoaResetBotPvp(player);  // CoA World: the realm's PvP, but High Risk / War Mode keep it on at (re)login
     }
     else
     {
