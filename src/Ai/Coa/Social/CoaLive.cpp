@@ -377,8 +377,8 @@ void PlayEmote(Player* bot, uint32 emote, Player* target)
     bot->GetSession()->HandleTextEmoteOpcode(data);
 }
 
-// World thread: an item of the bot's bags by mail to a player, cash on delivery, with the delivery delay of any
-// player's mail to another account.
+// World thread: an item of the bot's bags by mail to a player, cash on delivery, with no delay. Its subject is the
+// item's name and its body is empty: no text to translate.
 void SendCod(Player* bot, Player* to, Item* item, uint32 price)
 {
     CharacterDatabaseTransaction trans = CharacterDatabase.BeginTransaction();

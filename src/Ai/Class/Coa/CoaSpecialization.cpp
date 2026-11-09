@@ -903,6 +903,20 @@ bool SwitchStockSpec(Player* bot, CoaRole role)
 }
 }  // namespace
 
+// Self-found, or a live server from 0 (AiPlayerbot.CoaFreshStart.Enable): nothing changes a bot's level, so a recruit
+// is never rebuilt at the master's; one within 2 levels is taken as it is.
+static bool CoaRecruitKeepsLevels(Player* master)
+{
+    return PlayerbotFactory::SelfFoundAt(master->GetLevel()) || sPlayerbotAIConfig.coaFreshStartEnable;
+}
+
+static bool CoaRecruitKeepsLevel(Player* master, Player* bot)
+{
+    return CoaRecruitKeepsLevels(master) || PlayerbotFactory::IsSelfFoundBot(bot);
+}
+
+static char const* CoaKeptLevelMode() { return sPlayerbotAIConfig.coaFreshStartEnable ? "on this live server" : "in self-found mode"; }
+
 // A recruit this far from the master's level is rebuilt at it by PrepareCoaRecruit.
 static bool CoaRecruitNeedsRebuild(Player* master, Player* bot, uint32 levelTolerance)
 {
@@ -910,7 +924,7 @@ static bool CoaRecruitNeedsRebuild(Player* master, Player* bot, uint32 levelTole
                               (master->GetLevel() >= sWorld->getIntConfig(CONFIG_MAX_PLAYER_LEVEL) &&
                                bot->GetLevel() < master->GetLevel());
     // Self-found: a bot is never raised to the master's level, so one up to 2 levels away is taken as it is.
-    if (PlayerbotFactory::SelfFoundAt(master->GetLevel()) || PlayerbotFactory::IsSelfFoundBot(bot))
+    if (CoaRecruitKeepsLevel(master, bot))
         levelTolerance = std::max<uint32>(levelTolerance, 2);
     return blocksFinder || std::abs(int32(bot->GetLevel()) - int32(master->GetLevel())) > int32(levelTolerance);
 }
@@ -962,8 +976,7 @@ Player* FindCoaRecruit(Player* master, CoaRole role, uint8 classId, std::set<Obj
             continue;
 
         // Self-found: no bot is rebuilt at the master's level, only one already near it is taken.
-        if ((PlayerbotFactory::SelfFoundAt(master->GetLevel()) || PlayerbotFactory::IsSelfFoundBot(bot)) &&
-            CoaRecruitNeedsRebuild(master, bot, levelTolerance))
+        if (CoaRecruitKeepsLevel(master, bot) && CoaRecruitNeedsRebuild(master, bot, levelTolerance))
             continue;
 
         PlayerbotAI* botAI = GET_PLAYERBOT_AI(bot);
@@ -1070,9 +1083,9 @@ bool PrepareCoaRecruit(Player* master, Player* chosen, CoaRole role, bool chosen
 
     if (CoaRecruitNeedsRebuild(master, chosen, levelTolerance))
     {
-        if (PlayerbotFactory::SelfFoundAt(master->GetLevel()) || PlayerbotFactory::IsSelfFoundBot(chosen))
+        if (CoaRecruitKeepsLevel(master, chosen))
         {
-            message = "No bot of your level is available in self-found mode.";
+            message = std::string("No bot of your level is available ") + CoaKeptLevelMode() + ".";
             return false;
         }
         uint32 const level = master->GetLevel();
@@ -1256,9 +1269,9 @@ bool RecruitCoaBot(Player* master, CoaRole role, std::string& message, uint8 cla
     Player* chosen = FindCoaRecruit(master, role, classId, {}, chosenFits, 0, onlyGuildId, noInstance);
     if (!chosen)
     {
-        if (PlayerbotFactory::SelfFoundAt(master->GetLevel()))
+        if (CoaRecruitKeepsLevels(master))
         {
-            message = "No free bot of your level is available in self-found mode.";
+            message = std::string("No free bot of your level is available ") + CoaKeptLevelMode() + ".";
             return false;
         }
         message = classId ? "No free " + ClassName(classId) + " bot of your faction to play " + RoleName(role) + "."
@@ -2134,8 +2147,8 @@ void CoaLfgHeard(Player* player, std::string const& message, Channel* channel)
     {
         if (offer(role, 0))
             continue;
-        if (PlayerbotFactory::SelfFoundAt(player->GetLevel()))
-            chat.PSendSysMessage("No free bot of your level can play {} in self-found mode.", RoleName(role));
+        if (CoaRecruitKeepsLevels(player))
+            chat.PSendSysMessage("No free bot of your level can play {} {}.", RoleName(role), CoaKeptLevelMode());
         else
             chat.PSendSysMessage("No free bot can play {} right now.", RoleName(role));
     }
