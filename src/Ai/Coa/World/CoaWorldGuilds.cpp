@@ -608,7 +608,7 @@ namespace
                 item->SaveToDB(trans);
                 draft.AddItem(item);
             }
-            draft.SendMailTo(trans, MailReceiver(player), MailSender(bot), MAIL_CHECK_MASK_NONE, urand(5, 30) * MINUTE);
+            draft.SendMailTo(trans, MailReceiver(player), MailSender(bot), MAIL_CHECK_MASK_NONE, 0);
             CharacterDatabase.CommitTransaction(trans);
             if (!BotLine(bot, "guild_gift", { { "player", player->GetName() } }))
                 Say(bot, Acore::StringFormat("{}, sent you a few potions", player->GetName()), now + urand(20, 40));
@@ -665,14 +665,14 @@ namespace
             return guild ? guild->GetName() : std::string();
         }
 
-        // An item of the bot's bags it may mail (as MailHandler: never equipped, traded, a bag, or soulbound), of at
-        // most qty (0: any).
-        static Item* BagItem(Player* bot, uint32 entry, uint32 qty)
+        // An item of the bot's bags it may mail (as MailHandler: never equipped, traded, a bag, or soulbound), whatever
+        // its stack (the order splits a bigger one than asked).
+        static Item* BagItem(Player* bot, uint32 entry)
         {
             auto fits = [&](Item* item)
             {
                 return item && item->GetEntry() == entry && !item->IsEquipped() && !item->IsInTrade() && !item->IsBag() &&
-                       item->CanBeTraded(true) && (!qty || item->GetCount() <= qty);
+                       item->CanBeTraded(true);
             };
             for (uint8 slot = INVENTORY_SLOT_ITEM_START; slot < INVENTORY_SLOT_ITEM_END; ++slot)
                 if (Item* item = bot->GetItemByPos(INVENTORY_SLOT_BAG_0, slot); fits(item))
@@ -725,12 +725,25 @@ namespace
             {
                 // What the core lets a player mail (MailHandler): never a bag in a bag slot or with items in it, a
                 // soulbound item or the loot being looted. A bag moved out with its contents left them dangling.
-                Item* item = BagItem(bot, entry, qty);
+                Item* item = BagItem(bot, entry);
                 if (!item)
                     continue;
+                uint32 sent = item->GetCount();
+                if (qty && sent > qty)
+                {
+                    // Part of a stack (one Silverleaf out of twenty): the rest stays in the bot's bags.
+                    if (!MailNew(bot, player, entry, qty, 0, 0, "From the guild."))
+                        continue;
+                    item->SetCount(sent - qty);
+                    item->SetState(ITEM_CHANGED, bot);
+                    CharacterDatabaseTransaction trans = CharacterDatabase.BeginTransaction();
+                    bot->SaveInventoryAndGoldToDB(trans);
+                    CharacterDatabase.CommitTransaction(trans);
+                    sent = qty;
+                }
+                else
+                    MailFromBags(bot, player, item, 0, 0);
                 ++count.second;
-                uint32 const sent = item->GetCount();
-                MailFromBags(bot, player, item, 0, urand(1, 4) * MINUTE);
                 Answer(bot, "guild_order_share", slots, Acore::StringFormat("{} I have one, sending it", player->GetName()),
                        now + urand(5, 15));
                 LogEvent("guild", bot->GetName(), Acore::StringFormat("sent {} to {}", proto->Name1, player->GetName()));
@@ -757,7 +770,7 @@ namespace
                             if (info->Effects[e].Effect == SPELL_EFFECT_CREATE_ITEM && info->Effects[e].ItemType == entry)
                                 made = uint32(std::max<int32>(1, info->Effects[e].CalcValue(bot)));
                         uint32 const sent = std::min<uint32>(std::min<uint32>(made, proto->GetMaxStackSize()), qty ? qty : made);
-                        if (!MailNew(bot, player, entry, sent, cost, urand(10, 30) * MINUTE,
+                        if (!MailNew(bot, player, entry, sent, cost, 0,
                                      "Made it for you, you only pay the materials."))
                             continue;
                         ++count.second;
@@ -790,12 +803,21 @@ namespace
             AuctionHouseObject* house = sAuctionMgr->GetAuctionsMap(player->GetFaction());
             if (!house)
                 return false;
+            // The cheapest stack of at most qty; else the cheapest of any size (the player sees the price on delivery).
             AuctionEntry* best = nullptr;
+            AuctionEntry* bestAny = nullptr;
             for (auto const& [id, auction] : house->GetAuctions())
-                if (auction && auction->item_template == proto->ItemId && auction->buyout && !auction->bidder &&
-                    auction->owner != player->GetGUID() && (!qty || auction->itemCount <= qty) &&
-                    (!best || auction->buyout < best->buyout))
+            {
+                if (!auction || auction->item_template != proto->ItemId || !auction->buyout || auction->bidder ||
+                    auction->owner == player->GetGUID())
+                    continue;
+                if ((!qty || auction->itemCount <= qty) && (!best || auction->buyout < best->buyout))
                     best = auction;
+                if (!bestAny || auction->buyout < bestAny->buyout)
+                    bestAny = auction;
+            }
+            if (!best)
+                best = bestAny;
             if (!best || best->buyout > uint64(settings.orderAuctionMaxGold) * GOLD)
                 return false;
             Player* buyer = nullptr;
@@ -827,7 +849,7 @@ namespace
             MailDraft(proto->Name1, "Got it at the auction house, you pay what I paid.")
                 .AddItem(item)
                 .AddCOD(price)
-                .SendMailTo(trans, MailReceiver(player), MailSender(buyer), MAIL_CHECK_MASK_COPIED, urand(5, 15) * MINUTE);
+                .SendMailTo(trans, MailReceiver(player), MailSender(buyer), MAIL_CHECK_MASK_COPIED, 0);
             buyer->SaveInventoryAndGoldToDB(trans);
             CharacterDatabase.CommitTransaction(trans);
 
@@ -903,7 +925,7 @@ namespace
                 return true;
             }
             if (bot && proto &&
-                MailNew(bot, player, offer.item, 1, 0, urand(1, 3) * MINUTE,
+                MailNew(bot, player, offer.item, 1, 0, 0,
                         Acore::StringFormat("Here it is. - {}", offer.botName), offer.random))
             {
                 LogEvent("guild", offer.botName, Acore::StringFormat("gave {} to {}", proto->Name1, player->GetName()));
@@ -1013,7 +1035,7 @@ namespace
                 Offer(player, bot, proto, bestRandom, bestReason, today, now);
                 return;
             }
-            if (!MailNew(bot, player, bestEntry, 1, 0, urand(5, 20) * MINUTE,
+            if (!MailNew(bot, player, bestEntry, 1, 0, 0,
                          Acore::StringFormat("Found this, it should suit you better. - {}", bot->GetName()), bestRandom))
                 return;
             player->UpdatePlayerSetting(GEAR_SETTING, GEAR_SETTING_LAST_DAY, today);
