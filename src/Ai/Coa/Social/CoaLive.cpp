@@ -376,8 +376,9 @@ void SendCod(Player* bot, Player* to, Item* item, uint32 price)
     MailDraft(item->GetTemplate()->Name1, "")
         .AddItem(item)
         .AddCOD(price)
-        .SendMailTo(trans, MailReceiver(to), MailSender(bot), MAIL_CHECK_MASK_COPIED,
-                    sWorld->getIntConfig(CONFIG_MAIL_DELIVERY_DELAY));
+        // No delivery delay: the bot's whispers already play the time it takes (MailDeliveryDelay, 1 h on some
+        // realms, held a craft order's mail that long).
+        .SendMailTo(trans, MailReceiver(to), MailSender(bot), MAIL_CHECK_MASK_COPIED, 0);
     bot->SaveInventoryAndGoldToDB(trans);
     CharacterDatabase.CommitTransaction(trans);
 }
