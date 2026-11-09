@@ -3279,10 +3279,10 @@ AiPlayerbot.CoaLive.NightBank.Enable = 0
 #                     updates, in the same order: the same talents in the end, without a 200 ms
 #                     pause of the world for each rebuild (each entry makes the core check the
 #                     whole Character Advancement again).
-#        Default:     0 - all at once, as before
-#                     2 - suggested
+#        Default:     2 - two entries now, the rest two a second (bench a15: 95 -> 10 ms a rebuild)
+#                     0 - all at once, as before
 
-AiPlayerbot.CoaLive.TalentsPerUpdate = 0
+AiPlayerbot.CoaLive.TalentsPerUpdate = 2
 
 #    AiPlayerbot.CoaLive.Immersion.Enable
 #        Description: Immersion. A random bot idling with water close by (60 yd), a capital's
