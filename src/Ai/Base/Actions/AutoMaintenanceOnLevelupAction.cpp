@@ -36,8 +36,9 @@ bool AutoMaintenanceOnLevelupAction::Execute(Event /*event*/)
             botAI->ChangeStrategy("-coa,+coa ranged", BOT_STATE_COMBAT);
     }
 
-    // One Character Advancement point per level from 10.
-    ApplyCoaTalents(bot);
+    // One Character Advancement point per level from 10. Capped as the rebuild is (TalentsPerUpdate): left
+    // uncapped, this action took over the whole cost the cap had spread (20 -> 105 ms a call, a15 bench).
+    ApplyCoaTalents(bot, CoaTalentsPerUpdate());
     SpendAltBotTalentPoints(bot);
     // A random Warcraft Reborn bot takes the talents of its tree's build due at its new level.
     if (IsRebornBot(bot) && sRandomPlayerbotMgr.IsRandomBot(bot))

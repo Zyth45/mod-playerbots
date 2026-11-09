@@ -230,6 +230,12 @@ std::map<std::string, std::string> Values(Player* bot, Player* subject, Unit* bo
     if (InCapital(bot))
         v["city"] = v["zone"];
     v["level"] = std::to_string((subject ? subject : bot)->GetLevel());
+    // %class: the speaker's own class, in the bots' language (the night bank's class lines).
+    if (ChrClassesEntry const* cls = sChrClassesStore.LookupEntry(bot->getClass()))
+        if (char const* name = cls->name[locale < TOTAL_LOCALES ? locale : 0]; name && *name)
+            v["class"] = name;
+        else if (cls->name[0] && *cls->name[0])
+            v["class"] = cls->name[0];
     v["role"] = PlayerbotAI::IsTank(bot) ? "tank" : PlayerbotAI::IsHeal(bot) ? "heal" : "dps";
     if (boss)
         v["boss"] = boss->GetName();
