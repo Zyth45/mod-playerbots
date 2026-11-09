@@ -18,6 +18,8 @@
 #include "CoaImmersionRules.h"
 #include "CoaCleanWorld.h"
 #include "CoaLiveRules.h"
+#include "GameObject.h"
+#include "LootObjectStack.h"
 #include "CoaSheathRules.h"
 #include "Chat.h"
 #include "ChatCommand.h"
@@ -792,6 +794,92 @@ std::string FindPlace(std::vector<std::string> const& subjects, uint8 locale)
     return "";
 }
 
+
+// ---------------------------------------------------------------- Immersion (L2): gathering trips
+
+std::unordered_map<uint64, uint64> gatherUntil;  // bot -> end of its trip (map threads, under liveLock)
+
+struct GatherNodeCheck
+{
+    Player* bot;
+    bool operator()(GameObject* go) const
+    {
+        return go->GetGoType() == GAMEOBJECT_TYPE_CHEST && go->isSpawned() && go->GetGOInfo()->GetLockId() &&
+               bot->IsWithinDistInMap(go, CoaImmersion::GATHER_MAX);
+    }
+};
+
+// A free random bot idling out in the world with herbalism or mining now and then walks to a node out of its sight;
+// once there, the "gather" strategy (every bot has it) gathers it. The rpg is held as for fishing.
+void Gather(Player* bot, PlayerbotAI* botAI)
+{
+    uint64 const nowMs = GameTime::GetGameTimeMS().count();
+    uint64 const key = bot->GetGUID().GetRawValue();
+    NewRpgInfo& info = botAI->rpgInfo;
+    uint64 endMs = 0;
+    {
+        std::lock_guard<std::mutex> guard(liveLock);
+        auto it = gatherUntil.find(key);
+        if (it != gatherUntil.end())
+            endMs = it->second;
+    }
+    if (endMs)
+    {
+        // Arrived (the gather strategy takes over), time is up, a fight, a group or another plan: the trip ends.
+        if (nowMs >= endMs || bot->IsInCombat() || bot->GetGroup() || info.GetStatus() != RPG_REST || !bot->isMoving())
+        {
+            if (info.GetStatus() == RPG_REST && nowMs >= endMs)
+                info.ChangeToIdle();
+            std::lock_guard<std::mutex> guard(liveLock);
+            gatherUntil.erase(key);
+        }
+        else
+            info.ChangeToRest();
+        return;
+    }
+
+    CoaImmersion::BotView view;
+    view.randomBot = IsRandom(bot);
+    view.ownedByPlayer = botAI->HasGameClientMaster();
+    view.alive = bot->IsAlive();
+    view.inCombat = bot->IsInCombat();
+    view.inGroup = bot->GetGroup() != nullptr;
+    view.inInstanceOrCity = bot->GetMap()->Instanceable() || bot->InBattleground() || InCapital(bot);
+    NewRpgStatus const status = info.GetStatus();
+    view.idleStatus = status == RPG_IDLE || status == RPG_REST || status == RPG_WANDER_RANDOM;
+    view.knowsFishing = bot->HasSkill(SKILL_HERBALISM) || bot->HasSkill(SKILL_MINING);  // here: a gatherer
+    if (!CoaImmersion::MayStartFishing(view) || urand(1, 1000) > CoaImmersion::START_CHANCE_PER_MILLE)
+        return;
+
+    // The nearest node it can gather, out of its sight (the costly look, after the roll).
+    std::list<GameObject*> nodes;
+    GatherNodeCheck check{bot};
+    Acore::GameObjectListSearcher<GatherNodeCheck> searcher(bot, nodes, check);
+    Cell::VisitObjects(bot, searcher, CoaImmersion::GATHER_MAX);
+    GameObject* best = nullptr;
+    float bestDist = 0.0f;
+    for (GameObject* go : nodes)
+    {
+        LootObject loot(bot, go->GetGUID());
+        float const d = bot->GetDistance(go);
+        if (!CoaImmersion::WorthATrip(d, loot.skillId != SKILL_NONE && loot.IsLootPossible(bot)))
+            continue;
+        if (!best || d < bestDist)
+        {
+            best = go;
+            bestDist = d;
+        }
+    }
+    if (!best)
+        return;
+    info.ChangeToRest();
+    bot->GetMotionMaster()->MovePoint(0, best->GetPositionX(), best->GetPositionY(), best->GetPositionZ());
+    std::lock_guard<std::mutex> guard(liveLock);
+    gatherUntil[key] = nowMs + CoaImmersion::GATHER_TRIP_MS;
+    if (gatherUntil.size() > 20000)
+        gatherUntil.clear();
+}
+
 // The bot looks around: a real player to help or greet, or an inn or a capital to idle in.
 void LookAround(Player* bot, PlayerbotAI* botAI)
 {
@@ -1414,7 +1502,11 @@ void OnBotUpdate(Player* bot, PlayerbotAI* botAI, uint32 diff)
     if (shifted % SCAN_MS >= std::min<uint64>(diff, SCAN_MS))
         return;
     if (ImmersionEnabled())
+    {
         Fish(bot, botAI);
+        if (!IsFishing(bot))
+            Gather(bot, botAI);
+    }
     if (!IsFishing(bot))
         CoaCleanWorld::LeaveWater(bot, botAI);
     if (Enabled())
