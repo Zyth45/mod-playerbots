@@ -1937,6 +1937,14 @@ bool IsFishing(Player* bot)
     return fishingUntil.count(bot->GetGUID().GetRawValue()) != 0;
 }
 
+bool IsGathering(Player* bot)
+{
+    if (!bot)
+        return false;
+    std::lock_guard<std::mutex> guard(liveLock);
+    return gatherUntil.count(bot->GetGUID().GetRawValue()) != 0;
+}
+
 uint32 SessionSeconds() { return SessionsEnabled() ? CoaSessions::SessionSeconds(rng.between) : 0; }
 
 uint32 OfflineSeconds() { return SessionsEnabled() ? CoaSessions::OfflineSeconds(rng.between) : 0; }

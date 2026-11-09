@@ -99,7 +99,7 @@ bool Capital(uint32 zoneId)
 Snapshot Build()
 {
     Snapshot s;
-    std::map<std::pair<uint32, uint32>, uint32> zones;
+    std::map<std::pair<uint32, uint32>, ZoneCount> zones;
     uint32 const surnameMode = sPlayerbotAIConfig.coaBotSurname;
     {
         std::shared_lock<std::shared_mutex> lock(*HashMapHolder<Player>::GetLock());
@@ -115,12 +115,15 @@ Snapshot Build()
             if (!sRandomPlayerbotMgr.IsRandomBot(player))
                 continue;
             ++s.online;
-            ++zones[{player->GetMapId(), player->GetZoneId()}];
+            ZoneCount& zone = zones[{player->GetMapId(), player->GetZoneId()}];
+            ++zone.bots;
+            ++(player->GetTeamId() == TEAM_ALLIANCE ? zone.alliance : zone.horde);
 
             CoaWorldFile::BotState state;
             state.battleground = player->InBattleground() || player->InArena();
             state.dungeon = !state.battleground && player->GetMap() && player->GetMap()->Instanceable();
             state.fishing = CoaLive::IsFishing(player);
+            state.gathering = CoaLive::IsGathering(player);
             state.flying = player->IsInFlight();
             state.inCapital = Capital(player->GetZoneId());
             if (PlayerbotAI* botAI = GET_PLAYERBOT_AI(player))
@@ -138,13 +141,19 @@ Snapshot Build()
             }
         }
     }
-    for (auto const& [key, bots] : zones)
-        s.zones.push_back({key.first, key.second, bots, Capital(key.second)});
+    for (auto& [key, zone] : zones)
+    {
+        zone.map = key.first;
+        zone.zone = key.second;
+        zone.capital = Capital(key.second);
+        s.zones.push_back(zone);
+    }
     s.soulsOn = CoaSoul::Enabled();
     s.surnameMode = int32(surnameMode);
     s.surnameListSize = uint32(sPlayerbotAIConfig.coaBotSurnameList.size());
     s.tickAvgMs = sWorldUpdateTime.GetAverageUpdateTime();
     s.tickMaxMs = sWorldUpdateTime.GetMaxUpdateTime();
+    s.tickP95Ms = sWorldUpdateTime.GetPercentile(95);
     return s;
 }
 

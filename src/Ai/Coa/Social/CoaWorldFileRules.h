@@ -27,12 +27,13 @@ enum class Activity : uint8_t
     Pvp,
     Dungeon,
     Idle,
+    Gather,  // a gathering trip (herbs, ore): added last, the older keys keep their place
     Count,
 };
 
 inline char const* ActivityName(Activity a)
 {
-    static char const* const names[] = {"quest", "grind", "city", "travel", "fish", "pvp", "dungeon", "idle"};
+    static char const* const names[] = {"quest", "grind", "city", "travel", "fish", "pvp", "dungeon", "idle", "gather"};
     return a < Activity::Count ? names[uint8_t(a)] : "idle";
 }
 
@@ -42,6 +43,7 @@ struct BotState
     bool battleground = false;  // a battleground or an arena
     bool dungeon = false;       // another instanced map
     bool fishing = false;
+    bool gathering = false;  // on its way to a node (CoA Live Immersion)
     bool flying = false;        // on a taxi
     bool inCapital = false;
     // The "new rpg" status, by name: idle, rest, grind, camp, wander_random, wander_npc, quest, flight, pvp, city.
@@ -56,6 +58,8 @@ inline Activity Classify(BotState const& s)
         return Activity::Dungeon;
     if (s.fishing)
         return Activity::Fish;
+    if (s.gathering)
+        return Activity::Gather;
     if (s.flying || s.rpg == "flight" || s.rpg == "camp")
         return Activity::Travel;
     if (s.rpg == "city" || (s.inCapital && (s.rpg == "wander_npc" || s.rpg == "rest" || s.rpg == "idle")))
@@ -120,6 +124,8 @@ struct ZoneCount
     uint32_t zone = 0;
     uint32_t bots = 0;
     bool capital = false;
+    uint32_t alliance = 0;  // the random bots of each faction
+    uint32_t horde = 0;
 };
 
 struct Snapshot
@@ -135,6 +141,7 @@ struct Snapshot
     uint32_t souls[5] = {};  // lazy, quester, wanderer, trader, pvp
     int64_t tickAvgMs = -1;  // -1: null
     int64_t tickMaxMs = -1;
+    int64_t tickP95Ms = -1;
 };
 
 inline std::string Num(int64_t v) { return v < 0 ? "null" : std::to_string(v); }
@@ -152,7 +159,8 @@ inline std::string Data(Snapshot s, size_t maxZones = 40, size_t maxSurnames = 1
     for (size_t i = 0; i < s.zones.size(); ++i)
         out += std::string(i ? "," : "") + "{\"map\":" + std::to_string(s.zones[i].map) + ",\"zone\":" +
                std::to_string(s.zones[i].zone) + ",\"bots\":" + std::to_string(s.zones[i].bots) + ",\"capital\":" +
-               (s.zones[i].capital ? "true" : "false") + "}";
+               (s.zones[i].capital ? "true" : "false") + ",\"faction\":{\"alliance\":" +
+               std::to_string(s.zones[i].alliance) + ",\"horde\":" + std::to_string(s.zones[i].horde) + "}}";
     out += "],\"activities\":{";
     for (uint8_t a = 0; a < uint8_t(Activity::Count); ++a)
         out += std::string(a ? "," : "") + Quote(ActivityName(Activity(a))) + ":" + std::to_string(s.activities[a]);
@@ -184,7 +192,7 @@ inline std::string Data(Snapshot s, size_t maxZones = 40, size_t maxSurnames = 1
                    std::to_string(top[i].second) + "}";
         out += "]}";
     }
-    out += ",\"health\":{\"tick_ms\":{\"avg\":" + Num(s.tickAvgMs) + ",\"p95\":null,\"max\":" + Num(s.tickMaxMs) +
+    out += ",\"health\":{\"tick_ms\":{\"avg\":" + Num(s.tickAvgMs) + ",\"p95\":" + Num(s.tickP95Ms) + ",\"max\":" + Num(s.tickMaxMs) +
            "},\"bots_us_per_tick\":null,\"by_strategy_us\":null,\"stuck\":null}}";
     return out;
 }
