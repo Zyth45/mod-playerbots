@@ -6,11 +6,13 @@
 
 #include "CoaTelegraph.h"
 
+#include "AttackAction.h"
 #include "CoaTelegraphRule.h"
 #include "DynamicObject.h"
 #include "Player.h"
 #include "PlayerbotAIConfig.h"
 #include "Playerbots.h"
+#include "ReachTargetActions.h"
 #include "SpellAuras.h"
 
 #include <cmath>
@@ -78,4 +80,37 @@ void CoaTelegraphStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
 {
     // A one-shot: above every rotation, heal and stock dodge (avoid aoe), with the emergency actions.
     triggers.push_back(new TriggerNode("coa combat telegraph", {NextAction("coa combat telegraph", ACTION_EMERGENCY)}));
+}
+
+void CoaTelegraphStrategy::InitMultipliers(std::vector<Multiplier*>& multipliers)
+{
+    multipliers.push_back(new CoaTelegraphMeleeMultiplier(botAI));
+}
+
+DynamicObject* CoaTelegraph::MarkerUnderCaster(Unit* target, float& safeDistance)
+{
+    if (!target || !target->IsAlive() || !sPlayerbotAIConfig.coaCombatTelegraphEnable)
+        return nullptr;
+    for (CoaTelegraphRule::Telegraph const& telegraph : CoaTelegraphRule::TELEGRAPHS)
+    {
+        DynamicObject* marker = target->GetDynObject(telegraph.spellId);
+        if (!marker || !marker->IsInWorld())
+            continue;
+        float const safe = CoaTelegraphRule::SafeDistance(telegraph, marker->GetRadius());
+        if (target->GetDistance2d(marker) >= safe)
+            continue;
+        safeDistance = safe;
+        return marker;
+    }
+    return nullptr;
+}
+
+float CoaTelegraphMeleeMultiplier::GetValue(Action* action)
+{
+    if (!sPlayerbotAIConfig.coaCombatTelegraphEnable || PlayerbotAI::IsTank(bot))
+        return 1.0f;
+    if (!dynamic_cast<ReachMeleeAction*>(action) && !dynamic_cast<MeleeAction*>(action))
+        return 1.0f;
+    float safeDistance = 0.0f;
+    return CoaTelegraph::MarkerUnderCaster(AI_VALUE(Unit*, "current target"), safeDistance) ? 0.0f : 1.0f;
 }
