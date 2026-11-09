@@ -710,6 +710,13 @@ public:
     // Most AiPlayerbot.CoaWorld.* are read by their own bricks (src/Ai/Coa/World).
     // AiPlayerbot.CoaWorld.BotPacketsInMapThread: the bots' thread-safe packets are handled in their map's thread.
     bool coaBotPacketsInMapThread = false;
+    // AiPlayerbot.CoaWorld.ActiveZones.Enable: AllowActive reads the cached maps/zones with a real player.
+    bool coaActiveZones = false;
+    // AiPlayerbot.CoaWorld.IdleBotAI.Enable / IntervalMs: an asleep bot alone in its zone runs its AI less often.
+    bool coaIdleBotAI = false;
+    uint32 coaIdleBotAIIntervalMs = 2000;
+    // AiPlayerbot.CoaWorld.SmartScaleAverage.Enable: SmartScale follows the average update time, not the max.
+    bool coaSmartScaleAverage = false;
     // ---- end of CoA World ----
 
     // ---- CoA Economy (LoadCoaEconomyConfig, CoaEconomyConfig.cpp) ----
