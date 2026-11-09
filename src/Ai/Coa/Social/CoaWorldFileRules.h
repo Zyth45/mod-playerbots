@@ -230,7 +230,8 @@ struct Ramp
     void Update(uint32_t online, uint32_t aimed, int64_t now)
     {
         target = aimed;
-        if (doneAt < 0 && aimed && uint64_t(online) * 100 >= uint64_t(aimed) * 95)
+        // No random bot aimed at (a realm without bots): nothing to wait for.
+        if (doneAt < 0 && uint64_t(online) * 100 >= uint64_t(aimed) * 95)
             doneAt = now;
     }
 

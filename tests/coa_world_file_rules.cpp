@@ -138,7 +138,7 @@ int main()
         assert(r.doneAt == 200);  // once over, over
         Ramp none;
         none.Update(0, 0, 5);
-        assert(none.doneAt == -1);  // no target: never done
+        assert(none.doneAt == 5);  // no bots aimed at: nothing to wait for
 
         TickStats t(100);
         assert(t.Avg() == -1 && t.P95() == -1 && t.Max() == -1);
