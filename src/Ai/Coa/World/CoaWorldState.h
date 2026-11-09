@@ -15,7 +15,9 @@
 #include "Define.h"
 
 #include <ctime>
+#include <functional>
 #include <string>
+#include <vector>
 
 namespace CoaWorldState
 {
@@ -31,6 +33,22 @@ namespace CoaWorld
 std::string InvasionsJson(time_t now);
 std::string RushesJson(time_t now);
 }  // namespace CoaWorld
+
+// The SquidBots Lite world protocol, WEV? (CoaWorldAddon.cpp), world thread.
+class Player;
+namespace CoaWorldAddon
+{
+bool On();  // AiPlayerbot.CoaWorld.Events.Addon
+// Sends each player who asked WEV? less than 30 min ago the line lineFor gives them (empty: not for them), then "-".
+void Push(std::function<std::string(Player*)> const& lineFor);
+// The bricks' parts of the answer (their own visibility rules), and whether they are on.
+bool InvasionsOn();
+void Invasions(Player* player, std::vector<std::string>& out);
+bool RushOn();
+void Rushes(Player* player, std::vector<std::string>& out);
+bool FirstsOn();
+void Firsts(std::vector<std::string>& out);
+}  // namespace CoaWorldAddon
 
 void AddSC_coa_world_state();
 

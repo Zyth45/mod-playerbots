@@ -19,6 +19,9 @@
 
 #include "CoaWorldBots.h"
 #include "CoaWorldState.h"
+#include "CoaWorldAddonRules.h"
+
+#include <deque>
 
 #include "Chat.h"
 #include "Config.h"
@@ -66,6 +69,19 @@ namespace
     std::set<std::tuple<uint8, uint32, uint8>> g_taken;
     bool g_loaded = false;
 
+    // The last 10 firsts taken by someone, for the addon (SQBW WF), oldest first.
+    std::deque<std::string> g_recent;
+
+    void Recent(uint8 kind, uint32 entry, uint8 team, std::string const& who, std::string const& guild, time_t at)
+    {
+        using namespace CoaWorldAddonRules;
+        g_recent.push_back(Cut(std::string("WF\t") + (kind == 1 ? "level" : "boss") + "\t" + std::to_string(entry) + "\t" +
+                               (team == TEAM_ALLIANCE ? "A" : "H") + "\t" + Text(who) + "\t" + Text(guild) + "\t" +
+                               std::to_string(int64(at))));
+        while (g_recent.size() > 10)
+            g_recent.pop_front();
+    }
+
     std::string GuildOf(Player* player)
     {
         if (!player->GetGuildId())
@@ -112,6 +128,7 @@ namespace
                                                           "`coa_world_server_first` WHERE `guid` <> 0 ORDER BY `at` DESC LIMIT 20"))
         {
             std::vector<std::tuple<std::string, std::string, std::string, time_t>> rows;
+            std::vector<std::tuple<uint8, uint32, uint8>> raw;
             do
             {
                 Field* f = result->Fetch();
@@ -127,9 +144,14 @@ namespace
                     what = Acore::StringFormat("{} ({})", boss ? boss->Name : std::to_string(entry), side);
                 }
                 rows.emplace_back(what, f[3].Get<std::string>(), f[4].Get<std::string>(), time_t(f[5].Get<uint32>()));
+                raw.emplace_back(kind, entry, f[2].Get<uint8>());
             } while (result->NextRow());
-            for (auto r = rows.rbegin(); r != rows.rend(); ++r)
-                CoaWorldState::First(std::get<0>(*r), std::get<1>(*r), std::get<2>(*r), std::get<3>(*r));
+            for (size_t i = rows.size(); i-- > 0;)
+            {
+                CoaWorldState::First(std::get<0>(rows[i]), std::get<1>(rows[i]), std::get<2>(rows[i]), std::get<3>(rows[i]));
+                Recent(std::get<0>(raw[i]), std::get<1>(raw[i]), std::get<2>(raw[i]), std::get<1>(rows[i]),
+                       std::get<2>(rows[i]), std::get<3>(rows[i]));
+            }
         }
         g_loaded = true;
     }
@@ -163,6 +185,7 @@ namespace
                 : Acore::StringFormat("|cffff8000[Server First]|r {} has slain {}, a first for {}!", who, p.what, side);
             ChatHandler(nullptr).SendWorldText(text);
             LOG_INFO("module", "CoA World: server first ({}): {}", side, text);
+            Recent(uint8(p.kind), p.entry, uint8(p.team), p.name, p.guild, time(nullptr));
             CoaWorldState::First(p.kind == FIRST_LEVEL ? Acore::StringFormat("level {} ({})", p.entry, side)
                                                       : Acore::StringFormat("{} ({})", p.what, side),
                                  p.name, p.guild, time(nullptr));
@@ -171,6 +194,14 @@ namespace
                 : Acore::StringFormat("first kill of {} for {}", p.what, side));
         }
     }
+}
+
+bool CoaWorldAddon::FirstsOn() { return g_enabled; }
+
+void CoaWorldAddon::Firsts(std::vector<std::string>& out)
+{
+    for (auto r = g_recent.rbegin(); r != g_recent.rend(); ++r)
+        out.push_back(*r);
 }
 
 class CoaWorldServerFirstPlayerScript : public PlayerScript

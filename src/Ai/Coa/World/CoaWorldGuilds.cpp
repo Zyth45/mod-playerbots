@@ -34,6 +34,7 @@
 
 #include "CoaWorldGuilds.h"
 #include "CoaWorldGuildRules.h"
+#include "CoaWorldAddonRules.h"
 #include "CoaWorldState.h"
 
 #include "CoaLive.h"
@@ -93,6 +94,7 @@ namespace
         uint32 gearDays = 3;
         uint32 gearQuality = ITEM_QUALITY_UNCOMMON;
         bool coaLive = false;  // AiPlayerbot.CoaLive.Enable: CoaLive says the guild reactions
+        bool addon = false;    // the SquidBots Lite world protocol (GORD, GLIST), CoaWorldAddon.cpp
     };
 
     Settings settings;
@@ -125,6 +127,59 @@ namespace
         std::lock_guard<std::mutex> lock(g_lock);
         g_events.push_back(e);
     }
+
+    // coa_world_guild_log (playerbots): the orders (kind 1, 7 days) and gear gifts (kind 2, 30 days) of each real
+    // player, for the addon's GLIST. Its ids are ours (the addon's GOK comes before the insert is done).
+    constexpr uint8 LOG_ORDER = 1;
+    constexpr uint8 LOG_GIFT = 2;
+    bool g_logReady = false;
+    bool g_logChecked = false;
+    uint32 g_nextLogId = 1;
+
+    void LogInit(time_t now)
+    {
+        if (g_logChecked)
+            return;
+        g_logChecked = true;
+        // The core aborts the server on a missing table or column: information_schema first.
+        QueryResult check = PlayerbotsDatabase.Query(
+            "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = "
+            "'coa_world_guild_log' AND column_name IN ('id','guid','kind','item','count','state','bot','at','cod','reason')");
+        if (!check || check->Fetch()[0].Get<uint64>() != 10)
+        {
+            LOG_ERROR("server.loading", ">> CoA World Guilds: table coa_world_guild_log missing or out of date "
+                                        "(data/sql/playerbots not applied): the orders and gifts are not kept for the addon.");
+            return;
+        }
+        g_logReady = true;
+        if (QueryResult result = PlayerbotsDatabase.Query("SELECT MAX(`id`) FROM `coa_world_guild_log`"))
+            g_nextLogId = result->Fetch()[0].Get<uint32>() + 1;
+        PlayerbotsDatabase.Execute("DELETE FROM `coa_world_guild_log` WHERE (`kind` = {} AND `at` < {}) OR (`kind` = {} AND `at` < {})",
+                                   uint32(LOG_ORDER), uint32(now - 7 * DAY), uint32(LOG_GIFT), uint32(now - 30 * DAY));
+    }
+
+    uint32 LogRow(Player* player, uint8 kind, uint32 item, uint32 count, char const* state, std::string bot, time_t at,
+                  uint64 cod, char const* reason)
+    {
+        uint32 const id = g_nextLogId++;
+        if (!g_logReady)
+            return id;
+        PlayerbotsDatabase.EscapeString(bot);
+        // Written at once: the addon asks GLIST about a second after its GORD.
+        PlayerbotsDatabase.DirectExecute("INSERT INTO `coa_world_guild_log` (`id`, `guid`, `kind`, `item`, `count`, `state`, `bot`, "
+                                   "`at`, `cod`, `reason`) VALUES ({}, {}, {}, {}, {}, '{}', '{}', {}, {}, '{}')",
+                                   id, player->GetGUID().GetCounter(), uint32(kind), item, std::min<uint32>(count, 65535),
+                                   state, bot, uint32(at), uint32(std::min<uint64>(cod, 0xFFFFFFFF)), reason);
+        return id;
+    }
+
+    // What became of an order: its log id, its state and the reason of a refusal or "none".
+    struct OrderResult
+    {
+        uint32 id = 0;
+        char const* state = "none";
+        char const* reason = "";
+    };
 
     bool IsBot(Player* player)
     {
@@ -266,6 +321,9 @@ namespace
             return instance;
         }
 
+        // The addon's GORD (world thread): the same order as in guild chat, at most qty.
+        OrderResult AddonOrder(Player* player, uint32 entry, uint32 qty) { return Order(player, entry, qty, time(nullptr)); }
+
         void Update(uint32 diff)
         {
             _timer += diff;
@@ -380,7 +438,7 @@ namespace
                         break;
                     case GuildEvent::ORDER:
                         if (IsHuman(player))
-                            Order(player, e.value, now);
+                            Order(player, e.value, 0, now);
                         break;
                     case GuildEvent::HUMAN_LEVEL:
                         if (IsHuman(player))
@@ -501,42 +559,76 @@ namespace
             return guild ? guild->GetName() : std::string();
         }
 
-        void Order(Player* player, uint32 entry, time_t now)
+        // An item of the bot's bags it may mail (as MailHandler: never equipped, traded, a bag, or soulbound), of at
+        // most qty (0: any).
+        static Item* BagItem(Player* bot, uint32 entry, uint32 qty)
+        {
+            auto fits = [&](Item* item)
+            {
+                return item && item->GetEntry() == entry && !item->IsEquipped() && !item->IsInTrade() && !item->IsBag() &&
+                       item->CanBeTraded(true) && (!qty || item->GetCount() <= qty);
+            };
+            for (uint8 slot = INVENTORY_SLOT_ITEM_START; slot < INVENTORY_SLOT_ITEM_END; ++slot)
+                if (Item* item = bot->GetItemByPos(INVENTORY_SLOT_BAG_0, slot); fits(item))
+                    return item;
+            for (uint8 bagSlot = INVENTORY_SLOT_BAG_START; bagSlot < INVENTORY_SLOT_BAG_END; ++bagSlot)
+                if (Bag* bag = bot->GetBagByPos(bagSlot))
+                    for (uint32 slot = 0; slot < bag->GetBagSize(); ++slot)
+                        if (Item* item = bag->GetItemByPos(uint8(slot)); fits(item))
+                            return item;
+            return nullptr;
+        }
+
+        OrderResult Logged(Player* player, uint32 entry, uint32 count, char const* state, char const* reason,
+                           std::string const& bot, uint64 cod, time_t now)
+        {
+            OrderResult result;
+            result.id = LogRow(player, LOG_ORDER, entry, count, state, bot, now, cod, reason);
+            result.state = state;
+            result.reason = reason;
+            CoaWorldState::Order(GuildName(player), entry, count, state, bot);
+            return result;
+        }
+
+        // qty: at most this many (the addon's GORD), 0 for any (guild chat).
+        OrderResult Order(Player* player, uint32 entry, uint32 qty, time_t now)
         {
             ItemTemplate const* proto = sObjectMgr->GetItemTemplate(entry);
-            if (!proto || proto->Quality > settings.orderMaxQuality || proto->Bonding == BIND_QUEST_ITEM)
-                return;
+            if (!proto || proto->Bonding == BIND_QUEST_ITEM)
+                return Logged(player, entry, 0, "refused", "item", "", 0, now);
+            if (proto->Quality > settings.orderMaxQuality)
+                return Logged(player, entry, 0, "refused", "quality", "", 0, now);
             uint32 const today = uint32(now / DAY);
             std::pair<uint32, uint32>& count = _orders[player->GetGUID().GetCounter()];
             if (count.first != today)
                 count = { today, 0 };
             if (!CoaWorldGuildRules::MayOrder(count.second, settings.ordersPerDay))
-                return;
+                return Logged(player, entry, 0, "refused", "daily", "", 0, now);
 
             std::vector<Player*> mates;
             for (auto const& [guid, bot] : RandomBots())
                 if (bot && bot->IsInWorld() && bot->GetGuildId() == player->GetGuildId() && bot->IsAlive())
                     mates.push_back(bot);
             if (mates.empty())
-                return;
+                return Logged(player, entry, 0, "none", "nobot", "", 0, now);
             std::shuffle(mates.begin(), mates.end(), std::mt19937(urand(0, 0x7FFFFFFF)));
             CoaWorld::Slots slots = { { "player", player->GetName() }, { "item", Link(proto, player->GetLevel()) } };
 
             // 1. From the bags: free.
             for (Player* bot : mates)
             {
-                Item* item = bot->GetItemByEntry(entry);
                 // What the core lets a player mail (MailHandler): never a bag in a bag slot or with items in it, a
                 // soulbound item or the loot being looted. A bag moved out with its contents left them dangling.
-                if (!item || item->IsEquipped() || item->IsInTrade() || item->IsBag() || !item->CanBeTraded(true))
+                Item* item = BagItem(bot, entry, qty);
+                if (!item)
                     continue;
                 ++count.second;
+                uint32 const sent = item->GetCount();
                 MailFromBags(bot, player, item, 0, urand(1, 4) * MINUTE);
                 Answer(bot, "guild_order_share", slots, Acore::StringFormat("{} I have one, sending it", player->GetName()),
                        now + urand(5, 15));
                 LogEvent("guild", bot->GetName(), Acore::StringFormat("sent {} to {}", proto->Name1, player->GetName()));
-                CoaWorldState::Order(GuildName(player), entry, item->GetCount(), "shared", bot->GetName());
-                return;
+                return Logged(player, entry, sent, "shared", "", bot->GetName(), 0, now);
             }
 
             // 2. Crafted: cash on delivery at the materials' price.
@@ -558,8 +650,9 @@ namespace
                         for (uint8 e = 0; e < MAX_SPELL_EFFECTS; ++e)
                             if (info->Effects[e].Effect == SPELL_EFFECT_CREATE_ITEM && info->Effects[e].ItemType == entry)
                                 made = uint32(std::max<int32>(1, info->Effects[e].CalcValue(bot)));
-                        if (!MailNew(bot, player, entry, std::min<uint32>(made, proto->GetMaxStackSize()), cost,
-                                     urand(10, 30) * MINUTE, "Made it for you, you only pay the materials."))
+                        uint32 const sent = std::min<uint32>(std::min<uint32>(made, proto->GetMaxStackSize()), qty ? qty : made);
+                        if (!MailNew(bot, player, entry, sent, cost, urand(10, 30) * MINUTE,
+                                     "Made it for you, you only pay the materials."))
                             continue;
                         ++count.second;
                         slots["price"] = Money(cost);
@@ -568,26 +661,25 @@ namespace
                                                    Money(cost)), now + urand(5, 15));
                         LogEvent("guild", bot->GetName(), Acore::StringFormat("crafts {} for {}", proto->Name1,
                                                                                player->GetName()));
-                        CoaWorldState::Order(GuildName(player), entry, std::min<uint32>(made, proto->GetMaxStackSize()),
-                                             "crafted", bot->GetName());
-                        return;
+                        return Logged(player, entry, sent, "crafted", "", bot->GetName(), cost, now);
                     }
 
             // 3. Bought out at the auction house of the player's side.
-            if (Auction(player, mates, proto, slots, now))
+            OrderResult bought;
+            if (Auction(player, mates, proto, slots, qty, now, bought))
             {
                 ++count.second;
-                return;
+                return bought;
             }
-            CoaWorldState::Order(GuildName(player), entry, 1, "none", "");
 
             if (roll_chance_i(50))
                 Answer(mates.front(), "guild_order_none", slots,
                        Acore::StringFormat("sorry {}, nobody has that right now", player->GetName()), now + urand(8, 20));
+            return Logged(player, entry, 0, "none", "", "", 0, now);
         }
 
         bool Auction(Player* player, std::vector<Player*> const& mates, ItemTemplate const* proto,
-                     CoaWorld::Slots& slots, time_t now)
+                     CoaWorld::Slots& slots, uint32 qty, time_t now, OrderResult& result)
         {
             AuctionHouseObject* house = sAuctionMgr->GetAuctionsMap(player->GetFaction());
             if (!house)
@@ -595,7 +687,8 @@ namespace
             AuctionEntry* best = nullptr;
             for (auto const& [id, auction] : house->GetAuctions())
                 if (auction && auction->item_template == proto->ItemId && auction->buyout && !auction->bidder &&
-                    auction->owner != player->GetGUID() && (!best || auction->buyout < best->buyout))
+                    auction->owner != player->GetGUID() && (!qty || auction->itemCount <= qty) &&
+                    (!best || auction->buyout < best->buyout))
                     best = auction;
             if (!best || best->buyout > uint64(settings.orderAuctionMaxGold) * GOLD)
                 return false;
@@ -638,7 +731,7 @@ namespace
                    now + urand(5, 15));
             LogEvent("guild", buyer->GetName(), Acore::StringFormat("bought {} at the auction house for {}", proto->Name1,
                                                                      player->GetName()));
-            CoaWorldState::Order(GuildName(player), proto->ItemId, item->GetCount(), "bought", buyer->GetName());
+            result = Logged(player, proto->ItemId, item->GetCount(), "bought", "", buyer->GetName(), price, now);
             return true;
         }
 
@@ -698,6 +791,7 @@ namespace
                    Acore::StringFormat("{}, sent you something you can use, check your mail", player->GetName()),
                    now + urand(20, 40));
             LogEvent("guild", bot->GetName(), Acore::StringFormat("gave {} to {}", proto->Name1, player->GetName()));
+            LogRow(player, LOG_GIFT, bestEntry, 1, "gift", bot->GetName(), now, 0, "");
         }
 
         // Once a day at most, the leader of a bot guild writes a new message of the day.
@@ -786,7 +880,63 @@ namespace
         settings.gearQuality = std::clamp<uint32>(sConfigMgr->GetOption<uint32>(key("GearQuality"), ITEM_QUALITY_UNCOMMON, false),
             ITEM_QUALITY_UNCOMMON, ITEM_QUALITY_RARE);
         settings.coaLive = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaLive.Enable", false, false);
+        settings.addon = sConfigMgr->GetOption<bool>(key("Addon"), false, false);
+        if (settings.enabled)
+            LogInit(time(nullptr));
     }
+}
+
+// --- The SquidBots Lite world protocol (CoaWorldAddon.cpp), world thread ---
+bool CoaWorldGuildAddonOn() { return settings.enabled && settings.orders && settings.addon; }
+
+std::vector<std::string> CoaWorldGuildAddonOrder(Player* player, std::vector<std::string> const& args)
+{
+    using namespace CoaWorldAddonRules;
+    auto error = [](char const* reason) { return std::vector<std::string>{ std::string("ERR\tGORD\t") + reason }; };
+    if (!IsHuman(player))
+        return error("off");
+    if (!player->GetGuildId())
+        return error("noguild");
+    uint32 const entry = args.size() > 1 ? Number(args[1]) : 0;
+    ItemTemplate const* proto = entry ? sObjectMgr->GetItemTemplate(entry) : nullptr;
+    if (!proto)
+        return error("item");
+    uint32 const qty = args.size() > 2 ? Quantity(args[2], proto->GetMaxStackSize()) : 0;
+    if (!qty)
+        return error("qty");
+    OrderResult const result = GuildLife::Instance().AddonOrder(player, entry, qty);
+    if (std::string(result.state) == "refused")
+        return error(result.reason);
+    return { "GOK\t" + std::to_string(result.id) };
+}
+
+std::vector<std::string> CoaWorldGuildAddonList(Player* player)
+{
+    using namespace CoaWorldAddonRules;
+    std::vector<std::string> out;
+    if (!g_logReady || !IsHuman(player))
+        return out;
+    time_t const now = time(nullptr);
+    if (QueryResult result = PlayerbotsDatabase.Query(
+            "SELECT `id`, `kind`, `item`, `count`, `state`, `bot`, `at`, `cod`, `reason` FROM `coa_world_guild_log` WHERE "
+            "`guid` = {} AND ((`kind` = {} AND `at` >= {}) OR (`kind` = {} AND `at` >= {})) ORDER BY `at` DESC LIMIT 40",
+            player->GetGUID().GetCounter(), uint32(LOG_ORDER), uint32(now - 7 * DAY), uint32(LOG_GIFT), uint32(now - 30 * DAY)))
+    {
+        do
+        {
+            Field* f = result->Fetch();
+            std::string const at = std::to_string(f[6].Get<uint32>());
+            if (f[1].Get<uint8>() == LOG_ORDER)
+                out.push_back(Cut("GO\t" + std::to_string(f[0].Get<uint32>()) + "\t" + std::to_string(f[2].Get<uint32>()) +
+                                  "\t" + std::to_string(f[3].Get<uint16>()) + "\t" + Text(f[4].Get<std::string>()) + "\t" +
+                                  Text(f[5].Get<std::string>()) + "\t" + at + "\t" + std::to_string(f[7].Get<uint32>()) +
+                                  "\t" + Text(f[8].Get<std::string>())));
+            else
+                out.push_back(Cut("GG\t" + std::to_string(f[2].Get<uint32>()) + "\t" + Text(f[5].Get<std::string>()) +
+                                  "\t" + at));
+        } while (result->NextRow());
+    }
+    return out;
 }
 
 bool CoaWorldGuildSideMayCreate(uint8 side, uint32 allianceGuilds, uint32 hordeGuilds)
