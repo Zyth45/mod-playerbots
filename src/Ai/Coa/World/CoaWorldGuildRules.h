@@ -79,6 +79,38 @@ namespace CoaWorldGuildRules
     {
         return requiredLevel <= playerLevel && requiredLevel + 4 >= playerLevel;
     }
+
+    // A hello in guild chat: a short line (4 words at most) with a greeting word ("hi", "hey", "bonjour", "re"...).
+    inline bool IsGreeting(std::string text)
+    {
+        if (text.find("o/") != std::string::npos || text.find("\\o") != std::string::npos)
+            return text.size() <= 12;
+        std::transform(text.begin(), text.end(), text.begin(), [](unsigned char c) { return char(std::tolower(c)); });
+        for (char& c : text)
+            if (!std::isalnum(static_cast<unsigned char>(c)))
+                c = ' ';
+        static char const* const words[] = { "hello", "hi", "hey", "heya", "hiya", "yo", "sup", "re", "hola", "hallo",
+                                             "bonjour", "salut", "cc", "coucou", "slt", "bjr", "bonsoir", "yop", "plop" };
+        size_t count = 0;
+        bool greeting = false;
+        size_t i = 0;
+        while (i < text.size())
+        {
+            while (i < text.size() && text[i] == ' ')
+                ++i;
+            size_t const start = i;
+            while (i < text.size() && text[i] != ' ')
+                ++i;
+            if (i == start)
+                break;
+            ++count;
+            std::string const word = text.substr(start, i - start);
+            for (char const* w : words)
+                if (word == w)
+                    greeting = true;
+        }
+        return greeting && count <= 4;
+    }
 }
 
 #endif

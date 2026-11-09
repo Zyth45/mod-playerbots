@@ -36,5 +36,10 @@ int main()
     assert(!WorthGiving(0.0f, 0.0f));
     assert(GiftDue(20000, 0, 3) && GiftDue(20003, 20000, 3) && !GiftDue(20002, 20000, 3));
     assert(GiftLevelFits(30, 30) && GiftLevelFits(26, 30) && !GiftLevelFits(25, 30) && !GiftLevelFits(31, 30));
+
+    assert(IsGreeting("hello") && IsGreeting("Hi all!") && IsGreeting("bonjour la guilde") && IsGreeting("re"));
+    assert(IsGreeting("cc tout le monde") && IsGreeting("o/") && IsGreeting("hey guys :)"));
+    assert(!IsGreeting("hi can someone help me with this quest please"));
+    assert(!IsGreeting("this is high level")  && !IsGreeting("reroll time") && !IsGreeting(""));
     return 0;
 }
