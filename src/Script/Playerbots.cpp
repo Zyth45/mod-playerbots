@@ -250,6 +250,10 @@ public:
         {
             botAI->UpdateAI(diff);
             CoaLive::OnBotUpdate(player, botAI, diff);
+            // CoA World: the packets its AI just queued that are safe in this map thread (BotPacketsInMapThread).
+            if (sPlayerbotAIConfig.coaBotPacketsInMapThread && player->IsInWorld() && !player->IsBeingTeleported() &&
+                player->GetSession())
+                PlayerbotHolder::HandleBotPacketsSplit(player->GetSession(), true);
         }
 
         if (PlayerbotMgr* playerbotMgr = GET_PLAYERBOT_MGR(player))

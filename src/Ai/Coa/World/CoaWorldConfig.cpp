@@ -8,8 +8,10 @@
 // a new setting of the session goes here (its member in the "CoA World" block of PlayerbotAIConfig.h).
 // None yet: AiPlayerbot.CoaWorld.* are read by the invasion manager (CoaWorldInvasionMgr.cpp).
 
+#include "Config.h"
 #include "PlayerbotAIConfig.h"
 
 void PlayerbotAIConfig::LoadCoaWorldConfig()
 {
+    coaBotPacketsInMapThread = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaWorld.BotPacketsInMapThread", false, false);
 }
