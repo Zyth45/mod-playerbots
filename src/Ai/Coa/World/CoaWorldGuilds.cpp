@@ -96,6 +96,7 @@ namespace
         bool coaLive = false;  // AiPlayerbot.CoaLive.Enable: CoaLive says the guild reactions
         bool addon = false;    // the SquidBots Lite world protocol (GORD, GLIST), CoaWorldAddon.cpp
         bool greetings = false;  // guildmates answer a real player's hello and greet it at login
+        bool gearAsk = false;    // a gift of gear is offered first (accept or refuse), mailed only if accepted
     };
 
     Settings settings;
@@ -135,6 +136,7 @@ namespace
     // player, for the addon's GLIST. Its ids are ours (the addon's GOK comes before the insert is done).
     constexpr uint8 LOG_ORDER = 1;
     constexpr uint8 LOG_GIFT = 2;
+    constexpr uint8 LOG_GIFT_REFUSED = 3;  // an item refused: not offered again for 30 days
     bool g_logReady = false;
     bool g_logChecked = false;
     uint32 g_nextLogId = 1;
@@ -157,8 +159,9 @@ namespace
         g_logReady = true;
         if (QueryResult result = PlayerbotsDatabase.Query("SELECT MAX(`id`) FROM `coa_world_guild_log`"))
             g_nextLogId = result->Fetch()[0].Get<uint32>() + 1;
-        PlayerbotsDatabase.Execute("DELETE FROM `coa_world_guild_log` WHERE (`kind` = {} AND `at` < {}) OR (`kind` = {} AND `at` < {})",
-                                   uint32(LOG_ORDER), uint32(now - 7 * DAY), uint32(LOG_GIFT), uint32(now - 30 * DAY));
+        PlayerbotsDatabase.Execute("DELETE FROM `coa_world_guild_log` WHERE (`kind` = {} AND `at` < {}) OR (`kind` IN ({}, {}) AND `at` < {})",
+                                   uint32(LOG_ORDER), uint32(now - 7 * DAY), uint32(LOG_GIFT), uint32(LOG_GIFT_REFUSED),
+                                   uint32(now - 30 * DAY));
     }
 
     uint32 LogRow(Player* player, uint8 kind, uint32 item, uint32 count, char const* state, std::string bot, time_t at,
@@ -183,6 +186,22 @@ namespace
         char const* state = "none";
         char const* reason = "";
     };
+
+    // A gift of gear offered to a real player (Guilds.GearAsk), mailed only if accepted. World thread; memory only
+    // (a restart drops the offers; the player gets a new one at a login after GearDays).
+    struct GiftOffer
+    {
+        uint32 id;
+        ObjectGuid player, bot;
+        std::string botName;
+        uint32 item;
+        int32 random;
+        time_t at, expires;
+        std::string reason;  // "ilvl +N" or "empty"
+    };
+    std::vector<GiftOffer> g_offers;
+    uint32 g_nextOffer = 1;
+    constexpr time_t OFFER_SECONDS = DAY;
 
     bool IsBot(Player* player)
     {
@@ -329,6 +348,11 @@ namespace
 
         void Update(uint32 diff)
         {
+            {
+                time_t const now = time(nullptr);
+                g_offers.erase(std::remove_if(g_offers.begin(), g_offers.end(), [now](GiftOffer const& o) { return o.expires <= now; }),
+                               g_offers.end());
+            }
             _timer += diff;
             if (_timer < 2 * IN_MILLISECONDS)
                 return;
@@ -579,9 +603,10 @@ namespace
 
         // A new item by mail to the player, from a guildmate.
         static bool MailNew(Player* bot, Player* to, uint32 entry, uint32 count, uint64 cod, uint32 delay,
-                            std::string const& body)
+                            std::string const& body, int32 randomProperty = 0)
         {
-            Item* item = Item::CreateItem(entry, count, to);  // owned by the receiver, as the core's mailed rewards
+            // Owned by the receiver, as the core's mailed rewards; with the random suffix the gift was scored with.
+            Item* item = Item::CreateItem(entry, count, to, false, randomProperty);
             if (!item)
                 return false;
             CharacterDatabaseTransaction trans = CharacterDatabase.BeginTransaction();
@@ -785,6 +810,93 @@ namespace
             return true;
         }
 
+        // The items this player refused in the last 30 days (coa_world_guild_log kind 3).
+        static std::unordered_set<uint32> Refused(Player* player, time_t now)
+        {
+            std::unordered_set<uint32> items;
+            if (!g_logReady)
+                return items;
+            if (QueryResult result = PlayerbotsDatabase.Query(
+                    "SELECT `item` FROM `coa_world_guild_log` WHERE `guid` = {} AND `kind` = {} AND `at` >= {}",
+                    player->GetGUID().GetCounter(), uint32(LOG_GIFT_REFUSED), uint32(now - 30 * DAY)))
+            {
+                do
+                    items.insert(result->Fetch()[0].Get<uint32>());
+                while (result->NextRow());
+            }
+            return items;
+        }
+
+        // Guilds.GearAsk: the gift waits for the player's answer (addon GACC/GREF, or a whisper yes/no to the bot).
+        void Offer(Player* player, Player* bot, ItemTemplate const* proto, int32 random, std::string const& reason,
+                   uint32 today, time_t now)
+        {
+            g_offers.erase(std::remove_if(g_offers.begin(), g_offers.end(),
+                                          [&](GiftOffer const& o) { return o.player == player->GetGUID(); }),
+                           g_offers.end());
+            GiftOffer offer{ g_nextOffer++, player->GetGUID(), bot->GetGUID(), bot->GetName(), proto->ItemId, random, now,
+                             now + OFFER_SECONDS, reason };
+            g_offers.push_back(offer);
+            player->UpdatePlayerSetting(GEAR_SETTING, GEAR_SETTING_LAST_DAY, today);  // the period's gift, whatever the answer
+            std::string const link = Link(proto, player->GetLevel());
+            if (!BotLine(bot, "guild_gift_offer", { { "player", player->GetName() }, { "item", link } }))
+                bot->Whisper(Acore::StringFormat("found {} for you, want it? (yes/no)", link), LANG_UNIVERSAL, player);
+            if (settings.addon)
+                CoaWorldAddonSendLines(player, { OfferLine(offer) });
+        }
+
+    public:
+        static std::string OfferLine(GiftOffer const& o)
+        {
+            return Acore::StringFormat("GF\t{}\t{}\t{}\t{}\t{}\t{}", o.id, o.item, o.botName, int64(o.at), int64(o.expires),
+                                       o.reason);
+        }
+
+        // The player's answer: mailed if accepted; a refusal blocks that item 30 days. False: no such offer.
+        bool AnswerOffer(Player* player, uint32 offerId, bool accept)
+        {
+            auto itr = std::find_if(g_offers.begin(), g_offers.end(), [&](GiftOffer const& o)
+                                    { return o.id == offerId && o.player == player->GetGUID(); });
+            if (itr == g_offers.end())
+                return false;
+            GiftOffer const offer = *itr;
+            g_offers.erase(itr);
+            time_t const now = time(nullptr);
+            Player* bot = ObjectAccessor::FindPlayer(offer.bot);
+            ItemTemplate const* proto = sObjectMgr->GetItemTemplate(offer.item);
+            if (!accept)
+            {
+                LogRow(player, LOG_GIFT_REFUSED, offer.item, 1, "refused", offer.botName, now, 0, "");
+                if (bot)
+                    bot->Whisper("no worries", LANG_UNIVERSAL, player);
+                return true;
+            }
+            if (bot && proto &&
+                MailNew(bot, player, offer.item, 1, 0, urand(1, 3) * MINUTE,
+                        Acore::StringFormat("Here it is. - {}", offer.botName), offer.random))
+            {
+                LogEvent("guild", offer.botName, Acore::StringFormat("gave {} to {}", proto->Name1, player->GetName()));
+                LogRow(player, LOG_GIFT, offer.item, 1, "gift", offer.botName, now, 0, "");
+                bot->Whisper("sent, check your mail", LANG_UNIVERSAL, player);
+            }
+            return true;
+        }
+
+        // A whisper "yes"/"no" to the bot that made the player an offer.
+        bool Whispered(Player* player, Player* bot, std::string msg)
+        {
+            std::transform(msg.begin(), msg.end(), msg.begin(), [](unsigned char c) { return char(std::tolower(c)); });
+            bool const yes = msg == "yes" || msg == "y" || msg == "oui" || msg == "ok" || msg == "sure";
+            bool const no = msg == "no" || msg == "n" || msg == "non" || msg == "nah";
+            if (!yes && !no)
+                return false;
+            for (GiftOffer const& o : g_offers)
+                if (o.player == player->GetGUID() && o.bot == bot->GetGUID())
+                    return AnswerOffer(player, o.id, yes);
+            return false;
+        }
+
+    private:
         // A piece of gear of the player's level, clearly better than what they wear there, every gearDays at most.
         void GiveGear(Player* player, Player* bot, time_t now)
         {
@@ -811,30 +923,67 @@ namespace
                 candidates.resize(300);
 
             StatsWeightCalculator calc(player);
+            // A real player's role, as the bots' gear code reads it (by spec): the Cold-Iron Scepter (spell power
+            // only) went to a physical spec for its weapon damage (user's report, 09/11).
+            bool const caster = PlayerbotAI::IsCaster(player, true) || PlayerbotAI::IsHeal(player, true);
             uint32 bestEntry = 0;
+            int32 bestRandom = 0;
             float bestGain = 0.0f;
+            std::string bestReason;
+            std::unordered_set<uint32> const refused = Refused(player, now);
             for (uint32 entry : candidates)
             {
                 ItemTemplate const* proto = sObjectMgr->GetItemTemplate(entry);
-                if (player->CanUseItem(proto) != EQUIP_ERR_OK)
+                if (refused.count(entry) || player->CanUseItem(proto) != EQUIP_ERR_OK)
+                    continue;
+                int physical = 0, casterStats = 0;
+                for (uint8 i = 0; i < proto->StatsCount && i < MAX_ITEM_PROTO_STATS; ++i)
+                    switch (proto->ItemStat[i].ItemStatType)
+                    {
+                        case ITEM_MOD_STRENGTH: case ITEM_MOD_AGILITY: case ITEM_MOD_ATTACK_POWER:
+                        case ITEM_MOD_RANGED_ATTACK_POWER:
+                            ++physical;
+                            break;
+                        case ITEM_MOD_INTELLECT: case ITEM_MOD_SPIRIT: case ITEM_MOD_SPELL_POWER:
+                        case ITEM_MOD_MANA_REGENERATION: case ITEM_MOD_SPELL_HEALING_DONE: case ITEM_MOD_SPELL_DAMAGE_DONE:
+                            ++casterStats;
+                            break;
+                        default:
+                            break;
+                    }
+                if (!CoaWorldGuildRules::RoleFits(caster, physical, casterStats))
                     continue;
                 uint8 const slot = player->FindEquipSlot(proto, NULL_SLOT, true);
                 if (slot == NULL_SLOT)
                     continue;
                 Item* worn = player->GetItemByPos(INVENTORY_SLOT_BAG_0, slot);
-                float const wornScore = worn ? calc.CalculateItem(worn->GetEntry(), worn->GetItemRandomPropertyId()) : 0.0f;
-                float const score = calc.CalculateItem(entry);
+                float wornScore = worn ? calc.CalculateItem(worn->GetEntry(), worn->GetItemRandomPropertyId()) : 0.0f;
+                // A two-hand weapon replaces both hands.
+                if (proto->InventoryType == INVTYPE_2HWEAPON)
+                    if (Item* off = player->GetItemByPos(INVENTORY_SLOT_BAG_0, EQUIPMENT_SLOT_OFFHAND))
+                        wornScore += calc.CalculateItem(off->GetEntry(), off->GetItemRandomPropertyId());
+                // Scored with the random suffix it will have.
+                int32 const random = Item::GenerateItemRandomPropertyId(entry);
+                float const score = calc.CalculateItem(entry, random);
                 if (CoaWorldGuildRules::WorthGiving(score, wornScore) && score - wornScore > bestGain)
                 {
                     bestGain = score - wornScore;
                     bestEntry = entry;
+                    bestRandom = random;
+                    bestReason = worn ? Acore::StringFormat("ilvl +{}", int32(proto->ItemLevel) - int32(worn->GetTemplate()->ItemLevel))
+                                      : std::string("empty");
                 }
             }
             if (!bestEntry)
                 return;
             ItemTemplate const* proto = sObjectMgr->GetItemTemplate(bestEntry);
+            if (settings.gearAsk)
+            {
+                Offer(player, bot, proto, bestRandom, bestReason, today, now);
+                return;
+            }
             if (!MailNew(bot, player, bestEntry, 1, 0, urand(5, 20) * MINUTE,
-                         Acore::StringFormat("Found this, it should suit you better. - {}", bot->GetName())))
+                         Acore::StringFormat("Found this, it should suit you better. - {}", bot->GetName()), bestRandom))
                 return;
             player->UpdatePlayerSetting(GEAR_SETTING, GEAR_SETTING_LAST_DAY, today);
             Answer(bot, "guild_gear_gift", { { "player", player->GetName() }, { "item", Link(proto, player->GetLevel()) } },
@@ -933,6 +1082,7 @@ namespace
         settings.coaLive = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaLive.Enable", false, false);
         settings.addon = sConfigMgr->GetOption<bool>(key("Addon"), false, false);
         settings.greetings = sConfigMgr->GetOption<bool>(key("Greetings"), false, false);
+        settings.gearAsk = sConfigMgr->GetOption<bool>(key("GearAsk"), false, false);
         if (settings.enabled)
             LogInit(time(nullptr));
     }
@@ -989,6 +1139,32 @@ std::vector<std::string> CoaWorldGuildAddonList(Player* player)
         } while (result->NextRow());
     }
     return out;
+}
+
+bool CoaWorldGuildGiftsOn() { return settings.enabled && settings.gear && settings.gearAsk && settings.addon; }
+
+std::vector<std::string> CoaWorldGuildGiftList(Player* player)
+{
+    std::vector<std::string> out;
+    for (GiftOffer const& o : g_offers)
+        if (o.player == player->GetGUID())
+            out.push_back(GuildLife::OfferLine(o));
+    return out;
+}
+
+std::vector<std::string> CoaWorldGuildGiftAnswer(Player* player, std::vector<std::string> const& args, bool accept)
+{
+    uint32 const id = args.size() > 1 ? CoaWorldAddonRules::Number(args[1]) : 0;
+    if (!id || !GuildLife::Instance().AnswerOffer(player, id, accept))
+        return { std::string("ERR\t") + (accept ? "GACC" : "GREF") + "\toffer" };
+    return CoaWorldGuildGiftList(player);
+}
+
+bool CoaWorldGuildGiftWhisper(Player* player, Player* bot, std::string const& msg)
+{
+    if (!settings.enabled || !settings.gearAsk || !player || !bot || !IsHuman(player))
+        return false;
+    return GuildLife::Instance().Whispered(player, bot, msg);
 }
 
 bool CoaWorldGuildSideMayCreate(uint8 side, uint32 allianceGuilds, uint32 hordeGuilds)

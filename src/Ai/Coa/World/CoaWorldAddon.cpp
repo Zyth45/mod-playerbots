@@ -97,7 +97,8 @@ public:
             return true;
 
         std::string const& word = request[0];
-        bool const on = word == "WEV?" ? CoaWorldAddon::On() : CoaWorldGuildAddonOn();
+        bool const gifts = word == "GOFF" || word == "GACC" || word == "GREF";
+        bool const on = word == "WEV?" ? CoaWorldAddon::On() : gifts ? CoaWorldGuildGiftsOn() : CoaWorldGuildAddonOn();
         if (!on || !player->GetSession() || player->GetSession()->IsBot())
             return false;
 
@@ -107,6 +108,16 @@ public:
             return false;
         asker.lastRequestMs = nowMs;
 
+        if (word == "GACC" || word == "GREF")
+        {
+            Answer(player, CoaWorldGuildGiftAnswer(player, request, word == "GACC"));
+            return false;
+        }
+        if (word == "GOFF")
+        {
+            Answer(player, CoaWorldGuildGiftList(player));  // never cached: an offer comes and goes
+            return false;
+        }
         if (word == "GORD")
         {
             Answer(player, CoaWorldGuildAddonOrder(player, request));
@@ -139,6 +150,12 @@ private:
     static void Read() { g_eventsAddon = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaWorld.Events.Addon", false, false); }
 };
 }  // namespace
+
+void CoaWorldAddonSendLines(Player* player, std::vector<std::string> const& lines)
+{
+    if (player && player->IsInWorld())
+        Answer(player, lines);
+}
 
 bool CoaWorldAddon::On()
 {

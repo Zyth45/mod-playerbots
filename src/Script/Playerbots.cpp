@@ -4,6 +4,7 @@
  * or (at your option) any later version.
  */
 
+#include "CoaWorldGuilds.h"
 #include "CoaWorldAiBudget.h"
 #include <chrono>
 #include "CoaWorldBgPace.h"
@@ -324,6 +325,10 @@ public:
         {
             return true;
         }
+
+        // CoA World (Guilds.GearAsk): "yes"/"no" to a guildmate's offer of gear.
+        if (CoaWorldGuildGiftWhisper(player, receiver, msg))
+            return true;
 
         // CoA Live: a stranger's whisper to a random bot gets a human answer, not a command.
         if (CoaLive::OnWhisper(player, receiver, msg))
