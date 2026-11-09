@@ -697,6 +697,9 @@ public:
     bool coaFreshStartEnable;  // AiPlayerbot.CoaFreshStart.Enable (launch of a new living realm)
     bool coaLiveImmersionEnable;
     uint32 coaLiveImmersionFishingPerThousand;  // AiPlayerbot.CoaLive.Immersion.FishingPerThousand  // AiPlayerbot.CoaLive.Immersion.Enable (L2 fishing)
+    bool coaLiveCleanWorldEnable;  // AiPlayerbot.CoaLive.CleanWorld.Enable
+    bool coaLiveSheathEnable;  // AiPlayerbot.CoaLive.Sheath.Enable (#11610)
+    bool coaLiveDebugIgnoreRealPlayer;  // AiPlayerbot.CoaLive.Debug.IgnoreRealPlayer (hidden test key, bench only)
     bool coaLiveCityEnable;  // AiPlayerbot.CoaLive.City.Enable (L2 City Life)
     bool coaLiveSocialEnable;
     uint32 coaLiveSocialInviteCooldownMinutes;  // AiPlayerbot.CoaLive.Social.InviteCooldownMinutes  // AiPlayerbot.CoaLive.Social.Enable (L2 social bots)

@@ -42,6 +42,11 @@ void PlayerbotAIConfig::LoadCoaLiveConfig()
     coaLiveSocialInviteCooldownMinutes =
         std::max<uint32>(1, sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaLive.Social.InviteCooldownMinutes", 60));
     coaLiveCityEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaLive.City.Enable", false);
+    coaLiveSheathEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaLive.Sheath.Enable", false);
+    coaLiveCleanWorldEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaLive.CleanWorld.Enable", false);
+    // Hidden test key (not in the .conf.dist nor in the launcher): the channels speak as if a real player stood
+    // in every capital, so a bench without a human can prove the Trade channel.
+    coaLiveDebugIgnoreRealPlayer = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaLive.Debug.IgnoreRealPlayer", false, false);
     coaLiveImmersionEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaLive.Immersion.Enable", false);
     coaLiveImmersionFishingPerThousand =
         std::min<uint32>(1000, sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaLive.Immersion.FishingPerThousand", 25));

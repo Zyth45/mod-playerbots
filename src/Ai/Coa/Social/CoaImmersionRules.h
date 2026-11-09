@@ -50,6 +50,14 @@ inline uint32_t FishingMs(std::function<uint32_t(uint32_t, uint32_t)> const& bet
     return between(4 * 60, 15 * 60) * 1000;
 }
 
+// A gathering trip (herbs, ore): a node the bot can gather, farther than it would see it by itself (the "gather"
+// strategy takes the nodes in sight) and not too far. The trip lasts at most GATHER_TRIP_MS.
+constexpr float GATHER_MIN = 40.0f;
+constexpr float GATHER_MAX = 150.0f;
+constexpr uint32_t GATHER_TRIP_MS = 120000;
+
+inline bool WorthATrip(float distance, bool canGather) { return canGather && distance >= GATHER_MIN && distance <= GATHER_MAX; }
+
 // Stop fishing: time is up, a fight, a group, or the bot was sent elsewhere.
 inline bool MustStop(uint64_t nowMs, uint64_t endMs, bool inCombat, bool inGroup, bool stillResting)
 {
