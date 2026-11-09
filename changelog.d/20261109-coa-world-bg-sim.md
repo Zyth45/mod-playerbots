@@ -2,6 +2,6 @@
 area: bots
 type: added
 audience: players
-title: Bots no longer run battlegrounds of bots only, and earn honor in simulated ones
+title: Bots join a player's battleground queue faster, and can earn honor in simulated battlegrounds
 ---
-Random bots no longer start battlegrounds and arenas with no real player in them (AiPlayerbot.CoaWorld.BgSim.ReplaceAutoJoin, on by default): real battles start when a player queues, and the bots fill the queue at once. With AiPlayerbot.CoaWorld.BgSim.Enable (off by default), bots play simulated Warsong Gulch and Arathi Basin matches offline and come back with the honor a real match gives; they may spend it on PvP gear sold for honor by a vendor in the world.
+When a player queues for a battleground or an arena, the random bots look at the queue at once instead of up to 35 seconds later. New, off by default: simulated Warsong Gulch and Arathi Basin matches played offline by the bots, who come back with the honor a real match gives and may spend it on PvP gear sold for honor by a vendor in the world (AiPlayerbot.CoaWorld.BgSim.Enable); and an option to stop the battlegrounds of bots only (AiPlayerbot.CoaWorld.BgSim.ReplaceAutoJoin).

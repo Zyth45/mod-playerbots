@@ -9,7 +9,7 @@
 #ifndef PLAYERBOTS_COAWORLDBGSIM_H
 #define PLAYERBOTS_COAWORLDBGSIM_H
 
-// For RandomPlayerbotMgr: AiPlayerbot.CoaWorld.BgSim.ReplaceAutoJoin (default 1). True: the bots do not start
+// For RandomPlayerbotMgr: AiPlayerbot.CoaWorld.BgSim.ReplaceAutoJoin (default 0). True: the bots do not start
 // battlegrounds and arenas by themselves (RandomBotAutoJoinBG), whatever that key says; they fill real players' queues.
 bool CoaWorldBgSimReplacesAutoJoin();
 

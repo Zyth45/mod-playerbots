@@ -3089,9 +3089,9 @@ AiPlayerbot.CoaWorld.BotOnlyBgPace.IntervalMs = 500
 #        Default:     0 - off
 #    AiPlayerbot.CoaWorld.BgSim.ReplaceAutoJoin
 #        Description: 1: the bots no longer start battlegrounds and arenas of bots only by themselves
-#                     (AiPlayerbot.RandomBotAutoJoinBG is not used); real battles start for real players, whose
-#                     queues the bots fill at once. 0: as before.
-#        Default:     1
+#                     (AiPlayerbot.RandomBotAutoJoinBG is not used); real battles start for real players.
+#                     0: as before. In both cases, the bots look at the queues as soon as a real player queues.
+#        Default:     0
 #    AiPlayerbot.CoaWorld.BgSim.Matches            - simulated battlegrounds at the same time (2, at most 10)
 #    AiPlayerbot.CoaWorld.BgSim.IntervalSeconds    - between two starts (300)
 #    AiPlayerbot.CoaWorld.BgSim.BotCooldownMinutes - before a bot goes again (60)
@@ -3099,7 +3099,7 @@ AiPlayerbot.CoaWorld.BotOnlyBgPace.IntervalMs = 500
 #    AiPlayerbot.CoaWorld.BgSim.Announce           - a word when they go (1)
 
 AiPlayerbot.CoaWorld.BgSim.Enable = 0
-AiPlayerbot.CoaWorld.BgSim.ReplaceAutoJoin = 1
+AiPlayerbot.CoaWorld.BgSim.ReplaceAutoJoin = 0
 AiPlayerbot.CoaWorld.BgSim.Matches = 2
 AiPlayerbot.CoaWorld.BgSim.IntervalSeconds = 300
 AiPlayerbot.CoaWorld.BgSim.BotCooldownMinutes = 60
