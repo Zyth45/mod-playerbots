@@ -8,6 +8,7 @@
 #define PLAYERBOTS_COASURNAMERULES_H
 
 #include <cstdint>
+#include <functional>
 #include <map>
 #include <set>
 #include <string>
@@ -208,6 +209,39 @@ std::vector<CoaRename> CoaPlanBotRenames(std::vector<CoaNameRow> const& rows, ui
     if (kept)
         *kept = keptCount;
     return out;
+}
+
+// A GM command naming a bot by its full name ("Tianor Bot"): the core's player argument lowers everything after the
+// first letter and the name becomes nobody. Each quoted name holding a space that is a character's (resolve gives its
+// low guid, 0: none) becomes that guid, which every player argument also takes. Empty: nothing to change.
+inline std::string CoaQuotedNamesToGuids(std::string const& cmd, std::function<uint64_t(std::string const&)> const& resolve)
+{
+    std::string out;
+    bool changed = false;
+    size_t i = 0;
+    while (i < cmd.size())
+    {
+        size_t const open = cmd.find('"', i);
+        if (open == std::string::npos)
+            break;
+        size_t const close = cmd.find('"', open + 1);
+        if (close == std::string::npos)
+            break;
+        std::string const name = cmd.substr(open + 1, close - open - 1);
+        out += cmd.substr(i, open - i);
+        uint64_t const guid = name.find(' ') != std::string::npos ? resolve(name) : 0;
+        if (guid)
+        {
+            out += std::to_string(guid);
+            changed = true;
+        }
+        else
+            out += cmd.substr(open, close - open + 1);
+        i = close + 1;
+    }
+    if (!changed)
+        return "";
+    return out + cmd.substr(i);
 }
 
 #endif

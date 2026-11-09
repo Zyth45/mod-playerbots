@@ -122,5 +122,14 @@ int main()
         uint32_t kept = 0;
         assert(CoaPlanBotRenames(rows, 1, one, all, &kept).empty() && kept == 1);
     }
+    // A bot's full name in a GM command.
+    {
+        auto resolve = [](std::string const& n) -> uint64_t { return n == "Tianor Bot" ? 4242 : 0; };
+        assert(CoaQuotedNamesToGuids("guild invite \"Tianor Bot\" \"Les Lions\"", resolve) == "guild invite 4242 \"Les Lions\"");
+        assert(CoaQuotedNamesToGuids("guild invite \"Tianor\" \"Les Lions\"", resolve).empty());
+        assert(CoaQuotedNamesToGuids("guild create \"Les Lions\"", resolve).empty());   // a space, but nobody's name
+        assert(CoaQuotedNamesToGuids("tele name \"Tianor Bot\" Stormwind", resolve) == "tele name 4242 Stormwind");
+        assert(CoaQuotedNamesToGuids("announce \"unclosed", resolve).empty());
+    }
     return 0;
 }
