@@ -3284,6 +3284,15 @@ AiPlayerbot.CoaLive.NightBank.Enable = 0
 
 AiPlayerbot.CoaLive.TalentsPerUpdate = 2
 
+#    AiPlayerbot.CoaLive.TrainerDedup
+#        Description: Performance. When a bot is rebuilt or refreshed, each trainer's spell list is
+#                     read once a round instead of once for every creature of that trainer (all the
+#                     class trainers of a class share one list). The bots learn the same spells.
+#        Default:     0 - as before
+#                     1 - on
+
+AiPlayerbot.CoaLive.TrainerDedup = 0
+
 #    AiPlayerbot.CoaLive.Immersion.Enable
 #        Description: Immersion. A random bot idling with water close by (60 yd), a capital's
 #                     canals included, now and then goes to the shore and fishes for 4 to 15

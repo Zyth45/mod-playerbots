@@ -38,6 +38,7 @@
 #include "Creature.h"
 #include "DBCStores.h"
 #include "CoaDbCheck.h"
+#include "PlayerbotFactory.h"
 #include "CoaSoulAddonRules.h"
 #include "CoaSpecialization.h"
 #include "AscensionSpecialization.h"
@@ -2135,6 +2136,28 @@ public:
         return true;
     }
 
+    // ".bot trainercheck": the random bots online that a trainer could still teach something (AiPlayerbot.CoaLive.
+    // TrainerDedup must leave the same share as without it).
+    static bool HandleTrainerCheck(ChatHandler* handler)
+    {
+        uint32 bots = 0, behind = 0, spells = 0;
+        std::shared_lock<std::shared_mutex> lock(*HashMapHolder<Player>::GetLock());
+        for (auto const& [guid, player] : ObjectAccessor::GetPlayers())
+        {
+            if (!player || !player->IsInWorld() || !IsRandom(player))
+                continue;
+            ++bots;
+            if (uint32 const n = PlayerbotFactory::CountTeachableSpells(player))
+            {
+                ++behind;
+                spells += n;
+            }
+        }
+        handler->PSendSysMessage("Trainers: {} random bots online, {} could still learn something ({} spells)",
+                                 bots, behind, spells);
+        return true;
+    }
+
     ChatCommandTable GetCommands() const override
     {
         static ChatCommandTable soulTable = {
@@ -2144,6 +2167,7 @@ public:
         static ChatCommandTable botTable = {
             {"soul", soulTable},
             {"coatalents", HandleCoaTalents, SEC_GAMEMASTER, Console::Yes},
+            {"trainercheck", HandleTrainerCheck, SEC_GAMEMASTER, Console::Yes},
         };
         static ChatCommandTable commandTable = {
             {"bot", botTable},

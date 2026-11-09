@@ -4045,6 +4045,26 @@ void PlayerbotFactory::SetRandomSkill(uint16 id)
     bot->SetSkill(id, step, value, maxValue);
 }
 
+uint32 PlayerbotFactory::CountTeachableSpells(Player* bot)
+{
+    std::vector<uint32> trainerIds;
+    {
+        std::lock_guard<std::mutex> cacheLock(TrainerIdCacheLock);
+        auto it = trainerIdCache.find(bot->getClass());
+        if (it == trainerIdCache.end())
+            return 0;
+        trainerIds = it->second;
+    }
+    std::unordered_set<uint32> teachable;
+    for (uint32 trainerId : trainerIds)
+        if (Trainer::Trainer const* trainer = RebornTrainerFor(sObjectMgr->GetTrainer(trainerId), bot))
+            for (auto& spell : trainer->GetSpells())
+                if (Trainer::Spell const* trainerSpell = trainer->GetSpell(spell.SpellId))
+                    if (IsTrainerSpellAllowedForBot(bot, trainer, trainerSpell) && trainer->CanTeachSpell(bot, trainerSpell))
+                        teachable.insert(trainerSpell->SpellId);
+    return uint32(teachable.size());
+}
+
 void PlayerbotFactory::InitAvailableSpells()
 {
     std::unique_lock<std::mutex> cacheLock(TrainerIdCacheLock);
@@ -4083,6 +4103,55 @@ void PlayerbotFactory::InitAvailableSpells()
     }
     std::vector<uint32> const trainerIds = trainerIdCache[bot->getClass()];
     cacheLock.unlock();
+
+    // CoA (AiPlayerbot.CoaLive.TrainerDedup): the cache holds creature entries, and the many creatures of one trainer
+    // (every class trainer of a class) walked the same spell list again and again. Each trainer is walked once per
+    // round, in the order it first appears; a round that teaches nothing ends it (the next ones would teach nothing
+    // either), never more rounds than the trainer had creatures: the spells taught are the same.
+    if (sPlayerbotAIConfig.coaLiveTrainerDedup)
+    {
+        std::vector<std::pair<Trainer::Trainer const*, uint32>> trainers;  // trainer -> creatures that share it
+        for (uint32 trainerId : trainerIds)
+        {
+            Trainer::Trainer const* trainer = RebornTrainerFor(sObjectMgr->GetTrainer(trainerId), bot);
+            if (!trainer)
+                continue;
+            auto it = std::find_if(trainers.begin(), trainers.end(), [trainer](auto const& t) { return t.first == trainer; });
+            if (it == trainers.end())
+                trainers.emplace_back(trainer, 1);
+            else
+                ++it->second;
+        }
+        uint32 rounds = 0;
+        for (auto const& t : trainers)
+            rounds = std::max(rounds, t.second);
+        for (uint32 round = 0; round < rounds; ++round)
+        {
+            bool taught = false;
+            for (auto const& [trainer, creatures] : trainers)
+            {
+                if (round >= creatures)
+                    continue;
+                for (auto& spell : trainer->GetSpells())
+                {
+                    Trainer::Spell const* trainerSpell = trainer->GetSpell(spell.SpellId);
+                    if (!trainerSpell || !IsTrainerSpellAllowedForBot(bot, trainer, trainerSpell) ||
+                        !trainer->CanTeachSpell(bot, trainerSpell))
+                        continue;
+                    if (trainerSpell->IsCastable())
+                        bot->CastSpell(bot, trainerSpell->SpellId, true);
+                    else
+                        bot->learnSpell(trainerSpell->SpellId, false);
+                    taught = true;
+                }
+            }
+            if (!taught)
+                break;
+        }
+        ForgetStockTwins(bot);
+        return;
+    }
+
     for (uint32 trainerId : trainerIds)
     {
         // A Warcraft Reborn character is taught the Reborn rows the core serves it at the trainer.

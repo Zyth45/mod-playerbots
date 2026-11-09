@@ -700,6 +700,7 @@ public:
     uint32 coaLiveImmersionFishingPerThousand;  // AiPlayerbot.CoaLive.Immersion.FishingPerThousand  // AiPlayerbot.CoaLive.Immersion.Enable (L2 fishing)
     bool coaLiveCleanWorldEnable;  // AiPlayerbot.CoaLive.CleanWorld.Enable
     bool coaLiveSheathEnable;  // AiPlayerbot.CoaLive.Sheath.Enable (#11610)
+    bool coaLiveTrainerDedup;  // AiPlayerbot.CoaLive.TrainerDedup: each trainer's spell list walked once a round
     uint32 coaLiveTalentsPerUpdate;  // AiPlayerbot.CoaLive.TalentsPerUpdate (0: all CoA talents at once)
     bool coaLiveNightBankEnable;  // AiPlayerbot.CoaLive.NightBank.Enable (playerbots_coa_night_lines)
     bool coaLiveDebugIgnoreRealPlayer;  // AiPlayerbot.CoaLive.Debug.IgnoreRealPlayer (hidden test key, bench only)
