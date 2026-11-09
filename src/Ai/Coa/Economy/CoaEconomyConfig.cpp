@@ -10,10 +10,32 @@
 
 #include "Config.h"
 #include "PlayerbotAIConfig.h"
+#include "ScriptMgr.h"
 
 void PlayerbotAIConfig::LoadCoaEconomyConfig()
 {
     coaEconomyRpgSellEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.RpgSell.Enable", false);
     coaEconomyRpgSellBagPercent =
         std::min<uint32>(100, sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaEconomy.RpgSell.BagPercent", 70));
+}
+
+namespace
+{
+    // ".reload config" reloads the files but not PlayerbotAIConfig: the session's keys are read again here.
+    class CoaEconomyConfigWorld : public WorldScript
+    {
+    public:
+        CoaEconomyConfigWorld() : WorldScript("CoaEconomyConfigWorld", {WORLDHOOK_ON_AFTER_CONFIG_LOAD}) { }
+
+        void OnAfterConfigLoad(bool reload) override
+        {
+            if (reload)
+                sPlayerbotAIConfig.LoadCoaEconomyConfig();
+        }
+    };
+}
+
+void AddSC_coa_economy_config()
+{
+    new CoaEconomyConfigWorld();
 }
