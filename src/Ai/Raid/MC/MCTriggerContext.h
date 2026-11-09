@@ -43,6 +43,8 @@ public:
         creators["mc majordomo damage shield"] = &RaidMcTriggerContext::majordomo_damage_shield;
         creators["mc magmadar backup taunt"] = &RaidMcTriggerContext::magmadar_backup_taunt;
         creators["mc magmadar lava bomb"] = &RaidMcTriggerContext::magmadar_lava_bomb;
+        creators["mc baron geddon burning ground"] = &RaidMcTriggerContext::geddon_burning_ground;
+        creators["mc raid dispel"] = &RaidMcTriggerContext::raid_dispel;
         creators["mc magmadar mark"] = &RaidMcTriggerContext::magmadar_mark;
         creators["mc gehennas mark"] = &RaidMcTriggerContext::gehennas_mark;
         creators["mc lucifron mark"] = &RaidMcTriggerContext::lucifron_mark;
@@ -84,6 +86,8 @@ private:
     static Trigger* golemagg_is_healer(PlayerbotAI* botAI) { return new McGolemaggIsHealerTrigger(botAI); }
     static Trigger* majordomo_damage_shield(PlayerbotAI* botAI) { return new McMajordomoDamageShieldTrigger(botAI); }
     static Trigger* magmadar_backup_taunt(PlayerbotAI* botAI) { return new RaidBackupTauntTrigger(botAI, "mc magmadar backup taunt", "magmadar"); }
+    static Trigger* geddon_burning_ground(PlayerbotAI* botAI) { return new McGeddonBurningGroundTrigger(botAI); }
+    static Trigger* raid_dispel(PlayerbotAI* botAI) { return new McRaidDispelTrigger(botAI); }
     static Trigger* magmadar_lava_bomb(PlayerbotAI* botAI)
     {
         return new McMagmadarLavaBombTrigger(botAI);
