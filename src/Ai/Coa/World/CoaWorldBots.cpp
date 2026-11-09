@@ -14,6 +14,8 @@
 #include "MotionMaster.h"
 #include "ObjectAccessor.h"
 #include "Player.h"
+#include "PlayerbotAIConfig.h"
+#include "PlayerbotTextMgr.h"
 #include "PlayerbotAI.h"
 #include "Playerbots.h"
 #include "RandomPlayerbotMgr.h"
@@ -350,6 +352,15 @@ namespace CoaWorld
                     ++said;
     }
 
+    bool BotsFrench()
+    {
+        int32 const forced = sPlayerbotAIConfig.botTextLocale;
+        uint32 const locale = forced >= 0 && forced < TOTAL_LOCALES ? uint32(forced)
+                                                                    : uint32(PlayerbotTextMgr::instance().GetLocalePriority());
+        return locale == LOCALE_frFR;
+    }
+
+    // System lines to a real player: in that player's own language (not the bots').
     std::string EventName(Player* reader, std::string const& key)
     {
         bool fr = reader && reader->GetSession() && reader->GetSession()->GetSessionDbLocaleIndex() == LOCALE_frFR;

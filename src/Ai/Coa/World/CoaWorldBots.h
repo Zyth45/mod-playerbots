@@ -116,6 +116,10 @@ namespace CoaWorld
     bool BotLine(Player* bot, char const* situation, Slots const& slots);
     // A few of owner's bots borrowed since index "from" say a line of the situation (at most "most" of them).
     void BorrowedSay(uint32 owner, size_t from, char const* situation, Slots const& slots, uint32 most);
+    // The bots speak French: AiPlayerbot.BotTextLocale = 2, or -1 with French first among the players' locales
+    // (as CoaLive's lines). Tr: the text in that language.
+    bool BotsFrench();
+    inline char const* Tr(char const* en, char const* fr) { return BotsFrench() ? fr : en; }
     // The invader of an event in the reader's language (IA MIND's %event, never at the start of a line).
     std::string EventName(Player* reader, std::string const& key);
 

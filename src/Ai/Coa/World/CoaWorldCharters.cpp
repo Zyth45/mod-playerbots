@@ -88,12 +88,14 @@ bool OwnRandomBot(Player* bot)
 
 bool Guildless(Player* bot) { return !bot->GetGuildId() && !bot->GetGuildIdInvited(); }
 
-void Line(Player* bot, char const* situation, Slots const& slots, std::vector<char const*> const& fallback)
+void Line(Player* bot, char const* situation, Slots const& slots, std::vector<char const*> const& fallback,
+          std::vector<char const*> const& fallbackFr)
 {
     PlayerbotAI* botAI = GET_PLAYERBOT_AI(bot);
     if (!botAI || BotLine(bot, situation, slots))
         return;
-    std::string text = fallback[urand(0, fallback.size() - 1)];
+    auto const& pool = BotsFrench() ? fallbackFr : fallback;
+    std::string text = pool[urand(0, pool.size() - 1)];
     auto const who = slots.find("player");
     if (who != slots.end())
         text = Acore::StringFormat(text, who->second);
@@ -235,12 +237,14 @@ private:
                 WorldPacket data(MSG_PETITION_DECLINE);
                 data << sign.petition;
                 bot->GetSession()->HandlePetitionDeclineOpcode(data);
-                Line(bot, "charter_refuse", slots, { "sorry, not looking for a guild", "nah, I'm fine solo for now" });
+                Line(bot, "charter_refuse", slots, { "sorry, not looking for a guild", "nah, I'm fine solo for now" },
+                     { "d\u00e9sol\u00e9, je cherche pas de guilde", "non merci, je suis bien solo pour l'instant" });
                 continue;
             }
             Sign(bot, sign.petition);
             if (urand(0, 2) == 0 || sign.offered)
-                Line(bot, "charter_sign", slots, { "signed, good luck {}", "sure, signed", "there you go", "signed! gl with the guild" });
+                Line(bot, "charter_sign", slots, { "signed, good luck {}", "sure, signed", "there you go", "signed! gl with the guild" },
+                     { "sign\u00e9, bonne chance {}", "ok, sign\u00e9", "voil\u00e0", "sign\u00e9 ! bonne chance avec la guilde" });
         }
     }
 
@@ -346,7 +350,9 @@ private:
             }
             charter.petition = item->GetGUID();
             Line(founder, "charter_ask", {}, { "starting a guild, need signatures, anyone?", "who wants to sign my guild charter?",
-                                               "need a few signatures for a new guild!" });
+                                               "need a few signatures for a new guild!" },
+                 { "je monte une guilde, il me faut des signatures, quelqu'un ?", "qui veut signer ma charte de guilde ?",
+                   "il me faut quelques signatures pour une nouvelle guilde !" });
             return;
         }
 
@@ -358,7 +364,8 @@ private:
             founder->GetSession()->HandleTurnInPetitionOpcode(data);
             if (founder->GetGuildId())
             {
-                Line(founder, "charter_founded", {}, { "guild founded, thanks all!", "we have a guild! ty everyone" });
+                Line(founder, "charter_founded", {}, { "guild founded, thanks all!", "we have a guild! ty everyone" },
+                     { "guilde fond\u00e9e, merci \u00e0 tous !", "on a une guilde ! merci tout le monde" });
                 LogEvent("guild", founder->GetName(), "founded a guild with a charter");
             }
             End(side);
@@ -398,7 +405,8 @@ private:
                 data << uint32(0) << charter.petition << player->GetGUID();
                 founder->GetSession()->HandleOfferPetitionOpcode(data);
                 Line(founder, "charter_ask_player", { { "player", player->GetName() } },
-                     { "hey {}, would you sign my guild charter?", "{}, mind signing my charter?" });
+                     { "hey {}, would you sign my guild charter?", "{}, mind signing my charter?" },
+                     { "salut {}, tu voudrais signer ma charte de guilde ?", "{}, \u00e7a te d\u00e9range de signer ma charte ?" });
                 break;
             }
     }

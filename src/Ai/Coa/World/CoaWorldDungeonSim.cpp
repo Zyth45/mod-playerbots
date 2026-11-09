@@ -148,6 +148,30 @@ namespace
     };
 
 
+    // The dungeon's name as the bots say it (the French client's names).
+    std::string DungeonName(DungeonDef const& d, bool fr)
+    {
+        if (!fr)
+            return d.name;
+        switch (d.mapId)
+        {
+            case 389: return "Gouffre de Ragefeu";
+            case 36: return "Mortemines";
+            case 43: return "Cavernes des lamentations";
+            case 34: return "Prison de Hurlevent";
+            case 33: return "Donjon d'Ombrecroc";
+            case 48: return "Profondeurs de Brassenoire";
+            case 47: return "Kraal de Tranchebauge";
+            case 129: return "Souilles de Tranchebauge";
+            case 189: return "Monast\u00e8re \u00e9carlate";
+            case 109: return "Temple englouti";
+            case 230: return "Profondeurs de Rochenoire";
+            case 229: return "Pic Rochenoire";
+            case 429: return "Hache-Tripes";
+            default: return d.name;  // Gnomeregan, Uldaman, Zul'Farrak, Maraudon, Scholomance, Stratholme
+        }
+    }
+
     bool IsHumanPlayer(Player* player)
     {
         return player && player->IsInWorld() && !GET_PLAYERBOT_AI(player) && player->GetSession() &&
@@ -373,7 +397,15 @@ namespace
                 "anyone up for {}? group's full, going in a few",
                 "{} with a full group, see you inside",
             };
-            std::string line = Acore::StringFormat(lines[urand(0, lines.size() - 1)], run.dungeon->name);
+            static std::vector<char const*> const linesFr = {
+                "LFM {}, on a tank et heal, rdv \u00e0 la pierre",
+                "groupe {} mont\u00e9, tous les r\u00f4les sont l\u00e0, on y va",
+                "qui pour {} ? groupe complet, on part dans pas longtemps",
+                "{} avec un groupe complet, \u00e0 tout' dedans",
+            };
+            bool const fr = BotsFrench();
+            auto const& pool = fr ? linesFr : lines;
+            std::string line = Acore::StringFormat(pool[urand(0, pool.size() - 1)], DungeonName(*run.dungeon, fr));
             // The bank's line when it has one.
             if (!BotLine(leader, "dsim_lfm", { { "dungeon", run.dungeon->name }, { "need", "1 dps" } }))
                 botAI->SayToChannel(line, LOOKING_FOR_GROUP);
@@ -673,8 +705,13 @@ namespace
                 "{} done, and a blue at last", "good {} run, ty all" };
             static std::vector<char const*> const plain = { "gg", "{} done, gg all", "ty for the {} run",
                 "{} cleared, nothing for me again", "gg, that was a long {}" };
-            auto const& pool = goodDrop ? happy : plain;
-            std::string line = Acore::StringFormat(pool[urand(0, pool.size() - 1)], run.dungeon->name);
+            static std::vector<char const*> const happyFr = { "enfin un drop sur {}", "gg, {} a \u00e9t\u00e9 g\u00e9n\u00e9reux aujourd'hui",
+                "{} fini, et enfin un bleu", "bon run {}, merci \u00e0 tous" };
+            static std::vector<char const*> const plainFr = { "gg", "{} fini, gg \u00e0 tous", "merci pour le run {}",
+                "{} clean, encore rien pour moi", "gg, c'\u00e9tait long {}" };
+            bool const fr = BotsFrench();
+            auto const& pool = goodDrop ? (fr ? happyFr : happy) : (fr ? plainFr : plain);
+            std::string line = Acore::StringFormat(pool[urand(0, pool.size() - 1)], DungeonName(*run.dungeon, fr));
             // The bank's line first, with the run's best item for %item.
             std::string item;
             for (auto const& [guid, reward] : run.rewards)

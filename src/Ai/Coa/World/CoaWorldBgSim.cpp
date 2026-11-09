@@ -109,6 +109,14 @@ struct Offer
     uint32 vendorFaction;
 };
 
+// The battleground's name as the bots say it.
+std::string BgName(BgDef const& bg, bool fr)
+{
+    if (!fr)
+        return bg.name;
+    return bg.mapId == 489 ? "Goulet des Chanteguerres" : "bassin Arathi";
+}
+
 bool IsHumanPlayer(Player* player)
 {
     return player && player->IsInWorld() && !GET_PLAYERBOT_AI(player) && player->GetSession() &&
@@ -301,7 +309,10 @@ private:
             return;
         static char const* const lines[] = { "queueing {}, anyone?", "{} time, who's in", "off to {}, wish us luck",
                                              "{} queue popped, brb" };
-        std::string const text = Acore::StringFormat(lines[urand(0, 3)], bg.name);
+        static char const* const linesFr[] = { "je lance une file {}, quelqu'un ?", "c'est l'heure du {}, qui vient ?",
+                                               "direction {}, souhaitez-nous bonne chance", "file {} lanc\u00e9e, brb" };
+        bool const fr = BotsFrench();
+        std::string const text = Acore::StringFormat(fr ? linesFr[urand(0, 3)] : lines[urand(0, 3)], BgName(bg, fr));
         if (bot->GetGuildId())
             botAI->SayToGuild(text);
         else
@@ -351,7 +362,11 @@ private:
             return;
         static char const* const wonLines[] = { "gg, {} won", "easy {} win", "{} done, we won" };
         static char const* const lostLines[] = { "lost {} again", "gg, rough {}", "{} lost, next one" };
-        std::string const text = Acore::StringFormat(won ? wonLines[urand(0, 2)] : lostLines[urand(0, 2)], match.bg->name);
+        static char const* const wonFr[] = { "gg, {} gagn\u00e9", "{} gagn\u00e9 facile", "{} fini, on a gagn\u00e9" };
+        static char const* const lostFr[] = { "encore perdu {}", "gg, {} difficile", "{} perdu, au suivant" };
+        bool const fr = BotsFrench();
+        char const* const* pool = won ? (fr ? wonFr : wonLines) : (fr ? lostFr : lostLines);
+        std::string const text = Acore::StringFormat(pool[urand(0, 2)], BgName(*match.bg, fr));
         if (bot->GetGuildId())
             botAI->SayToGuild(text);
     }
