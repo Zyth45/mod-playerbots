@@ -199,6 +199,16 @@ inline bool SellsAtVendor(bool vendorUsage, bool auctionUsage, bool botAuctionsO
 
 // Ammunition is of no use on CoA: projectiles (item class 6) and quivers or ammo pouches (item class 11) are never
 // listed, bought or offered, by the bots or the house.
+// The median of some prices (the lower middle one for an even count; 0 when empty).
+inline std::uint64_t Median(std::vector<std::uint64_t> values)
+{
+    if (values.empty())
+        return 0;
+    std::size_t const middle = (values.size() - 1) / 2;
+    std::nth_element(values.begin(), values.begin() + middle, values.end());
+    return values[middle];
+}
+
 inline bool IsAmmo(std::uint32_t itemClass)
 {
     return itemClass == 6 || itemClass == 11;

@@ -5155,6 +5155,11 @@ AiPlayerbot.CoaEconomy.BotAuctions.VisitsPerTick = 2
 AiPlayerbot.CoaEconomy.BotAuctions.DurationHours = 24
 AiPlayerbot.CoaEconomy.BotAuctions.MaxScan = 300
 
+# Bots' auction prices from the real CoA auction house: the market value of scans of the real house (17,121 items),
+# else the median of the scanned items of the same quality and item level (uncommon and better). Our own sales, made
+# by bots at bots' prices, would otherwise keep prices low. 1 = on, 0 = off (default). Read again on reload.
+AiPlayerbot.CoaEconomy.BotAuctions.RealHousePrices = 0
+
 # Artisans: bots with a profession craft from the recipes they really know (any primary or secondary profession
 # of the client data, CoA's own included) and sell the product. At an auction house visit (BotAuctions) an artisan
 # makes one piece worth at least MinProfitPercent over its materials, the best margins first, and lists it with its

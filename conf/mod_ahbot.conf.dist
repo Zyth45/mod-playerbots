@@ -102,6 +102,11 @@ AuctionHouseBot.CoA.VanillaItemsOnly = true
 # Default false in the code.
 AuctionHouseBot.CoA.SeenOnCoAHouse = true
 
+# CoA: prices from the real CoA auction house: the market value of its scans, else the median of the scanned items of
+# the same quality and item level (uncommon and better), with the buyout and bid variations below. Default false in
+# the code.
+AuctionHouseBot.CoA.RealHousePrices = true
+
 AuctionHouseBot.DEBUG = false
 AuctionHouseBot.DEBUG_FILTERS = false
 AuctionHouseBot.MinutesBetweenBuyCycle = 1:3
