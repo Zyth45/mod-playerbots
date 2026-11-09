@@ -3077,6 +3077,16 @@ AiPlayerbot.CoaWorld.BotPacketsInMapThread = 0
 
 AiPlayerbot.CoaWorld.DpsTargetCache = 0
 
+#    AiPlayerbot.CoaWorld.BotOnlyBgPace.Enable
+#    AiPlayerbot.CoaWorld.BotOnlyBgPace.IntervalMs
+#        Description: Performance. A bot in a battleground or arena where no real player is, and that no real player
+#                     is queued for, runs its AI every IntervalMs instead of every server tick. Back to normal within
+#                     a second when a real player enters or queues. Dungeons are not touched.
+#        Default:     0 - off; IntervalMs 500 (100 to 5000)
+
+AiPlayerbot.CoaWorld.BotOnlyBgPace.Enable = 0
+AiPlayerbot.CoaWorld.BotOnlyBgPace.IntervalMs = 500
+
 #    AiPlayerbot.CoaWorld.StateFile.Enable
 #        Description: monde.json for the CoA Dashboard: the current invasions, gathering rushes, guilds online,
 #                     last guild orders, last server firsts and the recovery counts of the last 24 hours. Written
