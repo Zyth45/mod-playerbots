@@ -19,7 +19,14 @@ namespace CoaArtisansAddonRules
     constexpr uint32_t QuoteSeconds = 10 * 60;    // a quote holds 10 minutes
     constexpr uint32_t MinRequestMs = 1000;       // 1 request per second per player
     constexpr uint32_t CacheMs = 10 * 1000;       // list answers cached 10 s per player
-    constexpr uint32_t MaxQty = 5;                // one CoD mail
+    constexpr uint32_t MaxQty = 20;               // as a guild order
+    constexpr uint32_t MaxMailItems = 12;         // the attachments of one CoD mail
+
+    // The stacks `total` items make (maxStack 0 or 1: one item each).
+    inline uint32_t Stacks(uint32_t total, uint32_t maxStack)
+    {
+        return maxStack > 1 ? (total + maxStack - 1) / maxStack : total;
+    }
     constexpr uint32_t PriceRisePercent = 10;     // AORDER refuses a price risen more than this
     constexpr std::size_t MaxArtisans = 40;
     constexpr std::size_t MaxRecipes = 60;

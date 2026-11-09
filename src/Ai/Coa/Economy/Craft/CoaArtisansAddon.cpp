@@ -266,6 +266,10 @@ namespace
             return answer(0, "cannot", 0);
         if (CraftOrders::IsBusy(bot))
             return answer(0, "busy", 0);
+        // Everything goes in one CoD mail: 12 stacks at most (20 elixirs are one stack, 20 swords are too many).
+        if (ItemTemplate const* product = sObjectMgr->GetItemTemplate(recipe.itemId);
+            !product || Rules::Stacks(qty * recipe.count, product->GetMaxStackSize()) > Rules::MaxMailItems)
+            return answer(0, "qty", 0);
         if (Artisans::MissingCost(bot, recipe, qty) > bot->GetMoney())
             return answer(0, "mats", 0);
 
@@ -326,8 +330,13 @@ namespace
         ItemTemplate const* proto = sObjectMgr->GetItemTemplate(order.itemId);
         MailDraft draft(proto ? proto->Name1 : "", "");
         uint32 made = 0;
-        for (uint32 i = 0; i < order.qty; ++i)
-            if (Item* item = Item::CreateItem(order.itemId, order.perPiece, nullptr, false,
+        // Full stacks: 20 elixirs in one slot, 3 swords in three.
+        uint32 const maxStack = std::max<uint32>(1, proto ? proto->GetMaxStackSize() : 1);
+        for (uint32 left = order.qty * order.perPiece; left && made < Rules::MaxMailItems;)
+        {
+            uint32 const count = std::min(left, maxStack);
+            left -= count;
+            if (Item* item = Item::CreateItem(order.itemId, count, nullptr, false,
                                               Item::GenerateItemRandomPropertyId(order.itemId)))
             {
                 item->SetOwnerGUID(receiver);
@@ -335,6 +344,7 @@ namespace
                 draft.AddItem(item);
                 ++made;
             }
+        }
         if (!made)
         {
             CharacterDatabase.CommitTransaction(trans);
