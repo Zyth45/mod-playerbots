@@ -8,6 +8,7 @@
 #define PLAYERBOTS_COA_TELEGRAPH_H
 
 #include "MovementActions.h"
+#include "Multiplier.h"
 #include "Strategy.h"
 #include "Trigger.h"
 
@@ -19,7 +20,18 @@ namespace CoaTelegraph
 {
     // The marker the bot stands in and must leave now, or nullptr. `safeDistance` gets the distance to reach.
     DynamicObject* MarkerToLeave(Player* bot, float& safeDistance);
+    // A live marker `target` cast and stands within (Targorr leaps on his own spot, SmartAI target self), or nullptr.
+    DynamicObject* MarkerUnderCaster(Unit* target, float& safeDistance);
 }
+
+// While such a marker lies under the bot's target, no melee approach: melee reach of the boss ends inside the 4 yd
+// slam, so a bot that stepped out walked straight back in (bench a20, Targorr).
+class CoaTelegraphMeleeMultiplier : public Multiplier
+{
+public:
+    CoaTelegraphMeleeMultiplier(PlayerbotAI* botAI) : Multiplier(botAI, "coa combat telegraph melee") {}
+    float GetValue(Action* action) override;
+};
 
 class CoaTelegraphTrigger : public Trigger
 {
@@ -41,6 +53,7 @@ public:
     CoaTelegraphStrategy(PlayerbotAI* botAI) : Strategy(botAI) {}
     std::string const getName() override { return "coa combat telegraph"; }
     void InitTriggers(std::vector<TriggerNode*>& triggers) override;
+    void InitMultipliers(std::vector<Multiplier*>& multipliers) override;
 };
 
 #endif
