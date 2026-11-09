@@ -118,6 +118,8 @@ namespace CoaWorld
     void LogEvent(char const* kind, std::string const& bot, std::string const& text);
 
     uint32 BorrowedCount(uint32 owner);
+    // Borrowed by any CoA World event now (world thread).
+    bool IsBorrowedBot(ObjectGuid guid);
     uint32 BorrowedTotal();
 }
 

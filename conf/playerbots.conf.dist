@@ -2881,6 +2881,28 @@ AiPlayerbot.CoaWorld.Recovery.Hearth = 1
 
 AiPlayerbot.CoaWorld.Recovery.QuarantineMinutes = 30
 
+#    AiPlayerbot.CoaWorld.Recovery.NoProgressSeconds
+#        Description: Seconds a travelling bot may walk without getting nearer its destination before it picks
+#                     another (back and forth; 30 to 1800, 0 never). Nothing while Recovery.Enable is 0.
+#        Default:     30
+
+AiPlayerbot.CoaWorld.Recovery.NoProgressSeconds = 30
+
+#    AiPlayerbot.CoaWorld.Recovery.OutOfRangeMinutes
+#        Description: Minutes a random bot may walk in a zone far below its level (a level 55 in Elwynn) before it
+#                     is sent to a place of its level, out of the players' sight (or by hearthstone when they stay
+#                     near). Capitals and the zones not in the levelling table are never concerned (0 never, 120 at
+#                     most). Nothing while Recovery.Enable is 0.
+#        Default:     5
+
+AiPlayerbot.CoaWorld.Recovery.OutOfRangeMinutes = 5
+
+#    AiPlayerbot.CoaWorld.Recovery.OutOfRangeLevels
+#        Description: Levels above the top of a zone's range that count as far above it (3 to 40).
+#        Default:     8
+
+AiPlayerbot.CoaWorld.Recovery.OutOfRangeLevels = 8
+
 #    AiPlayerbot.CoaWorld.Travel.Enable
 #        Description: Bots take the zeppelins and the boats. A few random bots of the right side walk
 #                     to a zeppelin tower or a dock and wait; when the transport leaves they board

@@ -344,6 +344,11 @@ namespace CoaWorld
 
 // Called for every random bot on every cycle of RandomPlayerbotMgr (world thread): with nobody held,
 // a plain bool and nothing else.
+bool CoaWorld::IsBorrowedBot(ObjectGuid guid)
+{
+    return IsBorrowed(guid);
+}
+
 bool CoaWorldIsBotHeld(uint32 lowGuid)
 {
     return CoaWorld::IsHeld(lowGuid);
