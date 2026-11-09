@@ -20,6 +20,7 @@
 #include "CoaWorldBots.h"
 #include "CoaWorldState.h"
 #include "CoaWorldStateRules.h"
+#include "CoaWorldAddonRules.h"
 
 #include "Chat.h"
 #include "ChatCommand.h"
@@ -169,6 +170,25 @@ namespace
 
         bool Running() const { return _running; }
 
+        // SQBW WE line of the rush: on (at = end) or end (at = now); empty when it is not for this player.
+        std::string AddonLine(Player* player, char const* state) const
+        {
+            using namespace CoaWorldAddonRules;
+            if (!IsHumanPlayer(player) || player->GetLevel() < settings.minLevel ||
+                !RushVisible(player->GetLevel(), _level, settings.announceLevelRange))
+                return {};
+            time_t const now = time(nullptr);
+            int64 const at = std::string(state) == "end" ? int64(now) : int64(now) + std::max<int64>(0, _timer) / IN_MILLISECONDS;
+            return Cut(std::string("WE\trush\trush:1\t") + state + "\t" + Text(AreaName(_zoneId)) + "\t" +
+                       Text(AreaName(_areaId)) + "\t" + std::to_string(at) + "\tGold rush");
+        }
+
+        void AddonPush(char const* state) const
+        {
+            if (CoaWorldAddon::On())
+                CoaWorldAddon::Push([&](Player* player) { return AddonLine(player, state); });
+        }
+
         // monde.json (CoaWorldState): the running rush.
         std::string Json(time_t now) const
         {
@@ -212,6 +232,7 @@ namespace
                 AreaName(_zoneId), _level, _nodes.size(), BorrowedCount(BOT_OWNER_RUSH));
             LogEvent("rush", "", Acore::StringFormat("gold rush near {} in {} (level {}, {} nodes)", AreaName(_areaId),
                 AreaName(_zoneId), _level, _nodes.size()));
+            AddonPush("on");
             return true;
         }
 
@@ -219,6 +240,7 @@ namespace
         {
             if (_running)
             {
+                AddonPush("end");
                 std::string text = Acore::StringFormat("The gold rush near {} is over: the last veins have been picked clean.",
                     AreaName(_areaId));
                 for (Player* player : Audience())
@@ -515,6 +537,17 @@ public:
 };
 
 std::string CoaWorld::RushesJson(time_t now) { return Rush().Json(now); }
+
+bool CoaWorldAddon::RushOn() { return settings.enabled; }
+
+void CoaWorldAddon::Rushes(Player* player, std::vector<std::string>& out)
+{
+    if (!Rush().Running())
+        return;
+    std::string line = Rush().AddonLine(player, "on");
+    if (!line.empty())
+        out.push_back(std::move(line));
+}
 
 void AddSC_coa_world_rush()
 {

@@ -27,6 +27,7 @@
 #include "CoaWorldBots.h"
 #include "CoaWorldState.h"
 #include "CoaWorldStateRules.h"
+#include "CoaWorldAddonRules.h"
 
 #include "Chat.h"
 #include "ChatCommand.h"
@@ -143,6 +144,9 @@ namespace CoaWorld
             if (onScreen)
                 handler.SendNotification(text);
         }
+
+        struct Slot;
+        void AddonPush(Slot const& slot, char const* state);
 
         struct Slot
         {
@@ -408,6 +412,7 @@ namespace CoaWorld
 
                 slot.state = State::Warning;
                 slot.timer = int64(settings.warning) * MINUTE_MS;
+                AddonPush(slot, "warn");
                 std::string text = Acore::StringFormat(slot.plan->warningText, slot.Site().name, slot.Site().zone,
                     settings.warning);
                 for (Player* player : Eligible(slot, slot.Site().team))
@@ -525,6 +530,7 @@ namespace CoaWorld
                 // Nothing on the map yet but a portal or a line is fine: the waves come next.
                 slot.state = State::Running;
                 slot.timer = int64(std::max<uint32>(1, settings.duration)) * MINUTE_MS;
+                AddonPush(slot, "on");
                 slot.botBudget = BotBudget(settings.botsPct, settings.botsMax);
 
                 std::string text = Acore::StringFormat(slot.plan->startText, site.name, site.zone);
@@ -625,6 +631,7 @@ namespace CoaWorld
                 LOG_INFO("module", "CoA World: {} ended ({})", slot.plan->name, won ? "won" : "lost or stopped");
                 LogEvent("invasion", "", Acore::StringFormat("{} at {} {}", slot.plan->name,
                     slot.Site().name, won ? "won" : "ended"));
+                AddonPush(slot, "end");
                 Reschedule(slot, RollInterval(slot));
             }
 
@@ -792,6 +799,37 @@ namespace CoaWorld
             Mgr().QueueDeath(creature->GetGUID(), creature->GetEntry());
     }
 
+    namespace  // the same unnamed namespace as Slot and AddonPush's declaration
+    {
+    // SQBW WE line of an invasion: state warn (at = start), on (at = end) or end (at = now).
+    std::string AddonLine(Slot const& slot, char const* state, time_t now)
+    {
+        using namespace CoaWorldAddonRules;
+        int64 const left = std::max<int64>(0, slot.timer) / IN_MILLISECONDS;
+        int64 const at = std::string(state) == "end" ? int64(now) : int64(now) + left;
+        return Cut(std::string("WE\tinv\tinv:") + slot.plan->key + "\t" + state + "\t" + Text(slot.Site().zone) + "\t" +
+                   Text(slot.Site().name) + "\t" + std::to_string(at) + "\t" + Text(slot.plan->name));
+    }
+
+    // Who hears this invasion in the world messages (Eligible): its site's side, from its level.
+    bool AddonVisible(Slot const& slot, Player* player)
+    {
+        uint8 const team = slot.Site().team;
+        return CoaWorldAddonRules::InvasionVisible(team == TEAM_NEUTRAL, player->GetTeamId() == team, player->GetLevel(),
+                                                   slot.Conf().minLevel);
+    }
+
+    void AddonPush(Slot const& slot, char const* state)
+    {
+        if (!CoaWorldAddon::On())
+            return;
+        time_t const now = time(nullptr);
+        std::string const line = AddonLine(slot, state, now);
+        CoaWorldAddon::Push([&](Player* player) { return AddonVisible(slot, player) ? line : std::string(); });
+    }
+
+    }
+
     // monde.json (CoaWorldState): the announced and running invasions.
     std::string InvasionsJson(time_t now)
     {
@@ -817,6 +855,16 @@ namespace CoaWorld
         }
         return out + "]";
     }
+}
+
+bool CoaWorldAddon::InvasionsOn() { return CoaWorld::settings.enabled; }
+
+void CoaWorldAddon::Invasions(Player* player, std::vector<std::string>& out)
+{
+    time_t const now = time(nullptr);
+    for (CoaWorld::Slot const& slot : CoaWorld::Mgr().Slots())
+        if (slot.state != CoaWorld::State::Idle && CoaWorld::AddonVisible(slot, player))
+            out.push_back(CoaWorld::AddonLine(slot, slot.state == CoaWorld::State::Running ? "on" : "warn", now));
 }
 
 using namespace CoaWorld;

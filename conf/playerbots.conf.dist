@@ -3103,6 +3103,19 @@ AiPlayerbot.CoaWorld.SmartScaleAverage.Enable = 0
 
 AiPlayerbot.CoaWorld.StateFile.Enable = 0
 
+#    AiPlayerbot.CoaWorld.Guilds.Addon
+#    AiPlayerbot.CoaWorld.Events.Addon
+#        Description: The SquidBots Lite addon's World panel (prefix SQBW, the addon whispers its own player).
+#                     Guilds.Addon: guild orders from the addon (GORD) and the player's orders and gifts (GLIST);
+#                     needs Guilds.Enable and Guilds.Orders, and the table coa_world_guild_log. Events.Addon: the
+#                     invasions, rushes and server firsts the player can see (WEV?), with the changes pushed for
+#                     30 minutes after; needs one of Invasions, Rush or ServerFirst on (not Events.Enable).
+#                     One request per second per player, lists kept 10 seconds. Off: no answer at all.
+#        Default:     0 - off
+
+AiPlayerbot.CoaWorld.Guilds.Addon = 0
+AiPlayerbot.CoaWorld.Events.Addon = 0
+
 # Quality a looted item must reach to be written to the "playerbots.loot" logger:
 # 3 rare (blue), 4 epic, 5 legendary. Nothing is written unless worldserver.conf
 # points that logger at an appender, and only bots are ever logged.
