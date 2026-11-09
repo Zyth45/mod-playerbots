@@ -71,6 +71,8 @@ namespace
     constexpr time_t BUSY_SECONDS = 30;
     constexpr uint32 LOGIN_GRACE_SECONDS = 120;  // nothing in the first 2 minutes after a login
     constexpr uint32 HEARTH_AT = 3;  // detections within RELAPSE_SECONDS
+    constexpr float DEATH_SPOT_YARDS = 60.0f;  // deaths this close to the first of the window: one spot
+    constexpr float AT_GOAL_YARDS = 40.0f;     // this close to where it goes: working there, not stuck on its way
 
     struct Settings
     {
@@ -99,6 +101,8 @@ namespace
     {
         std::deque<Sample> samples;
         std::deque<time_t> deaths;
+        uint32 deathMap = 0;           // where the deaths of the window happen: a death loop is in one place
+        float deathX = 0.0f, deathY = 0.0f;
         bool wasDead = false;
         time_t lastRecovery = 0;
         time_t lastSeen = 0;
@@ -240,6 +244,16 @@ namespace
             bool dead = !bot->IsAlive();
             if (dead && !track.wasDead)
             {
+                // A death far from the others (the bot moved on, a fight elsewhere) starts a new count: on the
+                // laptop's a43, 643 "dying over and over" in 2 h, most of them bots dying here and there while levelling.
+                if (track.deaths.empty() || bot->GetMapId() != track.deathMap ||
+                    std::hypot(bot->GetPositionX() - track.deathX, bot->GetPositionY() - track.deathY) > DEATH_SPOT_YARDS)
+                {
+                    track.deaths.clear();
+                    track.deathMap = bot->GetMapId();
+                    track.deathX = bot->GetPositionX();
+                    track.deathY = bot->GetPositionY();
+                }
                 track.deaths.push_back(now);
                 while (!track.deaths.empty() && now - track.deaths.front() > time_t(settings.deathsWindowMinutes) * MINUTE)
                     track.deaths.pop_front();
@@ -295,6 +309,17 @@ namespace
             }
 
             Sample const& last = track.samples.back();
+
+            // At its goal (a quest's place waiting for a mob or an object, a city's vendor): standing or moving about
+            // there is its work (the a43's 1006 "standing still" in 2 h counted those).
+            float goalX, goalY;
+            bool const hasGoal = Destination(bot, botAI, goalX, goalY);
+            if (hasGoal && std::hypot(bot->GetPositionX() - goalX, bot->GetPositionY() - goalY) <= AT_GOAL_YARDS)
+            {
+                track.samples.clear();
+                track.bestAt = 0;
+                return;
+            }
 
             // Standing still for stuckSeconds.
             bool still = false;

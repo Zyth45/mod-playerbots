@@ -25,10 +25,12 @@
 #include "CoaWorldInvasion.h"
 
 #include "CoaWorldBots.h"
+#include "CoaWorldCapitalRaid.h"
 #include "CoaWorldState.h"
 #include "CoaWorldStateRules.h"
 #include "CoaWorldAddonRules.h"
 
+#include "AiObjectContext.h"
 #include "Chat.h"
 #include "ChatCommand.h"
 #include "Config.h"
@@ -85,6 +87,12 @@ namespace CoaWorld
         return itr == fr.end() ? std::string(en) : std::string(itr->second);
     }
         constexpr uint32 MINUTE_MS = MINUTE * IN_MILLISECONDS;
+        constexpr int64 HOLD_MS = 2 * IN_MILLISECONDS;
+        constexpr float LEASH_YARDS = 90.0f;               // farther from both the spawn and the target: brought back
+        constexpr float BELOW_CHECK_YARDS = 40.0f;         // near the target, lower than it by BELOW_YARDS: under it
+        constexpr float BELOW_YARDS = 10.0f;
+        constexpr float ENGAGE_FROM_TARGET_YARDS = 80.0f;  // a borrowed bot this close to the target joins the fight
+        constexpr float ENGAGE_YARDS = 50.0f;              // the invader it attacks is this close at most
         constexpr uint32 CORPSE_DESPAWN_MS = 60 * IN_MILLISECONDS;
         constexpr char const* PREFIX = "AiPlayerbot.CoaWorld.Invasions.";
 
@@ -186,6 +194,7 @@ namespace CoaWorld
             bool bossUp = false;
             bool won = false;
             uint32 botBudget = 0;
+            int64 holdTimer = 0;  // the next look at the army and the bots (HoldArmy, Engage)
             uint32 Owner() const { return BOT_OWNER_INVASION_BASE + index; }
 
             InvasionSite const& Site() const { return plan->sites[site]; }
@@ -380,6 +389,15 @@ namespace CoaWorld
                 if (slot.state == State::Running)
                 {
                     RunWaves(slot, diff);
+                    slot.holdTimer -= diff;
+                    if (slot.holdTimer <= 0)
+                    {
+                        slot.holdTimer = HOLD_MS;
+                        _runMap = slot.map;
+                        HoldArmy(slot);
+                        _runMap = nullptr;
+                        Engage(slot);
+                    }
                     if (slot.won)
                     {
                         Finish(slot, true);
@@ -416,7 +434,9 @@ namespace CoaWorld
                 }
 
                 uint32 eligible = uint32(Eligible(slot, TEAM_NEUTRAL).size());
-                if (eligible < std::max<uint32>(1, settings.minRealPlayers) || !Prepare(slot, nullptr))
+                // Never where a capital raid is on (CoaWorldCapitalRaid).
+                if (eligible < std::max<uint32>(1, settings.minRealPlayers) || !Prepare(slot, nullptr) ||
+                    CoaWorldCapitalRaidAt(slot.Site().name))
                 {
                     slot.timer = retry;
                     return;
@@ -441,6 +461,73 @@ namespace CoaWorld
 
                 LOG_INFO("module", "CoA World: {} announced at {} (level {}), in {} minutes", slot.plan->name,
                     slot.Site().name, slot.level, settings.warning);
+            }
+
+            // The invaders stay where the fight is: one in the water, far from both ends of its march, or under the
+            // target's bridge (a43: the Stormwind boss walked off the bridge into the canal, out of everyone's reach)
+            // is put back on the ground at the target, in its fight if it has one.
+            void HoldArmy(Slot& slot)
+            {
+                if (!slot.map)
+                    return;
+                InvasionSite const& site = slot.Site();
+                Position const target = Ground(site.target);
+                for (ObjectGuid const& guid : slot.summons)
+                {
+                    Creature* creature = slot.map->GetCreature(guid);
+                    if (!creature || !creature->IsAlive() || creature->GetEntry() == slot.plan->defender)
+                        continue;
+                    float const fromTarget = creature->GetExactDist2d(&site.target);
+                    bool const wandered = fromTarget > LEASH_YARDS && creature->GetExactDist2d(&site.spawn) > LEASH_YARDS;
+                    bool const below = fromTarget < BELOW_CHECK_YARDS && creature->GetPositionZ() < target.GetPositionZ() - BELOW_YARDS;
+                    if (!creature->IsInWater() && !wandered && !below)
+                        continue;
+                    Position const back = guid == slot.boss ? target : PointAround(site.target, 0.0f, 8.0f);
+                    creature->NearTeleportTo(back.GetPositionX(), back.GetPositionY(), back.GetPositionZ(),
+                                             creature->GetOrientation());
+                    creature->SetHomePosition(back);
+                }
+            }
+
+            // The borrowed bots at the fight attack the nearest invader at once (they took long to start, on their
+            // grinding's own pace).
+            void Engage(Slot& slot)
+            {
+                if (!slot.map)
+                    return;
+                InvasionSite const& site = slot.Site();
+                for (ObjectGuid const& guid : BorrowedBots(slot.Owner()))
+                {
+                    Player* bot = ObjectAccessor::FindPlayer(guid);
+                    if (!bot || !bot->IsInWorld() || !bot->IsAlive() || bot->IsInCombat() || bot->IsInFlight() || bot->GetMap() != slot.map ||
+                        bot->GetExactDist2d(&site.target) > ENGAGE_FROM_TARGET_YARDS)
+                        continue;
+                    PlayerbotAI* botAI = GET_PLAYERBOT_AI(bot);
+                    if (!botAI || botAI->GetMaster())
+                        continue;
+                    Creature* nearest = nullptr;
+                    float best = ENGAGE_YARDS;
+                    for (ObjectGuid const& mob : slot.summons)
+                    {
+                        Creature* creature = slot.map->GetCreature(mob);
+                        if (!creature || !creature->IsAlive() || creature->GetEntry() == slot.plan->defender ||
+                            !bot->IsValidAttackTarget(creature))
+                            continue;
+                        float const d = bot->GetExactDist(creature);
+                        if (d < best)
+                        {
+                            best = d;
+                            nearest = creature;
+                        }
+                    }
+                    if (!nearest)
+                        continue;
+                    // As the bots' own attack action: the target, the combat engine, then the swing.
+                    bot->SetSelection(nearest->GetGUID());
+                    botAI->GetAiObjectContext()->GetValue<Unit*>("current target")->Set(nearest);
+                    botAI->ChangeEngine(BOT_STATE_COMBAT);
+                    bot->Attack(nearest, !PlayerbotAI::IsRanged(bot));
+                }
             }
 
             Position Ground(Position const& pos) const
@@ -882,6 +969,15 @@ namespace CoaWorld
 }
 
 bool CoaWorldAddon::InvasionsOn() { return CoaWorld::settings.enabled; }
+
+// CoaWorldCapitalRaid: an invasion announced or running at that site.
+bool CoaWorldInvasionAt(std::string const& site)
+{
+    for (CoaWorld::Slot const& slot : CoaWorld::Mgr().Slots())
+        if (slot.state != CoaWorld::State::Idle && site == slot.Site().name)
+            return true;
+    return false;
+}
 
 void CoaWorldAddon::Invasions(Player* player, std::vector<std::string>& out)
 {

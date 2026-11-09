@@ -18,6 +18,7 @@
  */
 
 #include "CoaWorldAddonRules.h"
+#include "CoaWorldCapitalRaid.h"
 #include "CoaWorldGuildActivities.h"
 #include "CoaWorldGuilds.h"
 #include "CoaWorldState.h"
@@ -71,6 +72,12 @@ std::vector<std::string> WorldLife(Player* player)
         CoaWorldAddon::Rushes(player, out);
     if (CoaWorldAddon::FirstsOn())
         CoaWorldAddon::Firsts(out);
+    if (CoaWorldCapitalRaidOn())
+        CoaWorldCapitalRaidLines(out);
+    // A game master (what .coaworld invasion/rush start and stop need): the addon shows its GM buttons. The commands'
+    // own checks stay the guard.
+    if (player->GetSession() && player->GetSession()->GetSecurity() >= SEC_GAMEMASTER)
+        out.push_back("WGM\t1");
     return out;
 }
 

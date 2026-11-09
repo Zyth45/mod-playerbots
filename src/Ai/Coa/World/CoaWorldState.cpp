@@ -8,6 +8,7 @@
 
 #include "CoaWorldState.h"
 
+#include "CoaWorldCapitalRaid.h"
 #include "CoaWorldStateRules.h"
 #include "Config.h"
 #include "GameTime.h"
@@ -158,7 +159,8 @@ std::string Build(time_t now)
            ",\"recovery_24h\":{\"stuck\":" + std::to_string(stuck) + ",\"unstuck\":" + std::to_string(unstuck) +
            ",\"stuck_events\":" + std::to_string(stuckEvents) + ",\"unstuck_events\":" + std::to_string(unstuckEvents) +
            ",\"since\":" + std::to_string(std::max<int64>(g_started, int64(now) - 86400)) +
-           "},\"dungeon_sim\":" + CoaWorld::DungeonSimJson(now) + ",\"bg_sim\":" + CoaWorld::BgSimJson(now) + "}";
+           "},\"dungeon_sim\":" + CoaWorld::DungeonSimJson(now) + ",\"bg_sim\":" + CoaWorld::BgSimJson(now) +
+           ",\"capital_raid\":" + CoaWorldCapitalRaidJson() + "}";
 }
 
 void Write(std::string const& text)

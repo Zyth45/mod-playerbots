@@ -3208,6 +3208,42 @@ AiPlayerbot.CoaWorld.Guilds.ActivityCooldownMinutes = 10
 AiPlayerbot.CoaWorld.Guilds.GatherMinutes = 15
 AiPlayerbot.CoaWorld.Guilds.GatherBringSeconds = 30
 
+#    AiPlayerbot.CoaWorld.CapitalRaid.Enable
+#    AiPlayerbot.CoaWorld.CapitalRaid.Auto
+#    AiPlayerbot.CoaWorld.CapitalRaid.AutoHours
+#        Description: A faction raid on a capital: about 60 Horde bots march on Stormwind to kill King Varian Wrynn,
+#                     or 60 Alliance bots on Orgrimmar to kill Thrall. They gather outside the main gate, then walk
+#                     to the throne; the city's guards and defenders of its side fight them. It ends when the king
+#                     dies, when no attacker is left standing, or when time is up. Started by a game master
+#                     (.coaworld capitalraid start <stormwind|orgrimmar>, list, stop) or, with Auto, by itself about
+#                     every AutoHours while a real player is online. Never while an invasion holds the city.
+#        Default:     0 - off; Auto 0, AutoHours 24
+
+AiPlayerbot.CoaWorld.CapitalRaid.Enable = 0
+AiPlayerbot.CoaWorld.CapitalRaid.Auto = 0
+AiPlayerbot.CoaWorld.CapitalRaid.AutoHours = 24
+
+#    AiPlayerbot.CoaWorld.CapitalRaid.Attackers
+#    AiPlayerbot.CoaWorld.CapitalRaid.Defenders
+#    AiPlayerbot.CoaWorld.CapitalRaid.Minutes
+#    AiPlayerbot.CoaWorld.CapitalRaid.GatherSeconds
+#    AiPlayerbot.CoaWorld.CapitalRaid.KingHealthPct
+#    AiPlayerbot.CoaWorld.CapitalRaid.MinLevel
+#    AiPlayerbot.CoaWorld.CapitalRaid.RewardSilverPerLevel
+#        Description: Attacking bots (at least 20 free ones needed), defending bots, the assault's time, the
+#                     gathering before it, the king's health during the raid (percent of his own), the bots' level
+#                     (60 only on a realm with CoaFreshStart.Enable; no bot is raised), and the silver per level for
+#                     the real players of the winning side near the throne.
+#        Default:     60, 20, 30, 180, 25, 55, 50
+
+AiPlayerbot.CoaWorld.CapitalRaid.Attackers = 60
+AiPlayerbot.CoaWorld.CapitalRaid.Defenders = 20
+AiPlayerbot.CoaWorld.CapitalRaid.Minutes = 30
+AiPlayerbot.CoaWorld.CapitalRaid.GatherSeconds = 180
+AiPlayerbot.CoaWorld.CapitalRaid.KingHealthPct = 25
+AiPlayerbot.CoaWorld.CapitalRaid.MinLevel = 55
+AiPlayerbot.CoaWorld.CapitalRaid.RewardSilverPerLevel = 50
+
 #    AiPlayerbot.CoaWorld.Guilds.PlayerGuildOnline
 #    AiPlayerbot.CoaWorld.Guilds.PlayerGuildOnlinePercent
 #        Description: With the online/offline rotation (EnablePeriodicOnlineOffline): while a real member of a guild
