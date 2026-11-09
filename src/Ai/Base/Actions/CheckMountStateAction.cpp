@@ -6,6 +6,7 @@
 
 #include "CheckMountStateAction.h"
 #include "CoaWildcard.h"
+#include "Ai/Coa/Combat/Mount/CoaMountRule.h"
 #include "AscensionSpecialization.h"
 #include "AreaDefines.h"
 #include "BattleGroundTactics.h"
@@ -223,8 +224,10 @@ bool CheckMountStateAction::isUseful()
     if (!GET_PLAYERBOT_AI(bot)->HasStrategy("mount", BOT_STATE_NON_COMBAT) && !bot->IsMounted())
         return false;
 
-    // Not useful when level lower than minimum required
-    if (bot->GetLevel() < sPlayerbotAIConfig.useGroundMountAtMinLevel && !FollowsMountedMasterBelowMinLevel())
+    // Not useful when level lower than minimum required, unless the bot follows its mounted master there or is
+    // mounted itself: a mounted alt below that level must still get off when its master does (CoaMountRule).
+    if (!CoaMountRule::CheckAllowed(bot->GetLevel(), sPlayerbotAIConfig.useGroundMountAtMinLevel, bot->IsMounted(),
+                                    FollowsMountedMasterBelowMinLevel()))
         return false;
 
     // Allow mounting while transformed only if the form allows it
@@ -623,7 +626,7 @@ bool CheckMountStateAction::ShouldDismountForMaster(Player* master) const
     bool isMasterMounted = master->IsMounted() || (masterInShapeshiftForm == FORM_FLIGHT ||
                                                    masterInShapeshiftForm == FORM_FLIGHT_EPIC ||
                                                    masterInShapeshiftForm == FORM_TRAVEL);
-    return !isMasterMounted && bot->IsMounted();
+    return CoaMountRule::DismountForMaster(isMasterMounted, bot->IsMounted());
 }
 
 static bool BotCanUseFlyingMount(Player const* bot)
