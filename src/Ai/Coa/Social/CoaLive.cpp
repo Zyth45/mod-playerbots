@@ -1784,6 +1784,7 @@ public:
     // and now and then two or three bots chat a while (a group conversation).
     void OnPlayerCreatureKill(Player* killer, Creature* killed) override
     {
+        CoaWorldFile::NoteBossKill(killer, killed);  // world.json "groups" (DataFile), with or without CoA Live
         if (!Enabled() || !NightOn() || !killed || !(killed->IsDungeonBoss() || killed->isWorldBoss()))
             return;
         DungeonGroup g;
@@ -1804,6 +1805,7 @@ public:
     // Night bank: a death in a dungeon group. Everyone down there: a wipe; the real player alone: a tease.
     void OnPlayerKilledByCreature(Creature* /*killer*/, Player* killed) override
     {
+        CoaWorldFile::NoteDeath(killed);  // world.json "groups" (DataFile), with or without CoA Live
         if (!Enabled() || !NightOn())
             return;
         DungeonGroup g;

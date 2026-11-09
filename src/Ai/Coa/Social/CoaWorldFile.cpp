@@ -10,6 +10,10 @@
 #include "CoaSoul.h"
 #include "CoaSurnameRules.h"
 #include "CoaWorldFileRules.h"
+#include "CoaGroupRunsRules.h"
+#include "Creature.h"
+#include "Group.h"
+#include "InstanceScript.h"
 #include "Config.h"
 #include "DBCStores.h"
 #include "GameTime.h"
@@ -28,7 +32,9 @@
 #include <chrono>
 #include <filesystem>
 #include <fstream>
+#include <ctime>
 #include <map>
+#include <mutex>
 #include <shared_mutex>
 #include <sstream>
 #include <thread>
@@ -45,6 +51,61 @@ uint64 nextBuild = 0;
 Ramp ramp;                 // the realm's start (health.ramp), world thread
 TickStats ticks;           // the world ticks once the start is over
 uint64 nextRampCheck = 0;
+std::mutex runsLock;       // the run book: the 10 s pass (world thread) and the kill/death hooks (map threads)
+RunBook runs;
+uint64 nextRunsPass = 0;
+
+bool DataOn() { return sPlayerbotAIConfig.coaLiveDataFileEnable && sPlayerbotAIConfig.coaLiveDataFiles; }
+
+Kind KindOf(Player* p)
+{
+    return IsRealPlayer(p) ? Kind::Player : sRandomPlayerbotMgr.IsRandomBot(p) ? Kind::Bot : Kind::Alt;
+}
+
+// The groups in a dungeon or a raid now, every 10 s (world thread); the runs gone 5 min end.
+void RunsPass(int64 now)
+{
+    std::map<uint32, Run> seen;  // instance -> what is seen of its group
+    {
+        std::shared_lock<std::shared_mutex> lock(*HashMapHolder<Player>::GetLock());
+        for (auto const& [guid, player] : ObjectAccessor::GetPlayers())
+        {
+            if (!player || !player->IsInWorld() || player->InBattleground() || player->InArena())
+                continue;
+            Map* map = player->GetMap();
+            Group* group = player->GetGroup();
+            if (!map || !group || !map->IsDungeon() || !map->GetInstanceId())
+                continue;
+            Run& r = seen[map->GetInstanceId()];
+            if (!r.instance)
+            {
+                r.instance = map->GetInstanceId();
+                r.map = map->GetId();
+                r.name = map->GetMapName();
+                r.raid = map->IsRaid();
+                r.difficulty = uint32(map->GetDifficulty());
+                if (InstanceMap* instance = map->ToInstanceMap())
+                    if (InstanceScript* script = instance->GetInstanceScript())
+                        r.bossesTotal = int32(script->GetEncounterCount());
+                if (Player* leader = ObjectAccessor::FindPlayer(group->GetLeaderGUID()))
+                    r.leader = leader->GetName();
+            }
+            r.mix.Add(KindOf(player));
+        }
+    }
+    time_t const t = time_t(now);
+    std::tm local{};
+#ifdef _WIN32
+    localtime_s(&local, &t);
+#else
+    localtime_r(&t, &local);
+#endif
+    int64 const midnight = now - (local.tm_hour * 3600 + local.tm_min * 60 + local.tm_sec);
+    std::lock_guard<std::mutex> guard(runsLock);
+    for (auto const& [instance, r] : seen)
+        runs.Seen(r, now);
+    runs.Close(now, TodaySince(midnight, int64(GameTime::GetStartTime().count())));
+}
 bool watched = false;
 std::atomic<bool> writing{false};
 
@@ -178,6 +239,10 @@ Snapshot Build()
     s.surnameListSize = uint32(sPlayerbotAIConfig.coaBotSurnameList.size());
     // Null until the start is over (95 % of the bots online, then 5 min): the start's peaks stay out.
     s.ramp = ramp;
+    {
+        std::lock_guard<std::mutex> guard(runsLock);
+        s.groups = runs.Json();
+    }
     s.tickAvgMs = ticks.Avg();
     s.tickMaxMs = ticks.Max();
     s.tickP95Ms = ticks.P95();
@@ -234,6 +299,11 @@ void Tick(uint64 nowMs)
         ramp.target = sRandomPlayerbotMgr.GetMaxAllowedBotCount();
     if (ramp.Measuring(now))
         ticks.Add(sWorldUpdateTime.GetLastUpdateTime());
+    if (nowMs >= nextRunsPass)
+    {
+        nextRunsPass = nowMs + 10000;
+        RunsPass(now);
+    }
     if (nowMs >= nextWatchCheck)
     {
         nextWatchCheck = nowMs + WATCH_CHECK_MS;
@@ -249,5 +319,44 @@ void Tick(uint64 nowMs)
         std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - start).count();
     Post(Dir() / "world.json",
          Envelope(time(nullptr), EVERY_S, buildUs, int64(GameTime::GetStartTime().count()), data));
+}
+
+void NoteBossKill(Player* killer, Creature* boss)
+{
+    if (!DataOn() || !killer || !boss || !(boss->IsDungeonBoss() || boss->isWorldBoss()))
+        return;
+    Map* map = killer->GetMap();
+    if (!map || !map->IsDungeon())
+        return;
+    // Cleared: the instance's script holds every encounter done (its last boss down).
+    bool cleared = false;
+    if (InstanceMap* instance = map->ToInstanceMap())
+        if (InstanceScript* script = instance->GetInstanceScript())
+        {
+            uint32 const total = script->GetEncounterCount();
+            uint32 done = 0;
+            for (uint32 i = 0; i < total; ++i)
+                done += script->IsBossDone(i);
+            cleared = total && done == total;
+        }
+    std::lock_guard<std::mutex> guard(runsLock);
+    runs.Kill(map->GetInstanceId(), boss->GetEntry(), cleared, int64(time(nullptr)));
+}
+
+void NoteDeath(Player* dead)
+{
+    if (!DataOn() || !dead)
+        return;
+    Map* map = dead->GetMap();
+    Group* group = dead->GetGroup();
+    if (!map || !group || !map->IsDungeon())
+        return;
+    // A wipe: every member of the group in this instance is dead.
+    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+        if (Player* member = ref->GetSource(); member && member->IsInWorld() && member->GetMap() == map &&
+                                               member->IsAlive())
+            return;
+    std::lock_guard<std::mutex> guard(runsLock);
+    runs.Wipe(map->GetInstanceId());
 }
 }  // namespace CoaWorldFile
