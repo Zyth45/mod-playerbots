@@ -1,8 +1,7 @@
 # =====================================================================================
 # mod_ahbot.conf - proposition CoA Bots 2.5 (SquidBots).
-# Base : mod_ahbot.conf.dist de Corfirean/azerothcore-wotlk-coa@coa-bots, modules/mod-ah-bot-plus
-# (commit 58b7d64ef2, identique a notre 2b7cedac). Les lignes '# [CoA 2.5]' marquent les reglages
-# changes par rapport au .dist ; tout le reste garde la valeur par defaut du module.
+# Base : le mod_ahbot.conf.dist de mod-ah-bot-plus (credit dans AUTHORS.md). Les lignes '# [CoA 2.5]'
+# marquent les reglages changes par rapport a ce .dist ; tout le reste garde la valeur par defaut du module.
 # Pas de commentaire en fin de ligne : AzerothCore le lirait comme une partie de la valeur.
 # Poids ListProportion : la qualite Poor (0) n'est jamais candidate dans le code, d'ou 0 partout.
 # =====================================================================================
