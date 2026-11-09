@@ -77,6 +77,51 @@ std::string ProfessionName(Player* bot, uint32 skillId)
     return name ? name : "";
 }
 
+namespace
+{
+    char const* SpellNameFor(Player* bot, SpellInfo const* spell)
+    {
+        uint8 const locale = bot && bot->GetSession() ? uint8(bot->GetSession()->GetSessionDbcLocale()) : 0;
+        char const* name = spell->SpellName[locale];
+        if (!name || !*name)
+            name = spell->SpellName[0];
+        return name ? name : "";
+    }
+}
+
+std::string ProfessionLink(Player* bot, uint32 skillId)
+{
+    if (!bot)
+        return "";
+    // The rank spells (Apprentice to Artisan) teach the skill with a tier: the highest one the bot knows.
+    SpellInfo const* best = nullptr;
+    int32 bestTier = -1;
+    for (auto const& [spellId, playerSpell] : bot->GetSpellMap())
+    {
+        if (!playerSpell || playerSpell->State == PLAYERSPELL_REMOVED || !playerSpell->Active)
+            continue;
+        SpellInfo const* spell = sSpellMgr->GetSpellInfo(spellId);
+        if (!spell || !spell->HasEffect(SPELL_EFFECT_TRADE_SKILL))
+            continue;
+        for (SpellEffectInfo const& effect : spell->Effects)
+            if (effect.Effect == SPELL_EFFECT_SKILL && uint32(effect.MiscValue) == skillId && effect.CalcValue() > bestTier)
+            {
+                bestTier = effect.CalcValue();
+                best = spell;
+            }
+    }
+    if (!best)
+        return ProfessionName(bot, skillId);
+    return CoaEconomyRules::SpellChatLink(best->Id, SpellNameFor(bot, best), false);
+}
+
+std::string RecipeLink(Player* bot, Recipe const& recipe)
+{
+    if (!recipe.spell)
+        return "";
+    return CoaEconomyRules::SpellChatLink(recipe.spell->Id, SpellNameFor(bot, recipe.spell), true);
+}
+
 uint64 MarketPrice(uint32 itemId)
 {
     ItemTemplate const* proto = sObjectMgr->GetItemTemplate(itemId);

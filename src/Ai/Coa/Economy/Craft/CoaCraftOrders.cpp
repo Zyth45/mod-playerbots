@@ -118,7 +118,8 @@ namespace
         last = now;
 
         slots["price"] = ChatHelper::formatMoney(price);
-        slots["profession"] = Artisans::ProfessionName(bot, recipe.skillId);
+        slots["profession"] = Artisans::ProfessionLink(bot, recipe.skillId);
+        slots["recipe"] = Artisans::RecipeLink(bot, recipe);
         CoaLive::SayLine(bot, "wh_craft_quote", slots, from->GetGUID());
         if (CoaLive::MailCod(bot, from, crafted->GetGUID(), price))
         {
@@ -153,7 +154,8 @@ bool OfferInTrade(Player* bot, Item* crafted, unsigned long long price)
     for (Artisans::Recipe const& recipe : Artisans::KnownRecipes(bot))
         if (recipe.itemId == itemId)
         {
-            slots["profession"] = Artisans::ProfessionName(bot, recipe.skillId);
+            slots["profession"] = Artisans::ProfessionLink(bot, recipe.skillId);
+            slots["recipe"] = Artisans::RecipeLink(bot, recipe);
             break;
         }
 
