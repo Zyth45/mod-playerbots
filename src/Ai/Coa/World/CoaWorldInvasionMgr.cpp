@@ -25,6 +25,7 @@
 #include "CoaWorldInvasion.h"
 
 #include "CoaWorldBots.h"
+#include "CoaWorldCapitalRaid.h"
 #include "CoaWorldState.h"
 #include "CoaWorldStateRules.h"
 #include "CoaWorldAddonRules.h"
@@ -433,7 +434,9 @@ namespace CoaWorld
                 }
 
                 uint32 eligible = uint32(Eligible(slot, TEAM_NEUTRAL).size());
-                if (eligible < std::max<uint32>(1, settings.minRealPlayers) || !Prepare(slot, nullptr))
+                // Never where a capital raid is on (CoaWorldCapitalRaid).
+                if (eligible < std::max<uint32>(1, settings.minRealPlayers) || !Prepare(slot, nullptr) ||
+                    CoaWorldCapitalRaidAt(slot.Site().name))
                 {
                     slot.timer = retry;
                     return;
@@ -966,6 +969,15 @@ namespace CoaWorld
 }
 
 bool CoaWorldAddon::InvasionsOn() { return CoaWorld::settings.enabled; }
+
+// CoaWorldCapitalRaid: an invasion announced or running at that site.
+bool CoaWorldInvasionAt(std::string const& site)
+{
+    for (CoaWorld::Slot const& slot : CoaWorld::Mgr().Slots())
+        if (slot.state != CoaWorld::State::Idle && site == slot.Site().name)
+            return true;
+    return false;
+}
 
 void CoaWorldAddon::Invasions(Player* player, std::vector<std::string>& out)
 {
