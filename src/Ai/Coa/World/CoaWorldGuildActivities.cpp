@@ -280,6 +280,19 @@ std::vector<std::string> CoaWorldGuildActivityStart(Player* player, std::vector<
     if (!IsHuman(player) || !player->GetGuildId())
         return error("off");
     std::string const kind = args.size() > 1 ? args[1] : std::string();
+    // GACT cancel: the running gathering ends now; its bots go back to their lives (the far ones not brought yet stay
+    // where they are), then the usual cooldown. party5 / raidN have nothing running to cancel.
+    if (kind == "cancel")
+    {
+        uint32 const low = player->GetGUID().GetCounter();
+        Activity& running = g_players[low];
+        if (running.kind != "gather")
+            return error("none");
+        time_t const now = time(nullptr);
+        EndGather(low, running, now);
+        LOG_INFO("module", "CoA World: {} cancelled a gathering", player->GetName());
+        return Lines(player, now);
+    }
     if (std::find_if(std::begin(KINDS), std::end(KINDS), [&](char const* k) { return kind == k; }) == std::end(KINDS))
         return error("off");
     time_t const now = time(nullptr);
