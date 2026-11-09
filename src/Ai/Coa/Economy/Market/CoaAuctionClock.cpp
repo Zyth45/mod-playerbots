@@ -9,6 +9,7 @@
 // The world writes a sign of life every minute; at start-up, before the first world update, the time the server was
 // off is added to the end of every auction, in memory and in the characters database.
 
+#include "CoaEconomyDb.h"
 #include "AuctionHouseMgr.h"
 #include "CoaEconomyRules.h"
 #include "Config.h"
@@ -41,12 +42,10 @@ namespace
 
     void Resume()
     {
-        QueryResult exists = PlayerbotsDatabase.Query(
-            "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = '{}'", TableName);
-        tableExists = exists && exists->Fetch()[0].Get<uint64>() > 0;
+        tableExists = Db::HasTable(TableName, {"name", "value"});
         if (!tableExists)
         {
-            LOG_ERROR("server.loading", "CoA Economy: table {} is missing from the playerbots database; auctions run on real "
+            LOG_ERROR("server.loading", "CoA Economy: table {} is missing or out of date in the playerbots database; auctions run on real "
                 "time", TableName);
             return;
         }
