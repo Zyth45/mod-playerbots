@@ -2881,6 +2881,28 @@ AiPlayerbot.CoaWorld.Recovery.Hearth = 1
 
 AiPlayerbot.CoaWorld.Recovery.QuarantineMinutes = 30
 
+#    AiPlayerbot.CoaWorld.Recovery.NoProgressSeconds
+#        Description: Seconds a travelling bot may walk without getting nearer its destination before it picks
+#                     another (back and forth; 30 to 1800, 0 never). Nothing while Recovery.Enable is 0.
+#        Default:     30
+
+AiPlayerbot.CoaWorld.Recovery.NoProgressSeconds = 30
+
+#    AiPlayerbot.CoaWorld.Recovery.OutOfRangeMinutes
+#        Description: Minutes a random bot may walk in a zone far below its level (a level 55 in Elwynn) before it
+#                     is sent to a place of its level, out of the players' sight (or by hearthstone when they stay
+#                     near). Capitals and the zones not in the levelling table are never concerned (0 never, 120 at
+#                     most). Nothing while Recovery.Enable is 0.
+#        Default:     5
+
+AiPlayerbot.CoaWorld.Recovery.OutOfRangeMinutes = 5
+
+#    AiPlayerbot.CoaWorld.Recovery.OutOfRangeLevels
+#        Description: Levels above the top of a zone's range that count as far above it (3 to 40).
+#        Default:     8
+
+AiPlayerbot.CoaWorld.Recovery.OutOfRangeLevels = 8
+
 #    AiPlayerbot.CoaWorld.Travel.Enable
 #        Description: Bots take the zeppelins and the boats. A few random bots of the right side walk
 #                     to a zeppelin tower or a dock and wait; when the transport leaves they board
@@ -2940,6 +2962,54 @@ AiPlayerbot.CoaWorld.Guilds.RecruitMinutes = 45
 AiPlayerbot.CoaWorld.Guilds.Help = 1
 AiPlayerbot.CoaWorld.Guilds.GiftHours = 24
 
+#    AiPlayerbot.CoaWorld.Guilds.Orders
+#        Description: Guild orders. A real player asks the guild for an item in guild chat ("anyone have
+#                     [link]?", "can someone craft [link]"): an online guildmate bot that has one mails it for
+#                     free; else one that knows the recipe crafts it and mails it cash on delivery at the
+#                     materials' price; else one buys it out at the player's auction house and mails it cash on
+#                     delivery at the price it paid. Nothing while Guilds.Enable is 0.
+#        Default:     1 - on (under Guilds.Enable)
+
+AiPlayerbot.CoaWorld.Guilds.Orders = 1
+
+#    AiPlayerbot.CoaWorld.Guilds.OrdersPerDay
+#        Description: Orders a player may place a day (0 none, 50 at most).
+#        Default:     3
+
+AiPlayerbot.CoaWorld.Guilds.OrdersPerDay = 3
+
+#    AiPlayerbot.CoaWorld.Guilds.OrderMaxQuality
+#        Description: Best quality an order may ask for (1 common, 2 uncommon, 3 rare, 4 epic).
+#        Default:     3
+
+AiPlayerbot.CoaWorld.Guilds.OrderMaxQuality = 3
+
+#    AiPlayerbot.CoaWorld.Guilds.OrderAuctionMaxGold
+#        Description: Highest buyout, in gold, a guildmate pays at the auction house for an order (0 never buys).
+#        Default:     50
+
+AiPlayerbot.CoaWorld.Guilds.OrderAuctionMaxGold = 50
+
+#    AiPlayerbot.CoaWorld.Guilds.Gear
+#        Description: The guild equips the player: at login or a level-up, a guildmate mails a piece of gear of
+#                     the player's level that is clearly better than what they wear in that slot, for their spec.
+#                     One every GearDays at most. Nothing while Guilds.Enable is 0.
+#        Default:     1 - on (under Guilds.Enable)
+
+AiPlayerbot.CoaWorld.Guilds.Gear = 1
+
+#    AiPlayerbot.CoaWorld.Guilds.GearDays
+#        Description: Days between two gifts of gear to the same player (1 to 60).
+#        Default:     3
+
+AiPlayerbot.CoaWorld.Guilds.GearDays = 3
+
+#    AiPlayerbot.CoaWorld.Guilds.GearQuality
+#        Description: Best quality of the gear given (2 uncommon, 3 rare).
+#        Default:     2
+
+AiPlayerbot.CoaWorld.Guilds.GearQuality = 2
+
 #    AiPlayerbot.CoaWorld.Density.Enable
 #        Description: The bots where the players are, for large bot counts (1000 to 2000). Works with the
 #                     rotation of the random bots (AiPlayerbot.EnablePeriodicOnlineOffline = 1, a pool larger
@@ -2975,6 +3045,21 @@ AiPlayerbot.CoaWorld.Density.NearRange = 800
 #                     1 - on
 
 AiPlayerbot.CoaWorld.Events.Enable = 0
+
+#    AiPlayerbot.CoaWorld.Leveling.Enable
+#        Description: Credible levelling routes. When a random bot is sent to a place of its level (after a
+#                     revive or a level-up), it goes to a zone its side levels in at that level (Westfall or Loch
+#                     Modan for the Alliance at 10-20, the Barrens or Silverpine for the Horde, Stranglethorn for
+#                     both at 30-45...), most of the time on the continent it is on. No spot on the route: as before.
+#        Default:     0 - off
+
+AiPlayerbot.CoaWorld.Leveling.Enable = 0
+
+#    AiPlayerbot.CoaWorld.Leveling.SameContinentPct
+#        Description: Chance in percent that the next zone is on the bot's continent, when one fits (0-100).
+#        Default:     70
+
+AiPlayerbot.CoaWorld.Leveling.SameContinentPct = 70
 
 # Quality a looted item must reach to be written to the "playerbots.loot" logger:
 # 3 rare (blue), 4 epic, 5 legendary. Nothing is written unless worldserver.conf

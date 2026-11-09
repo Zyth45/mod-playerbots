@@ -23,6 +23,7 @@
  */
 
 #include "CoaWorldBots.h"
+#include "CoaWorldZoneLevels.h"
 
 #include "Chat.h"
 #include "ChatCommand.h"
@@ -39,6 +40,7 @@
 #include "WorldSession.h"
 
 #include <algorithm>
+#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
@@ -86,12 +88,17 @@ namespace
         return out;
     }
 
-    bool IsNear(Player* bot, std::vector<Player*> const& humans, std::unordered_set<uint32> const& zones)
+    // Levels within this of a zone's range (or of the player's level) fit it.
+    constexpr uint8 LEVEL_MARGIN = 5;
+
+    // Near a player, and at a level for where it stands (09/11 test: level 55 bots walking in Elwynn were kept
+    // there as "near" the player).
+    bool IsNear(Player* bot, std::vector<Player*> const& humans)
     {
-        if (zones.count(bot->GetZoneId()))
-            return true;
         for (Player* human : humans)
-            if (human->GetMapId() == bot->GetMapId() && human->GetExactDist(bot) < settings.nearRange)
+            if ((human->GetZoneId() == bot->GetZoneId() ||
+                 (human->GetMapId() == bot->GetMapId() && human->GetExactDist(bot) < settings.nearRange)) &&
+                CoaWorldZones::Fits(bot->GetZoneId(), bot->GetLevel(), human->GetLevel(), LEVEL_MARGIN))
                 return true;
         return false;
     }
@@ -101,17 +108,13 @@ namespace
         std::vector<Player*> humans = Humans();
         if (humans.empty())
             return;
-        std::unordered_set<uint32> zones;
-        for (Player* h : humans)
-            zones.insert(h->GetZoneId());
-
         std::vector<Player*> farList;
         uint32 nearCount = 0;
         for (auto const& [guid, bot] : RandomBots())
         {
             if (!bot || !bot->IsInWorld())
                 continue;
-            if (IsNear(bot, humans, zones))
+            if (IsNear(bot, humans))
             {
                 ++nearCount;
                 continue;
@@ -164,14 +167,18 @@ void CoaWorldDensityOrderAccounts(std::vector<uint32>& accounts)
     if (!settings.enabled || !settings.rotation || accounts.empty())
         return;
 
-    std::unordered_set<uint32> zones;
+    // The players' zones, with the highest player level in each.
+    std::unordered_map<uint32, uint8> zones;
     for (Player* h : Humans())
-        zones.insert(h->GetZoneId());
+    {
+        uint8& level = zones[h->GetZoneId()];
+        level = std::max<uint8>(level, h->GetLevel());
+    }
     if (zones.empty())
         return;
 
     // The same players' zones within a minute: the accounts found last time are still the ones near them.
-    static std::unordered_set<uint32> cachedZones;
+    static std::unordered_map<uint32, uint8> cachedZones;
     static std::unordered_set<uint32> nearAccounts;
     static time_t cachedAt = 0;
     time_t now = time(nullptr);
@@ -182,12 +189,16 @@ void CoaWorldDensityOrderAccounts(std::vector<uint32>& accounts)
         nearAccounts.clear();
         auto const [minimum, maximum] = std::minmax_element(accounts.begin(), accounts.end());
         if (QueryResult result = CharacterDatabase.Query(
-                "SELECT account, zone FROM characters WHERE account BETWEEN {} AND {}", *minimum, *maximum))
+                "SELECT account, zone, level FROM characters WHERE account BETWEEN {} AND {}", *minimum, *maximum))
         {
             do
             {
                 Field* fields = result->Fetch();
-                if (zones.count(fields[1].Get<uint32>()))
+                uint32 const zone = fields[1].Get<uint32>();
+                auto const itr = zones.find(zone);
+                // Saved in a player's zone at a level for it: a level 60 saved in Elwynn does not come first.
+                if (itr != zones.end() &&
+                    CoaWorldZones::Fits(zone, fields[2].Get<uint8>(), itr->second, LEVEL_MARGIN))
                     nearAccounts.insert(fields[0].Get<uint32>());
             } while (result->NextRow());
         }

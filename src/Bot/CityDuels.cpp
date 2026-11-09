@@ -105,6 +105,20 @@ uint32 Timer = 0;
 uint32 Interval = 5 * IN_MILLISECONDS;  // AiPlayerbot.CityDuels.UpdateSeconds, read at each update
 bool Running = false;  // pairs exist: Enable = 0 releases them once
 
+// --- CoA World (CoA Monde session) ---
+// Released bots that could not be sent back at once (dead, in a duel someone else started, mid-teleport): sent back
+// as soon as they can, for PendingBackSeconds. Before, they stayed at the spot and wandered off in Elwynn or Durotar
+// at level 60 (test of 09/11).
+constexpr time_t PendingBackSeconds = 15 * MINUTE;
+struct PendingBack
+{
+    ObjectGuid guid;
+    WorldLocation origin;
+    time_t until;
+};
+std::vector<PendingBack> PendingBacks;
+// --- end CoA World ---
+
 void SetDuellist(ObjectGuid guid, bool on)
 {
     std::lock_guard<std::mutex> guard(DuellistsLock);
@@ -275,10 +289,15 @@ void Release(ObjectGuid guid, ObjectGuid partner, WorldLocation const& origin, b
         bot->DuelComplete(DUEL_INTERRUPTED);
     if (PlayerbotAI* botAI = GET_PLAYERBOT_AI(bot))
         botAI->ResetStrategies();
-    if (!sendBack || !bot->IsInWorld() || !bot->IsAlive() || bot->IsBeingTeleported() || bot->duel ||
-        bot->GetGroup() || bot->InBattleground() || bot->InBattlegroundQueue() || bot->IsDuringRemoveFromWorld() ||
-        !bot->GetSession() || bot->GetSession()->isLogingOut())
+    if (!sendBack || bot->GetGroup() || bot->InBattleground() || bot->InBattlegroundQueue() ||
+        bot->IsDuringRemoveFromWorld() || !bot->GetSession() || bot->GetSession()->isLogingOut())
         return;
+    // CoA World: not now, later (see PendingBacks).
+    if (!bot->IsInWorld() || !bot->IsAlive() || bot->IsBeingTeleported() || bot->duel)
+    {
+        PendingBacks.push_back({ guid, origin, time(nullptr) + PendingBackSeconds });
+        return;
+    }
     // Only its duel's combat: a bot attacked by someone keeps fighting.
     if (bot->getAttackers().empty())
         bot->CombatStop(true);
@@ -573,6 +592,28 @@ void Update(uint32 diff)
     Running = true;
 
     time_t const now = time(nullptr);
+
+    // --- CoA World (CoA Monde session) ---
+    // The released bots that could not go back yet.
+    for (size_t i = 0; i < PendingBacks.size();)
+    {
+        PendingBack const& back = PendingBacks[i];
+        Player* bot = Find(back.guid);
+        bool done = now >= back.until || !bot || IsDuellist(back.guid) || bot->GetGroup() || bot->InBattleground() ||
+                    bot->InBattlegroundQueue() || !bot->GetSession() || bot->GetSession()->isLogingOut();
+        if (!done && bot->IsInWorld() && bot->IsAlive() && !bot->IsBeingTeleported() && !bot->duel &&
+            !bot->IsInCombat() && !bot->IsDuringRemoveFromWorld())
+        {
+            bot->TeleportTo(back.origin);
+            done = true;
+        }
+        if (done)
+            PendingBacks.erase(PendingBacks.begin() + i);
+        else
+            ++i;
+    }
+    // --- end CoA World ---
+
     for (City& city : Cities)
     {
         WorldLocation const spot = CitySpot(city);

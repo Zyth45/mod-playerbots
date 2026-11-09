@@ -12,7 +12,13 @@
  *  - standing still: within 3 yards for StuckSeconds while it should be travelling;
  *  - going round in circles: within 15 yards of where it was LoopSeconds ago after walking more than
  *    120 yards;
- *  - dying over and over: DeathsLimit deaths within DeathsWindowMinutes.
+ *  - dying over and over: DeathsLimit deaths within DeathsWindowMinutes;
+ *  - back and forth: walking, but no nearer its destination for NoProgressSeconds (a level 60 bot pacing in
+ *    Thousand Needles).
+ * Out of its level range: a bot far above the zone it walks in (a level 55 in Elwynn, test of 09/11) for
+ * OutOfRangeMinutes is sent to a place of its level, out of sight of the players (it waits while one is near,
+ * then takes its hearthstone). Capitals are fine, and so is crossing a zone on the way.
+ * Bots held by an event (CoA World, the city duels, the level brackets) are left to it.
  * The first time, the bot drops what it was doing and picks something else. When it happens again
  * within ten minutes, or after the deaths, it uses its hearthstone (the real spell, 10 s cast, seen
  * by whoever is near) and rests at home a while.
@@ -24,7 +30,10 @@
  * Config: AiPlayerbot.CoaWorld.Recovery.*, off by default.
  */
 
+#include "CityDuels.h"
 #include "CoaWorldBots.h"
+#include "CoaWorldZoneLevels.h"
+#include "RandomBotLevelMgr.h"
 
 #include "Chat.h"
 #include "ChatCommand.h"
@@ -67,6 +76,9 @@ namespace
         uint32 deathsWindowMinutes = 15;
         bool hearth = true;
         uint32 quarantineMinutes = 30;
+        uint32 noProgressSeconds = 30;
+        uint32 outOfRangeMinutes = 5;
+        uint32 outOfRangeLevels = 8;
     };
 
     Settings settings;
@@ -85,6 +97,14 @@ namespace
         bool wasDead = false;
         time_t lastRecovery = 0;
         time_t lastSeen = 0;
+        // Progress towards the destination: the nearest it got, when, and the walk since.
+        float destX = 0.0f, destY = 0.0f;
+        float bestDist = 0.0f;
+        time_t bestAt = 0;
+        float walkedSinceBest = 0.0f;
+        // Far above the zone it is in: since when, and in which zone.
+        uint32 outZone = 0;
+        time_t outSince = 0;
     };
 
     struct Counters
@@ -93,6 +113,8 @@ namespace
         uint32 loops = 0;
         uint32 deaths = 0;
         uint32 hearths = 0;
+        uint32 noProgress = 0;
+        uint32 outOfRange = 0;
     };
 
     // Quests set aside: (bot, quest) -> until. Written by the world thread, read by the bots' RPG in map threads.
@@ -122,6 +144,26 @@ namespace
     bool IsTravelling(NewRpgStatus status)
     {
         return status == RPG_GO_GRIND || status == RPG_GO_CAMP || status == RPG_DO_QUEST || status == RPG_GO_CITY;
+    }
+
+    // Where a travelling bot is going, on its own map; false when the state has no place.
+    bool Destination(Player* bot, PlayerbotAI* botAI, float& x, float& y)
+    {
+        WorldPosition const* pos = nullptr;
+        auto const& data = botAI->rpgInfo.data;
+        if (auto const* d = std::get_if<NewRpgInfo::GoGrind>(&data))
+            pos = &d->pos;
+        else if (auto const* d = std::get_if<NewRpgInfo::GoCamp>(&data))
+            pos = &d->pos;
+        else if (auto const* d = std::get_if<NewRpgInfo::GoCity>(&data))
+            pos = &d->pos;
+        else if (auto const* d = std::get_if<NewRpgInfo::DoQuest>(&data))
+            pos = &d->pos;
+        if (!pos || pos->GetMapId() != bot->GetMapId() || (pos->GetPositionX() == 0.0f && pos->GetPositionY() == 0.0f))
+            return false;
+        x = pos->GetPositionX();
+        y = pos->GetPositionY();
+        return true;
     }
 
     float Dist(Sample const& a, Sample const& b)
@@ -162,9 +204,9 @@ namespace
 
         std::string Status() const
         {
-            return Acore::StringFormat("Stuck bots helped: {} standing still, {} in circles, {} dying over and over; "
-                "{} hearthstones. {} bots watched{}.", _counters.stuck, _counters.loops, _counters.deaths,
-                _counters.hearths, _tracks.size(), settings.enabled ? "" : " (switched off)");
+            return Acore::StringFormat("Stuck bots helped: {} standing still, {} in circles, {} back and forth, {} dying "
+                "over and over, {} out of their level range; {} hearthstones. {} bots watched{}.", _counters.stuck,
+                _counters.loops, _counters.noProgress, _counters.deaths, _counters.outOfRange, _counters.hearths, _tracks.size(), settings.enabled ? "" : " (switched off)");
         }
 
     private:
@@ -174,6 +216,13 @@ namespace
             if (!botAI || botAI->GetMaster() || bot->InBattleground() || bot->InArena() ||
                 (bot->GetMap() && bot->GetMap()->Instanceable()) || bot->IsInFlight() || bot->IsBeingTeleported())
                 return;
+            // Held where it is by an event: standing still is its job (the city duels' bots were hearthed home).
+            if (IsBorrowedBot(bot->GetGUID()) || CityDuels::IsDuellist(bot->GetGUID()) ||
+                RandomBotLevelMgr::IsHeld(bot->GetGUID()))
+            {
+                _tracks.erase(bot->GetGUID().GetCounter());
+                return;
+            }
 
             BotTrack& track = _tracks[bot->GetGUID().GetCounter()];
             track.lastSeen = now;
@@ -207,10 +256,14 @@ namespace
                 return;
             }
 
+            if (OutOfRange(bot, botAI, track, now))
+                return;
+
             NewRpgStatus status = botAI->rpgInfo.GetStatus();
             if (bot->IsInCombat() || !IsTravelling(status))
             {
                 track.samples.clear();
+                track.bestAt = 0;
                 return;
             }
 
@@ -221,6 +274,7 @@ namespace
             if (track.samples.front().mapId != bot->GetMapId())
             {
                 track.samples.clear();
+                track.bestAt = 0;
                 return;
             }
 
@@ -246,15 +300,51 @@ namespace
                 loop = walked > 120.0f && Dist(track.samples.front(), last) < 15.0f;
             }
 
-            if (!still && !loop)
+            // Back and forth: walking, no nearer the destination for noProgressSeconds (still 30 yards away or more).
+            bool pacing = false;
+            float destX, destY;
+            if (settings.noProgressSeconds && Destination(bot, botAI, destX, destY))
+            {
+                float dist = std::hypot(bot->GetPositionX() - destX, bot->GetPositionY() - destY);
+                if (destX != track.destX || destY != track.destY || !track.bestAt)
+                {
+                    track.destX = destX;
+                    track.destY = destY;
+                    track.bestDist = dist;
+                    track.bestAt = now;
+                    track.walkedSinceBest = 0.0f;
+                }
+                else
+                {
+                    if (track.samples.size() >= 2)
+                        track.walkedSinceBest += Dist(track.samples[track.samples.size() - 2], last);
+                    if (dist < track.bestDist - 5.0f)
+                    {
+                        track.bestDist = dist;
+                        track.bestAt = now;
+                        track.walkedSinceBest = 0.0f;
+                    }
+                    else
+                        pacing = !still && !loop && dist > 30.0f && track.walkedSinceBest > 30.0f &&
+                                 now - track.bestAt >= time_t(settings.noProgressSeconds);
+                }
+            }
+            else
+                track.bestAt = 0;
+
+            if (!still && !loop && !pacing)
                 return;
 
-            CoaWorld::LogEvent("stuck", bot->GetName(), still ? "standing still on its way" : "going round in circles");
+            CoaWorld::LogEvent("stuck", bot->GetName(), still ? "standing still on its way"
+                                                       : loop ? "going round in circles" : "back and forth, no nearer");
             if (still)
                 ++_counters.stuck;
-            else
+            else if (loop)
                 ++_counters.loops;
+            else
+                ++_counters.noProgress;
             track.samples.clear();
+            track.bestAt = 0;
 
             Quarantine(bot, botAI);
 
@@ -266,6 +356,50 @@ namespace
                 botAI->rpgInfo.ChangeToIdle();
                 track.lastRecovery = now;
             }
+        }
+
+        // A bot far above the zone it walks in, for outOfRangeMinutes: to a place of its level, unseen, or by
+        // hearthstone after twice the time when players stay near. True when it was sent.
+        bool OutOfRange(Player* bot, PlayerbotAI* botAI, BotTrack& track, time_t now)
+        {
+            uint32 const zone = bot->GetZoneId();
+            if (!settings.outOfRangeMinutes || bot->GetGroup() || bot->IsInCombat() ||
+                !CoaWorldZones::FarAbove(zone, bot->GetLevel(), uint8(settings.outOfRangeLevels)))
+            {
+                track.outSince = 0;
+                return false;
+            }
+            if (!track.outSince || track.outZone != zone)
+            {
+                track.outZone = zone;
+                track.outSince = now;
+                return false;
+            }
+            time_t const waited = now - track.outSince;
+            if (waited < time_t(settings.outOfRangeMinutes) * MINUTE)
+                return false;
+
+            bool const seen = botAI->HasPlayerNearby(150.0f);
+            if (seen && waited < 2 * time_t(settings.outOfRangeMinutes) * MINUTE)
+                return false;
+
+            ++_counters.outOfRange;
+            track.outSince = 0;
+            track.samples.clear();
+            track.bestAt = 0;
+            CoaWorld::LogEvent("stuck", bot->GetName(), Acore::StringFormat("level {} in a zone far below it ({})",
+                bot->GetLevel(), zone));
+            if (seen)
+            {
+                Hearth(bot, botAI, track, now);
+                return true;
+            }
+            botAI->rpgInfo.ChangeToIdle();
+            bot->GetMotionMaster()->Clear();
+            bot->StopMoving();
+            sRandomPlayerbotMgr.RandomTeleportForLevel(bot);
+            CoaWorld::LogEvent("unstuck", bot->GetName(), "sent to a place of its level");
+            return true;
         }
 
         void Hearth(Player* bot, PlayerbotAI* botAI, BotTrack& track, time_t now)
@@ -305,6 +439,10 @@ namespace
         settings.deathsWindowMinutes = std::clamp<uint32>(sConfigMgr->GetOption<uint32>(key("DeathsWindowMinutes"), 15, false), 1, 120);
         settings.hearth = sConfigMgr->GetOption<bool>(key("Hearth"), true, false);
         settings.quarantineMinutes = std::min<uint32>(1440, sConfigMgr->GetOption<uint32>(key("QuarantineMinutes"), 30, false));
+        uint32 noProgress = sConfigMgr->GetOption<uint32>(key("NoProgressSeconds"), 30, false);
+        settings.noProgressSeconds = noProgress ? std::clamp<uint32>(noProgress, 30, 1800) : 0;
+        settings.outOfRangeMinutes = std::min<uint32>(120, sConfigMgr->GetOption<uint32>(key("OutOfRangeMinutes"), 5, false));
+        settings.outOfRangeLevels = std::clamp<uint32>(sConfigMgr->GetOption<uint32>(key("OutOfRangeLevels"), 8, false), 3, 40);
     }
 }
 

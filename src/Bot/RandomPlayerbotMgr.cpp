@@ -2460,6 +2460,7 @@ void RandomPlayerbotMgr::RandomTeleportForLevel(Player* bot)
         }
     }
     std::vector<WorldLocation> locs = sTravelMgr.GetTeleportLocations(bot);
+    CoaWorldLevelingFilter(bot, locs);  // CoA World: the zones of its side's levelling route
 
     if (sPlayerbotAIConfig.randomBotConcentrateInPlayerZone && !locs.empty())
     {
@@ -2564,6 +2565,7 @@ void RandomPlayerbotMgr::RandomTeleportGrindForLevel(Player* bot)
         return;
 
     std::vector<WorldLocation> locs = sTravelMgr.GetTeleportLocations(bot);
+    CoaWorldLevelingFilter(bot, locs);  // CoA World: the zones of its side's levelling route
     LOG_DEBUG("playerbots", "Random teleporting bot {} for level {} ({} locations available)", bot->GetName().c_str(),
               bot->GetLevel(), locs.size());
 
