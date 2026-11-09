@@ -4,6 +4,7 @@
  * or (at your option) any later version.
  */
 
+#include "CoaWorldBgSim.h"
 #include "RandomPlayerbotMgr.h"
 
 #include "CoaLive.h"
@@ -1107,7 +1108,8 @@ static bool LeavesStuckBgQueue(Player* bot, BattlegroundQueueTypeId queueTypeId,
     if (!queue.GetPlayerGroupInfoData(bot->GetGUID(), &ginfo) || ginfo.IsInvitedToBGInstanceGUID)
         return false;
     uint32 const waited = getMSTimeDiff(ginfo.JoinTime, GameTime::GetGameTimeMS().count());
-    bool const noPlayer = !sPlayerbotAIConfig.randomBotAutoJoinBG && !(info.bgAlliancePlayerCount + info.bgHordePlayerCount);
+    bool const noPlayer = (!sPlayerbotAIConfig.randomBotAutoJoinBG || CoaWorldBgSimReplacesAutoJoin()) &&
+                          !(info.bgAlliancePlayerCount + info.bgHordePlayerCount);
     if (waited < (noPlayer ? 2 : 10) * MINUTE * IN_MILLISECONDS)
         return false;
     bot->RemoveBattlegroundQueueId(queueTypeId);
@@ -1431,7 +1433,9 @@ void RandomPlayerbotMgr::CheckBgQueue()
     // 95 %, not all: a few bots are always logging out and in again (rotation, a new bot count), and on a
     // CoA test realm with 1,000 bots no battleground started for 30 to 40 minutes of every hour while the
     // count sat at 975-999.
-    if (sPlayerbotAIConfig.randomBotAutoJoinBG && playerBots.size() * 100 >= GetMaxAllowedBotCount() * 95)
+    // CoA World (BgSim.ReplaceAutoJoin, default 1): no battle of bots only; the bots fill real players' queues.
+    if (sPlayerbotAIConfig.randomBotAutoJoinBG && !CoaWorldBgSimReplacesAutoJoin() &&
+        playerBots.size() * 100 >= GetMaxAllowedBotCount() * 95)
     {
         uint32 randomBotAutoJoinArenaBracket = sPlayerbotAIConfig.randomBotAutoJoinArenaBracket;
         uint32 randomBotAutoJoinBGRatedArena2v2Count = sPlayerbotAIConfig.randomBotAutoJoinBGRatedArena2v2Count;

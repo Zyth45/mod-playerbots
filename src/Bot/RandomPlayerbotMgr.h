@@ -318,6 +318,12 @@ private:
     void GetBots();
     std::vector<uint32> GetBgBots(uint32 bracket);
     time_t BgCheckTimer;
+
+public:
+    // CoA World (BgSim): a real player queued for a battleground or arena; the queues are looked at on the next update.
+    void RequestBgCheck() { BgCheckTimer = time(nullptr) - 36; }
+
+private:
     time_t ArenaCaptainCheckTimer = 0;
     time_t LfgCheckTimer;
     time_t PlayersCheckTimer;

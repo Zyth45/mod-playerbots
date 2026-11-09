@@ -3087,6 +3087,33 @@ AiPlayerbot.CoaWorld.DpsTargetCache = 0
 AiPlayerbot.CoaWorld.BotOnlyBgPace.Enable = 0
 AiPlayerbot.CoaWorld.BotOnlyBgPace.IntervalMs = 500
 
+#    AiPlayerbot.CoaWorld.BgSim.Enable
+#        Description: Simulated battlegrounds. While no real player is queued for a battleground, free random bots
+#                     of one level bracket, Alliance against Horde, queue for Warsong Gulch or Arathi Basin and log out
+#                     unseen; after 10 to 25 minutes they come back with a win or a loss and the honor the core's
+#                     battleground gives. A bot may then buy one PvP piece that improves its gear, only from a vendor
+#                     spawned in the world that sells it for honor (none today: the honor waits). No instance is
+#                     loaded meanwhile.
+#        Default:     0 - off
+#    AiPlayerbot.CoaWorld.BgSim.ReplaceAutoJoin
+#        Description: 1: the bots no longer start battlegrounds and arenas of bots only by themselves
+#                     (AiPlayerbot.RandomBotAutoJoinBG is not used); real battles start for real players, whose
+#                     queues the bots fill at once. 0: as before.
+#        Default:     1
+#    AiPlayerbot.CoaWorld.BgSim.Matches            - simulated battlegrounds at the same time (2, at most 10)
+#    AiPlayerbot.CoaWorld.BgSim.IntervalSeconds    - between two starts (300)
+#    AiPlayerbot.CoaWorld.BgSim.BotCooldownMinutes - before a bot goes again (60)
+#    AiPlayerbot.CoaWorld.BgSim.Shop               - buy PvP pieces with the honor (1)
+#    AiPlayerbot.CoaWorld.BgSim.Announce           - a word when they go (1)
+
+AiPlayerbot.CoaWorld.BgSim.Enable = 0
+AiPlayerbot.CoaWorld.BgSim.ReplaceAutoJoin = 1
+AiPlayerbot.CoaWorld.BgSim.Matches = 2
+AiPlayerbot.CoaWorld.BgSim.IntervalSeconds = 300
+AiPlayerbot.CoaWorld.BgSim.BotCooldownMinutes = 60
+AiPlayerbot.CoaWorld.BgSim.Shop = 1
+AiPlayerbot.CoaWorld.BgSim.Announce = 1
+
 #    AiPlayerbot.CoaWorld.StateFile.Enable
 #        Description: monde.json for the CoA Dashboard: the current invasions, gathering rushes, guilds online,
 #                     last guild orders, last server firsts and the recovery counts of the last 24 hours. Written
