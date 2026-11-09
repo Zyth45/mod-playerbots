@@ -4,6 +4,7 @@
 #include "AscensionFreepick.h"
 #include "AscensionMysticEnchant.h"
 #include "AscensionWarcraftRebornRules.h"
+#include "CoaDbCheck.h"
 #include "Config.h"
 #include "DBCStores.h"
 #include "DatabaseEnv.h"
@@ -122,6 +123,16 @@ std::shared_ptr<Builds const> ReadBuilds()
             }
         }
 
+    // A missing or old table would abort the server on the query: the guide rows and the enchants are left out
+    // (the bots keep the default specs, as with an empty table), one error line says so, the server starts.
+    bool const buildsTable = CoaDbCheck::Require(
+        "Warcraft Reborn builds", "playerbots_coa_wcr_builds",
+        {"class", "spec", "role", "spec_name", "primary_stat", "spell_id", "level", "ord"});
+    bool const enchantsTable = CoaDbCheck::Require("Warcraft Reborn enchants", "playerbots_coa_wcr_enchants",
+                                                          {"class", "spec", "spell", "stacks", "level", "ord"});
+    if (!buildsTable)
+        return builds;
+
     QueryResult result = PlayerbotsDatabase.Query(
         "SELECT class, spec, role, spec_name, primary_stat, spell_id, level FROM playerbots_coa_wcr_builds "
         "ORDER BY class, spec, ord");
@@ -152,6 +163,8 @@ std::shared_ptr<Builds const> ReadBuilds()
             build.Spells.push_back({ spellId, fields[6].Get<uint8>() });
     } while (result->NextRow());
 
+    if (!enchantsTable)
+        return builds;
     if (QueryResult enchants = PlayerbotsDatabase.Query(
             "SELECT class, spec, spell, stacks, level FROM playerbots_coa_wcr_enchants ORDER BY class, spec, ord"))
         do
