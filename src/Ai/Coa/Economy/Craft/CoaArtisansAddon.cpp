@@ -14,6 +14,8 @@
 
 #include "CoaArtisans.h"
 #include "CoaArtisansAddonRules.h"
+#include "ChatHelper.h"
+#include "CoaLive.h"
 #include "CoaCraftOrders.h"
 #include "CoaEconomyData.h"
 
@@ -277,6 +279,19 @@ namespace
         quotes.erase(found);
         MailOrder(bot, player, recipe, quote.qty, quote.copper);
         CraftOrders::MarkBusy(bot);
+
+        // As a real artisan: a word that it takes the order, then one that the mail is gone (CoA Live whispers, the
+        // rules' typing delay; nothing said when the bank has no such lines).
+        std::unordered_map<std::string, std::string> slots;
+        if (ItemTemplate const* proto = sObjectMgr->GetItemTemplate(quote.itemId))
+            slots["item"] = ChatHelper::FormatItem(proto);
+        slots["price"] = ChatHelper::formatMoney(quote.copper);
+        slots["qty"] = std::to_string(quote.qty);
+        slots["profession"] = Artisans::ProfessionLink(bot, recipe.skillId);
+        slots["recipe"] = Artisans::RecipeLink(bot, recipe);
+        CoaLive::SayLine(bot, "craft_order_ack", slots, player->GetGUID());
+        CoaLive::SayLine(bot, "craft_order_sent", slots, player->GetGUID());
+
         Data::RecordOrder(player->GetName(), bot->GetName(), quote.itemId, quote.copper, "mailed", recipe.skillId, "player");
 
         std::deque<Cod>& log = cods[player->GetGUID().GetCounter()];
