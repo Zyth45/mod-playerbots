@@ -147,6 +147,7 @@ private:
     bool CompleteItemValueOverrideDoApplyBidVariations;
     bool CompleteItemValueOverrideDoApplyBuyoutVariations;
     float BuyoutVariationReducePercent;
+    bool CoaRealHousePrices = false; // AuctionHouseBot.CoA.RealHousePrices
     float BuyoutVariationAddPercent;
     float BidVariationHighReducePercent;
     float BidVariationLowReducePercent;

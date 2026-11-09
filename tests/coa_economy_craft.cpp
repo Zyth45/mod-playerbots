@@ -7,6 +7,12 @@ using namespace CoaEconomyRules;
 
 int main()
 {
+    // Median of prices (real house floors).
+    assert(CoaEconomyRules::Median({}) == 0);
+    assert(CoaEconomyRules::Median({5}) == 5);
+    assert(CoaEconomyRules::Median({9, 1, 5}) == 5);
+    assert(CoaEconomyRules::Median({4, 1, 3, 2}) == 2);
+
     // Silk Cloth 4111 -> Bolt of Silk Cloth 4305 (x4) -> a robe (2 bolts + 1 thread 2321).
     std::unordered_map<std::uint32_t, std::uint64_t> prices{{4111, 100}, {4305, 600}, {2321, 50}};
     std::unordered_map<std::uint32_t, CraftPath> paths;

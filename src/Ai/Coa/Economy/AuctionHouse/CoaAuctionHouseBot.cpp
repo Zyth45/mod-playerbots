@@ -20,6 +20,7 @@
 
 #include "ObjectMgr.h"
 #include "CoaEconomyData.h"
+#include "CoaRealPrices.h"
 #include "AuctionHouseMgr.h"
 #include "CoaAuctionHouseBot.h"
 #include "CoaMarketPrices.h"
@@ -458,6 +459,17 @@ void AuctionHouseBot::CalculateItemValue(ItemTemplate const* itemProto, uint64& 
         }
     }
 
+    // CoA: the real CoA auction house's market value (user, 09/11); an item it never showed gets a floor below.
+    if (CoaRealHousePrices)
+        if (uint64 const reference = CoaEconomy::RealPrices::Of(itemProto->ItemId))
+        {
+            outBuyoutPrice = PriceRoll(uint64(reference * (1.0f - BuyoutVariationReducePercent)),
+                                       uint64(reference * (1.0f + BuyoutVariationAddPercent)));
+            outBidPrice = PriceRoll(uint64(outBuyoutPrice * (1.0f - BidVariationLowReducePercent)),
+                                    uint64(outBuyoutPrice * (1.0f - BidVariationHighReducePercent)));
+            return;
+        }
+
 
     // Start with a buyout price related to the sell price, if configured
     if (UseItemSellPriceIfHigherThanPriceMinimumCenterBase == true)
@@ -601,6 +613,11 @@ void AuctionHouseBot::CalculateItemValue(ItemTemplate const* itemProto, uint64& 
         float minLowPriceAddVariancePercent = 1.0f + BuyoutBelowVendorVariationAddPercent;
         outBuyoutPrice = PriceRoll(itemProto->SellPrice, minLowPriceAddVariancePercent * itemProto->SellPrice);
     }
+
+    // CoA: never under the real house's floor for the item's quality and level (median of its scanned items).
+    if (CoaRealHousePrices)
+        if (uint64 const floor = CoaEconomy::RealPrices::Floor(itemProto); outBuyoutPrice < floor)
+            outBuyoutPrice = PriceRoll(floor, uint64(floor * (1.0f + BuyoutVariationAddPercent)));
 
     // Calculate a bid price based on a variance against buyout price
     float sellVarianceBidPriceTopPercent = 1.0f - BidVariationHighReducePercent;
@@ -959,9 +976,6 @@ void AuctionHouseBot::PopulateItemCandidatesAndProportions()
     // CoA: what players sold on the real CoA auction house (scans of the house, incomplete) counts as obtainable too,
     // with ObtainableItemsOnly (user, 09/11: the scans are a guide, not a whitelist).
     bool const coaSeenAdds = sConfigMgr->GetOption<bool>("AuctionHouseBot.CoA.SeenOnCoAHouse", false);
-    static std::unordered_set<uint32> const seenOnCoAHouse = {
-#include "CoaAhSeenItems.inc"
-    };
     uint32 addedBySeen = 0;
     uint32 obtainableUnseen = 0;
     CoaSellableFilter coaFilter;
@@ -971,7 +985,7 @@ void AuctionHouseBot::PopulateItemCandidatesAndProportions()
     ItemTemplateContainer const* its = sObjectMgr->GetItemTemplateStore();
     for (ItemTemplateContainer::const_iterator itr = its->begin(); itr != its->end(); ++itr)
     {
-        bool const seen = coaSeenAdds && seenOnCoAHouse.count(itr->second.ItemId);
+        bool const seen = coaSeenAdds && CoaEconomy::RealPrices::Seen(itr->second.ItemId);
         bool const fromSources = !coaSourcesOnly || obtainableItems.count(itr->second.ItemId);
         if (!fromSources && !seen)
             continue;
@@ -1213,7 +1227,7 @@ void AuctionHouseBot::PopulateItemCandidatesAndProportions()
         candidateCount, coaSourcesOnly, laterExpansionItems);
     if (coaSeenAdds)
         LOG_INFO("module", "AuctionHouseBot: CoA auction house scans: {} items kept only because they were seen there, {} "
-            "obtainable items never seen there ({} ids in the scans)", addedBySeen, obtainableUnseen, seenOnCoAHouse.size());
+            "obtainable items never seen there ({} ids in the scans)", addedBySeen, obtainableUnseen, 17121);
     if (coaFilter.enabled)
         LOG_INFO("module", "AuctionHouseBot: CoA sellable filter left out {} deprecated, {} Bloodforged, {} Worldforged and {} scaled items",
             coaFilter.deprecatedOut, coaFilter.bloodforgedOut, coaFilter.worldforgedOut, coaFilter.scaledOut);
@@ -2531,6 +2545,7 @@ void AuctionHouseBot::InitializeConfiguration()
     ParseNumberListToSet(AdvancedListingRuleUseDropRatesExceptionItems, sConfigMgr->GetOption<std::string>("AuctionHouseBot.AdvancedListingRules.UseDropRates.DisabledItemIDs", ""), "AdvancedListingRules.UseDropRates.DisabledItemIDs");
     MaxBuyoutPriceInCopper = sConfigMgr->GetOption<uint32>("AuctionHouseBot.MaxBuyoutPriceInCopper", 1000000000);
     BuyoutVariationReducePercent = sConfigMgr->GetOption<float>("AuctionHouseBot.BuyoutVariationReducePercent", 0.15f);
+    CoaRealHousePrices = sConfigMgr->GetOption<bool>("AuctionHouseBot.CoA.RealHousePrices", false);
     BuyoutVariationAddPercent = sConfigMgr->GetOption<float>("AuctionHouseBot.BuyoutVariationAddPercent", 0.25f);
     BidVariationHighReducePercent = sConfigMgr->GetOption<float>("AuctionHouseBot.BidVariationHighReducePercent", 0);
     BidVariationLowReducePercent = sConfigMgr->GetOption<float>("AuctionHouseBot.BidVariationLowReducePercent", 0.25f);

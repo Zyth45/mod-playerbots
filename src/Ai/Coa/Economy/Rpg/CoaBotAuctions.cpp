@@ -14,6 +14,7 @@
 #include "CoaGearScore.h"
 #include "CoaMarketPrices.h"
 #include "CoaMaterials.h"
+#include "CoaRealPrices.h"
 #include "CoaSellable.h"
 #include "CharacterCache.h"
 #include "Config.h"
@@ -53,6 +54,7 @@ namespace
         uint32 visitsPerTick = 2;
         uint32 durationMinutes = 24 * 60;
         uint32 maxScan = 300;
+        bool realHousePrices = false;
     };
     Settings settings;
 
@@ -88,17 +90,24 @@ namespace
         uint32 const hours = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaEconomy.BotAuctions.DurationHours", 24);
         settings.durationMinutes = (hours <= 12 ? 12 : hours <= 24 ? 24 : 48) * 60;
         settings.maxScan = std::max<uint32>(10, sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaEconomy.BotAuctions.MaxScan", 300));
+        settings.realHousePrices = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.BotAuctions.RealHousePrices", false);
     }
 
     // The price a bot asks for one item: the market's learned price, else the house's, else a vendor-based guess.
     uint64 ReferencePrice(ItemTemplate const* proto)
     {
-        if (MarketBand const* band = sCoaMarketPrices->GetBand(proto->ItemId))
-            if (band->Usual)
-                return band->Usual;
-        if (uint64 house = auctionbot->GetReferencePricePerItem(proto))
-            return house;
-        return std::max<uint64>(100, uint64(proto->SellPrice) * 4);
+        // The real CoA auction house first (its market value, else its floor for the quality and level): our own
+        // sales, made by bots at bots' prices, would keep a price low.
+        if (settings.realHousePrices)
+            if (uint64 real = RealPrices::Of(proto->ItemId))
+                return real;
+        uint64 price = std::max<uint64>(100, uint64(proto->SellPrice) * 4);
+        if (MarketBand const* band = sCoaMarketPrices->GetBand(proto->ItemId); band && band->Usual)
+            price = band->Usual;
+        else if (uint64 house = auctionbot->GetReferencePricePerItem(proto))
+            price = house;
+        // Never under the real house's floor for its quality and level.
+        return settings.realHousePrices ? std::max(price, RealPrices::Floor(proto)) : price;
     }
 
     // Gold of its sales and items it won: the auction mail a bot never opens otherwise.
