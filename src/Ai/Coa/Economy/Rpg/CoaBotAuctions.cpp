@@ -16,6 +16,7 @@
 #include "CoaMaterials.h"
 #include "CoaRealPrices.h"
 #include "CoaSellable.h"
+#include "AccountMgr.h"
 #include "CharacterCache.h"
 #include "Config.h"
 #include "Creature.h"
@@ -340,6 +341,11 @@ namespace
     void TakeBackForbiddenListings()
     {
         uint32 taken = 0;
+        uint32 underpriced = 0;
+        // A bot's auction under half the real house's price goes back too, to be listed again at the right price
+        // (Pilote, 09/11): random bots with BotAuctions.RealHousePrices, the house bot with its own key.
+        bool const houseBotReal = sConfigMgr->GetOption<bool>("AuctionHouseBot.CoA.RealHousePrices", false);
+        uint32 const houseBotAccount = houseBotReal ? AccountMgr::GetId("AHBOT") : 0;
         CharacterDatabaseTransaction trans = CharacterDatabase.BeginTransaction();
         for (AuctionHouseId houseId : {AuctionHouseId::Alliance, AuctionHouseId::Horde, AuctionHouseId::Neutral})
         {
@@ -352,11 +358,28 @@ namespace
                 if (!auction)
                     continue;
                 ItemTemplate const* proto = sObjectMgr->GetItemTemplate(auction->item_template);
-                if (!proto || Sellable::BotMayList(proto, true))
+                if (!proto)
                     continue;
-                if (!sPlayerbotAIConfig.IsInRandomAccountList(sCharacterCache->GetCharacterAccountIdByGuid(auction->owner)))
+                uint32 const account = sCharacterCache->GetCharacterAccountIdByGuid(auction->owner);
+                bool const randomBot = sPlayerbotAIConfig.IsInRandomAccountList(account);
+                bool const houseBot = houseBotAccount && account == houseBotAccount;
+                if (!randomBot && !houseBot)
                     continue;
-                forbidden.push_back(auction);
+                if (randomBot && !Sellable::BotMayList(proto, true))
+                {
+                    forbidden.push_back(auction);
+                    continue;
+                }
+                if ((randomBot && settings.realHousePrices) || houseBot)
+                {
+                    uint64 const real = RealPrices::Reference(proto);
+                    if (real && auction->buyout && auction->itemCount &&
+                        CoaEconomyRules::UnderHalf(auction->buyout / auction->itemCount, real))
+                    {
+                        forbidden.push_back(auction);
+                        ++underpriced;
+                    }
+                }
             }
             for (AuctionEntry* auction : forbidden)
             {
@@ -371,8 +394,8 @@ namespace
         }
         CharacterDatabase.CommitTransaction(trans);
         if (taken)
-            LOG_INFO("server.loading", "CoA Economy: {} random bots' auctions of items a bot may not list went back to "
-                     "them by mail", taken);
+            LOG_INFO("server.loading", "CoA Economy: {} bots' auctions went back to them ({} under half the real CoA "
+                     "house's price, the others items a bot may not list)", taken, underpriced);
     }
 
     class CoaBotAuctionsWorld : public WorldScript

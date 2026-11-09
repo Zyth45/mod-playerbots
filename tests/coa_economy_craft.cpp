@@ -7,6 +7,9 @@ using namespace CoaEconomyRules;
 
 int main()
 {
+    // Under half the real price: taken back at start-up.
+    assert(CoaEconomyRules::UnderHalf(49, 100) && !CoaEconomyRules::UnderHalf(50, 100) && !CoaEconomyRules::UnderHalf(1, 0));
+
     // Median of prices (real house floors).
     assert(CoaEconomyRules::Median({}) == 0);
     assert(CoaEconomyRules::Median({5}) == 5);
