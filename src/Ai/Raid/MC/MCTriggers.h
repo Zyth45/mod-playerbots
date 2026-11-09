@@ -169,6 +169,25 @@ public:
     bool IsActive() override;
 };
 
+// CoA Combat (bench a12): standing in a Living Bomb's Burning Ground
+class McGeddonBurningGroundTrigger : public Trigger
+{
+public:
+    McGeddonBurningGroundTrigger(PlayerbotAI* botAI) : Trigger(botAI, "mc baron geddon burning ground") {}
+    bool IsActive() override;
+};
+
+// CoA Combat (bench a12): the group member whose MC debuff this bot removes, and with which spell (0 if none).
+// A healer only cleans the tanks; the other dispellers clean everyone, the tanks first, then the healers.
+Player* McRaidDispelTarget(Player* bot, uint32& spellId);
+
+class McRaidDispelTrigger : public Trigger
+{
+public:
+    McRaidDispelTrigger(PlayerbotAI* botAI) : Trigger(botAI, "mc raid dispel") {}
+    bool IsActive() override;
+};
+
 class McCoreHoundMarkTrigger : public Trigger
 {
 public:

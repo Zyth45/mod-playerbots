@@ -217,7 +217,12 @@ int main()
         else
             SameRow(R::FindTrap(dc.mapId, dc.key), dc);
     }
-    assert(dcRows[0] == CoaHazardData::kEmitters.size() && dcRows[1] == CoaHazardData::kGroundHazards.size() &&
+    // The module's own rows past Dungeon Clear 2.9.4: Geddon's Burning Ground D0..D3 (CoA Combat, bench a12).
+    unsigned const moduleGroundRows = 4;
+    for (unsigned spellId = 2105713; spellId <= 2105716; ++spellId)
+        assert(R::FindGround(409, spellId));
+    assert(dcRows[0] == CoaHazardData::kEmitters.size() &&
+           dcRows[1] + moduleGroundRows == CoaHazardData::kGroundHazards.size() &&
            dcRows[2] == CoaHazardData::kTrapHazards.size());
 
     // A crowded live world (overlapping sludges, a pool, a trap, a dead emitter, another floor) swept on a grid.

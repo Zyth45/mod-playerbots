@@ -7,7 +7,13 @@
 #include "MCTriggers.h"
 #include "MCHelpers.h"
 #include "SharedDefines.h"
+#include "Group.h"
+#include "Playerbots.h"
 #include "SpellAuras.h"
+#include "SpellInfo.h"
+#include "SpellMgr.h"
+
+#include <climits>
 
 using namespace MoltenCoreHelpers;
 
@@ -109,6 +115,98 @@ bool McGehennasRainOfFireTrigger::IsActive()
 bool McMagmadarLavaBombTrigger::IsActive()
 {
     return HasAnyAura(bot, MAGMADAR_LAVA_BOMB_AURAS);
+}
+
+bool McGeddonBurningGroundTrigger::IsActive()
+{
+    return McCoaFixesOn() && HasAnyAura(bot, GEDDON_BURNING_GROUND_AURAS);
+}
+
+namespace
+{
+    // The spell of this bot that removes `type` from an ally (by its effect, so CoA classes are covered), or 0.
+    uint32 AllyDispelSpell(Player* bot, uint32 type)
+    {
+        uint32 best = 0;
+        uint32 bestLevel = 0;
+        for (auto const& [spellId, spell] : bot->GetSpellMap())
+        {
+            if (!spell || spell->State == PLAYERSPELL_REMOVED || !spell->Active)
+                continue;
+            SpellInfo const* info = sSpellMgr->GetSpellInfo(spellId);
+            if (!info || info->IsPassive())
+                continue;
+            for (uint8 i = 0; i < MAX_SPELL_EFFECTS; ++i)
+            {
+                SpellEffectInfo const& effect = info->Effects[i];
+                if (effect.Effect != SPELL_EFFECT_DISPEL || effect.MiscValue != int32(type))
+                    continue;
+                Targets const target = effect.TargetA.GetTarget();
+                if (target != TARGET_UNIT_TARGET_ALLY && target != TARGET_UNIT_TARGET_ANY &&
+                    target != TARGET_UNIT_TARGET_RAID && target != TARGET_UNIT_TARGET_PARTY)
+                    continue;
+                if (!best || info->SpellLevel > bestLevel)
+                {
+                    best = spellId;
+                    bestLevel = info->SpellLevel;
+                }
+            }
+        }
+        return best;
+    }
+}
+
+Player* McRaidDispelTarget(Player* bot, uint32& spellId)
+{
+    spellId = 0;
+    Group* group = bot->GetGroup();
+    if (!group)
+        return nullptr;
+
+    bool const healer = PlayerbotAI::IsHeal(bot);
+    uint32 removal[DISPEL_POISON + 1];
+    bool resolved[DISPEL_POISON + 1] = {};
+    Player* best = nullptr;
+    int bestRank = INT_MAX;
+    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+    {
+        Player* member = ref->GetSource();
+        if (!member || !member->IsAlive() || !member->IsInWorld() || member->GetMapId() != bot->GetMapId() ||
+            bot->GetDistance(member) > 40.0f)
+            continue;
+        int const rank = PlayerbotAI::IsTank(member) ? 0 : PlayerbotAI::IsHeal(member) ? 1 : 2;
+        if (rank >= bestRank || (healer && rank != 0))
+            continue;
+        for (uint32 auraId : MC_RAID_DISPEL_AURAS)
+        {
+            Aura* aura = member->GetAura(auraId);
+            if (!aura)
+                continue;
+            uint32 const type = aura->GetSpellInfo()->Dispel;
+            if (type != DISPEL_CURSE && type != DISPEL_MAGIC)
+                continue;
+            if (!resolved[type])
+            {
+                removal[type] = AllyDispelSpell(bot, type);
+                resolved[type] = true;
+            }
+            if (!removal[type])
+                continue;
+            best = member;
+            bestRank = rank;
+            spellId = removal[type];
+            break;
+        }
+    }
+    return best;
+}
+
+bool McRaidDispelTrigger::IsActive()
+{
+    if (!McCoaFixesOn() || bot->GetMapId() != 409 || !bot->IsInCombat())
+        return false;
+    uint32 spellId = 0;
+    return McRaidDispelTarget(bot, spellId) != nullptr;
 }
 
 bool McCoreHoundMarkTrigger::IsActive()

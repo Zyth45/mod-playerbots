@@ -24,6 +24,12 @@ void RaidMcStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
         new TriggerNode("mc lucifron mark",
                         { NextAction("mc lucifron mark", ACTION_RAID) }));
 
+    // CoA Combat (bench a12): Curse of Gehennas, Arcane Instability and the trash debuffs come off, tanks first;
+    // above the heals, so a healer cleans only the tanks.
+    triggers.push_back(
+        new TriggerNode("mc raid dispel",
+                        { NextAction("mc raid dispel", ACTION_DISPEL + 5) }));
+
     // Magmadar
     // Panic fears everyone in 45 yd (stock 19408) or 100 yd (CoA 2105309): no range keeps a raid out of it, and a
     // stand-off at 35 yd only put the healers out of reach of the tank and the purgers out of reach of Frenzy
@@ -81,6 +87,10 @@ void RaidMcStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
     triggers.push_back(
         new TriggerNode("mc baron geddon inferno",
                         { NextAction("mc move from baron geddon", ACTION_RAID) }));
+    // CoA Combat (bench a12): out of a Living Bomb's Burning Ground, which never burns out.
+    triggers.push_back(
+        new TriggerNode("mc baron geddon burning ground",
+                        { NextAction("mc move from ground effect", ACTION_RAID + 1) }));
     // CoA Combat: the last 10 % in one burst, before Armageddon (docs/MC-ETAT-3.0.md, B1).
     triggers.push_back(
         new TriggerNode("mc baron geddon burn",

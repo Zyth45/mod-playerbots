@@ -658,7 +658,7 @@ namespace CoaHazardData
     //
     // vacate 10 is the aura; hold 2 reads in danger inside 12yd; slack 6 aims the step at
     // 16yd, outside the 13yd placement radius.
-    inline constexpr std::array<CoaGroundHazard, 13> kGroundHazards = {{
+    inline constexpr std::array<CoaGroundHazard, 17> kGroundHazards = {{
         //                   radius  zBand  vacate  hold  slack
         // Cloud of Disease — the pool a dying Diseased Ghoul (10495) leaves.
         { 289, 17742, 8.0f, 6.0f, 5.0f, 2.0f, 6.0f },
@@ -692,6 +692,14 @@ namespace CoaHazardData
         { 668, 72362, 6.0f, 6.0f, 3.0f, 2.0f, 6.0f },
         // Rain of Fire -- Gehennas', on a random raid member every 6s.
         { 409, 19717, 13.0f, 6.0f, 10.0f, 2.0f, 6.0f },
+        // CoA Combat (bench a12, not in Dungeon Clear 2.9.4) -- Burning Ground, the fire a CoA Living Bomb leaves
+        // where its carrier stood (boss_geddon_coa.cpp): a 2yd persistent area aura, 800 to 1,600 fire a second
+        // (D0..D3), with no end in the DBC, so the floor around Geddon fills up during the pull. Vacate 3 is the
+        // aura plus a body; the 6yd keep-out keeps the melee chase out of an old patch.
+        { 409, 2105713, 6.0f, 6.0f, 3.0f, 2.0f, 6.0f },
+        { 409, 2105714, 6.0f, 6.0f, 3.0f, 2.0f, 6.0f },
+        { 409, 2105715, 6.0f, 6.0f, 3.0f, 2.0f, 6.0f },
+        { 409, 2105716, 6.0f, 6.0f, 3.0f, 2.0f, 6.0f },
     }};
 
     // ---- the trap table --------------------------------------------------

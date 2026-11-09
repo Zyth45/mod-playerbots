@@ -6,6 +6,7 @@
 
 #include "MCActions.h"
 #include "MCHelpers.h"
+#include "MCTriggers.h"
 #include "Playerbots.h"
 #include "RtiTargetValue.h"
 #include <algorithm>
@@ -500,4 +501,13 @@ bool McGarrMoveFromFireswornAction::Execute(Event /*event*/)
     if (!add)
         return false;
     return MoveAway(add, FIRESWORN_ERUPTION_YARDS + 3.0f - bot->GetDistance2d(add));
+}
+
+bool McRaidDispelAction::Execute(Event /*event*/)
+{
+    uint32 spellId = 0;
+    Player* target = McRaidDispelTarget(bot, spellId);
+    if (!target || !spellId || !botAI->CanCastSpell(spellId, target))
+        return false;
+    return botAI->CastSpell(spellId, target);
 }
