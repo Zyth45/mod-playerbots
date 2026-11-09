@@ -37,6 +37,7 @@
 #include "CoaMarketPrices.h"
 #include "Creature.h"
 #include "DBCStores.h"
+#include "CoaDbCheck.h"
 #include "DatabaseEnv.h"
 #include "EmoteAction.h"
 #include "GameTime.h"
@@ -1231,11 +1232,19 @@ void Load()
         channelRings.clear();
         return;
     }
-    // On but the tables are missing (the 3.0 SQL not applied): no bank, said once, nothing else breaks.
-    if (!PlayerbotsDatabase.Query("SHOW TABLES LIKE 'playerbots_coa_live_rules'"))
+    // On but a table or a column is missing (the 3.0 SQL not applied): the core would abort the server on the
+    // query, so each table is checked first. No bank, said once, the bots stay quiet and the server starts.
+    bool const tablesOk =
+        CoaDbCheck::Require("CoA Live", "playerbots_coa_live_rules",
+                            {"situation", "chance_pct", "delay_min_ms", "delay_max_ms", "bot_cd_s", "scope_cd_s",
+                             "scope_per_10min", "need_player"}) &&
+        CoaDbCheck::Require("CoA Live", "playerbots_coa_live_lines",
+                            {"id", "situation", "channel", "locale", "level_band", "emote", "text", "w_lazy",
+                             "w_quester", "w_wanderer", "w_trader", "w_pvp", "rare"}) &&
+        CoaDbCheck::Require("CoA Live", "playerbots_coa_live_intents", {"locale", "priority", "intent", "keywords"}) &&
+        CoaDbCheck::Require("CoA Live", "playerbots_coa_live_slang", {"locale", "full", "short"});
+    if (!tablesOk)
     {
-        LOG_ERROR("server.loading", ">> CoA Live: the bank tables are missing (data/sql/playerbots/custom not applied): "
-                                    "the bots stay quiet.");
         std::lock_guard<std::mutex> guard(liveLock);
         bank = nullptr;
         return;
