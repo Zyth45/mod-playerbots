@@ -269,6 +269,18 @@ namespace
         uint32 const quoteId = nextQuoteId++;
         quotes[quoteId] = {player->GetGUID().GetCounter(), bot->GetGUID(), name, itemId, qty, uint32(price), now};
         answer(uint32(price), "ok", quoteId);
+
+        // The artisan whispers its price too, as to a whispered order (craft_quote_addon; the whisper order's lines
+        // when the bank has none).
+        std::unordered_map<std::string, std::string> slots;
+        if (ItemTemplate const* proto = sObjectMgr->GetItemTemplate(itemId))
+            slots["item"] = ChatHelper::FormatItem(proto);
+        slots["price"] = ChatHelper::formatMoney(uint32(price));
+        slots["qty"] = std::to_string(qty);
+        slots["profession"] = Artisans::ProfessionLink(bot, recipe.skillId);
+        slots["recipe"] = Artisans::RecipeLink(bot, recipe);
+        if (!CoaLive::SayLine(bot, "craft_quote_addon", slots, player->GetGUID()))
+            CoaLive::SayLine(bot, "wh_craft_quote", slots, player->GetGUID());
     }
 
     std::string OrderLine(OrderRec const& order)

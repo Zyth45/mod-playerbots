@@ -27,6 +27,7 @@ namespace
 {
     // Filled once on the world thread at start-up, before any bot update; read-only afterwards.
     std::unordered_set<uint32> vendorItems;
+    std::unordered_set<uint32> freeVendorItems; // sold without a stock limit by a vendor that stands in the world
     std::unordered_set<uint32> originalWorldItems;
 
     void Load()
@@ -35,6 +36,15 @@ namespace
             do
             {
                 vendorItems.insert(result->Fetch()[0].Get<uint32>());
+            } while (result->NextRow());
+
+        // A crafted product is a vendor good only when anyone can buy it at will: unlimited stock, a spawned vendor (a
+        // potion a quartermaster sells 3 at a time stays an artisan's product).
+        if (QueryResult result = WorldDatabase.Query("SELECT DISTINCT nv.item FROM npc_vendor nv WHERE nv.item > 0 AND "
+                                                     "nv.maxcount = 0 AND EXISTS (SELECT 1 FROM creature c WHERE c.id = nv.entry)"))
+            do
+            {
+                freeVendorItems.insert(result->Fetch()[0].Get<uint32>());
             } while (result->NextRow());
 
         if (QueryResult result = WorldDatabase.Query(OriginalWorldSourcesQuery()))
@@ -69,7 +79,8 @@ bool IsLaterExpansion(ItemTemplate const* proto)
 
 bool BotMayList(ItemTemplate const* proto, bool crafted)
 {
-    return proto && CoaEconomyRules::BotMayList(proto->Class, crafted, IsVendorItem(proto->ItemId),
+    bool const vendorGood = crafted ? freeVendorItems.count(proto ? proto->ItemId : 0) != 0 : IsVendorItem(proto ? proto->ItemId : 0);
+    return proto && CoaEconomyRules::BotMayList(proto->Class, crafted, vendorGood,
                                                 IsLaterExpansion(proto));
 }
 
