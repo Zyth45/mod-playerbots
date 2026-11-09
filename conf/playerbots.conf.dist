@@ -2962,6 +2962,54 @@ AiPlayerbot.CoaWorld.Guilds.RecruitMinutes = 45
 AiPlayerbot.CoaWorld.Guilds.Help = 1
 AiPlayerbot.CoaWorld.Guilds.GiftHours = 24
 
+#    AiPlayerbot.CoaWorld.Guilds.Orders
+#        Description: Guild orders. A real player asks the guild for an item in guild chat ("anyone have
+#                     [link]?", "can someone craft [link]"): an online guildmate bot that has one mails it for
+#                     free; else one that knows the recipe crafts it and mails it cash on delivery at the
+#                     materials' price; else one buys it out at the player's auction house and mails it cash on
+#                     delivery at the price it paid. Nothing while Guilds.Enable is 0.
+#        Default:     1 - on (under Guilds.Enable)
+
+AiPlayerbot.CoaWorld.Guilds.Orders = 1
+
+#    AiPlayerbot.CoaWorld.Guilds.OrdersPerDay
+#        Description: Orders a player may place a day (0 none, 50 at most).
+#        Default:     3
+
+AiPlayerbot.CoaWorld.Guilds.OrdersPerDay = 3
+
+#    AiPlayerbot.CoaWorld.Guilds.OrderMaxQuality
+#        Description: Best quality an order may ask for (1 common, 2 uncommon, 3 rare, 4 epic).
+#        Default:     3
+
+AiPlayerbot.CoaWorld.Guilds.OrderMaxQuality = 3
+
+#    AiPlayerbot.CoaWorld.Guilds.OrderAuctionMaxGold
+#        Description: Highest buyout, in gold, a guildmate pays at the auction house for an order (0 never buys).
+#        Default:     50
+
+AiPlayerbot.CoaWorld.Guilds.OrderAuctionMaxGold = 50
+
+#    AiPlayerbot.CoaWorld.Guilds.Gear
+#        Description: The guild equips the player: at login or a level-up, a guildmate mails a piece of gear of
+#                     the player's level that is clearly better than what they wear in that slot, for their spec.
+#                     One every GearDays at most. Nothing while Guilds.Enable is 0.
+#        Default:     1 - on (under Guilds.Enable)
+
+AiPlayerbot.CoaWorld.Guilds.Gear = 1
+
+#    AiPlayerbot.CoaWorld.Guilds.GearDays
+#        Description: Days between two gifts of gear to the same player (1 to 60).
+#        Default:     3
+
+AiPlayerbot.CoaWorld.Guilds.GearDays = 3
+
+#    AiPlayerbot.CoaWorld.Guilds.GearQuality
+#        Description: Best quality of the gear given (2 uncommon, 3 rare).
+#        Default:     2
+
+AiPlayerbot.CoaWorld.Guilds.GearQuality = 2
+
 #    AiPlayerbot.CoaWorld.Density.Enable
 #        Description: The bots where the players are, for large bot counts (1000 to 2000). Works with the
 #                     rotation of the random bots (AiPlayerbot.EnablePeriodicOnlineOffline = 1, a pool larger

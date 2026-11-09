@@ -15,7 +15,15 @@
  *  - Recruiting: now and then a member of a bot guild that is not full calls for members in General.
  *  - Helping the player: a real player in a guild with bots is greeted at login by a guildmate, and
  *    once a day at most receives a small gift by mail from one (potions and bandages of their level).
- *    Crafting on order for guildmates goes with CoA Economie's work.
+ *  - Guild orders: a real player asks the guild for an item in guild chat ("anyone have [link]?", "can
+ *    someone craft [link]"). An online bot of the guild that has one sends it (free); else one that knows
+ *    the recipe crafts it and mails it cash on delivery at the materials' price (no fee between
+ *    guildmates); else one buys it out at the auction house and mails it at the price it paid. A few
+ *    orders a day per player, items up to rare, an auction price cap.
+ *  - The guild equips the player: at login or a level-up, every few days at most, a guildmate mails a
+ *    piece of gear of the player's level (uncommon by default) that is clearly better than what the
+ *    player wears in that slot, for their spec (the bots' own stat weights).
+ *    Paid crafting for anyone, by whisper, is CoA Economie's work (CraftOrders).
  *
  * Lines come from IA MIND's bank (zz_coa_live_3_0_04: guild_ding, guild_gift, guild_recruit, guild_motd), with
  * English text as fallback. With CoaLive on, the congratulations, the rare loot and the hello at login are
@@ -25,10 +33,12 @@
  */
 
 #include "CoaWorldGuilds.h"
+#include "CoaWorldGuildRules.h"
 
 #include "CoaLive.h"
 #include "CoaWorldBots.h"
 
+#include "AuctionHouseMgr.h"
 #include "Chat.h"
 #include "Config.h"
 #include "DatabaseEnv.h"
@@ -42,11 +52,16 @@
 #include "Player.h"
 #include "PlayerbotAI.h"
 #include "Playerbots.h"
+#include "RandomItemMgr.h"
 #include "RandomPlayerbotMgr.h"
+#include "SpellMgr.h"
+#include "StatsWeightCalculator.h"
 #include "ScriptMgr.h"
 #include "StringFormat.h"
 
+#include <algorithm>
 #include <mutex>
+#include <random>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -68,6 +83,13 @@ namespace
         uint32 recruitMinutes = 45;
         bool help = true;
         uint32 giftHours = 24;
+        bool orders = true;
+        uint32 ordersPerDay = 3;
+        uint32 orderMaxQuality = ITEM_QUALITY_RARE;
+        uint32 orderAuctionMaxGold = 50;
+        bool gear = true;
+        uint32 gearDays = 3;
+        uint32 gearQuality = ITEM_QUALITY_UNCOMMON;
         bool coaLive = false;  // AiPlayerbot.CoaLive.Enable: CoaLive says the guild reactions
     };
 
@@ -84,10 +106,14 @@ namespace
     // From map threads: what happened, to be told by the world thread.
     struct GuildEvent
     {
-        enum Kind : uint8 { LEVEL, LOOT, LOGIN } kind;
+        enum Kind : uint8 { LEVEL, LOOT, LOGIN, ORDER, HUMAN_LEVEL } kind;
         ObjectGuid guid;
         uint32 value;  // level, or item entry
     };
+
+    // Player settings (character_settings) that keep the guild's gifts of gear across restarts.
+    constexpr char const* GEAR_SETTING = "coa_world_guild";
+    constexpr uint32 GEAR_SETTING_LAST_DAY = 0;
 
     std::mutex g_lock;
     std::vector<GuildEvent> g_events;
@@ -107,6 +133,73 @@ namespace
     {
         PlayerbotAI* botAI = player ? GET_PLAYERBOT_AI(player) : nullptr;
         return botAI && !botAI->GetMaster() && sRandomPlayerbotMgr.IsRandomBot(player);
+    }
+
+    std::string Link(ItemTemplate const* proto, uint32 level)
+    {
+        return Acore::StringFormat("|c{:08x}|Hitem:{}:0:0:0:0:0:0:0:0:{}|h[{}]|h|r", ItemQualityColors[proto->Quality],
+                                   proto->ItemId, level, proto->Name1);
+    }
+
+    std::string Money(uint64 copper)
+    {
+        if (copper >= GOLD)
+            return Acore::StringFormat("{}g {}s", copper / GOLD, (copper % GOLD) / SILVER);
+        if (copper >= SILVER)
+            return Acore::StringFormat("{}s {}c", copper / SILVER, copper % SILVER);
+        return Acore::StringFormat("{}c", copper);
+    }
+
+    // The recipes that make each item, found once (the crafting spells of the spell store).
+    std::unordered_map<uint32, std::vector<uint32>> const& Recipes()
+    {
+        static std::unordered_map<uint32, std::vector<uint32>> recipes;
+        static bool built = false;
+        if (built)
+            return recipes;
+        built = true;
+        for (uint32 id = 1; id < sSpellMgr->GetSpellInfoStoreSize(); ++id)
+        {
+            SpellInfo const* info = sSpellMgr->GetSpellInfo(id);
+            if (!info || info->Reagent[0] <= 0)
+                continue;
+            for (uint8 e = 0; e < MAX_SPELL_EFFECTS; ++e)
+                if (info->Effects[e].Effect == SPELL_EFFECT_CREATE_ITEM && info->Effects[e].ItemType)
+                    recipes[info->Effects[e].ItemType].push_back(id);
+        }
+        return recipes;
+    }
+
+    // The gear the guild may give, by required level (1 to 80), found once: armour and weapons, uncommon or rare,
+    // not bound on pickup, among the items the bots' gear code knows (RandomItemMgr), when it knows any.
+    std::vector<std::vector<uint32>> const& GearPool()
+    {
+        static std::vector<std::vector<uint32>> pool;
+        if (!pool.empty())
+            return pool;
+        pool.resize(81);
+        std::vector<std::vector<uint32>> unchecked(81);
+        bool anyKnown = false;
+        for (auto const& [id, proto] : *sObjectMgr->GetItemTemplateStore())
+        {
+            if ((proto.Class != ITEM_CLASS_ARMOR && proto.Class != ITEM_CLASS_WEAPON) ||
+                proto.Quality < ITEM_QUALITY_UNCOMMON || proto.Quality > ITEM_QUALITY_RARE ||
+                proto.Bonding == BIND_WHEN_PICKED_UP || proto.Bonding == BIND_QUEST_ITEM ||
+                !proto.RequiredLevel || proto.RequiredLevel > 80 || proto.InventoryType == INVTYPE_NON_EQUIP ||
+                proto.InventoryType == INVTYPE_BODY || proto.InventoryType == INVTYPE_TABARD ||
+                proto.InventoryType == INVTYPE_AMMO || proto.InventoryType == INVTYPE_QUIVER ||
+                proto.InventoryType == INVTYPE_RELIC)
+                continue;
+            unchecked[proto.RequiredLevel].push_back(id);
+            if (sRandomItemMgr.HasStatWeight(id))
+            {
+                pool[proto.RequiredLevel].push_back(id);
+                anyKnown = true;
+            }
+        }
+        if (!anyKnown)
+            pool = std::move(unchecked);
+        return pool;
     }
 
     template <size_t N>
@@ -246,6 +339,13 @@ namespace
                     case GuildEvent::LOGIN:
                         Welcome(player, now);
                         break;
+                    case GuildEvent::ORDER:
+                        Order(player, e.value, now);
+                        break;
+                    case GuildEvent::HUMAN_LEVEL:
+                        if (Player* bot = OnlineGuildBot(player->GetGuildId(), player->GetGUID()))
+                            GiveGear(player, bot, now);
+                        break;
                 }
             }
         }
@@ -280,6 +380,8 @@ namespace
             if (!settings.coaLive && roll_chance_i(60))
                 Say(bot, Acore::StringFormat(Pick(hi), player->GetName()), now + urand(4, 12));
 
+            GiveGear(player, bot, now);
+
             if (!settings.help)
                 return;
             time_t& last = _lastGift[player->GetGUID().GetCounter()];
@@ -306,6 +408,240 @@ namespace
             CharacterDatabase.CommitTransaction(trans);
             if (!BotLine(bot, "guild_gift", { { "player", player->GetName() } }))
                 Say(bot, Acore::StringFormat("{}, sent you a few potions", player->GetName()), now + urand(20, 40));
+        }
+
+        // An item of the bot's bags by mail to the player, free or cash on delivery.
+        static void MailFromBags(Player* bot, Player* to, Item* item, uint64 cod, uint32 delay)
+        {
+            CharacterDatabaseTransaction trans = CharacterDatabase.BeginTransaction();
+            bot->MoveItemFromInventory(item->GetBagSlot(), item->GetSlot(), true);
+            item->DeleteFromInventoryDB(trans);
+            item->SetOwnerGUID(to->GetGUID());
+            item->SaveToDB(trans);
+            MailDraft draft(item->GetTemplate()->Name1, "From the guild.");
+            draft.AddItem(item);
+            if (cod)
+                draft.AddCOD(uint32(cod));
+            draft.SendMailTo(trans, MailReceiver(to), MailSender(bot), MAIL_CHECK_MASK_COPIED, delay);
+            bot->SaveInventoryAndGoldToDB(trans);
+            CharacterDatabase.CommitTransaction(trans);
+        }
+
+        // A new item by mail to the player, from a guildmate.
+        static bool MailNew(Player* bot, Player* to, uint32 entry, uint32 count, uint64 cod, uint32 delay,
+                            std::string const& body)
+        {
+            Item* item = Item::CreateItem(entry, count, bot);
+            if (!item)
+                return false;
+            CharacterDatabaseTransaction trans = CharacterDatabase.BeginTransaction();
+            item->SaveToDB(trans);
+            MailDraft draft(item->GetTemplate()->Name1, body);
+            draft.AddItem(item);
+            if (cod)
+                draft.AddCOD(uint32(cod));
+            draft.SendMailTo(trans, MailReceiver(to), MailSender(bot), MAIL_CHECK_MASK_COPIED, delay);
+            CharacterDatabase.CommitTransaction(trans);
+            return true;
+        }
+
+        void Answer(Player* bot, char const* situation, CoaWorld::Slots const& slots, std::string fallback, time_t at)
+        {
+            if (!BotLine(bot, situation, slots))
+                Say(bot, std::move(fallback), at);
+        }
+
+        // A real player asked the guild for an item: from a guildmate's bags, from one who can craft it, or from
+        // the auction house; the first that can.
+        void Order(Player* player, uint32 entry, time_t now)
+        {
+            ItemTemplate const* proto = sObjectMgr->GetItemTemplate(entry);
+            if (!proto || proto->Quality > settings.orderMaxQuality || proto->Bonding == BIND_QUEST_ITEM)
+                return;
+            uint32 const today = uint32(now / DAY);
+            std::pair<uint32, uint32>& count = _orders[player->GetGUID().GetCounter()];
+            if (count.first != today)
+                count = { today, 0 };
+            if (!CoaWorldGuildRules::MayOrder(count.second, settings.ordersPerDay))
+                return;
+
+            std::vector<Player*> mates;
+            for (auto const& [guid, bot] : RandomBots())
+                if (bot && bot->IsInWorld() && bot->GetGuildId() == player->GetGuildId() && bot->IsAlive())
+                    mates.push_back(bot);
+            if (mates.empty())
+                return;
+            std::shuffle(mates.begin(), mates.end(), std::mt19937(urand(0, 0x7FFFFFFF)));
+            CoaWorld::Slots slots = { { "player", player->GetName() }, { "item", Link(proto, player->GetLevel()) } };
+
+            // 1. From the bags: free.
+            for (Player* bot : mates)
+            {
+                Item* item = bot->GetItemByEntry(entry);
+                if (!item || item->IsEquipped() || item->IsSoulBound() || item->IsInTrade())
+                    continue;
+                ++count.second;
+                MailFromBags(bot, player, item, 0, urand(1, 4) * MINUTE);
+                Answer(bot, "guild_order_share", slots, Acore::StringFormat("{} I have one, sending it", player->GetName()),
+                       now + urand(5, 15));
+                LogEvent("guild", bot->GetName(), Acore::StringFormat("sent {} to {}", proto->Name1, player->GetName()));
+                return;
+            }
+
+            // 2. Crafted: cash on delivery at the materials' price.
+            auto const recipes = Recipes().find(entry);
+            if (recipes != Recipes().end() && proto->Bonding != BIND_WHEN_PICKED_UP)
+                for (Player* bot : mates)
+                    for (uint32 spellId : recipes->second)
+                    {
+                        if (!bot->HasSpell(spellId))
+                            continue;
+                        SpellInfo const* info = sSpellMgr->GetSpellInfo(spellId);
+                        uint64 cost = 0;
+                        for (uint8 r = 0; r < MAX_SPELL_REAGENTS; ++r)
+                            if (info->Reagent[r] > 0 && info->ReagentCount[r])
+                                if (ItemTemplate const* reagent = sObjectMgr->GetItemTemplate(info->Reagent[r]))
+                                    cost += CoaWorldGuildRules::ReagentPrice(reagent->BuyPrice, reagent->SellPrice) *
+                                            info->ReagentCount[r];
+                        uint32 made = 1;
+                        for (uint8 e = 0; e < MAX_SPELL_EFFECTS; ++e)
+                            if (info->Effects[e].Effect == SPELL_EFFECT_CREATE_ITEM && info->Effects[e].ItemType == entry)
+                                made = uint32(std::max<int32>(1, info->Effects[e].CalcValue(bot)));
+                        if (!MailNew(bot, player, entry, std::min<uint32>(made, proto->GetMaxStackSize()), cost,
+                                     urand(10, 30) * MINUTE, "Made it for you, you only pay the materials."))
+                            continue;
+                        ++count.second;
+                        slots["price"] = Money(cost);
+                        Answer(bot, "guild_order_craft", slots,
+                               Acore::StringFormat("{} I can make that, mats only ({}), will mail it", player->GetName(),
+                                                   Money(cost)), now + urand(5, 15));
+                        LogEvent("guild", bot->GetName(), Acore::StringFormat("crafts {} for {}", proto->Name1,
+                                                                               player->GetName()));
+                        return;
+                    }
+
+            // 3. Bought out at the auction house of the player's side.
+            if (Auction(player, mates, proto, slots, now))
+            {
+                ++count.second;
+                return;
+            }
+
+            if (roll_chance_i(50))
+                Answer(mates.front(), "guild_order_none", slots,
+                       Acore::StringFormat("sorry {}, nobody has that right now", player->GetName()), now + urand(8, 20));
+        }
+
+        bool Auction(Player* player, std::vector<Player*> const& mates, ItemTemplate const* proto,
+                     CoaWorld::Slots& slots, time_t now)
+        {
+            AuctionHouseObject* house = sAuctionMgr->GetAuctionsMap(player->GetFaction());
+            if (!house)
+                return false;
+            AuctionEntry* best = nullptr;
+            for (auto const& [id, auction] : house->GetAuctions())
+                if (auction && auction->item_template == proto->ItemId && auction->buyout && !auction->bidder &&
+                    auction->owner != player->GetGUID() && (!best || auction->buyout < best->buyout))
+                    best = auction;
+            if (!best || best->buyout > uint64(settings.orderAuctionMaxGold) * GOLD)
+                return false;
+            Player* buyer = nullptr;
+            for (Player* bot : mates)
+                if (bot->GetMoney() >= best->buyout && bot->GetGUID() != best->owner)
+                {
+                    buyer = bot;
+                    break;
+                }
+            Item* item = buyer ? sAuctionMgr->GetAItem(best->item_guid) : nullptr;
+            if (!item)
+                return false;
+
+            // As a buyout by the bot (AuctionHouseHandler), but the item goes on to the player instead of the won mail.
+            uint32 const price = best->buyout;
+            CharacterDatabaseTransaction trans = CharacterDatabase.BeginTransaction();
+            buyer->ModifyMoney(-int32(price));
+            best->bidder = buyer->GetGUID();
+            best->bid = price;
+            sAuctionMgr->SendAuctionSalePendingMail(best, trans);
+            sAuctionMgr->SendAuctionSuccessfulMail(best, trans);
+            sScriptMgr->OnAuctionSuccessful(house, best);
+            best->DeleteFromDB(trans);
+            sAuctionMgr->RemoveAItem(best->item_guid);
+            house->RemoveAuction(best);
+            item->SetOwnerGUID(player->GetGUID());
+            item->SaveToDB(trans);
+            MailDraft(proto->Name1, "Got it at the auction house, you pay what I paid.")
+                .AddItem(item)
+                .AddCOD(price)
+                .SendMailTo(trans, MailReceiver(player), MailSender(buyer), MAIL_CHECK_MASK_COPIED, urand(5, 15) * MINUTE);
+            buyer->SaveInventoryAndGoldToDB(trans);
+            CharacterDatabase.CommitTransaction(trans);
+
+            slots["price"] = Money(price);
+            Answer(buyer, "guild_order_ah", slots,
+                   Acore::StringFormat("{} saw one on the AH for {}, I'll grab it for you", player->GetName(), Money(price)),
+                   now + urand(5, 15));
+            LogEvent("guild", buyer->GetName(), Acore::StringFormat("bought {} at the auction house for {}", proto->Name1,
+                                                                     player->GetName()));
+            return true;
+        }
+
+        // A piece of gear of the player's level, clearly better than what they wear there, every gearDays at most.
+        void GiveGear(Player* player, Player* bot, time_t now)
+        {
+            if (!settings.gear || player->GetLevel() < 5)
+                return;
+            uint32 const today = uint32(now / DAY);
+            if (!CoaWorldGuildRules::GiftDue(today, player->GetPlayerSetting(GEAR_SETTING, GEAR_SETTING_LAST_DAY).value,
+                                             settings.gearDays))
+                return;
+
+            std::vector<uint32> candidates;
+            auto const& pool = GearPool();
+            for (uint32 level = player->GetLevel() > 4 ? player->GetLevel() - 4 : 1;
+                 level <= player->GetLevel() && level < pool.size(); ++level)
+                for (uint32 entry : pool[level])
+                    if (ItemTemplate const* proto = sObjectMgr->GetItemTemplate(entry))
+                        if (proto->Quality <= settings.gearQuality &&
+                            CoaWorldGuildRules::GiftLevelFits(proto->RequiredLevel, player->GetLevel()))
+                            candidates.push_back(entry);
+            if (candidates.empty())
+                return;
+            std::shuffle(candidates.begin(), candidates.end(), std::mt19937(urand(0, 0x7FFFFFFF)));
+            if (candidates.size() > 300)
+                candidates.resize(300);
+
+            StatsWeightCalculator calc(player);
+            uint32 bestEntry = 0;
+            float bestGain = 0.0f;
+            for (uint32 entry : candidates)
+            {
+                ItemTemplate const* proto = sObjectMgr->GetItemTemplate(entry);
+                if (player->CanUseItem(proto) != EQUIP_ERR_OK)
+                    continue;
+                uint8 const slot = player->FindEquipSlot(proto, NULL_SLOT, true);
+                if (slot == NULL_SLOT)
+                    continue;
+                Item* worn = player->GetItemByPos(INVENTORY_SLOT_BAG_0, slot);
+                float const wornScore = worn ? calc.CalculateItem(worn->GetEntry(), worn->GetItemRandomPropertyId()) : 0.0f;
+                float const score = calc.CalculateItem(entry);
+                if (CoaWorldGuildRules::WorthGiving(score, wornScore) && score - wornScore > bestGain)
+                {
+                    bestGain = score - wornScore;
+                    bestEntry = entry;
+                }
+            }
+            if (!bestEntry)
+                return;
+            ItemTemplate const* proto = sObjectMgr->GetItemTemplate(bestEntry);
+            if (!MailNew(bot, player, bestEntry, 1, 0, urand(5, 20) * MINUTE,
+                         Acore::StringFormat("Found this, it should suit you better. - {}", bot->GetName())))
+                return;
+            player->UpdatePlayerSetting(GEAR_SETTING, GEAR_SETTING_LAST_DAY, today);
+            Answer(bot, "guild_gear_gift", { { "player", player->GetName() }, { "item", Link(proto, player->GetLevel()) } },
+                   Acore::StringFormat("{}, sent you something you can use, check your mail", player->GetName()),
+                   now + urand(20, 40));
+            LogEvent("guild", bot->GetName(), Acore::StringFormat("gave {} to {}", proto->Name1, player->GetName()));
         }
 
         // Once a day at most, the leader of a bot guild writes a new message of the day.
@@ -368,6 +704,7 @@ namespace
         std::vector<Speech> _speeches;
         std::unordered_map<uint32, time_t> _lastMotd;
         std::unordered_map<uint32, time_t> _lastGift;
+        std::unordered_map<uint32, std::pair<uint32, uint32>> _orders;  // player -> (day, orders that day)
         uint32 _timer = 0;
         uint32 _slow = 0;
         uint32 _recruit = 0;
@@ -383,6 +720,15 @@ namespace
         settings.recruitMinutes = sConfigMgr->GetOption<uint32>(key("RecruitMinutes"), 45, false);
         settings.help = sConfigMgr->GetOption<bool>(key("Help"), true, false);
         settings.giftHours = std::max<uint32>(1, sConfigMgr->GetOption<uint32>(key("GiftHours"), 24, false));
+        settings.orders = sConfigMgr->GetOption<bool>(key("Orders"), true, false);
+        settings.ordersPerDay = std::min<uint32>(50, sConfigMgr->GetOption<uint32>(key("OrdersPerDay"), 3, false));
+        settings.orderMaxQuality = std::min<uint32>(ITEM_QUALITY_EPIC,
+            sConfigMgr->GetOption<uint32>(key("OrderMaxQuality"), ITEM_QUALITY_RARE, false));
+        settings.orderAuctionMaxGold = std::min<uint32>(10000, sConfigMgr->GetOption<uint32>(key("OrderAuctionMaxGold"), 50, false));
+        settings.gear = sConfigMgr->GetOption<bool>(key("Gear"), true, false);
+        settings.gearDays = std::clamp<uint32>(sConfigMgr->GetOption<uint32>(key("GearDays"), 3, false), 1, 60);
+        settings.gearQuality = std::clamp<uint32>(sConfigMgr->GetOption<uint32>(key("GearQuality"), ITEM_QUALITY_UNCOMMON, false),
+            ITEM_QUALITY_UNCOMMON, ITEM_QUALITY_RARE);
         settings.coaLive = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaLive.Enable", false, false);
     }
 }
@@ -398,13 +744,23 @@ class CoaWorldGuildsPlayerScript : public PlayerScript
 {
 public:
     CoaWorldGuildsPlayerScript()
-        : PlayerScript("CoaWorldGuildsPlayerScript", { PLAYERHOOK_ON_LEVEL_CHANGED, PLAYERHOOK_ON_LOOT_ITEM, PLAYERHOOK_ON_LOGIN })
+        : PlayerScript("CoaWorldGuildsPlayerScript", { PLAYERHOOK_ON_LEVEL_CHANGED, PLAYERHOOK_ON_LOOT_ITEM, PLAYERHOOK_ON_LOGIN,
+                                                        PLAYERHOOK_CAN_PLAYER_USE_GUILD_CHAT })
     {
     }
 
     void OnPlayerLevelChanged(Player* player, uint8 /*oldLevel*/) override
     {
-        if (!settings.enabled || !settings.chat || !player || !player->GetGuildId() || !IsBot(player))
+        if (!settings.enabled || !player || !player->GetGuildId())
+            return;
+        // A real player levels up: the guild may have gear for them.
+        if (!IsBot(player))
+        {
+            if (settings.gear)
+                Push({ GuildEvent::HUMAN_LEVEL, player->GetGUID(), player->GetLevel() });
+            return;
+        }
+        if (!settings.chat)
             return;
         uint8 level = player->GetLevel();
         if (level % 10 == 0 || level >= 55)
@@ -424,6 +780,16 @@ public:
         if (!settings.enabled || !player || !player->GetGuildId() || IsBot(player))
             return;
         Push({ GuildEvent::LOGIN, player->GetGUID(), 0 });
+    }
+
+    // A real player asks the guild for an item: queued for the world thread (Order).
+    bool OnPlayerCanUseChat(Player* player, uint32 /*type*/, uint32 /*language*/, std::string& msg, Guild* guild) override
+    {
+        if (!settings.enabled || !settings.orders || !player || !guild || IsBot(player))
+            return true;
+        if (uint32 entry = CoaWorldGuildRules::OrderedItem(msg))
+            Push({ GuildEvent::ORDER, player->GetGUID(), entry });
+        return true;
     }
 };
 
