@@ -213,8 +213,28 @@ private:
     static void Read()
     {
         g_enabled = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaWorld.ServerFirst.Enable", false, false);
-        if (g_enabled && !g_loaded)
-            Load();
+        if (!g_enabled || g_loaded)
+            return;
+        if (!TableReady())
+        {
+            g_enabled = false;
+            return;
+        }
+        Load();
+    }
+
+    // The core aborts the server on a query naming a missing table or column (errors 1146/1054): check
+    // coa_world_server_first first through information_schema, which never fails, and stay off without it.
+    static bool TableReady()
+    {
+        QueryResult r = PlayerbotsDatabase.Query(
+            "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = "
+            "'coa_world_server_first' AND column_name IN ('kind','entry','team','guid','name','guild','at')");
+        if (r && r->Fetch()[0].Get<uint64>() == 7)
+            return true;
+        LOG_ERROR("server.loading", ">> CoA World ServerFirst: table coa_world_server_first missing or out of date "
+                                    "(data/sql/playerbots/custom not applied): turned off, the server starts without it.");
+        return false;
     }
 
     uint32 _timer = 0;
