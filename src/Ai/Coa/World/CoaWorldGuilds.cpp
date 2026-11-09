@@ -60,6 +60,7 @@
 #include "StatsWeightCalculator.h"
 #include "ScriptMgr.h"
 #include "StringFormat.h"
+#include "Timer.h"
 #include "WorldSession.h"
 
 #include <algorithm>
@@ -201,6 +202,18 @@ namespace
         std::string reason;  // "ilvl +N" or "empty"
     };
     std::vector<GiftOffer> g_offers;
+    // The bot's answer to the player's yes/no, sent 1 to 2 s later as a player would (not before the player's own echo).
+    struct LaterWhisper
+    {
+        ObjectGuid bot, player;
+        std::string text;
+        uint32 dueMs;
+    };
+    std::vector<LaterWhisper> g_later;
+    void WhisperLater(Player* bot, Player* player, std::string text)
+    {
+        g_later.push_back({ bot->GetGUID(), player->GetGUID(), std::move(text), getMSTime() + urand(1000, 2000) });
+    }
     uint32 g_nextOffer = 1;
     constexpr time_t OFFER_SECONDS = DAY;
 
@@ -349,6 +362,23 @@ namespace
 
         void Update(uint32 diff)
         {
+            if (!g_later.empty())
+            {
+                uint32 const nowMs = getMSTime();
+                for (auto itr = g_later.begin(); itr != g_later.end();)
+                {
+                    if (int32(nowMs - itr->dueMs) < 0)
+                    {
+                        ++itr;
+                        continue;
+                    }
+                    Player* bot = ObjectAccessor::FindPlayer(itr->bot);
+                    Player* player = ObjectAccessor::FindConnectedPlayer(itr->player);
+                    if (bot && player)
+                        bot->Whisper(itr->text, LANG_UNIVERSAL, player);
+                    itr = g_later.erase(itr);
+                }
+            }
             {
                 time_t const now = time(nullptr);
                 g_offers.erase(std::remove_if(g_offers.begin(), g_offers.end(), [now](GiftOffer const& o) { return o.expires <= now; }),
@@ -869,7 +899,7 @@ namespace
             {
                 LogRow(player, LOG_GIFT_REFUSED, offer.item, 1, "refused", offer.botName, now, 0, "");
                 if (bot)
-                    bot->Whisper("no worries", LANG_UNIVERSAL, player);
+                    WhisperLater(bot, player, "no worries");
                 return true;
             }
             if (bot && proto &&
@@ -878,7 +908,7 @@ namespace
             {
                 LogEvent("guild", offer.botName, Acore::StringFormat("gave {} to {}", proto->Name1, player->GetName()));
                 LogRow(player, LOG_GIFT, offer.item, 1, "gift", offer.botName, now, 0, "");
-                bot->Whisper("sent, check your mail", LANG_UNIVERSAL, player);
+                WhisperLater(bot, player, "sent, check your mail");
             }
             return true;
         }
