@@ -55,6 +55,7 @@ namespace CoaWorld
         uint32 count = 0;
         float nearRadius = 500.0f;  // closer than this on the same map: they walk
         bool teleport = true;       // farther: brought to the rally point
+        bool holdFar = false;       // farther, with teleport off: borrowed where they stand, for BringBot later
         bool (*filter)(Player*) = nullptr;  // extra condition on the bots (BorrowBots only)
     };
 
@@ -91,6 +92,10 @@ namespace CoaWorld
     // Sends that bot (free, checked by the caller) as BorrowBots would. False if it could not go.
     bool SendBot(uint32 owner, Player* bot, BorrowRequest const& request);
 
+    // Brings a bot of owner to "at" on mapId (a landing spot the caller chose), then it heads for goal on its own
+    // feet or mount. Not in combat, an instance, a battleground or a group, nor under a real player's eyes where it
+    // stands; ReleaseBots(owner, true) takes it back home. False: not now (the caller may try again later).
+    bool BringBot(uint32 owner, ObjectGuid guid, uint32 mapId, Position const& at, Position const& goal);
     // Drops the bot from owner's list without touching it (it logs out, for example).
     void ForgetBot(uint32 owner, ObjectGuid guid);
 

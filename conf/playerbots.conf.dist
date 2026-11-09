@@ -3194,15 +3194,19 @@ AiPlayerbot.CoaWorld.Guilds.Catalog = 0
 #    AiPlayerbot.CoaWorld.Guilds.Activities
 #    AiPlayerbot.CoaWorld.Guilds.ActivityCooldownMinutes
 #    AiPlayerbot.CoaWorld.Guilds.GatherMinutes
+#    AiPlayerbot.CoaWorld.Guilds.GatherBringSeconds
 #        Description: With Guilds.Addon: the SquidBots Lite addon's guild activities. Gather: 3 to 8 free bots of the
 #                     player's guild come to the player and stay GatherMinutes. Party of 5: a tank, a healer and damage
 #                     dealers join the player's group for a dungeon. Raid 10, 15 or 25: a raid as ".playerbots coa raid"
 #                     builds. One activity at a time per player, then ActivityCooldownMinutes before the next.
-#        Default:     0 - off; cooldown 10, gather 15
+#                     GatherBringSeconds after a gathering starts, its bots still far (another map, or more than 120 m)
+#                     land 40 to 60 m behind the player, out of sight, and come on foot (0: they never come).
+#        Default:     0 - off; cooldown 10, gather 15, bring 30
 
 AiPlayerbot.CoaWorld.Guilds.Activities = 0
 AiPlayerbot.CoaWorld.Guilds.ActivityCooldownMinutes = 10
 AiPlayerbot.CoaWorld.Guilds.GatherMinutes = 15
+AiPlayerbot.CoaWorld.Guilds.GatherBringSeconds = 30
 
 #    AiPlayerbot.CoaWorld.Guilds.PlayerGuildOnline
 #    AiPlayerbot.CoaWorld.Guilds.PlayerGuildOnlinePercent

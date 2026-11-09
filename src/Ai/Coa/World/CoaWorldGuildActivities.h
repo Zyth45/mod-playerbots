@@ -18,7 +18,7 @@ class Player;
 bool CoaWorldGuildActivitiesOn();
 // GACT?: one GA line per kind.
 std::vector<std::string> CoaWorldGuildActivityList(Player* player);
-// GACT <kind> (args[0] is the word): the GA lines, or ERR GACT <reason>.
+// GACT <kind> or GACT cancel (args[0] is the word): the GA lines, or ERR GACT <reason>.
 std::vector<std::string> CoaWorldGuildActivityStart(Player* player, std::vector<std::string> const& args);
 
 void AddSC_coa_world_guild_activities();
