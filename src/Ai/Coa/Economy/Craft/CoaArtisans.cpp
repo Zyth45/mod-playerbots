@@ -24,6 +24,8 @@
 #include "WorldSession.h"
 
 #include <algorithm>
+#include <mutex>
+#include <unordered_map>
 
 namespace CoaEconomy::Artisans
 {
@@ -32,6 +34,41 @@ namespace
 {
     bool enabled = false;
     uint32 minProfitPercent = 20;
+    uint32 recursiveDepth = 0; // 0 = off: reagents at their market price only
+
+    // What makes each item, from every profession recipe of the client data; built once, read-only afterwards.
+    std::unordered_map<uint32, CoaEconomyRules::CraftPath> craftPaths;
+    std::once_flag craftPathsBuilt;
+
+    void BuildCraftPaths()
+    {
+        for (uint32 i = 0; i < sSkillLineAbilityStore.GetNumRows(); ++i)
+        {
+            SkillLineAbilityEntry const* ability = sSkillLineAbilityStore.LookupEntry(i);
+            if (!ability)
+                continue;
+            SkillLineEntry const* skill = sSkillLineStore.LookupEntry(ability->SkillLine);
+            if (!skill || (skill->categoryId != SKILL_CATEGORY_PROFESSION && skill->categoryId != SKILL_CATEGORY_SECONDARY))
+                continue;
+            SpellInfo const* spell = sSpellMgr->GetSpellInfo(ability->Spell);
+            if (!spell)
+                continue;
+            for (SpellEffectInfo const& effect : spell->Effects)
+            {
+                if (effect.Effect != SPELL_EFFECT_CREATE_ITEM || !effect.ItemType)
+                    continue;
+                CoaEconomyRules::CraftPath path;
+                path.made = uint32(std::max(1, effect.CalcValue()));
+                for (uint8 r = 0; r < MAX_SPELL_REAGENTS; ++r)
+                    if (spell->Reagent[r] > 0 && spell->ReagentCount[r])
+                        path.reagents.emplace_back(uint32(spell->Reagent[r]), spell->ReagentCount[r]);
+                // One way per item, the first the client data lists.
+                if (!path.reagents.empty())
+                    craftPaths.emplace(effect.ItemType, std::move(path));
+                break;
+            }
+        }
+    }
 
     // The profession skill line of a recipe spell, 0 when it is not one.
     uint32 ProfessionOf(uint32 spellId)
@@ -63,6 +100,9 @@ void LoadSettings()
 {
     enabled = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.Artisans.Enable", false, false);
     minProfitPercent = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaEconomy.Artisans.MinProfitPercent", 20);
+    recursiveDepth = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.Artisans.RecursiveCost.Enable", false)
+        ? std::min<uint32>(5, sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaEconomy.Artisans.RecursiveCost.Depth", 3))
+        : 0;
 }
 
 std::string ProfessionName(Player* bot, uint32 skillId)
@@ -138,6 +178,19 @@ uint64 MarketPrice(uint32 itemId)
     return std::max<uint64>(1, uint64(proto->SellPrice) * 4);
 }
 
+uint64 ReagentCost(uint32 itemId)
+{
+    if (!recursiveDepth)
+        return MarketPrice(itemId);
+    std::call_once(craftPathsBuilt, BuildCraftPaths);
+    return CoaEconomyRules::RecursiveCost(itemId, recursiveDepth, [](uint32 id) { return MarketPrice(id); },
+        [](uint32 id) -> CoaEconomyRules::CraftPath const*
+        {
+            auto found = craftPaths.find(id);
+            return found == craftPaths.end() ? nullptr : &found->second;
+        });
+}
+
 std::vector<Recipe> KnownRecipes(Player* bot)
 {
     std::vector<Recipe> recipes;
@@ -179,7 +232,7 @@ std::vector<Recipe> KnownRecipes(Player* bot)
         {
             if (spell->Reagent[i] <= 0 || !spell->ReagentCount[i])
                 continue;
-            uint64 const price = MarketPrice(uint32(spell->Reagent[i]));
+            uint64 const price = ReagentCost(uint32(spell->Reagent[i]));
             if (!price)
             {
                 reagentsKnown = false;
@@ -231,7 +284,7 @@ Item* Craft(Player* bot, Recipe const& recipe)
         uint32 const reagent = uint32(recipe.spell->Reagent[i]);
         uint32 const need = recipe.spell->ReagentCount[i];
         uint32 const held = std::min(need, bot->GetItemCount(reagent));
-        toPay += MarketPrice(reagent) * (need - held);
+        toPay += ReagentCost(reagent) * (need - held);
     }
     if (toPay > bot->GetMoney())
         return nullptr;

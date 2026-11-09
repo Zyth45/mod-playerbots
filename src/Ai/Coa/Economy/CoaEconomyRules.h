@@ -15,6 +15,8 @@
 #include <cstdint>
 #include <map>
 #include <string>
+#include <utility>
+#include <vector>
 
 namespace CoaEconomyRules
 {
@@ -224,6 +226,66 @@ inline std::string SpellChatLink(std::uint32_t spellId, std::string const& name,
 {
     return std::string(recipe ? "|cffffd000|Henchant:" : "|cff71d5ff|Hspell:") + std::to_string(spellId) + "|h[" +
            name + "]|h|r";
+}
+
+// Auctions run on game time: how long the server was off, to add to every auction's end at start-up. Nothing when
+// the last sign of life is unknown or in the future, or the gap is a mere restart; at most maxSeconds.
+inline std::uint32_t AuctionPause(std::uint32_t lastAlive, std::uint32_t now, std::uint32_t minSeconds,
+                                  std::uint32_t maxSeconds)
+{
+    if (!lastAlive || now <= lastAlive)
+        return 0;
+    std::uint32_t const gap = now - lastAlive;
+    return gap < minSeconds ? 0 : std::min(gap, maxSeconds);
+}
+
+// One way to make an item: how many one cast makes, and its reagents (item, count).
+struct CraftPath
+{
+    std::uint32_t made = 1;
+    std::vector<std::pair<std::uint32_t, std::uint32_t>> reagents;
+};
+
+// Recursive craft price: an item costs the least of its market price and what its own reagents cost, down to depth
+// levels (a Bolt of Silk Cloth: its price, or four Silk Cloth). market(item) gives 0 when unknown; pathOf(item)
+// gives a CraftPath pointer, null when nothing makes it. 0 when neither is known.
+template <typename Market, typename PathOf>
+std::uint64_t RecursiveCost(std::uint32_t item, std::uint32_t depth, Market const& market, PathOf const& pathOf)
+{
+    std::uint64_t const bought = market(item);
+    if (!depth)
+        return bought;
+    CraftPath const* path = pathOf(item);
+    if (!path || path->reagents.empty())
+        return bought;
+    std::uint64_t made = 0;
+    for (auto const& [reagent, count] : path->reagents)
+    {
+        std::uint64_t const each = RecursiveCost(reagent, depth - 1, market, pathOf);
+        if (!each)
+            return bought;
+        made += each * count;
+    }
+    made = (made + std::max<std::uint32_t>(1, path->made) - 1) / std::max<std::uint32_t>(1, path->made);
+    return bought ? std::min(bought, made) : made;
+}
+
+// Disenchanting, prospecting, smelting: worth it when what comes out is worth more than what goes in.
+inline bool WorthBreaking(std::uint64_t inputValue, std::uint64_t outputValue)
+{
+    return outputValue > inputValue;
+}
+
+// An artisan's material stock: keeps a reagent of its recipes up to maxStacks stacks; buys one at the auction
+// house only below buyBelowPercent of its market price.
+inline bool KeepsInStock(std::uint32_t held, std::uint32_t stackSize, std::uint32_t maxStacks)
+{
+    return held <= std::max<std::uint32_t>(1, stackSize) * maxStacks;
+}
+
+inline bool StockBargain(std::uint64_t pricePerItem, std::uint64_t marketPerItem, std::uint32_t buyBelowPercent)
+{
+    return marketPerItem && pricePerItem * 100 <= marketPerItem * buyBelowPercent;
 }
 
 inline bool WantsVendor(bool rpgSellOn, std::uint32_t bagUsedPercent, std::uint32_t thresholdPercent, bool canSell)

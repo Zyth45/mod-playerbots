@@ -4815,6 +4815,45 @@ AiPlayerbot.CoaEconomy.CraftOrders.FeePercent = 15
 AiPlayerbot.CoaEconomy.CraftOrders.OrderCooldownMinutes = 5
 AiPlayerbot.CoaEconomy.CraftOrders.TradeOfferPercent = 50
 
+# Recursive craft price: a reagent costs an artisan the least of its market price and what its own reagents cost
+# (a Bolt of Silk Cloth: its price, or four Silk Cloth), down to Depth levels, from the learned prices. Used for the
+# artisans' margins, what they pay for missing reagents and the price of an order. Needs Artisans.
+#    Enable  1 = on, 0 = off (default: reagents at their market price only).
+#    Depth   Levels followed, 1 to 5 (default 3).
+AiPlayerbot.CoaEconomy.Artisans.RecursiveCost.Enable = 0
+AiPlayerbot.CoaEconomy.Artisans.RecursiveCost.Depth = 3
+
+# Materials: at an auction house visit (BotAuctions), a bot with the profession smelts its ore into bars (Mining,
+# needs Artisans), prospects five ores into gems (Jewelcrafting) and disenchants the greens, blues and epics it would
+# sell (Enchanting), only when what comes out is worth more at market price. Nothing CoA does not have comes out.
+#    Enable      1 = on, 0 = off (default). Read at start-up (restart to change it).
+#    Smelt, Prospect, Disenchant   Each step, 1 = on (default), 0 = off.
+#    PerVisit    Most items smelted, prospected or disenchanted per visit (default 5).
+AiPlayerbot.CoaEconomy.Materials.Enable = 0
+AiPlayerbot.CoaEconomy.Materials.Smelt = 1
+AiPlayerbot.CoaEconomy.Materials.Prospect = 1
+AiPlayerbot.CoaEconomy.Materials.Disenchant = 1
+AiPlayerbot.CoaEconomy.Materials.PerVisit = 5
+
+# Artisans' material stock: an artisan keeps the reagents of its recipes instead of selling them (at the auction
+# house or a vendor, unless its bags are 95 % full), up to MaxStacks stacks of each, and when it buys nothing else at
+# the auction house it buys one lot of them below BuyBelowPercent of the market price. Needs Artisans and BotAuctions.
+#    Enable           1 = on, 0 = off (default). Read at start-up (restart to change it).
+#    MaxStacks        Stacks kept of each reagent (default 2).
+#    BuyBelowPercent  Most it pays, in percent of the market price (default 90).
+AiPlayerbot.CoaEconomy.Artisans.Stock.Enable = 0
+AiPlayerbot.CoaEconomy.Artisans.Stock.MaxStacks = 2
+AiPlayerbot.CoaEconomy.Artisans.Stock.BuyBelowPercent = 90
+
+# Auctions on game time: the core ends an auction at a real date, so a server off for a night found every auction
+# over at start-up. With this on, the world writes a sign of life every minute (table coa_economy_clock of the
+# playerbots database) and at start-up adds the time the server was off to the end of every auction, players'
+# included. A gap under 5 minutes counts as a restart.
+#    Enable        1 = on, 0 = off (default). Read at start-up (restart to change it).
+#    MaxPauseDays  Longest pause added (default 30).
+AiPlayerbot.CoaEconomy.AuctionClock.Enable = 0
+AiPlayerbot.CoaEconomy.AuctionClock.MaxPauseDays = 30
+
 # economy.json for the SquidBots dashboard (format: CoA Dashboard's LIAISON-3.0): auctions per category, price bands,
 # gold in circulation and held by bots, best sales, crafts and craft orders of the last 24 h. Built every 60 s, only
 # while the dashboard watches the economy (squidbot/watch.json), and written off the world thread; nothing is built

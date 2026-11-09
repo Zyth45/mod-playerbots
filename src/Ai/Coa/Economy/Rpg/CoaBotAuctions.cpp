@@ -13,6 +13,7 @@
 #include "CoaEconomyRules.h"
 #include "CoaGearScore.h"
 #include "CoaMarketPrices.h"
+#include "CoaMaterials.h"
 #include "CoaSellable.h"
 #include "Config.h"
 #include "Creature.h"
@@ -35,6 +36,7 @@
 #include <deque>
 #include <mutex>
 #include <unordered_map>
+#include <unordered_set>
 
 namespace CoaEconomy::BotAuctions
 {
@@ -165,6 +167,7 @@ namespace
     uint32 ListLoot(Player* bot, PlayerbotAI* botAI, ObjectGuid auctioneer, Traits const& traits, Item* crafted, Item* held)
     {
         std::vector<Item*> loot;
+        std::unordered_set<uint32> const stock = Materials::StockReagents(bot);
         if (crafted)
             loot.push_back(crafted);
         ForEachBagItem(bot, [&](Item* item)
@@ -175,6 +178,9 @@ namespace
                 return;
             // Never its ammunition, the consumables it uses, a vendor good or an item CoA does not have.
             if (!Sellable::BotMayList(item->GetTemplate(), false))
+                return;
+            // An artisan keeps the reagents of its recipes (Artisans.Stock).
+            if (Materials::KeepsInStock(bot, item, stock))
                 return;
             if (botAI->GetAiObjectContext()->GetValue<ItemUsage>("item usage", item->GetEntry())->Get() == ITEM_USAGE_AH)
                 loot.push_back(item);
@@ -281,6 +287,9 @@ namespace
         Traits const traits = TraitsFor(bot->GetGUID());
         CollectAuctionMail(bot);
 
+        // Ore smelted or prospected, gear disenchanted, when what comes out is worth more (Materials).
+        Materials::Process(bot, botAI);
+
         // An artisan makes a piece worth more than its materials and puts it up with its loot (lot 4).
         Item* crafted = nullptr;
         Artisans::Recipe recipe;
@@ -293,7 +302,10 @@ namespace
             std::swap(crafted, held);
 
         ListLoot(bot, botAI, visit.auctioneer, traits, crafted, held);
-        BuyOne(bot, visit.auctioneer, npc, traits);
+        // One purchase per visit: an upgrade or a bag, else a cheap lot for the artisan's stock.
+        if (!BuyOne(bot, visit.auctioneer, npc, traits))
+            Materials::BuyStock(bot, visit.auctioneer, npc,
+                CoaEconomyRules::BotBudget(bot->GetMoney(), settings.maxBudgetPercent, traits.thrift));
     }
 
     void ProcessQueue()

@@ -57,6 +57,10 @@ namespace CoaEconomy::Artisans
 
     // One item's market price (learned price, else the house bot's, else a vendor-based guess), copper.
     uint64 MarketPrice(uint32 itemId);
+
+    // What a reagent costs an artisan: its market price, or less when making it from its own reagents is cheaper
+    // (Artisans.RecursiveCost; the market price alone when it is off).
+    uint64 ReagentCost(uint32 itemId);
 }
 
 void AddSC_coa_economy_artisans();

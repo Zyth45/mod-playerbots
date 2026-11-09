@@ -8,6 +8,7 @@
 
 #include "CoaBotAuctions.h"
 #include "CoaEconomyRules.h"
+#include "CoaMaterials.h"
 #include "CoaMissionMgr.h"
 #include "Creature.h"
 #include "Event.h"
@@ -21,6 +22,8 @@
 #include "Playerbots.h"
 #include "WorldPacket.h"
 #include "WorldSession.h"
+
+#include <unordered_set>
 
 namespace CoaEconomy::RpgTrade
 {
@@ -91,10 +94,14 @@ namespace
         bool const botAuctions = BotAuctions::IsEnabled();
         uint8 const bagUsed = BagUsed(botAI);
         std::vector<Item*> toSell;
+        std::unordered_set<uint32> const stock = Materials::StockReagents(bot);
         ForEachBagItem(bot, [&](Item* item)
         {
             ItemTemplate const* proto = item->GetTemplate();
             if (!proto || !proto->SellPrice || item->IsInTrade())
+                return;
+            // An artisan keeps its reagents, unless the bags are nearly full.
+            if (bagUsed < 95 && Materials::KeepsInStock(bot, item, stock))
                 return;
             ItemUsage const usage = UsageOf(botAI, item);
             if (CoaEconomyRules::SellsAtVendor(usage == ITEM_USAGE_VENDOR, usage == ITEM_USAGE_AH, botAuctions, bagUsed))
