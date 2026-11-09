@@ -1096,6 +1096,12 @@ void ChannelTimers(uint64 nowMs)
         }
     }
 
+    // Bench only (hidden key): a real player stands in every capital that has bots.
+    if (sPlayerbotAIConfig.coaLiveDebugIgnoreRealPlayer)
+        for (auto const& [zone, bots] : botsByZone)
+            if (AreaTableEntry const* area = sAreaTableStore.LookupEntry(zone); area && (area->flags & AREA_FLAG_CAPITAL))
+                realByZone.try_emplace(zone, 1);
+
     uint8 const locale = BotLocale();
     auto pick = [](std::vector<Player*> const& v) { return v[urand(0, v.size() - 1)]; };
     for (auto const& [zone, real] : realByZone)
