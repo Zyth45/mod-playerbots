@@ -335,6 +335,8 @@ bool NewRpgStatusUpdateAction::Execute(Event /*event*/)
                     std::max(sPlayerbotAIConfig.coaCityStayMinMinutes, sPlayerbotAIConfig.coaCityStayMaxMinutes);
                 // At least a minute: a zero stay would fall back to the short stop of a plain NPC visit.
                 info.cityStayMs = std::max<uint32>(urand(shortest, longest), 1) * MINUTE * IN_MILLISECONDS;
+                // CoA Live City Life: the residents stay longer (unchanged when off).
+                info.cityStayMs = CoaCityLife::VisitMs(bot, info.cityStayMs);
                 return true;
             }
             if (info.HasStatusPersisted(statusGoCityDuration))

@@ -109,28 +109,45 @@ ObjectGuid ChooseStation(PlayerbotAI* botAI)
     if (holding.size() > 4096)
         for (auto it = holding.begin(); it != holding.end();)
             it = nowMs >= it->second.sinceMs + HOLD_MS ? holding.erase(it) : std::next(it);
-    std::unordered_map<ObjectGuid, uint32> held;  // station -> bots holding it (one pass)
+    std::unordered_map<ObjectGuid, uint32> held;    // station -> bots holding it (one pass)
+    std::unordered_map<ObjectGuid, uint32> begging; // station -> beggars at it
     for (auto const& [bot, h] : holding)
         if (nowMs < h.sinceMs + HOLD_MS)
-            ++held[h.station];
+            ++(h.kind == Station::Beg ? begging : held)[h.station];
     auto botsAt = [&held](ObjectGuid station)
     {
         auto it = held.find(station);
         return it == held.end() ? 0u : it->second;
     };
+    auto beggarsAt = [&begging](ObjectGuid station)
+    {
+        auto it = begging.find(station);
+        return it == begging.end() ? 0u : it->second;
+    };
+    std::unordered_map<uint64, Station> kinds;  // the candidate picked -> what the bot does there
     std::vector<Candidate> candidates;
     std::unordered_map<uint64, ObjectGuid> guids;
+    // A beggar's candidate shares its banker's or auctioneer's guid: its key is the guid with the top bit set.
+    constexpr uint64 BEG_KEY = 1ull << 63;
     for (Creature* c : creatures)
     {
-        candidates.push_back({StationOfCreature(c->GetNpcFlags(), c->GetName()), c->GetGUID().GetRawValue(),
-                              botsAt(c->GetGUID())});
+        Station const kind = StationOfCreature(c->GetNpcFlags(), c->GetName());
+        candidates.push_back({kind, c->GetGUID().GetRawValue(), botsAt(c->GetGUID())});
         guids[c->GetGUID().GetRawValue()] = c->GetGUID();
+        kinds[c->GetGUID().GetRawValue()] = kind;
+        if (kind == Station::Bank || kind == Station::Auction)
+        {
+            candidates.push_back({Station::Beg, c->GetGUID().GetRawValue() | BEG_KEY, beggarsAt(c->GetGUID())});
+            guids[c->GetGUID().GetRawValue() | BEG_KEY] = c->GetGUID();
+            kinds[c->GetGUID().GetRawValue() | BEG_KEY] = Station::Beg;
+        }
     }
     for (GameObject* go : objects)
     {
         candidates.push_back({StationOfFocus(go->GetGOInfo()->spellFocus.focusId), go->GetGUID().GetRawValue(),
                               botsAt(go->GetGUID())});
         guids[go->GetGUID().GetRawValue()] = go->GetGUID();
+        kinds[go->GetGUID().GetRawValue()] = Station::Forge;
     }
     uint64 const picked = Pick(candidates, between);
     if (!picked)
@@ -140,6 +157,7 @@ ObjectGuid ChooseStation(PlayerbotAI* botAI)
     h = Holding();
     h.station = guids[picked];
     h.sinceMs = nowMs;
+    h.kind = kinds[picked];
     return h.station;
 }
 
@@ -154,13 +172,17 @@ void OnReach(PlayerbotAI* botAI, WorldObject* object)
         auto it = holding.find(bot->GetGUID().GetRawValue());
         if (it == holding.end() || it->second.station != object->GetGUID())
             return;
-        kind = it->second.kind = KindOf(object);
+        if (it->second.kind == Station::None)
+            it->second.kind = KindOf(object);
+        kind = it->second.kind;
         it->second.stayMs = StayMs(kind, between);
         it->second.lastEmoteMs = GameTime::GetGameTimeMS().count();
     }
     bot->SetFacingToObject(object);
     if (PoseOf(kind).sit)
         bot->SetStandState(UNIT_STAND_STATE_SIT);
+    else if (kind == Station::Beg)
+        bot->SetStandState(UNIT_STAND_STATE_KNEEL);
 }
 
 uint32 WhileStaying(PlayerbotAI* botAI, WorldObject* object, uint32 defaultMs)
@@ -188,6 +210,12 @@ uint32 WhileStaying(PlayerbotAI* botAI, WorldObject* object, uint32 defaultMs)
     return stay;
 }
 
+uint32 VisitMs(Player* bot, uint32 cityStayMs)
+{
+    return Enabled() && bot && sRandomPlayerbotMgr.IsRandomBot(bot) ? StayMs(bot->GetGUID().GetCounter(), cityStayMs)
+                                                                      : cityStayMs;
+}
+
 void Leave(PlayerbotAI* botAI)
 {
     // Off: no lock on every NPC left (Builder). A station held when it was turned off frees itself after HOLD_MS.
@@ -199,7 +227,7 @@ void Leave(PlayerbotAI* botAI)
         std::lock_guard<std::mutex> guard(cityLock);
         held = holding.erase(bot->GetGUID().GetRawValue()) > 0;
     }
-    if (held && bot->IsSitState())
+    if (held && (bot->IsSitState() || bot->getStandState() == UNIT_STAND_STATE_KNEEL))
         bot->SetStandState(UNIT_STAND_STATE_STAND);
 }
 }  // namespace CoaCityLife
