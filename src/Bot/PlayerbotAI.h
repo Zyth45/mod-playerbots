@@ -717,6 +717,9 @@ public:
     // CoA World (SlowIdleTriggers): the last AllowActive(ALL_ACTIVITY) kept the bot active for a reason of its own (real
     // player near, group, queue, instance...), not by the rotation.
     bool coaForcedActive = true;
+    // CoA World (AiBudgetMs, CoaWorldAiBudget): skipped its AI last tick, and the time it has waited.
+    bool coaBudgetSkipped = false;
+    uint32 coaBudgetWaitMs = 0;
 };
 
 #endif

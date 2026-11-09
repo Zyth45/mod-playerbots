@@ -3078,6 +3078,15 @@ AiPlayerbot.CoaWorld.DpsTargetCache = 0
 
 AiPlayerbot.CoaWorld.SlowIdleTriggers = 0
 
+#    AiPlayerbot.CoaWorld.AiBudgetMs
+#        Description: Performance. A time budget for the bots' AI per map tick, in milliseconds. Once the bots of a
+#                     map have spent it in a tick, the next ones skip their AI for that tick (they think on the next
+#                     one, first; none waits two ticks in a row). Never skipped: a bot in combat, grouped with a real
+#                     player, or within 100 yards of one. Cuts the peaks of a continent with many bots.
+#        Default:     0 - off (e.g. 40)
+
+AiPlayerbot.CoaWorld.AiBudgetMs = 0
+
 #    AiPlayerbot.CoaWorld.BotOnlyBgPace.Enable
 #    AiPlayerbot.CoaWorld.BotOnlyBgPace.IntervalMs
 #        Description: Performance. A bot in a battleground or arena where no real player is, and that no real player

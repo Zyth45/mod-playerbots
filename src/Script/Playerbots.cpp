@@ -4,6 +4,8 @@
  * or (at your option) any later version.
  */
 
+#include "CoaWorldAiBudget.h"
+#include <chrono>
 #include "CoaWorldBgPace.h"
 #include "Playerbots.h"
 #include "CoaSpecialization.h"
@@ -247,8 +249,17 @@ public:
     {
         PlayerbotAI* const botAI = PlayerbotsMgr::instance().GetPlayerbotAI(player);
 
-        if (botAI != nullptr)
+        // CoA World (AiBudgetMs): over its map's AI budget this tick, the bot skips its AI and keeps the time.
+        if (botAI != nullptr && CoaWorldAiBudget::On() && CoaWorldAiBudget::Skip(player, botAI))
         {
+            botAI->coaBudgetWaitMs += diff;
+            CoaLive::OnBotUpdate(player, botAI, diff);
+        }
+        else if (botAI != nullptr)
+        {
+            auto const aiStart = std::chrono::steady_clock::now();
+            diff += botAI->coaBudgetWaitMs;
+            botAI->coaBudgetWaitMs = 0;
             // CoA World (BotOnlyBgPace): in a battleground or arena with no real player on the map nor in its queue,
             // the bot thinks every IntervalMs; back to every tick as soon as one comes (checked every second).
             if (CoaWorldBgPace::On() && player->InBattleground())
@@ -277,6 +288,9 @@ public:
                 botAI->UpdateAI(diff + botAI->coaBgWaitMs);
                 botAI->coaBgWaitMs = 0;
             }
+            if (CoaWorldAiBudget::On())
+                CoaWorldAiBudget::Spent(player, uint64(std::chrono::duration_cast<std::chrono::microseconds>(
+                                                           std::chrono::steady_clock::now() - aiStart).count()));
             CoaLive::OnBotUpdate(player, botAI, diff);
         }
 
