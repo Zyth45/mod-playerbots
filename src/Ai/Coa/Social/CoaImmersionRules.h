@@ -34,6 +34,16 @@ inline bool MayStartFishing(BotView const& b)
            b.idleStatus && b.knowsFishing;
 }
 
+// Room for one more at the water: at most perThousand of the random bots online fish at once (user, 09/11: 45 for
+// 1000 was a lot, 20 to 30 is right). At least one when any bot is online and perThousand is not 0.
+inline bool FishingRoom(uint32_t fishing, uint32_t online, uint32_t perThousand)
+{
+    if (!perThousand || !online)
+        return false;
+    uint32_t const most = uint32_t(uint64_t(online) * perThousand / 1000);
+    return fishing < (most ? most : 1);
+}
+
 // The session at the water, in ms: 4 to 15 minutes.
 inline uint32_t FishingMs(std::function<uint32_t(uint32_t, uint32_t)> const& between)
 {

@@ -37,6 +37,11 @@ int main()
         assert(ms >= 240000 && ms <= 900000);
     }
 
+    // The cap: 25 per thousand of the bots online by default.
+    assert(FishingRoom(24, 1000, 25) && !FishingRoom(25, 1000, 25) && !FishingRoom(40, 1000, 25));
+    assert(FishingRoom(0, 10, 25) && !FishingRoom(1, 10, 25));  // at least one, at most one for 10 bots
+    assert(!FishingRoom(0, 1000, 0) && !FishingRoom(0, 0, 25));
+
     assert(!MustStop(1000, 2000, false, false, true));
     assert(MustStop(2000, 2000, false, false, true));
     assert(MustStop(1000, 2000, true, false, true));
