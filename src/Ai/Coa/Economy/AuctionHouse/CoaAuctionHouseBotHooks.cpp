@@ -8,6 +8,7 @@
 // macro `auctionbot`) to server events. Written from a behaviour description.
 
 #include "AuctionHouseMgr.h"
+#include "CoaEconomyData.h"
 #include "Chat.h"
 #include "CoaAuctionHouseBot.h"
 #include "Config.h"
@@ -107,9 +108,11 @@ public:
         AUCTIONHOUSEHOOK_ON_BEFORE_AUCTIONHOUSEMGR_UPDATE}) { }
 
     // Bot sold something: keep it silent.
-    void OnBeforeAuctionHouseMgrSendAuctionSuccessfulMail(AuctionHouseMgr* /*mgr*/, AuctionEntry* /*auction*/, Player* owner,
-        uint32& /*ownerAccId*/, uint32& /*profit*/, bool& sendNotification, bool& updateAchievementCriteria, bool& /*sendMail*/) override
+    void OnBeforeAuctionHouseMgrSendAuctionSuccessfulMail(AuctionHouseMgr* /*mgr*/, AuctionEntry* auction, Player* owner,
+        uint32& /*ownerAccId*/, uint32& profit, bool& sendNotification, bool& updateAchievementCriteria, bool& /*sendMail*/) override
     {
+        if (auction && IsBotCharacter(auction->owner.GetCounter()))
+            CoaEconomy::Data::RecordAhBot(0, 0, profit, 0);
         if (!IsBotCharacter(owner))
             return;
         sendNotification = false;

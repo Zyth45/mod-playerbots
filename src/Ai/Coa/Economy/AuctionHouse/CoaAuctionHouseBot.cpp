@@ -19,6 +19,7 @@
  */
 
 #include "ObjectMgr.h"
+#include "CoaEconomyData.h"
 #include "AuctionHouseMgr.h"
 #include "CoaAuctionHouseBot.h"
 #include "CoaMarketPrices.h"
@@ -1448,6 +1449,7 @@ void AuctionHouseBot::AddNewAuctions(std::vector<Player*> AHBPlayers, FactionSpe
             auctionEntry->SaveToDB(trans);
             itemsGenerated++;
             batchCount++;
+            CoaEconomy::Data::RecordAhBot(1, 0, 0, 0);
         }
 
         CharacterDatabase.CommitTransaction(trans);
@@ -2158,6 +2160,7 @@ void AuctionHouseBot::AddNewAuctionBuyerBotBid(std::vector<Player*> AHBPlayers, 
         else if (settleNow)
         {
             uint64 const price = doBuyout ? uint64(auction->buyout) : calcBidAmount;
+            CoaEconomy::Data::RecordAhBot(0, 1, 0, price);
             auto trans = CharacterDatabase.BeginTransaction();
 
             if ((auction->bidder) && (AHBplayer->GetGUID() != auction->bidder))

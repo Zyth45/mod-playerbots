@@ -26,7 +26,18 @@ namespace CoaEconomy::Data
     void RecordCraft(uint32 skillId, uint32 itemId, uint32 count, int64 profit);
 
     // A craft order (craft orders brick): "mailed" when sent COD, "refused" when the bot cannot make it, "busy".
-    void RecordOrder(std::string const& buyer, std::string const& bot, uint32 itemId, uint32 price, char const* state);
+    // skill: the profession (0 when unknown); kind: "player" (a whisper) or "guild" (a guild request).
+    void RecordOrder(std::string const& buyer, std::string const& bot, uint32 itemId, uint32 price, char const* state,
+                     uint32 skillId = 0, char const* kind = "player");
+
+    // A bot broke an item (materials brick): disenchant (else prospecting), one material out, from how many items.
+    void RecordBreak(bool disenchant, uint32 itemId, uint32 count, uint32 from);
+
+    // The merged AHBot: auctions listed, auctions bought, copper earned by its sales, copper spent.
+    void RecordAhBot(uint32 listed, uint32 bought, uint64 goldIn, uint64 goldOut);
+
+    // The auction clock at start-up: seconds of downtime added to the auctions, how many auctions were moved.
+    void RecordClock(uint32 offlineSeconds, uint32 resumed);
 }
 
 void AddSC_coa_economy_data();
