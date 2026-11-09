@@ -271,8 +271,9 @@ namespace
                 item->SaveToDB(trans);
                 draft.AddItem(item);
             }
-        draft.AddCOD(copper).SendMailTo(trans, MailReceiver(player), MailSender(bot), MAIL_CHECK_MASK_COPIED,
-                                        sWorld->getIntConfig(CONFIG_MAIL_DELIVERY_DELAY));
+        // No delivery delay: the core's MailDeliveryDelay (1 h by default) is for mail between players; the artisan's
+        // whispers already play the time it takes.
+        draft.AddCOD(copper).SendMailTo(trans, MailReceiver(player), MailSender(bot), MAIL_CHECK_MASK_COPIED, 0);
         bot->SaveInventoryAndGoldToDB(trans);
         CharacterDatabase.CommitTransaction(trans);
     }
