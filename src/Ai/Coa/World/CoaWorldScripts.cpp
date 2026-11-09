@@ -19,7 +19,6 @@ void AddSC_coa_world_guilds();
 void AddSC_coa_world_density();
 void AddSC_coa_world_events();
 void AddSC_coa_world_leveling();
-void AddSC_coa_world_active_zones();
 void AddSC_coa_world_state();
 void AddSC_coa_world_addon();
 
@@ -37,6 +36,5 @@ void AddCoaWorldScripts()
     AddSC_coa_world_density();
     AddSC_coa_world_events();
     AddSC_coa_world_leveling();
-    AddSC_coa_world_active_zones();
     AddSC_coa_world_addon();
 }

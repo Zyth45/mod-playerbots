@@ -4,8 +4,6 @@
  * or (at your option) any later version.
  */
 
-#include "CoaWorldActiveZones.h"
-#include "CoaWorldActivityRules.h"
 #include "Playerbots.h"
 #include "CoaSpecialization.h"
 #include "BattleGroundTactics.h"
@@ -250,24 +248,7 @@ public:
 
         if (botAI != nullptr)
         {
-            // CoA World (IdleBotAI): an asleep bot, out of combat, with no real player in its zone, thinks every
-            // IntervalMs instead of every tick; it wakes at once in combat.
-            if (sPlayerbotAIConfig.coaIdleBotAI && CoaWorldActiveZones::Ready() &&
-                CoaWorldActivity::MaySlowDown(player->IsInCombat(), botAI->IsActivityAllowedCached(),
-                                              CoaWorldActiveZones::InZone(player->GetMapId(), player->GetZoneId())))
-            {
-                botAI->coaIdleWaitMs += diff;
-                if (CoaWorldActivity::SlowAIDue(botAI->coaIdleWaitMs, sPlayerbotAIConfig.coaIdleBotAIIntervalMs))
-                {
-                    botAI->UpdateAI(botAI->coaIdleWaitMs);
-                    botAI->coaIdleWaitMs = 0;
-                }
-            }
-            else
-            {
-                botAI->UpdateAI(diff + botAI->coaIdleWaitMs);
-                botAI->coaIdleWaitMs = 0;
-            }
+            botAI->UpdateAI(diff);
             CoaLive::OnBotUpdate(player, botAI, diff);
             // CoA World: the packets its AI just queued that are safe in this map thread (BotPacketsInMapThread).
             if (sPlayerbotAIConfig.coaBotPacketsInMapThread && player->IsInWorld() && !player->IsBeingTeleported() &&

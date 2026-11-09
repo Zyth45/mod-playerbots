@@ -708,9 +708,6 @@ protected:
     uint32 coaAncestralCombatCheckedAt = 0;
     uint32 coaGearCheckedAt = 0;
     uint32 coaTeamTimer = 0;
-public:
-    // CoA World (IdleBotAI): time the slowed AI has waited (Playerbots.cpp, OnPlayerAfterUpdate).
-    uint32 coaIdleWaitMs = 0;
 };
 
 #endif
