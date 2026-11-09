@@ -8,6 +8,7 @@
 #include "Aq40Helpers.h"
 #include "Playerbots.h"
 #include "Aq20Utils.h"
+#include "Group.h"
 
 using namespace Aq40Helpers;
 
@@ -135,4 +136,116 @@ bool Aq40SarturaDancersTrigger::IsActive()
 bool Aq40SarturaMarkTrigger::IsActive()
 {
     return AqCoaFixesOn() && RaidKillOrderMarkTrigger::IsActive();
+}
+
+std::string CoaAq40::ViscidusFrostSpell(Player* bot)
+{
+    switch (bot->getClass())
+    {
+        case CLASS_MAGE:
+            return "frostbolt";
+        case CLASS_SHAMAN:
+            return "frost shock";
+        case CLASS_DEATH_KNIGHT:
+            return "icy touch";
+        default:
+            return "";
+    }
+}
+
+bool CoaAq40::GetHeldEmperor(Player* bot, Unit*& held, Unit*& brother)
+{
+    PlayerbotAI* botAI = GET_PLAYERBOT_AI(bot);
+    if (!botAI)
+        return false;
+    AiObjectContext* context = botAI->GetAiObjectContext();
+    Unit* nilash = AI_VALUE2(Unit*, "find target", "emperor vek'nilash");
+    Unit* lor = AI_VALUE2(Unit*, "find target", "emperor vek'lor");
+    if (!nilash || !lor || !nilash->IsAlive() || !lor->IsAlive())
+        return false;
+    if (nilash->GetVictim() == bot)
+    {
+        held = nilash;
+        brother = lor;
+        return true;
+    }
+    if (lor->GetVictim() == bot)
+    {
+        held = lor;
+        brother = nilash;
+        return true;
+    }
+    return false;
+}
+
+Player* CoaAq40::GetDevourPrey(Player* bot)
+{
+    Group* group = bot->GetGroup();
+    if (!group)
+        return nullptr;
+    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+    {
+        Player* member = ref->GetSource();
+        if (member && member != bot && member->IsAlive() && member->GetMapId() == bot->GetMapId() &&
+            member->HasAura(SPELL_DEVOURS))
+            return member;
+    }
+    return nullptr;
+}
+
+bool CoaAq40::IsDevourCompanion(Player* bot, Player* prey)
+{
+    Group* group = bot->GetGroup();
+    if (!group)
+        return false;
+    uint32 rank = 0;
+    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+    {
+        Player* member = ref->GetSource();
+        if (!member || member == prey || !member->IsAlive() || member->GetMapId() != bot->GetMapId() ||
+            !GET_PLAYERBOT_AI(member) || PlayerbotAI::IsTank(member) || PlayerbotAI::IsHeal(member) ||
+            !PlayerbotAI::IsMelee(member) || InStomach(member))
+            continue;
+        if (member == bot)
+            return rank < DEVOUR_COMPANIONS;
+        ++rank;
+    }
+    return false;
+}
+
+bool Aq40ViscidusFrostTrigger::IsActive()
+{
+    if (!AqCoaFixesOn() || PlayerbotAI::IsTank(bot))
+        return false;
+    Unit* viscidus = AI_VALUE2(Unit*, "find target", "viscidus");
+    if (!viscidus || !viscidus->IsAlive() || viscidus->HasAura(CoaAq40::SPELL_VISCIDUS_FREEZE))
+        return false;
+    std::string const spell = CoaAq40::ViscidusFrostSpell(bot);
+    return !spell.empty() && botAI->CanCastSpell(spell, viscidus);
+}
+
+bool Aq40ViscidusShatterTrigger::IsActive()
+{
+    if (!AqCoaFixesOn() || PlayerbotAI::IsTank(bot) || !PlayerbotAI::IsMelee(bot))
+        return false;
+    Unit* viscidus = AI_VALUE2(Unit*, "find target", "viscidus");
+    return viscidus && viscidus->IsAlive() && viscidus->HasAura(CoaAq40::SPELL_VISCIDUS_FREEZE) &&
+           bot->GetVictim() != viscidus;
+}
+
+bool Aq40TwinEmperorsApartTrigger::IsActive()
+{
+    if (!AqCoaFixesOn() || !PlayerbotAI::IsTank(bot))
+        return false;
+    Unit* held = nullptr;
+    Unit* brother = nullptr;
+    return CoaAq40::GetHeldEmperor(bot, held, brother) && held->GetExactDist2d(brother) < CoaAq40::TWINS_APART_YARDS;
+}
+
+bool Aq40CthunJoinDevourTrigger::IsActive()
+{
+    if (!AqCoaFixesOn() || !IsCthunEncounter(bot) || !IsCthunPhaseTwo(bot) || InStomach(bot))
+        return false;
+    Player* prey = CoaAq40::GetDevourPrey(bot);
+    return prey && CoaAq40::IsDevourCompanion(bot, prey) && bot->GetExactDist2d(prey) > CoaAq40::DEVOUR_JOIN_YARDS;
 }

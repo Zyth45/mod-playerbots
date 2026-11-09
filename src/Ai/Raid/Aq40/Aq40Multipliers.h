@@ -23,4 +23,12 @@ public:
     float GetValue(Action* action) override;
 };
 
+// CoA Combat (SA1): no interrupt on Sartura from 3 stacks of Frustration (the 4th starts Furious Outbreak).
+class Aq40SarturaInterruptMultiplier : public Multiplier
+{
+public:
+    Aq40SarturaInterruptMultiplier(PlayerbotAI* botAI) : Multiplier(botAI, "aq40 sartura interrupt") {}
+    float GetValue(Action* action) override;
+};
+
 #endif

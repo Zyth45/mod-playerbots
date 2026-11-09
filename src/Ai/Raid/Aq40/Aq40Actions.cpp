@@ -9,7 +9,9 @@
 #include "ObjectMgr.h"
 #include "Playerbots.h"
 #include "Aq40Triggers.h"
+#include "Aq20Utils.h"
 #include "Timer.h"
+#include <cmath>
 
 using namespace Aq40Helpers;
 
@@ -92,6 +94,9 @@ bool Aq40CthunAvoidDevourAction::Execute(Event /*event*/)
     Player* prey = GetDevourPreyNear(bot);
     if (!prey)
         return false;
+    // CoA Combat (CT1): the melee chosen to go down with the prey stay with it.
+    if (AqCoaFixesOn() && CoaAq40::IsDevourCompanion(bot, prey))
+        return false;
 
     // Whoever stands within 8 yd of the prey when the mouth reaches it is swallowed too.
     return FleePosition(prey->GetPosition(), DEVOUR_CLEAR_DISTANCE, 500, MovementPriority::MOVEMENT_FORCED);
@@ -168,4 +173,61 @@ bool Aq40SarturaAvoidDancerAction::Execute(Event /*event*/)
     float const reach =
         dancer->HasAura(CoaAq40::SPELL_DANCE_OF_DEATH) ? CoaAq40::DANCER_DEATH_YARDS : CoaAq40::DANCER_BLADE_YARDS;
     return MoveAway(dancer, reach + 3.0f - bot->GetDistance2d(dancer));
+}
+
+bool Aq40ViscidusFrostAction::Execute(Event /*event*/)
+{
+    Unit* viscidus = AI_VALUE2(Unit*, "find target", "viscidus");
+    std::string const spell = CoaAq40::ViscidusFrostSpell(bot);
+    if (!viscidus || spell.empty())
+        return false;
+    return botAI->CastSpell(spell, viscidus);
+}
+
+bool Aq40ViscidusShatterAction::Execute(Event /*event*/)
+{
+    Unit* viscidus = AI_VALUE2(Unit*, "find target", "viscidus");
+    return viscidus && Attack(viscidus);
+}
+
+bool Aq40TwinEmperorsApartAction::Execute(Event /*event*/)
+{
+    Unit* held = nullptr;
+    Unit* brother = nullptr;
+    if (!CoaAq40::GetHeldEmperor(bot, held, brother))
+        return false;
+    Creature* heldCreature = held->ToCreature();
+    Creature* brotherCreature = brother->ToCreature();
+    if (!heldCreature || !brotherCreature)
+        return false;
+
+    // The Emperor's Passage swaps them, so the dais is the spawn point nearest to the held emperor now.
+    Position dais = heldCreature->GetHomePosition();
+    Position const other = brotherCreature->GetHomePosition();
+    if (held->GetExactDist2d(other.GetPositionX(), other.GetPositionY()) <
+        held->GetExactDist2d(dais.GetPositionX(), dais.GetPositionY()))
+        dais = other;
+
+    // A little past the dais, away from the brother.
+    float dx = dais.GetPositionX() - brother->GetPositionX();
+    float dy = dais.GetPositionY() - brother->GetPositionY();
+    float const length = std::sqrt(dx * dx + dy * dy);
+    float x = dais.GetPositionX();
+    float y = dais.GetPositionY();
+    if (length > 0.1f)
+    {
+        x += dx / length * 8.0f;
+        y += dy / length * 8.0f;
+    }
+    return MoveTo(bot->GetMapId(), x, y, dais.GetPositionZ(), false, false, false, true,
+                  MovementPriority::MOVEMENT_COMBAT);
+}
+
+bool Aq40CthunJoinDevourAction::Execute(Event /*event*/)
+{
+    Player* prey = CoaAq40::GetDevourPrey(bot);
+    if (!prey)
+        return false;
+    return MoveTo(bot->GetMapId(), prey->GetPositionX(), prey->GetPositionY(), prey->GetPositionZ(), false, false,
+                  false, true, MovementPriority::MOVEMENT_FORCED);
 }

@@ -103,4 +103,36 @@ public:
     bool Execute(Event event) override;
 };
 
+// CoA Combat (VS1): hit Viscidus with this class's frost spell.
+class Aq40ViscidusFrostAction : public Action
+{
+public:
+    Aq40ViscidusFrostAction(PlayerbotAI* botAI) : Action(botAI, "aq40 viscidus frost") {}
+    bool Execute(Event event) override;
+};
+
+// CoA Combat (VS1): strike the frozen Viscidus.
+class Aq40ViscidusShatterAction : public AttackAction
+{
+public:
+    Aq40ViscidusShatterAction(PlayerbotAI* botAI) : AttackAction(botAI, "aq40 viscidus shatter") {}
+    bool Execute(Event event) override;
+};
+
+// CoA Combat (TW1): take the held emperor to the dais nearest to him, on the far side from his brother.
+class Aq40TwinEmperorsApartAction : public MovementAction
+{
+public:
+    Aq40TwinEmperorsApartAction(PlayerbotAI* botAI) : MovementAction(botAI, "aq40 twin emperors apart") {}
+    bool Execute(Event event) override;
+};
+
+// CoA Combat (CT1): walk to the prey of Devours, to be swallowed with it.
+class Aq40CthunJoinDevourAction : public MovementAction
+{
+public:
+    Aq40CthunJoinDevourAction(PlayerbotAI* botAI) : MovementAction(botAI, "aq40 cthun join devour") {}
+    bool Execute(Event event) override;
+};
+
 #endif

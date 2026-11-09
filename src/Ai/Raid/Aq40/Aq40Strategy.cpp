@@ -56,12 +56,22 @@ void RaidAq40Strategy::InitTriggers(std::vector<TriggerNode*>& triggers)
         "aq40 sartura mark", { NextAction("aq40 sartura mark", ACTION_RAID) }));
     triggers.push_back(new TriggerNode(
         "aq40 sartura dancers", { NextAction("aq40 sartura avoid dancer", ACTION_EMERGENCY + 3) }));
+    // CoA Combat: Viscidus frozen then shattered (VS1), the emperors apart (TW1), melee down with the prey (CT1).
+    triggers.push_back(new TriggerNode(
+        "aq40 viscidus frost", { NextAction("aq40 viscidus frost", ACTION_RAID + 1) }));
+    triggers.push_back(new TriggerNode(
+        "aq40 viscidus shatter", { NextAction("aq40 viscidus shatter", ACTION_RAID + 1) }));
+    triggers.push_back(new TriggerNode(
+        "aq40 twin emperors apart", { NextAction("aq40 twin emperors apart", ACTION_RAID + 2) }));
+    triggers.push_back(new TriggerNode(
+        "aq40 cthun join devour", { NextAction("aq40 cthun join devour", ACTION_EMERGENCY + 3) }));
 }
 
 void RaidAq40Strategy::InitMultipliers(std::vector<Multiplier*>& multipliers)
 {
     multipliers.push_back(new Aq40CthunMultiplier(botAI));
     multipliers.push_back(new Aq40SkeramMultiplier(botAI));
+    multipliers.push_back(new Aq40SarturaInterruptMultiplier(botAI));
 }
 
 void RaidAq40Strategy::AppendTargetExclusions(GuidSet& exclusions, TargetValueExclusionType type)

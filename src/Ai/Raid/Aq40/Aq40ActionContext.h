@@ -24,6 +24,10 @@ public:
         creators["aq40 cthun avoid devour"] = &RaidAq40ActionContext::avoid_devour;
         creators["aq40 sartura avoid dancer"] = &RaidAq40ActionContext::sartura_avoid_dancer;
         creators["aq40 sartura mark"] = &RaidAq40ActionContext::sartura_mark;
+        creators["aq40 viscidus frost"] = &RaidAq40ActionContext::viscidus_frost;
+        creators["aq40 viscidus shatter"] = &RaidAq40ActionContext::viscidus_shatter;
+        creators["aq40 twin emperors apart"] = &RaidAq40ActionContext::twin_emperors_apart;
+        creators["aq40 cthun join devour"] = &RaidAq40ActionContext::cthun_join_devour;
         creators["aq40 cthun spit out"] = &RaidAq40ActionContext::spit_out;
         creators["aq40 cthun move to spot"] = &RaidAq40ActionContext::move_to_spot;
         creators["aq40 cthun attack"] = &RaidAq40ActionContext::attack;
@@ -50,6 +54,10 @@ private:
     {
         return new RaidKillOrderMarkAction(ai, "aq40 sartura mark", "battleguard sartura", {CoaAq40::NPC_PHANTOM_DANCER});
     }
+    static Action* viscidus_frost(PlayerbotAI* ai) { return new Aq40ViscidusFrostAction(ai); }
+    static Action* viscidus_shatter(PlayerbotAI* ai) { return new Aq40ViscidusShatterAction(ai); }
+    static Action* twin_emperors_apart(PlayerbotAI* ai) { return new Aq40TwinEmperorsApartAction(ai); }
+    static Action* cthun_join_devour(PlayerbotAI* ai) { return new Aq40CthunJoinDevourAction(ai); }
 };
 
 #endif

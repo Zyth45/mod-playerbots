@@ -28,6 +28,10 @@ public:
         creators["aq40 skeram gaze spread"] = &RaidAq40TriggerContext::skeram_gaze_spread;
         creators["aq40 sartura dancers"] = &RaidAq40TriggerContext::sartura_dancers;
         creators["aq40 sartura mark"] = &RaidAq40TriggerContext::sartura_mark;
+        creators["aq40 viscidus frost"] = &RaidAq40TriggerContext::viscidus_frost;
+        creators["aq40 viscidus shatter"] = &RaidAq40TriggerContext::viscidus_shatter;
+        creators["aq40 twin emperors apart"] = &RaidAq40TriggerContext::twin_emperors_apart;
+        creators["aq40 cthun join devour"] = &RaidAq40TriggerContext::cthun_join_devour;
     }
 
 private:
@@ -44,6 +48,10 @@ private:
     static Trigger* skeram_gaze_spread(PlayerbotAI* ai) { return new Aq40SkeramGazeSpreadTrigger(ai); }
     static Trigger* sartura_dancers(PlayerbotAI* ai) { return new Aq40SarturaDancersTrigger(ai); }
     static Trigger* sartura_mark(PlayerbotAI* ai) { return new Aq40SarturaMarkTrigger(ai); }
+    static Trigger* viscidus_frost(PlayerbotAI* ai) { return new Aq40ViscidusFrostTrigger(ai); }
+    static Trigger* viscidus_shatter(PlayerbotAI* ai) { return new Aq40ViscidusShatterTrigger(ai); }
+    static Trigger* twin_emperors_apart(PlayerbotAI* ai) { return new Aq40TwinEmperorsApartTrigger(ai); }
+    static Trigger* cthun_join_devour(PlayerbotAI* ai) { return new Aq40CthunJoinDevourTrigger(ai); }
 };
 
 #endif
