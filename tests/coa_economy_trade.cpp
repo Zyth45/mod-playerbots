@@ -36,6 +36,10 @@ int main()
     assert(!IsLaterExpansion(20000, 60, 70, false)); // out of the later expansions' id range
     assert(!IsLaterExpansion(21500, 50, 50, false)); // low requirements: kept
 
+    // Clickable links: a profession rank (spell) and a recipe (trade skill).
+    assert(SpellChatLink(3910, "Tailoring", false) == "|cff71d5ff|Hspell:3910|h[Tailoring]|h|r");
+    assert(SpellChatLink(3914, "Brown Linen Vest", true) == "|cffffd000|Henchant:3914|h[Brown Linen Vest]|h|r");
+
     // A bot listing: 85 % (impatient) to 105 % (patient) of the reference, times the stack.
     assert(BotListingPrice(1000, 0.0f, 1) == 850);
     assert(BotListingPrice(1000, 1.0f, 1) == 1050);

@@ -50,6 +50,11 @@ namespace CoaEconomy::Artisans
     // The profession's name in the bot's language (English when it has none).
     std::string ProfessionName(Player* bot, uint32 skillId);
 
+    // Clickable links for the chat: the profession (the bot's highest rank of it, a spell link; its name as text if it
+    // has none) and a recipe (the trade skill link the client makes when one shift-clicks a recipe).
+    std::string ProfessionLink(Player* bot, uint32 skillId);
+    std::string RecipeLink(Player* bot, Recipe const& recipe);
+
     // One item's market price (learned price, else the house bot's, else a vendor-based guess), copper.
     uint64 MarketPrice(uint32 itemId);
 }

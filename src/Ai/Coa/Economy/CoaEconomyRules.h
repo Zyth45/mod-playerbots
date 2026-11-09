@@ -14,6 +14,7 @@
 #include <cmath>
 #include <cstdint>
 #include <map>
+#include <string>
 
 namespace CoaEconomyRules
 {
@@ -216,6 +217,13 @@ inline bool BotMayList(std::uint32_t itemClass, bool crafted, bool soldByVendor,
     if (IsAmmo(itemClass) || laterExpansion || soldByVendor)
         return false;
     return itemClass != 0 || crafted;
+}
+
+// Chat links the 3.3.5 client makes clickable: a spell (blue) and a trade skill recipe (gold, the shift-click link).
+inline std::string SpellChatLink(std::uint32_t spellId, std::string const& name, bool recipe)
+{
+    return std::string(recipe ? "|cffffd000|Henchant:" : "|cff71d5ff|Hspell:") + std::to_string(spellId) + "|h[" +
+           name + "]|h|r";
 }
 
 inline bool WantsVendor(bool rpgSellOn, std::uint32_t bagUsedPercent, std::uint32_t thresholdPercent, bool canSell)
