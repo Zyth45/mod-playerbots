@@ -318,7 +318,9 @@ void AiFactory::AddDefaultCombatStrategies(Player* player, PlayerbotAI* const fa
         engine->addStrategy("coa combat stuck combat", false);
         engine->addStrategy("coa combat telegraph", false);
         engine->addStrategy("coa combat pursuit stop", false);
-        engine->addStrategy("coa combat call of the grave", false);
+        // Only with its option on (restart): with it off, no bot evaluates its triggers.
+        if (sPlayerbotAIConfig.coaCombatCallOfTheGraveEnable)
+            engine->addStrategy("coa combat call of the grave", false);
     }
 
     // CoA: a grouped bot steps out of ground effects too, not only one a real player leads: in headless dungeon runs
