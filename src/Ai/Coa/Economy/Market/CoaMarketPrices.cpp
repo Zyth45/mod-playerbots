@@ -4,6 +4,7 @@
  * or (at your option) any later version.
  */
 
+#include "CoaEconomyDb.h"
 #include "CoaMarketPrices.h"
 
 #include "AccountMgr.h"
@@ -65,12 +66,10 @@ void MarketPrices::LoadFromDatabase()
 
     _houseAccountId = AccountMgr::GetId(HouseAccountName);
 
-    QueryResult exists = PlayerbotsDatabase.Query(
-        "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = '{}'", TableName);
-    _tableExists = exists && exists->Fetch()[0].Get<uint64>() > 0;
+    _tableExists = Db::HasTable(TableName, {"item", "usual", "low", "high", "sales", "updated"});
     if (!_tableExists)
     {
-        LOG_ERROR("server.loading", "CoA Economy: table {} is missing from the playerbots database; market prices are learned "
+        LOG_ERROR("server.loading", "CoA Economy: table {} is missing or out of date in the playerbots database; market prices are learned "
             "for this session only", TableName);
         return;
     }
