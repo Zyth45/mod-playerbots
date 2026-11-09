@@ -5,6 +5,8 @@
  */
 
 #include "LootAction.h"
+
+#include <vector>
 #include "BroadcastHelper.h"
 #include "ChatHelper.h"
 #include "Event.h"
@@ -199,11 +201,25 @@ uint32 OpenLootAction::GetOpeningSpell(LootObject& lootObject, GameObject* go)
             return spellId;
     }
 
-    for (uint32 spellId = 0; spellId < sSpellMgr->GetSpellInfoStoreSize(); spellId++)
+    // CoA: the whole spell store (over 700,000 ids with the CoA spells) was walked on every chest no known spell
+    // opens: up to 96 ms a call (bench a15). CanOpenLock refuses any spell whose first effect opens no lock, so only
+    // those are kept, once, in the same ascending order: the same spell is found.
+    static std::vector<uint32> const openers = []()
     {
-        if (spellId == MINING || spellId == HERB_GATHERING)
-            continue;
-
+        std::vector<uint32> ids;
+        for (uint32 spellId = 0; spellId < sSpellMgr->GetSpellInfoStoreSize(); spellId++)
+        {
+            if (spellId == MINING || spellId == HERB_GATHERING)
+                continue;
+            SpellInfo const* spellInfo = sSpellMgr->GetSpellInfo(spellId);
+            if (spellInfo && (spellInfo->Effects[EFFECT_0].Effect == SPELL_EFFECT_OPEN_LOCK ||
+                              spellInfo->Effects[EFFECT_0].Effect == SPELL_EFFECT_SKINNING))
+                ids.push_back(spellId);
+        }
+        return ids;
+    }();
+    for (uint32 spellId : openers)
+    {
         SpellInfo const* spellInfo = sSpellMgr->GetSpellInfo(spellId);
         if (!spellInfo)
             continue;
