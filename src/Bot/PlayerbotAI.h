@@ -714,6 +714,9 @@ public:
     bool coaBgBotOnly = false;
     uint32 coaBgCheckMs = 0;
     uint32 coaBgWaitMs = 0;
+    // CoA World (SlowIdleTriggers): the last AllowActive(ALL_ACTIVITY) kept the bot active for a reason of its own (real
+    // player near, group, queue, instance...), not by the rotation.
+    bool coaForcedActive = true;
 };
 
 #endif

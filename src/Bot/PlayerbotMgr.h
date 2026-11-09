@@ -53,12 +53,6 @@ public:
     void UpdateAIInternal([[maybe_unused]] uint32 elapsed, [[maybe_unused]] bool minimal = false) override{};
     void UpdateSessions();
     void HandleBotPackets(WorldSession* session);
-    // --- CoA World (CoA Monde session) ---
-    // With AiPlayerbot.CoaWorld.BotPacketsInMapThread, the bot's PROCESS_THREADSAFE packets are handled in its map's
-    // thread (mapThread = true, from OnPlayerAfterUpdate) and the others in the world thread, as for a real
-    // player's session; each side stops at the first packet that is the other's, so the order is kept.
-    static void HandleBotPacketsSplit(WorldSession* session, bool mapThread);
-    // --- end CoA World ---
 
     void LogoutAllBots();
     void OnBotLogin(Player* const bot);

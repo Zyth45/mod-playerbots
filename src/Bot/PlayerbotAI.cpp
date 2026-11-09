@@ -5492,6 +5492,10 @@ bool PlayerbotAI::AllowActive(ActivityType activityType)
     if (activityType == PACKET_ACTIVITY)
         return true;
 
+    // CoA World (SlowIdleTriggers): forced active unless the rotation below decides.
+    if (activityType == ALL_ACTIVITY)
+        coaForcedActive = true;
+
     // all bots forced active, no rotation or scaling needed
     if (sPlayerbotAIConfig.botActiveAlone >= 100 && !sPlayerbotAIConfig.botActiveAloneSmartScale)
         return true;
@@ -5650,6 +5654,10 @@ bool PlayerbotAI::AllowActive(ActivityType activityType)
                 return true;
         }
     }
+
+    // CoA World (SlowIdleTriggers): nothing above forces this bot to stay active.
+    if (activityType == ALL_ACTIVITY)
+        coaForcedActive = false;
 
     // pathfinding only runs for bots forced active by the rules above —
     // skip it for bots that would only be active via random rotation

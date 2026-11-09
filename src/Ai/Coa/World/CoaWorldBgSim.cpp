@@ -15,9 +15,9 @@
  * spawned in the world and sells it for honor (npc_vendor + ItemExtendedCost), with the item's reputation needs.
  * Nothing is hard-coded: when CoA opens such vendors, the bots use them.
  *
- * BgSim.ReplaceAutoJoin (default 1, user's choice of 09/11): the bots no longer start real battlegrounds and arenas
- * by themselves (RandomBotAutoJoinBG): real battles start for real players, whose queues the bots fill at once
- * (RequestBgCheck when a real player queues).
+ * BgSim.ReplaceAutoJoin (default 0, user's choice of 09/11: bot battlegrounds keep the world alive): 1, the bots
+ * no longer start real battlegrounds and arenas by themselves (RandomBotAutoJoinBG). Always: when a real player
+ * queues, the bots look at the queues at once (RequestBgCheck) instead of up to 35 s later.
  * World thread only. Off by default (BgSim.Enable).
  */
 
@@ -62,7 +62,7 @@ constexpr uint32 RETURN_WAIT_SECONDS = 15 * MINUTE;
 struct Settings
 {
     bool enabled = false;
-    bool replaceAutoJoin = true;
+    bool replaceAutoJoin = false;
     uint32 matches = 2;               // at the same time
     uint32 intervalSeconds = 300;     // between two starts
     uint32 botCooldownMinutes = 60;
@@ -435,7 +435,7 @@ void LoadSettings()
 {
     auto key = [](char const* name) { return std::string(PREFIX) + name; };
     settings.enabled = sConfigMgr->GetOption<bool>(key("Enable"), false, false);
-    settings.replaceAutoJoin = sConfigMgr->GetOption<bool>(key("ReplaceAutoJoin"), true, false);
+    settings.replaceAutoJoin = sConfigMgr->GetOption<bool>(key("ReplaceAutoJoin"), false, false);
     settings.matches = std::min<uint32>(10, sConfigMgr->GetOption<uint32>(key("Matches"), 2, false));
     settings.intervalSeconds = sConfigMgr->GetOption<uint32>(key("IntervalSeconds"), 300, false);
     settings.botCooldownMinutes = sConfigMgr->GetOption<uint32>(key("BotCooldownMinutes"), 60, false);
@@ -473,14 +473,14 @@ public:
 
     bool OnPlayerCanJoinInBattlegroundQueue(Player* player, ObjectGuid, BattlegroundTypeId, uint8, GroupJoinBattlegroundResult&) override
     {
-        if (settings.replaceAutoJoin && IsHumanPlayer(player))
+        if (IsHumanPlayer(player))
             sRandomPlayerbotMgr.RequestBgCheck();
         return true;
     }
 
     bool OnPlayerCanJoinInArenaQueue(Player* player, ObjectGuid, uint8, BattlegroundTypeId, uint8, uint8, GroupJoinBattlegroundResult&) override
     {
-        if (settings.replaceAutoJoin && IsHumanPlayer(player))
+        if (IsHumanPlayer(player))
             sRandomPlayerbotMgr.RequestBgCheck();
         return true;
     }
