@@ -11,6 +11,8 @@
  *    sight of real players, CoA World's borrowing) and stay GatherMinutes, then go back to their lives;
  *  - party5: a party of 5 for a dungeon, one tank, one healer, damage dealers, by the bots' recruiter (RecruitCoaBot);
  *  - raid10 / raid15 / raid25: a raid built as ".playerbots coa raid" (RecruitCoaRaid, its roles and its flags).
+ *  For both, the bots of the player's guild first, then random bots to complete, none taken from a dungeon, raid or
+ *  battleground (SquidBot's onlyGuildId / preferGuildId, bb468166).
  * One activity at a time per player, then ActivityCooldownMinutes before the next. World thread.
  */
 
@@ -142,7 +144,9 @@ bool Party5(Player* player, std::string& reason)
     while (members < 5)
     {
         CoaRole const role = !tank ? CoaRole::Tank : !heal ? CoaRole::Heal : CoaRole::Dps;
-        if (!RecruitCoaBot(player, role, message))
+        // A bot of the guild first, then any random bot; never one standing in a dungeon, raid or battleground.
+        if (!RecruitCoaBot(player, role, message, 0, player->GetGuildId(), true) &&
+            !RecruitCoaBot(player, role, message, 0, 0, true))
             break;
         any = true;
         ++members;
@@ -262,7 +266,7 @@ std::vector<std::string> CoaWorldGuildActivityStart(Player* player, std::vector<
     else
     {
         std::string message;
-        built = RecruitCoaRaid(player, uint32(std::stoul(kind.substr(4))), 0, 0, message);
+        built = RecruitCoaRaid(player, uint32(std::stoul(kind.substr(4))), 0, 0, message, player->GetGuildId());
         if (!built)
             reason = message.find("group") != std::string::npos ? "ingroup" : "nobots";
     }
