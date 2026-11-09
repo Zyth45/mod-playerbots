@@ -151,11 +151,11 @@ constexpr uint32 GEDDON_BURNING_GROUND_AURAS[] = {2105713, 2105714, 2105715, 210
 
 // CoA Combat (bench a12): the debuffs the raid removes first, from the tanks down. Curses: Curse of Gehennas (stock
 // 19716, CoA 2105416 on the whole raid, -50 % healing taken, and Cull the Destroyer's 2105974), the Ancient Core
-// Hounds' Ancient Hysteria (19372, -25 % stats). Magic: Shazzrah's Arcane Instability (2105606 on the whole raid,
+// Hounds' Ancient Hysteria (19372 and CoA 2105311, -25 % stats), CoA's Curse of Lucifron (2105207). Magic: Shazzrah's Arcane Instability (2105606 on the whole raid,
 // +100 % magic damage taken, 5 min; Proxima's 2105970), Withering Heat (19367, -25 % health), Incite Flames (19635)
 // and Flame Buffet (16168, +5 % fire damage taken a stack). The removal spell follows the aura's own dispel type.
-constexpr uint32 MC_RAID_DISPEL_AURAS[] = {2105416, 19716, 2105974, 2105606, 2105970,
-                                           19367, 19372, 16168, 19635};
+constexpr uint32 MC_RAID_DISPEL_AURAS[] = {2105416, 19716, 2105974, 2105606, 2105970, 19367,
+                                           19372, 2105311, 2105207, 16168, 19635};
 
 // CoA Combat (R1): Garr's Firesworn erupt when they die, 12 yd around them (CoA cut the 100 yd radius down to 12).
 constexpr uint32 NPC_GARR_FIRESWORN = 12099;
