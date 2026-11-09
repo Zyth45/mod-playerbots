@@ -3069,6 +3069,14 @@ AiPlayerbot.CoaWorld.Leveling.SameContinentPct = 70
 
 AiPlayerbot.CoaWorld.BotPacketsInMapThread = 0
 
+#    AiPlayerbot.CoaWorld.DpsTargetCache
+#        Description: Performance. The bots' "dps target" (the enemy a damage dealer picks) is kept for one AI pass
+#                     (100 ms) instead of being searched again on every call; a target that dies or leaves is
+#                     searched again at once. Read when a bot's AI is made (start-up, login).
+#        Default:     0 - off
+
+AiPlayerbot.CoaWorld.DpsTargetCache = 0
+
 #    AiPlayerbot.CoaWorld.StateFile.Enable
 #        Description: monde.json for the CoA Dashboard: the current invasions, gathering rushes, guilds online,
 #                     last guild orders, last server firsts and the recovery counts of the last 24 hours. Written

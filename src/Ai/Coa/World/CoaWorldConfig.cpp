@@ -14,4 +14,5 @@
 void PlayerbotAIConfig::LoadCoaWorldConfig()
 {
     coaBotPacketsInMapThread = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaWorld.BotPacketsInMapThread", false, false);
+    coaDpsTargetCache = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaWorld.DpsTargetCache", false, false);
 }
