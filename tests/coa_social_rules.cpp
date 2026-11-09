@@ -62,8 +62,20 @@ int main()
     other.distance = 31.0f;
     assert(Decide(bot, other) == Act::None);
 
-    // Pace: invites are rare, raises and help immediate.
-    assert(PlayerCooldownS(Act::Invite) == 1800 && ChancePct(Act::Invite) == 15);
+    // Never asked to group in a city, a village, an inn or a sanctuary: a buff in passing there.
+    PlayerView town = p;
+    town.inSettlement = true;
+    assert(Decide(bot, town) == Act::Buff);
+    assert(IsSettlement(0x100, 0, false));        // capital
+    assert(IsSettlement(0, 0x00200000, false));   // town with an inn
+    assert(IsSettlement(0, 0x08, false));         // a district of a capital
+    assert(IsSettlement(0, 0x800, false));        // sanctuary
+    assert(IsSettlement(0, 0, true));             // resting (an inn anywhere)
+    assert(!IsSettlement(0x40, 0x40, false));     // a forest where duels are allowed
+
+    // Pace: one ask an hour per player by default (all bots together), raises and help immediate.
+    assert(PlayerCooldownS(Act::Invite) == 3600 && PlayerCooldownS(Act::Invite, 600) == 600);
+    assert(ChancePct(Act::Invite) == 15);
     assert(ChancePct(Act::Rez) == 100 && PlayerCooldownS(Act::None) == 0 && ChancePct(Act::None) == 0);
     return 0;
 }

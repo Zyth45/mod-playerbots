@@ -697,11 +697,8 @@ public:
     bool coaFreshStartEnable;  // AiPlayerbot.CoaFreshStart.Enable (launch of a new living realm)
     bool coaLiveImmersionEnable;  // AiPlayerbot.CoaLive.Immersion.Enable (L2 fishing)
     bool coaLiveCityEnable;  // AiPlayerbot.CoaLive.City.Enable (L2 City Life)
-    bool coaLiveSocialEnable;  // AiPlayerbot.CoaLive.Social.Enable (L2 social bots)
-    std::vector<uint32> coaLiveSessionsCurve;  // 24 percentages
-    uint32 coaLiveSessionsWeekendBonus;
-    uint32 coaLiveSessionsMinPercent;
-    int32 coaLiveSessionsHourShift;
+    bool coaLiveSocialEnable;
+    uint32 coaLiveSocialInviteCooldownMinutes;  // AiPlayerbot.CoaLive.Social.InviteCooldownMinutes  // AiPlayerbot.CoaLive.Social.Enable (L2 social bots)
     // ---- end of CoA Live ----
 
     // ---- CoA World (LoadCoaWorldConfig, CoaWorldConfig.cpp) ----

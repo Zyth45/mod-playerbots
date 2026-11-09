@@ -35,6 +35,7 @@ struct PlayerView
     uint32_t attackers = 0;
     uint32_t level = 1;
     float distance = 0.0f;
+    bool inSettlement = false;    // a city, a town, an inn or a sanctuary: never asked to group there
 };
 
 struct BotView
@@ -44,6 +45,18 @@ struct BotView
     bool inInstance = false;
     bool canHeal = false;
 };
+
+// A capital and its districts, a town with an inn, a rest area or a sanctuary (AreaTable flags): where a player
+// does not want to be asked to group (user, 09/11).
+constexpr uint32_t SETTLEMENT_AREA_FLAGS = 0x00000008 /* slave capital */ | 0x00000020 /* slave capital 2 */ |
+                                         0x00000100 /* capital */ | 0x00000200 /* city */ |
+                                         0x00000800 /* sanctuary */ | 0x00200000 /* town */ |
+                                         0x00400000 /* rest zone horde */ | 0x00800000 /* rest zone alliance */;
+
+inline bool IsSettlement(uint32_t zoneFlags, uint32_t areaFlags, bool resting)
+{
+    return resting || ((zoneFlags | areaFlags) & SETTLEMENT_AREA_FLAGS) != 0;
+}
 
 constexpr float ACT_RANGE = 30.0f;
 constexpr uint32_t INVITE_LEVEL_GAP = 3;
@@ -64,21 +77,24 @@ inline Act Decide(BotView const& bot, PlayerView const& p)
         return bot.canHeal || bot.level + HELP_LEVEL_GAP >= p.level ? Act::Help : Act::None;
     if (p.inCombat)
         return Act::None;
-    if (!p.inGroup && !bot.inGroup && !bot.inInstance &&
+    // Only out in the wild (a forest, the countryside): never in a city, a village, an inn or a sanctuary.
+    if (!p.inGroup && !bot.inGroup && !bot.inInstance && !p.inSettlement &&
         (bot.level > p.level ? bot.level - p.level : p.level - bot.level) <= INVITE_LEVEL_GAP)
         return Act::Invite;  // the game side tries a buff first when the invite is on cooldown
     return Act::Buff;
 }
 
 // How long before any bot does the same thing for the same player again (seconds), and the chance per look.
-inline uint32_t PlayerCooldownS(Act a)
+// inviteS: AiPlayerbot.CoaLive.Social.InviteCooldownMinutes (one ask an hour per player by default, all bots
+// together: user, 09/11).
+inline uint32_t PlayerCooldownS(Act a, uint32_t inviteS = 3600)
 {
     switch (a)
     {
         case Act::Rez: return 60;
         case Act::Help: return 20;
         case Act::Buff: return 600;
-        case Act::Invite: return 1800;
+        case Act::Invite: return inviteS;
         default: return 0;
     }
 }

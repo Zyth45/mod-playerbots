@@ -9,6 +9,8 @@
 #include "AuctionHouseMgr.h"
 #include "Bag.h"
 #include "CellImpl.h"
+#include "Channel.h"
+#include "ChannelMgr.h"
 #include "ChatHelper.h"
 #include "Chat.h"
 #include "AttackAction.h"
@@ -361,6 +363,34 @@ void SendCod(Player* bot, Player* to, Item* item, uint32 price)
 
 std::unordered_map<std::string, WhisperHandler> whisperHandlers;  // other sessions' intents (under liveLock)
 
+// The Trade channel of the CoA client: ChatChannels.dbc id 4, named "Trade" (id 2 is "Newcomers" there, not the
+// "Trade - City" of the stock client, so the stock Trade code never reached the players' /4). World thread.
+constexpr uint32 COA_TRADE_CHANNEL_ID = 4;
+std::unordered_set<uint64> tradeJoined;  // bot raw guid -> joined Trade by CoA Live (world thread only)
+
+bool SayInTrade(Player* bot, std::string const& text)
+{
+    ChannelMgr* cMgr = ChannelMgr::forTeam(bot->GetTeamId());
+    if (!cMgr)
+        return false;
+    for (auto const& [key, channel] : cMgr->GetChannels())
+    {
+        if (!channel || channel->GetChannelId() != COA_TRADE_CHANNEL_ID || channel->GetName().empty())
+            continue;
+        uint64 const k = bot->GetGUID().GetRawValue();
+        if (!tradeJoined.count(k))
+        {
+            channel->JoinChannel(bot, "");
+            tradeJoined.insert(k);
+            if (tradeJoined.size() > 20000)
+                tradeJoined.clear();
+        }
+        channel->Say(bot->GetGUID(), text, LANG_UNIVERSAL);
+        return true;
+    }
+    return false;  // no player has the channel open: nobody would read it
+}
+
 // World thread: plays the lines the filter takes out of the queue.
 template <class Due>
 void Play(Due isDue)
@@ -417,8 +447,7 @@ void Play(Due isDue)
                         botAI->SayToChannelNow(p.text, ChatChannelId::GENERAL);
                     break;
                 case CH_TRADE:
-                    if (botAI)
-                        botAI->SayToChannelNow(p.text, ChatChannelId::TRADE);
+                    SayInTrade(bot, p.text);
                     break;
                 case CH_LFG:
                     if (botAI)
@@ -476,7 +505,8 @@ bool SocialDue(CoaSocial::Act act, Player* p, uint64 nowS)
 {
     std::lock_guard<std::mutex> guard(liveLock);
     auto it = socialLast.find(SocialKey(act, p));
-    return it == socialLast.end() || nowS >= it->second + CoaSocial::PlayerCooldownS(act);
+    return it == socialLast.end() ||
+           nowS >= it->second + CoaSocial::PlayerCooldownS(act, sPlayerbotAIConfig.coaLiveSocialInviteCooldownMinutes * 60);
 }
 
 void SocialDone(CoaSocial::Act act, Player* p, uint64 nowS)
@@ -531,6 +561,12 @@ bool Social(Player* bot, PlayerbotAI* botAI, std::list<Player*> const& nearby)
         pv.inCombat = p->IsInCombat();
         pv.inGroup = p->GetGroup() != nullptr;
         pv.healthPct = static_cast<uint32>(p->GetHealthPct());
+        {
+            AreaTableEntry const* zone = sAreaTableStore.LookupEntry(p->GetZoneId());
+            AreaTableEntry const* area = sAreaTableStore.LookupEntry(p->GetAreaId());
+            pv.inSettlement = CoaSocial::IsSettlement(zone ? zone->flags : 0, area ? area->flags : 0,
+                                                      p->HasPlayerFlag(PLAYER_FLAGS_RESTING));
+        }
         pv.attackers = static_cast<uint32>(p->getAttackers().size());
         pv.level = p->GetLevel();
         pv.distance = bot->GetDistance(p);
@@ -1224,6 +1260,8 @@ public:
     // World thread, the bot still in the world: its goodbye is said at once, it will not be there later.
     void OnPlayerLogout(Player* player) override
     {
+        if (player)
+            tradeJoined.erase(player->GetGUID().GetRawValue());  // its channels are left with it: join again next time
         if (!Enabled() || !player || !player->GetGuildId() || !IsRandom(player) ||
             !RealOnlineInGuild(player->GetGuildId(), nullptr))
             return;
@@ -1466,30 +1504,9 @@ bool IsFishing(Player* bot)
     return fishingUntil.count(bot->GetGUID().GetRawValue()) != 0;
 }
 
-namespace
-{
-uint32 HourPercentNow()
-{
-    time_t const now = GameTime::GetGameTime().count() + time_t(sPlayerbotAIConfig.coaLiveSessionsHourShift) * HOUR;
-    tm const local = Acore::Time::TimeBreakdown(now);
-    CoaSessions::Curve curve = CoaSessions::DefaultCurve();
-    if (sPlayerbotAIConfig.coaLiveSessionsCurve.size() == curve.size())
-        std::copy(sPlayerbotAIConfig.coaLiveSessionsCurve.begin(), sPlayerbotAIConfig.coaLiveSessionsCurve.end(),
-                  curve.begin());
-    return CoaSessions::HourPercent(curve, local.tm_hour, local.tm_min, local.tm_wday,
-                                    sPlayerbotAIConfig.coaLiveSessionsWeekendBonus,
-                                    sPlayerbotAIConfig.coaLiveSessionsMinPercent);
-}
-}  // namespace
-
-uint32 SessionTarget(uint32 count)
-{
-    return SessionsEnabled() ? CoaSessions::Target(count, HourPercentNow()) : count;
-}
-
 uint32 SessionSeconds() { return SessionsEnabled() ? CoaSessions::SessionSeconds(rng.between) : 0; }
 
-uint32 OfflineSeconds() { return SessionsEnabled() ? CoaSessions::OfflineSeconds(HourPercentNow(), rng.between) : 0; }
+uint32 OfflineSeconds() { return SessionsEnabled() ? CoaSessions::OfflineSeconds(rng.between) : 0; }
 
 bool SayLine(Player* bot, std::string const& situation, std::unordered_map<std::string, std::string> const& slots)
 {
