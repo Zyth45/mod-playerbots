@@ -4965,3 +4965,14 @@ AiPlayerbot.CoaCombat.LootNeedMinUpgradePct = 0
 #                  1 - (Enabled)
 
 AiPlayerbot.CoaCombat.LootNeedEpicOnly = 0
+
+#
+# AiPlayerbot.CoaCombat.CallOfTheGrave.Enable
+#     Description: Dire Maul West, Eldreth Spectre and Phantasm: Call of the Grave is a curse on everyone within 5 yd
+#                  that deals all its damage at once after 60 s (more than a damage dealer's health in mythic). Every
+#                  bot that can remove a curse removes it first, and the melee damage dealers keep out of the
+#                  casters' 5 yd. Works in a group led by a player and in Dungeon Clear runs.
+#     Default:     0 - (Disabled)
+#                  1 - (Enabled)
+
+AiPlayerbot.CoaCombat.CallOfTheGrave.Enable = 0

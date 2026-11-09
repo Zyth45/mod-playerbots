@@ -748,6 +748,8 @@ public:
     // and only on epic or better items (off).
     float coaCombatLootNeedMinUpgradePct = 0.0f;
     bool coaCombatLootNeedEpicOnly = false;
+    // Call of the Grave (Dire Maul West): the curse removed first, the melee out of its casters' 5 yd.
+    bool coaCombatCallOfTheGraveEnable = false;
     // ---- end of CoA Combat ----
 
 private:
