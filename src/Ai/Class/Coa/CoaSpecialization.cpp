@@ -916,7 +916,7 @@ static bool CoaRecruitNeedsRebuild(Player* master, Player* bot, uint32 levelTole
 }
 
 Player* FindCoaRecruit(Player* master, CoaRole role, uint8 classId, std::set<ObjectGuid> const& skip, bool& chosenFits,
-                       uint32 levelTolerance)
+                       uint32 levelTolerance, uint32 onlyGuildId, bool noInstance)
 {
     // A free random bot whose class can fill the role, preferably on the master's map (a
     // dungeon instance has none, so any map will do), then one that already holds a
@@ -933,6 +933,11 @@ Player* FindCoaRecruit(Player* master, CoaRole role, uint8 classId, std::set<Obj
             bot->IsInCombat() || bot->GetGroup() ||
             bot->GetGroupInvite() || bot->InBattleground() || bot->InBattlegroundQueue() || bot->IsInFlight() ||
             sLFGMgr->GetState(bot->GetGUID()) != lfg::LFG_STATE_NONE)
+            continue;
+
+        // The guild activities (CoA World): a bot of the player's guild, never one inside an instance.
+        if ((onlyGuildId && bot->GetGuildId() != onlyGuildId) ||
+            (noInstance && bot->GetMap() && bot->GetMap()->Instanceable()))
             continue;
 
         // Already offered to another player (lfg bots) or otherwise set aside by the caller.
@@ -1232,7 +1237,7 @@ bool CoaInOtherInstance(Player* bot, Player* master)
     return bot && master && bot->GetMapId() == master->GetMapId() && bot->GetInstanceId() != master->GetInstanceId();
 }
 
-bool RecruitCoaBot(Player* master, CoaRole role, std::string& message, uint8 classId)
+bool RecruitCoaBot(Player* master, CoaRole role, std::string& message, uint8 classId, uint32 onlyGuildId, bool noInstance)
 {
     Group* group = master->GetGroup();
     if (group && group->IsFull())
@@ -1248,7 +1253,7 @@ bool RecruitCoaBot(Player* master, CoaRole role, std::string& message, uint8 cla
     }
 
     bool chosenFits = false;
-    Player* chosen = FindCoaRecruit(master, role, classId, {}, chosenFits);
+    Player* chosen = FindCoaRecruit(master, role, classId, {}, chosenFits, 0, onlyGuildId, noInstance);
     if (!chosen)
     {
         if (PlayerbotFactory::SelfFoundAt(master->GetLevel()))
@@ -1658,7 +1663,7 @@ bool CoaQueueMainTankSync(Player* bot)
     return PlayerbotWorldThreadProcessor::instance().QueueOperation(std::move(op));
 }
 
-bool RecruitCoaRaid(Player* master, uint32 size, uint32 tanks, uint32 heals, std::string& message)
+bool RecruitCoaRaid(Player* master, uint32 size, uint32 tanks, uint32 heals, std::string& message, uint32 preferGuildId)
 {
     size = std::clamp<uint32>(size ? size : 25, 6, MAXRAIDSIZE);
     CoaRaidRoles(size, tanks, heals);
@@ -1748,13 +1753,24 @@ bool RecruitCoaRaid(Player* master, uint32 size, uint32 tanks, uint32 heals, std
 
             bool recruited = false;
             std::string reason;
-            for (uint8 classId : classes)
-                if (RecruitCoaBot(master, role, reason, classId))
-                {
-                    ++classCount[classId];
-                    recruited = true;
-                    break;
-                }
+            bool const noInstance = preferGuildId != 0;
+            // The guild activities: a bot of the player's guild first, of any class that can play the role.
+            if (preferGuildId)
+                for (uint8 classId : classes)
+                    if (RecruitCoaBot(master, role, reason, classId, preferGuildId, true))
+                    {
+                        ++classCount[classId];
+                        recruited = true;
+                        break;
+                    }
+            if (!recruited)
+                for (uint8 classId : classes)
+                    if (RecruitCoaBot(master, role, reason, classId, 0, noInstance))
+                    {
+                        ++classCount[classId];
+                        recruited = true;
+                        break;
+                    }
             if (!recruited)
             {
                 stopped += " No free bot left to play " + std::string(RoleName(role)) + ".";
