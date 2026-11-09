@@ -23,6 +23,8 @@ void AddSC_coa_world_state();
 void AddSC_coa_world_addon();
 void AddSC_coa_world_bg_pace();
 void AddSC_coa_world_bg_sim();
+void AddSC_coa_world_charters();
+void AddSC_coa_world_guild_presence();
 
 void AddCoaWorldScripts()
 {
@@ -41,4 +43,6 @@ void AddCoaWorldScripts()
     AddSC_coa_world_addon();
     AddSC_coa_world_bg_pace();
     AddSC_coa_world_bg_sim();
+    AddSC_coa_world_charters();
+    AddSC_coa_world_guild_presence();
 }

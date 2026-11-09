@@ -4,6 +4,7 @@
  * or (at your option) any later version.
  */
 
+#include "CoaWorldGuildPresence.h"
 #include "CoaWorldBgSim.h"
 #include "RandomPlayerbotMgr.h"
 
@@ -823,6 +824,8 @@ uint32 RandomPlayerbotMgr::AddRandomBots()
             // --- CoA World (CoA Monde session) ---
             // Density: the accounts with a character in a real player's zone log in first (CoaWorldDensity).
             CoaWorldDensityOrderAccounts(shuffledAccounts);
+            // A real player's guild: its bot members first (Guilds.PlayerGuildOnline, CoaWorldGuildPresence).
+            CoaWorldGuildPresenceOrderAccounts(shuffledAccounts);
             // --- end CoA World ---
 
             for (uint32 i = 0; i < accountsToUseCount && i < shuffledAccounts.size(); i++)
@@ -1991,6 +1994,9 @@ bool RandomPlayerbotMgr::ProcessBot(uint32 bot)
     }
 
     uint32 logout = GetEventValue(bot, "logout");
+    // CoA World (Guilds.PlayerGuildOnline): a bot member of a real player's guild logs out last.
+    if (player && !logout && !isValid && CoaWorldGuildPresenceKeep(player))
+        return false;
     if (player && !logout && !isValid)
     {
         LOG_DEBUG("playerbots", "Bot #{} {}:{} <{}>: log out", bot, IsAlliance(player->getRace()) ? "A" : "H",
