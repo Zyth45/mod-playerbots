@@ -30,9 +30,14 @@ int main()
     assert(Wire(longLine).size() == MaxLine && Wire("-") == "SQBW\t-");
     assert(Clean("a\tb\nc") == "a b c");
 
-    assert(std::string(CodState(true, true)) == "paid");
-    assert(std::string(CodState(false, true)) == "pending");
-    assert(std::string(CodState(false, false)) == "returned");
+    assert(NextState("preparing", true, true, true, 99) == "preparing");
+    assert(NextState("sent", false, true, false, 1) == "sent");
+    assert(NextState("sent", false, true, true, 1) == "awaiting");
+    assert(NextState("awaiting", true, false, true, 50) == "paid");
+    assert(NextState("sent", false, false, false, 3) == "sent");       // not in the mailbox yet
+    assert(NextState("awaiting", false, false, true, 50) == "returned");
+    assert(NextState("paid", false, false, false, 50) == "paid");
+    assert(IsFinal("cancelled") && !IsFinal("awaiting"));
 
     std::puts("coa_economy_addon PASS");
     return 0;

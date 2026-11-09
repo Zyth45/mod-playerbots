@@ -91,10 +91,26 @@ namespace CoaArtisansAddonRules
         return text;
     }
 
-    // State of a CoD mail: paid (the payment came back), pending (still in the mailbox), else returned.
-    inline char const* CodState(bool paid, bool inMailbox)
+    // ---- Order tracking (AMAIL): preparing -> sent -> awaiting -> paid / returned / cancelled ----
+    constexpr uint32_t SendDelayMs = 5000;  // the artisan "crafts" 5 s before the mail goes (its whispers: 2-9 s)
+    constexpr uint32_t ReturnGraceSeconds = 10; // a sent mail not yet seen in the mailbox is not "returned" before this
+
+    inline bool IsFinal(std::string const& state)
     {
-        return paid ? "paid" : inMailbox ? "pending" : "returned";
+        return state == "paid" || state == "returned" || state == "cancelled";
+    }
+
+    // The state of a sent order, from what the player's mailbox shows (the player is online).
+    // paid: the payment mail came back; inMailbox: the CoD mail is there; delivered: its delivery time is past.
+    inline std::string NextState(std::string const& state, bool paid, bool inMailbox, bool delivered, uint32_t sinceSent)
+    {
+        if (IsFinal(state) || state == "preparing")
+            return state;
+        if (paid)
+            return "paid";
+        if (inMailbox)
+            return delivered ? "awaiting" : "sent";
+        return sinceSent < ReturnGraceSeconds ? state : "returned";
     }
 }
 
