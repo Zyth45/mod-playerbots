@@ -818,6 +818,7 @@ INSERT INTO `playerbots_coa_live_lines` (`situation`,`channel`,`locale`,`level_b
 ('levelup_seen',0,2,0,0,'gg',10,10,10,10,10,0),
 ('levelup_seen',0,2,0,0,'bravo',10,10,10,10,10,0),
 ('levelup_seen',0,2,0,0,'gz !',10,10,10,10,10,0),
+('levelup_seen',0,2,0,0,'joli, gz',10,10,10,10,10,0),
 ('levelup_seen',0,2,0,0,'gz %player',10,10,10,10,10,0),
 ('levelup_seen',0,2,0,0,'ding ! gz',10,10,10,10,10,0),
 ('levelup_seen',0,2,0,0,'bienvenue au %level :)',10,10,18,10,10,0),
