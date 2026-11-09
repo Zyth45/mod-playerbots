@@ -21,6 +21,7 @@
 #ifndef COA_ECONOMY_AUCTION_HOUSE_BOT_H
 #define COA_ECONOMY_AUCTION_HOUSE_BOT_H
 
+#include "CoaRealPrices.h"
 #include "Common.h"
 #include "ObjectGuid.h"
 #include "Random.h"
@@ -148,6 +149,7 @@ private:
     bool CompleteItemValueOverrideDoApplyBuyoutVariations;
     float BuyoutVariationReducePercent;
     bool CoaRealHousePrices = false; // AuctionHouseBot.CoA.RealHousePrices
+    CoaEconomy::RealPrices::Multipliers CoaRealPriceMultipliers; // AuctionHouseBot.CoA.RealPriceMultiplier.*
     float BuyoutVariationAddPercent;
     float BidVariationHighReducePercent;
     float BidVariationLowReducePercent;

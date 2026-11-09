@@ -107,6 +107,14 @@ AuctionHouseBot.CoA.SeenOnCoAHouse = true
 # the code.
 AuctionHouseBot.CoA.RealHousePrices = true
 
+# CoA: the scans are the last week of a 7 months old server, so their prices are relative: the price listed is the
+# scanned one (or the floor) times the factor of the item's quality. Common covers poor and common items: goods,
+# materials, consumables.
+AuctionHouseBot.CoA.RealPriceMultiplier.Common = 1
+AuctionHouseBot.CoA.RealPriceMultiplier.Uncommon = 2
+AuctionHouseBot.CoA.RealPriceMultiplier.Rare = 3
+AuctionHouseBot.CoA.RealPriceMultiplier.Epic = 6
+
 AuctionHouseBot.DEBUG = false
 AuctionHouseBot.DEBUG_FILTERS = false
 AuctionHouseBot.MinutesBetweenBuyCycle = 1:3

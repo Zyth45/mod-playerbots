@@ -461,7 +461,8 @@ void AuctionHouseBot::CalculateItemValue(ItemTemplate const* itemProto, uint64& 
 
     // CoA: the real CoA auction house's market value (user, 09/11); an item it never showed gets a floor below.
     if (CoaRealHousePrices)
-        if (uint64 const reference = CoaEconomy::RealPrices::Of(itemProto->ItemId))
+        if (uint64 const reference = CoaEconomy::RealPrices::Scaled(CoaEconomy::RealPrices::Of(itemProto->ItemId), itemProto,
+                                                                    CoaRealPriceMultipliers))
         {
             outBuyoutPrice = PriceRoll(uint64(reference * (1.0f - BuyoutVariationReducePercent)),
                                        uint64(reference * (1.0f + BuyoutVariationAddPercent)));
@@ -616,7 +617,8 @@ void AuctionHouseBot::CalculateItemValue(ItemTemplate const* itemProto, uint64& 
 
     // CoA: never under the real house's floor for the item's quality and level (median of its scanned items).
     if (CoaRealHousePrices)
-        if (uint64 const floor = CoaEconomy::RealPrices::Floor(itemProto); outBuyoutPrice < floor)
+        if (uint64 const floor = CoaEconomy::RealPrices::Scaled(CoaEconomy::RealPrices::Floor(itemProto), itemProto,
+                                                                CoaRealPriceMultipliers); outBuyoutPrice < floor)
             outBuyoutPrice = PriceRoll(floor, uint64(floor * (1.0f + BuyoutVariationAddPercent)));
 
     // Calculate a bid price based on a variance against buyout price
@@ -2546,6 +2548,7 @@ void AuctionHouseBot::InitializeConfiguration()
     MaxBuyoutPriceInCopper = sConfigMgr->GetOption<uint32>("AuctionHouseBot.MaxBuyoutPriceInCopper", 1000000000);
     BuyoutVariationReducePercent = sConfigMgr->GetOption<float>("AuctionHouseBot.BuyoutVariationReducePercent", 0.15f);
     CoaRealHousePrices = sConfigMgr->GetOption<bool>("AuctionHouseBot.CoA.RealHousePrices", false);
+    CoaRealPriceMultipliers = CoaEconomy::RealPrices::LoadMultipliers("AuctionHouseBot.CoA.RealPriceMultiplier");
     BuyoutVariationAddPercent = sConfigMgr->GetOption<float>("AuctionHouseBot.BuyoutVariationAddPercent", 0.25f);
     BidVariationHighReducePercent = sConfigMgr->GetOption<float>("AuctionHouseBot.BidVariationHighReducePercent", 0);
     BidVariationLowReducePercent = sConfigMgr->GetOption<float>("AuctionHouseBot.BidVariationLowReducePercent", 0.25f);

@@ -7,10 +7,12 @@
 #include "CoaRealPrices.h"
 
 #include "CoaEconomyRules.h"
+#include "Config.h"
 #include "ItemTemplate.h"
 #include "ObjectMgr.h"
 #include "SharedDefines.h"
 
+#include <algorithm>
 #include <map>
 #include <mutex>
 #include <unordered_map>
@@ -78,6 +80,32 @@ uint64 Reference(ItemTemplate const* proto)
     if (uint64 price = Of(proto->ItemId))
         return price;
     return Floor(proto);
+}
+
+float Multipliers::For(uint32 quality) const
+{
+    if (quality >= ITEM_QUALITY_EPIC)
+        return epic;
+    if (quality == ITEM_QUALITY_RARE)
+        return rare;
+    if (quality == ITEM_QUALITY_UNCOMMON)
+        return uncommon;
+    return other;
+}
+
+Multipliers LoadMultipliers(std::string const& prefix)
+{
+    Multipliers m;
+    m.other = std::max(0.0f, sConfigMgr->GetOption<float>(prefix + ".Common", m.other));
+    m.uncommon = std::max(0.0f, sConfigMgr->GetOption<float>(prefix + ".Uncommon", m.uncommon));
+    m.rare = std::max(0.0f, sConfigMgr->GetOption<float>(prefix + ".Rare", m.rare));
+    m.epic = std::max(0.0f, sConfigMgr->GetOption<float>(prefix + ".Epic", m.epic));
+    return m;
+}
+
+uint64 Scaled(uint64 price, ItemTemplate const* proto, Multipliers const& multipliers)
+{
+    return proto ? uint64(double(price) * multipliers.For(proto->Quality)) : 0;
 }
 
 } // namespace CoaEconomy::RealPrices

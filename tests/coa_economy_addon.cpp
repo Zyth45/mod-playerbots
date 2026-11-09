@@ -16,7 +16,8 @@ int main()
     assert(ParseNumber("2459") == 2459);
     assert(ParseNumber("") == 0 && ParseNumber("3x") == 0 && ParseNumber("-1") == 0 && ParseNumber("1234567890") == 0);
 
-    assert(!QtyOk(0) && QtyOk(1) && QtyOk(5) && !QtyOk(6));
+    assert(!QtyOk(0) && QtyOk(1) && QtyOk(20) && !QtyOk(21));
+    assert(Stacks(20, 20) == 1 && Stacks(21, 20) == 2 && Stacks(3, 1) == 3 && Stacks(5, 0) == 5);
 
     assert(!QuoteExpired(1000, 1000 + 600) && QuoteExpired(1000, 1000 + 601));
 

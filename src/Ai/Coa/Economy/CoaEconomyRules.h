@@ -199,6 +199,12 @@ inline bool SellsAtVendor(bool vendorUsage, bool auctionUsage, bool botAuctionsO
 
 // Ammunition is of no use on CoA: projectiles (item class 6) and quivers or ammo pouches (item class 11) are never
 // listed, bought or offered, by the bots or the house.
+// A listing price per item under half the reference price (the reference 0: never).
+inline bool UnderHalf(std::uint64_t perItem, std::uint64_t reference)
+{
+    return reference && perItem * 2 < reference;
+}
+
 // The median of some prices (the lower middle one for an even count; 0 when empty).
 inline std::uint64_t Median(std::vector<std::uint64_t> values)
 {
