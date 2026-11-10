@@ -12,9 +12,16 @@
 bool InvalidTargetValue::Calculate()
 {
     Unit* target = AI_VALUE(Unit*, qualifier);
-    Unit* enemy = AI_VALUE(Unit*, "enemy player target");
-    if (target && enemy && target == enemy && target->IsAlive())
-        return false;
+    // CoA Combat (perf, a46): no target, or one that is not a player, can never be the enemy player target, so that
+    // value is only asked for a player (same answer, without the "enemy player" search on every tick).
+    if (!target)
+        return true;
+    if (target->IsPlayer())
+    {
+        Unit* enemy = AI_VALUE(Unit*, "enemy player target");
+        if (enemy && target == enemy && target->IsAlive())
+            return false;
+    }
 
     if (target && qualifier == "current target")
     {

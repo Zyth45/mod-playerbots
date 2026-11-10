@@ -20,7 +20,12 @@
 
 namespace
 {
-    bool On(Player* bot) { return bot && bot->IsAlive() && sPlayerbotAIConfig.coaCombatCallOfTheGraveEnable; }
+    // Dire Maul only (map 429), where the Eldreth casters live: anywhere else every check below is skipped (perf, a46:
+    // the cleanse trigger scanned the spellbook of every bot in combat).
+    bool On(Player* bot)
+    {
+        return bot && bot->IsAlive() && sPlayerbotAIConfig.coaCombatCallOfTheGraveEnable && bot->GetMapId() == 429;
+    }
 
     bool CarriesGraveCurse(Unit* unit)
     {
@@ -78,7 +83,7 @@ Creature* CoaGraveCurse::GraveCasterNear(Unit* from, float range)
 
 bool CoaGraveCurseDispelTrigger::IsActive()
 {
-    return On(bot) && bot->IsInCombat() && CoaGraveCurse::CurseRemovalSpell(bot) && CoaGraveCurse::CursedMember(bot);
+    return On(bot) && bot->IsInCombat() && CoaGraveCurse::CursedMember(bot) && CoaGraveCurse::CurseRemovalSpell(bot);
 }
 
 bool CoaGraveCurseDispelAction::Execute(Event /*event*/)
