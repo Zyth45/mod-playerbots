@@ -1096,22 +1096,47 @@ struct Usable
     uint32 synergy = 0;
 };
 
-// Active abilities the bot has reached and actually knows, for which `wanted(kind)` is true.
-template <typename Filter>
-std::vector<Usable> KnownAbilities(Player* bot, Filter wanted)
+// The abilities of the kit the bot has reached and knows, with the spell it really casts for each, in kit order.
+// CoA Combat (perf, a46 at 2000 bots): every attack, defensive, heal and cleanse asked this of the whole kit, a
+// HasSpell and a spell lookup per ability, each time. The answer is kept per bot and rebuilt when the kit, the level or
+// the number of spells changes, and every 5 s at worst. Per thread: a bot is updated by one map thread at a time, and
+// a bot that changes threads finds its old entry expired.
+struct KnownEntry
 {
-    std::vector<Usable> usable;
+    CoaAbility const* ability;
+    SpellInfo const* info;
+};
 
-    std::shared_ptr<ClassKit const> const kit = KitOf(bot);
-    if (!kit)
-        return usable;
+struct KnownCache
+{
+    std::shared_ptr<ClassKit const> kit;
+    uint32 builtAt = 0;
+    uint8 level = 0;
+    size_t spellCount = 0;
+    std::vector<KnownEntry> entries;
+};
 
-    // A bot can still know the lower ranks of a spell: only cast the highest one it has reached.
-    // Abilities are ordered by required level, so a later rank replaces an earlier one.
-    std::unordered_map<uint32, size_t> rankIndex;
+constexpr uint32 KnownCacheMs = 5000;
+thread_local std::unordered_map<ObjectGuid::LowType, KnownCache> KnownCaches;
+
+std::vector<KnownEntry> const& KnownEntries(Player* bot, std::shared_ptr<ClassKit const> const& kit)
+{
+    KnownCache& cache = KnownCaches[bot->GetGUID().GetCounter()];
+    uint32 const now = getMSTime();
+    uint8 const level = bot->GetLevel();
+    size_t const spellCount = bot->GetSpellMap().size();
+    if (cache.kit == kit && cache.level == level && cache.spellCount == spellCount && cache.builtAt &&
+        getMSTimeDiff(cache.builtAt, now) < KnownCacheMs)
+        return cache.entries;
+
+    cache.kit = kit;
+    cache.builtAt = now ? now : 1;
+    cache.level = level;
+    cache.spellCount = spellCount;
+    cache.entries.clear();
     for (CoaAbility const& ability : kit->abilities)
     {
-        if (!wanted(ability.kind) || ability.requiredLevel > bot->GetLevel() || !bot->HasSpell(ability.spellId))
+        if (ability.requiredLevel > level || !bot->HasSpell(ability.spellId))
             continue;
 
         // Class grants include passives (e.g. 552011 Resilient Constitution).
@@ -1130,6 +1155,31 @@ std::vector<Usable> KnownAbilities(Player* bot, Filter wanted)
                         rank && rank->SpellLevel <= bot->GetLevel() && bot->HasSpell(rankSpellId))
                         info = rank;
         }
+
+        cache.entries.push_back({&ability, info});
+    }
+    return cache.entries;
+}
+
+// Active abilities the bot has reached and actually knows, for which `wanted(kind)` is true.
+template <typename Filter>
+std::vector<Usable> KnownAbilities(Player* bot, Filter wanted)
+{
+    std::vector<Usable> usable;
+
+    std::shared_ptr<ClassKit const> const kit = KitOf(bot);
+    if (!kit)
+        return usable;
+
+    // A bot can still know the lower ranks of a spell: only cast the highest one it has reached.
+    // Abilities are ordered by required level, so a later rank replaces an earlier one.
+    std::unordered_map<uint32, size_t> rankIndex;
+    for (KnownEntry const& entry : KnownEntries(bot, kit))
+    {
+        CoaAbility const& ability = *entry.ability;
+        if (!wanted(ability.kind))
+            continue;
+        SpellInfo const* const info = entry.info;
 
         auto const [itr, inserted] = rankIndex.try_emplace(ability.firstSpellId, usable.size());
         if (inserted)
