@@ -5,6 +5,7 @@
  */
 
 #include "RandomPlayerbotMgr.h"
+#include "GameTime.h"
 
 #include "CoaLive.h"
 
@@ -2003,6 +2004,32 @@ bool RandomPlayerbotMgr::ProcessBot(uint32 bot)
     return false;
 }
 
+namespace
+{
+// AiPlayerbot.CoaLive.HeavyRefreshPerTick: the bot rebuilds (Randomize) and refreshes (Refresh) of one world tick,
+// about 70 ms each at 2,000 bots; several in one tick made it pass 500 ms (a45). Over the budget, a bot's turn waits
+// for a later tick: its event is not consumed, the same rebuild comes back. World thread.
+uint64 heavyTickMs = 0;
+uint32 heavyThisTick = 0;
+
+bool HeavyAllowed()
+{
+    uint32 const budget = sPlayerbotAIConfig.coaLiveHeavyRefreshPerTick;
+    if (!budget)
+        return true;
+    uint64 const now = GameTime::GetGameTimeMS().count();  // one value for the whole world update
+    if (now != heavyTickMs)
+    {
+        heavyTickMs = now;
+        heavyThisTick = 0;
+    }
+    if (heavyThisTick >= budget)
+        return false;
+    ++heavyThisTick;
+    return true;
+}
+}  // namespace
+
 bool RandomPlayerbotMgr::ProcessBot(Player* bot)
 {
 
@@ -2103,6 +2130,8 @@ bool RandomPlayerbotMgr::ProcessBot(Player* bot)
         uint32 randomize = GetEventValue(botId, "randomize");
         if (!randomize)
         {
+            if (!HeavyAllowed())
+                return false;  // the budget of this tick is spent: a later one
             // bool randomiser = true;
             // if (player->GetGuildId())
             // {
@@ -2144,6 +2173,8 @@ bool RandomPlayerbotMgr::ProcessBot(Player* bot)
         uint32 teleport = GetEventValue(botId, "teleport");
         if (!teleport)
         {
+            if (!HeavyAllowed())
+                return false;
             LOG_DEBUG("playerbots", "Bot #{} <{}>: teleport for level and refresh", botId, bot->GetName());
             Refresh(bot);
             RandomTeleportForLevel(bot);
