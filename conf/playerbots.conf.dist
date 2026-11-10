@@ -3591,6 +3591,15 @@ AiPlayerbot.CoaLive.TrainerDedup = 0
 
 AiPlayerbot.CoaLive.MaintenanceSpread = 0
 
+#    AiPlayerbot.CoaLive.HeavyRefreshPerTick
+#        Description: Performance. At most this many random bot rebuilds or refreshes (about 70 ms
+#                     each at 2,000 bots) in one world update; the others wait for the next ones.
+#                     The same bots get the same rebuilds, a little later.
+#        Default:     0 - no limit, as before
+#                     1 - suggested
+
+AiPlayerbot.CoaLive.HeavyRefreshPerTick = 0
+
 #    AiPlayerbot.CoaLive.Immersion.Enable
 #        Description: Immersion. A random bot idling with water close by (60 yd), a capital's
 #                     canals included, now and then goes to the shore and fishes for 4 to 15
