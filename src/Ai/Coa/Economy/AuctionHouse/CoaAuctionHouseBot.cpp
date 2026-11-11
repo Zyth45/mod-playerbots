@@ -147,7 +147,7 @@ struct CoaSellableFilter
 
     void Load()
     {
-        enabled = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.Filter.Enable", false, false);
+        enabled = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.Filter.Enable", true, false);
         if (!enabled)
             return;
         deprecated = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.Filter.Deprecated", true);
@@ -2227,7 +2227,7 @@ void AuctionHouseBot::AddNewAuctionBuyerBotBid(std::vector<Player*> AHBPlayers, 
 
 void AuctionHouseBot::LoadRaritySettings()
 {
-    RarityEnabled = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.Rarity.Enable", false, false);
+    RarityEnabled = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.Rarity.Enable", true, false);
     RarityPremium = std::max(0.0, double(sConfigMgr->GetOption<float>("AiPlayerbot.CoaEconomy.Rarity.PremiumPercent", 100.0f)) / 100.0);
     RarityCommonRate = std::max(0.000001, double(sConfigMgr->GetOption<float>("AiPlayerbot.CoaEconomy.Rarity.CommonDropPercent", 5.0f)));
     RarityRareRate = std::clamp(double(sConfigMgr->GetOption<float>("AiPlayerbot.CoaEconomy.Rarity.RareDropPercent", 0.01f)), 0.0000001, RarityCommonRate * 0.999);

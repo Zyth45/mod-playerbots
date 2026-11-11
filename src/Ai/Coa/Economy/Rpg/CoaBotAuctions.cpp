@@ -84,7 +84,7 @@ namespace
 
     void LoadSettings()
     {
-        settings.enabled = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.BotAuctions.Enable", false, false);
+        settings.enabled = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.BotAuctions.Enable", true, false);
         settings.cooldownSeconds = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaEconomy.BotAuctions.VisitCooldownMinutes", 45) * MINUTE;
         settings.listPerVisit = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaEconomy.BotAuctions.ListPerVisit", 3);
         settings.maxBudgetPercent = std::min<uint32>(100, sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaEconomy.BotAuctions.MaxBudgetPercent", 30));
@@ -92,7 +92,7 @@ namespace
         uint32 const hours = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaEconomy.BotAuctions.DurationHours", 24);
         settings.durationMinutes = (hours <= 12 ? 12 : hours <= 24 ? 24 : 48) * 60;
         settings.maxScan = std::max<uint32>(10, sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaEconomy.BotAuctions.MaxScan", 300));
-        settings.realHousePrices = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.BotAuctions.RealHousePrices", false);
+        settings.realHousePrices = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.BotAuctions.RealHousePrices", true);
         settings.multipliers = RealPrices::LoadMultipliers("AiPlayerbot.CoaEconomy.BotAuctions.RealPriceMultiplier");
     }
 
@@ -458,7 +458,7 @@ bool RequestVisit(Player* bot, ObjectGuid auctioneer)
 void AddSC_coa_economy_bot_auctions()
 {
     // Off by default; read at start-up (restart to change it). The settings below it are read again on reload.
-    if (!sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.BotAuctions.Enable", false, false))
+    if (!sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.BotAuctions.Enable", true, false))
         return;
     CoaEconomy::BotAuctions::LoadSettings();
     new CoaEconomy::BotAuctions::CoaBotAuctionsWorld();

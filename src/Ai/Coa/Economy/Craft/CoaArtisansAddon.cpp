@@ -646,8 +646,8 @@ namespace
 void AddSC_coa_economy_artisans_addon()
 {
     // Off by default; read at start-up (restart to change it).
-    if (!sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.Artisans.Enable", false, false) ||
-        !sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.Artisans.Addon", false, false))
+    if (!sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.Artisans.Enable", true, false) ||
+        !sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.Artisans.Addon", true, false))
         return;
     new CoaEconomy::ArtisansAddon::CoaArtisansAddonPlayer();
     new CoaEconomy::ArtisansAddon::CoaArtisansAddonMail();
