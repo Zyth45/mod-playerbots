@@ -27,6 +27,9 @@ int main()
     assert(CoaEconomyRules::ClampToBand(120000, 100000) == 120000);
     assert(CoaEconomyRules::ClampToBand(120000, 0) == 120000 && CoaEconomyRules::ClampToBand(0, 5) == 0);
 
+    // A better quality's least price: 1.5 x the scaled median of the quality below.
+    assert(CoaEconomyRules::QualityStep(100000, 3.0f) == 450000 && CoaEconomyRules::QualityStep(0, 3.0f) == 0);
+
     // Median of prices (real house floors).
     assert(CoaEconomyRules::Median({}) == 0);
     assert(CoaEconomyRules::Median({5}) == 5);

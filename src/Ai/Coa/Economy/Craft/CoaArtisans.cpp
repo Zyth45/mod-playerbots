@@ -192,7 +192,11 @@ uint64 FairPrice(ItemTemplate const* proto, RealPrices::Multipliers const& multi
         }
         reagents = known ? reagents / std::max<uint32>(1, path->second.made) : 0;
     }
-    return CoaEconomyRules::FairPrice(value(proto), reagents, proto->SellPrice,
+    uint64 own = value(proto);
+    // A better quality over the one below at the same item level (scans hold dumped epics).
+    if (uint64 step = RealPrices::QualityStep(proto, multipliers); own && own < step)
+        own = step;
+    return CoaEconomyRules::FairPrice(own, reagents, proto->SellPrice,
                                       Sellable::IsFreeVendorItem(proto->ItemId) ? proto->BuyPrice : 0);
 }
 

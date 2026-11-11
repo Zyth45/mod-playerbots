@@ -26,6 +26,7 @@ namespace CoaEconomy::RealPrices
     uint64 Floor(ItemTemplate const* proto);
     // The median of the scanned items of its quality and item level (0 without enough samples).
     uint64 Band(ItemTemplate const* proto);
+    uint64 BandOf(uint32 quality, uint32 itemLevel);
     // Of(), kept between half and three times Band() (scans hold a few joke or dumped listings: a 4,500 g fishing pole,
     // epics at a few gold); 0 when not seen.
     uint64 Priced(ItemTemplate const* proto);
@@ -47,6 +48,9 @@ namespace CoaEconomy::RealPrices
     // The scanned price (or floor) times its factor: the quality's for gear (weapons, armour), the common one for goods,
     // materials, consumables and recipes, so that a green reagent is not priced like a green sword; 0 when none.
     uint64 Scaled(uint64 price, ItemTemplate const* proto, Multipliers const& multipliers);
+    // Gear of a better quality never sells under the quality below it: 1.5 times that quality's scaled median at the
+    // same item level (a blue over a green, an epic over a blue); 0 for goods, greens and when unknown.
+    uint64 QualityStep(ItemTemplate const* proto, Multipliers const& multipliers);
 }
 
 #endif
