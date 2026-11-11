@@ -3273,6 +3273,15 @@ AiPlayerbot.CoaLive.CleanWorld.Enable = 0
 
 AiPlayerbot.CoaLive.NightBank.Enable = 0
 
+#    AiPlayerbot.CoaLive.NoAwayFlag
+#        Description: A random bot resting its turn of the active rotation (BotActiveAlone) is no
+#                     longer flagged away: no <Away> before its lines in the chat. It does not
+#                     change which bots are active.
+#        Default:     0 - flagged away, as before
+#                     1 - on
+
+AiPlayerbot.CoaLive.NoAwayFlag = 0
+
 #    AiPlayerbot.CoaLive.TradeMessagesPerMinute
 #        Description: The pace of the Trade channel while a real player is in a capital of the
 #                     faction: at least this many lines a minute, everything counted (sales, buys,
