@@ -24,6 +24,7 @@
 
 #include "CoaWorldBots.h"
 #include "CoaWorldCharterRules.h"
+#include "CoaWorldGuilds.h"
 
 #include "Chat.h"
 #include "Config.h"
@@ -395,7 +396,7 @@ private:
             {
                 if (!IsHuman(player) || !player->IsInWorld() || player->GetMapId() != founder->GetMapId() ||
                     !player->IsWithinDistInMap(founder, 15.0f) || player->GetTeamId() != founder->GetTeamId() ||
-                    player->GetGuildId())
+                    player->GetGuildId() || CoaWorldJustLoggedIn(player))
                     continue;
                 time_t& last = _offered[player->GetGUID().GetCounter()];
                 if (last && now - last < HOUR)

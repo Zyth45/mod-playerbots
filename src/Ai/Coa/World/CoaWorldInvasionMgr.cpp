@@ -109,6 +109,10 @@ namespace CoaWorld
             bool enabled = false;
             uint32 minRealPlayers = 1;
             uint32 retry = 5;           // minutes
+            // One invasion at a time (announced or running), the kinds in turn, a gap between two (minutes).
+            bool oneAtATime = false;
+            uint32 gapMin = 30;
+            uint32 gapMax = 60;
             uint32 warning = 10;        // minutes
             uint32 duration = 30;       // minutes
             uint32 healthPct = 100;
@@ -225,6 +229,46 @@ namespace CoaWorld
                     _slots[i].index = i;
                     _slots[i].timer = RollInterval(_slots[i]);
                 }
+                // One at a time: a first gap from the start, then the kinds in turn.
+                if (settings.oneAtATime)
+                {
+                    _nextAllowedAt = time(nullptr) + time_t(RollGapMinutes()) * MINUTE / 2;
+                    for (Slot& slot : _slots)
+                        slot.timer = int64(std::max<uint32>(1, settings.retry)) * MINUTE_MS;
+                }
+            }
+
+            uint32 RollGapMinutes() const
+            {
+                uint32 const low = std::max<uint32>(1, settings.gapMin);
+                return urand(low, std::max(low, settings.gapMax));
+            }
+
+            // One at a time: another invasion announced or running, the gap not over, or not this kind's turn.
+            bool MustWait(Slot const& slot)
+            {
+                if (!settings.oneAtATime)
+                    return false;
+                for (Slot const& other : _slots)
+                    if (&other != &slot && other.state != State::Idle)
+                        return true;
+                if (time(nullptr) < _nextAllowedAt)
+                    return true;
+                // The turn: the first available kind from _turn on.
+                for (uint32 n = 0; n < _slots.size(); ++n)
+                {
+                    Slot const& candidate = _slots[(_turn + n) % _slots.size()];
+                    if (IsAvailable(candidate))
+                        return &candidate != &slot;
+                }
+                return true;
+            }
+
+            // The next kind's turn (after this one started, or could not).
+            void NextTurn(Slot const& slot)
+            {
+                if (settings.oneAtATime && !_slots.empty())
+                    _turn = (slot.index + 1) % _slots.size();
             }
 
             std::vector<Slot>& Slots() { return _slots; }
@@ -427,7 +471,7 @@ namespace CoaWorld
             void TryAnnounce(Slot& slot)
             {
                 int64 retry = int64(std::max<uint32>(1, settings.retry)) * MINUTE_MS;
-                if (!IsAvailable(slot))
+                if (!IsAvailable(slot) || MustWait(slot))
                 {
                     slot.timer = retry;
                     return;
@@ -439,8 +483,10 @@ namespace CoaWorld
                     CoaWorldCapitalRaidAt(slot.Site().name))
                 {
                     slot.timer = retry;
+                    NextTurn(slot);  // its players are not there: the next kind may go first
                     return;
                 }
+                NextTurn(slot);
 
                 if (!settings.warning)
                 {
@@ -738,7 +784,14 @@ namespace CoaWorld
                 LogEvent("invasion", "", Acore::StringFormat("{} at {} {}", slot.plan->name,
                     slot.Site().name, won ? "won" : "ended"));
                 AddonPush(slot, "end");
-                Reschedule(slot, RollInterval(slot));
+                if (settings.oneAtATime)
+                {
+                    // The gap before the next invasion, whatever its kind.
+                    _nextAllowedAt = time(nullptr) + time_t(RollGapMinutes()) * MINUTE;
+                    Reschedule(slot, int64(std::max<uint32>(1, settings.retry)) * MINUTE_MS);
+                }
+                else
+                    Reschedule(slot, RollInterval(slot));
             }
 
             void Despawn(Slot& slot)
@@ -862,6 +915,8 @@ namespace CoaWorld
 
             bool _initialized = false;
             std::vector<Slot> _slots;
+            time_t _nextAllowedAt = 0;  // one at a time: no new invasion before
+            uint32 _turn = 0;           // one at a time: the kind whose turn it is
             Map* _runMap = nullptr;  // the map Ground() reads while a run spawns
 
             std::mutex _queueLock;
@@ -877,6 +932,9 @@ namespace CoaWorld
             settings.enabled = sConfigMgr->GetOption<bool>(key("Enable"), false, false);
             settings.minRealPlayers = sConfigMgr->GetOption<uint32>(key("MinRealPlayers"), 1, false);
             settings.retry = std::max<uint32>(1, sConfigMgr->GetOption<uint32>(key("RetryMinutes"), 5, false));
+            settings.oneAtATime = sConfigMgr->GetOption<bool>(key("OneAtATime"), false, false);
+            settings.gapMin = std::clamp<uint32>(sConfigMgr->GetOption<uint32>(key("GapMinutesMin"), 30, false), 1, 24 * 60);
+            settings.gapMax = std::clamp<uint32>(sConfigMgr->GetOption<uint32>(key("GapMinutesMax"), 60, false), 1, 24 * 60);
             settings.warning = sConfigMgr->GetOption<uint32>(key("WarningMinutes"), 10, false);
             settings.duration = std::max<uint32>(1, sConfigMgr->GetOption<uint32>(key("DurationMinutes"), 30, false));
             settings.healthPct = std::clamp<uint32>(sConfigMgr->GetOption<uint32>(key("HealthPct"), 100, false), 10, 1000);

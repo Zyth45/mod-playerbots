@@ -44,6 +44,7 @@
 #include "Chat.h"
 #include "Config.h"
 #include "DatabaseEnv.h"
+#include "GameTime.h"
 #include "Guild.h"
 #include "GuildMgr.h"
 #include "Item.h"
@@ -100,6 +101,7 @@ namespace
         bool addon = false;    // the SquidBots Lite world protocol (GORD, GLIST), CoaWorldAddon.cpp
         bool greetings = false;  // guildmates answer a real player's hello and greet it at login
         bool gearAsk = false;    // a gift of gear is offered first (accept or refuse), mailed only if accepted
+        uint32 loginGrace = 40;  // seconds after a real player's login before the guild's gifts and offers
         bool catalog = false;    // the addon's searchable list of what the guild's bots can send (GCAT)
     };
 
@@ -364,6 +366,22 @@ namespace
 
         void Update(uint32 diff)
         {
+            if (!_welcomes.empty())
+            {
+                time_t const now = time(nullptr);
+                for (auto itr = _welcomes.begin(); itr != _welcomes.end();)
+                {
+                    if (itr->second > now)
+                    {
+                        ++itr;
+                        continue;
+                    }
+                    Player* player = ObjectAccessor::FindConnectedPlayer(itr->first);
+                    if (player && player->IsInWorld() && player->GetGuildId() && IsHuman(player))
+                        Welcome(player, now);
+                    itr = _welcomes.erase(itr);
+                }
+            }
             if (!g_later.empty())
             {
                 uint32 const nowMs = getMSTime();
@@ -495,7 +513,9 @@ namespace
                     case GuildEvent::LOGIN:
                         if (IsHuman(player))
                         {
-                            Welcome(player, now);
+                            // The gifts and offers wait loginGrace: a player who just logged in is not met with a
+                            // gear offer in the first second. The guild's "hi"s keep their own few seconds.
+                            _welcomes.push_back({ player->GetGUID(), now + settings.loginGrace });
                             if (settings.greetings)
                                 Greet(player, now, true);
                         }
@@ -1117,6 +1137,8 @@ namespace
         }
 
         std::vector<Speech> _speeches;
+
+        std::vector<std::pair<ObjectGuid, time_t>> _welcomes;  // real players logged in: (who, when to welcome)
         std::unordered_map<uint32, time_t> _lastMotd;
         std::unordered_map<uint32, time_t> _lastGift;
         std::unordered_map<uint32, std::pair<uint32, uint32>> _orders;  // player -> (day, orders that day)
@@ -1149,6 +1171,7 @@ namespace
         settings.addon = sConfigMgr->GetOption<bool>(key("Addon"), false, false);
         settings.greetings = sConfigMgr->GetOption<bool>(key("Greetings"), false, false);
         settings.gearAsk = sConfigMgr->GetOption<bool>(key("GearAsk"), false, false);
+        settings.loginGrace = std::min<uint32>(600, sConfigMgr->GetOption<uint32>(key("LoginGraceSeconds"), 40, false));
         settings.catalog = sConfigMgr->GetOption<bool>(key("Catalog"), false, false);
         if (settings.enabled)
             LogInit(time(nullptr));
@@ -1206,6 +1229,12 @@ std::vector<std::string> CoaWorldGuildAddonList(Player* player)
         } while (result->NextRow());
     }
     return out;
+}
+
+bool CoaWorldJustLoggedIn(Player* player)
+{
+    return player && getMSTimeDiff(player->GetInGameTime(), GameTime::GetGameTimeMS().count()) <
+                         settings.loginGrace * IN_MILLISECONDS;
 }
 
 bool CoaWorldGuildGiftsOn() { return settings.enabled && settings.gear && settings.gearAsk && settings.addon; }

@@ -2566,6 +2566,19 @@ AiPlayerbot.CoaWorld.Invasions.MinRealPlayers = 1
 
 AiPlayerbot.CoaWorld.Invasions.RetryMinutes = 5
 
+#    AiPlayerbot.CoaWorld.Invasions.OneAtATime
+#    AiPlayerbot.CoaWorld.Invasions.GapMinutesMin
+#    AiPlayerbot.CoaWorld.Invasions.GapMinutesMax
+#        Description: At most one invasion announced or running at a time, the kinds (Scourge, Legion, Ahn'Qiraj) in
+#                     turn, and GapMinutesMin to GapMinutesMax minutes after one ends before the next is announced.
+#                     The kinds' own IntervalMin/IntervalMax are not used then. A kind whose players are not there
+#                     lets the next one go first.
+#        Default:     0 - off (each kind on its own timer); gap 30 to 60 minutes
+
+AiPlayerbot.CoaWorld.Invasions.OneAtATime = 0
+AiPlayerbot.CoaWorld.Invasions.GapMinutesMin = 30
+AiPlayerbot.CoaWorld.Invasions.GapMinutesMax = 60
+
 #    AiPlayerbot.CoaWorld.Invasions.WarningMinutes
 #        Description: Notice before an invasion starts, in minutes. 0 starts it at once.
 #        Default:     10
@@ -3192,6 +3205,13 @@ AiPlayerbot.CoaWorld.Guilds.Greetings = 0
 #        Default:     0 - off (gifts mailed at once, as before)
 
 AiPlayerbot.CoaWorld.Guilds.GearAsk = 0
+
+#    AiPlayerbot.CoaWorld.Guilds.LoginGraceSeconds
+#        Description: Seconds after a real player logs in before the guild's gifts and gear offers, and before a
+#                     guild charter is offered to them: nobody is met with an offer in the first second.
+#        Default:     40
+
+AiPlayerbot.CoaWorld.Guilds.LoginGraceSeconds = 40
 
 #    AiPlayerbot.CoaWorld.Guilds.Catalog
 #        Description: With Guilds.Orders and Guilds.Addon: the SquidBots Lite addon can search what the guild's online

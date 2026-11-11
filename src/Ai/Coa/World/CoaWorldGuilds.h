@@ -27,6 +27,8 @@ std::vector<std::string> CoaWorldGuildAddonOrder(Player* player, std::vector<std
 std::vector<std::string> CoaWorldGuildAddonList(Player* player);
 // Guilds.GearAsk: GOFF (the player's pending offers, GF lines), GACC/GREF <offerId> (args[0] is the word).
 bool CoaWorldGuildGiftsOn();
+// A real player logged in less than Guilds.LoginGraceSeconds ago: no offer to them yet (charters, gifts).
+bool CoaWorldJustLoggedIn(Player* player);
 std::vector<std::string> CoaWorldGuildGiftList(Player* player);
 std::vector<std::string> CoaWorldGuildGiftAnswer(Player* player, std::vector<std::string> const& args, bool accept);
 // Guilds.Catalog: GCAT <search> <page> (args[0] is the word): GC lines (30 a page) and GCN <total> <page>.
