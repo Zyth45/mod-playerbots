@@ -35,6 +35,10 @@ bool OnWhisper(Player* from, Player* to, std::string const& msg);
 // The old free chat replies leave such whispers to the bank (PlayerbotAI::HearChat).
 bool AnswersWhispers(PlayerbotAI* botAI, ObjectGuid from);
 
+// AiPlayerbot.CoaLive.Chat.Enable (the launcher's "Bot chat" switch): false, no bot line is written. Other sessions
+// writing their own lines ask it too.
+bool ChatOn();
+
 // The bot accepted a resurrection cast by "by".
 void OnResurrectAccepted(Player* bot, ObjectGuid by);
 

@@ -18,6 +18,7 @@
 #include "CoaImmersionRules.h"
 #include "CoaCleanWorld.h"
 #include "CoaLiveRules.h"
+#include "CoaChatRules.h"
 #include "GameObject.h"
 #include "LootObjectStack.h"
 #include "CoaSheathRules.h"
@@ -407,6 +408,8 @@ std::unordered_set<uint64> worldJoined;  // the same for the world channel
 
 bool SayInChannel(Player* bot, uint32 channelId, std::unordered_set<uint64>& joined, std::string const& text)
 {
+    if (!sPlayerbotAIConfig.coaLiveChatEnable)  // chat off (AiPlayerbot.CoaLive.Chat.Enable = 0)
+        return false;
     ChannelMgr* cMgr = ChannelMgr::forTeam(bot->GetTeamId());
     if (!cMgr)
         return false;
@@ -486,10 +489,12 @@ void Play(Due isDue)
                                   ? subject
                                   : nullptr;
 
-        if (p.emote && p.channel == CH_NEAR)
+        // Chat off (AiPlayerbot.CoaLive.Chat.Enable = 0): no text, the rest of the line still happens.
+        CoaChat::Parts const parts = CoaChat::PartsOf(sPlayerbotAIConfig.coaLiveChatEnable);
+        if (parts.emote && p.emote && p.channel == CH_NEAR)
             PlayEmote(bot, p.emote, emoteTarget);
 
-        if (!p.text.empty())
+        if (parts.text && !p.text.empty())
         {
             switch (p.channel)
             {
@@ -533,7 +538,7 @@ void Play(Due isDue)
 
         // "Sent you a COD": the item leaves the bot's bags by mail, cash on delivery at the price said, with the
         // delivery delay a player's mail to another account gets.
-        if (p.codItem && p.cod && subject)
+        if (parts.cod && p.codItem && p.cod && subject)
         {
             Item* item = bot->GetItemByGuid(p.codItem);
             if (item && !item->IsSoulBound() && !item->IsInTrade() && item->GetTemplate())
@@ -541,7 +546,7 @@ void Play(Due isDue)
         }
 
         // "Sure, inviting": the real invite, as the client sends it (world thread opcode).
-        if (p.invite && subject && !bot->GetGroup() && !subject->GetGroup())
+        if (parts.invite && p.invite && subject && !bot->GetGroup() && !subject->GetGroup())
         {
             WorldPacket invite;
             invite << subject->GetName();
@@ -1284,7 +1289,7 @@ bool TradeLine(Player* bot, std::string const& scope, ReactOptions const& opt, u
 void TradePace(uint64 nowMs)
 {
     uint32 const perMinute = sPlayerbotAIConfig.coaLiveTradeMessagesPerMinute;
-    if (!perMinute)
+    if (!CoaChat::TradePaceRuns(sPlayerbotAIConfig.coaLiveChatEnable, perMinute))
         return;
     bool due = false;
     for (uint32 team : {uint32(TEAM_ALLIANCE), uint32(TEAM_HORDE)})
@@ -1961,6 +1966,8 @@ void OnBotUpdate(Player* bot, PlayerbotAI* botAI, uint32 diff)
     if (Enabled())
         LookAround(bot, botAI);
 }
+
+bool ChatOn() { return sPlayerbotAIConfig.coaLiveChatEnable; }
 
 bool AnswersWhispers(PlayerbotAI* botAI, ObjectGuid from)
 {
