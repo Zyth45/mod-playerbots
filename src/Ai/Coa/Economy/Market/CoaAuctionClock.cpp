@@ -103,7 +103,7 @@ namespace
 void AddSC_coa_economy_auction_clock()
 {
     // Off by default; read at start-up only (restart to change it).
-    if (!sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.AuctionClock.Enable", false, false))
+    if (!sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.AuctionClock.Enable", true, false))
         return;
     new CoaEconomy::AuctionClock::CoaAuctionClockWorld();
 }

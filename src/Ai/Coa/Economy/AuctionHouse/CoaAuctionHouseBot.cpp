@@ -2264,7 +2264,7 @@ uint64 AuctionHouseBot::GetHouseLowestBuyoutPerItem(ItemTemplate const* itemProt
 
 void AuctionHouseBot::LoadHumanBuyerSettings()
 {
-    HumanBuyer.Enabled = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.Buyer.Enable", false, false);
+    HumanBuyer.Enabled = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.Buyer.Enable", true, false);
     HumanBuyer.DelayMinSeconds = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaEconomy.Buyer.DelayMinSeconds", 60);
     HumanBuyer.DelayMaxSeconds = std::max(HumanBuyer.DelayMinSeconds,
         sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaEconomy.Buyer.DelayMaxSeconds", 900));
