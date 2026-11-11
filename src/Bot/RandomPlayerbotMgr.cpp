@@ -6,6 +6,7 @@
 
 #include "RandomPlayerbotMgr.h"
 #include "GameTime.h"
+#include "Group.h"
 
 #include "CoaLive.h"
 
@@ -2006,6 +2007,21 @@ bool RandomPlayerbotMgr::ProcessBot(uint32 bot)
 
 namespace
 {
+// A random bot in the group of a player (a recruit of ".playerbots coa raid", the addon, a guild party): the player
+// chose it at its level, so nothing rebuilds it, changes its level or teleports it while it is there. The members
+// are read from the group's slots, so a player offline (the bot logging in first) still counts.
+bool InPlayersGroup(Player* bot)
+{
+    Group* group = bot ? bot->GetGroup() : nullptr;
+    if (!group)
+        return false;
+    for (Group::MemberSlot const& slot : group->GetMemberSlots())
+        if (slot.guid != bot->GetGUID() &&
+            !sPlayerbotAIConfig.IsInRandomAccountList(sCharacterCache->GetCharacterAccountIdByGuid(slot.guid)))
+            return true;
+    return false;
+}
+
 // AiPlayerbot.CoaLive.HeavyRefreshPerTick: the bot rebuilds (Randomize) and refreshes (Refresh) of one world tick,
 // about 70 ms each at 2,000 bots; several in one tick made it pass 500 ms (a45). Over the budget, a bot's turn waits
 // for a later tick: its event is not consumed, the same rebuild comes back. World thread.
@@ -2123,6 +2139,10 @@ bool RandomPlayerbotMgr::ProcessBot(Player* bot)
     {
         idleBot = true;
     }
+
+    // A recruit in a player's group keeps its level, gear and place (a raid's bots fell back from 60, a47).
+    if (idleBot && InPlayersGroup(bot))
+        return false;
 
     if (idleBot)
     {
@@ -3839,7 +3859,7 @@ void RandomPlayerbotMgr::OnBotLoginInternal(Player* const bot)
         uint32 const levelCap = std::min<uint32>(sPlayerbotAIConfig.randomBotMaxLevel,
                                                  sWorld->getIntConfig(CONFIG_MAX_PLAYER_LEVEL));
         if (levelCap && bot->GetLevel() > levelCap && !PlayerbotFactory::SelfFoundAt(levelCap) &&
-            !PlayerbotFactory::IsSelfFoundBot(bot))
+            !PlayerbotFactory::IsSelfFoundBot(bot) && !InPlayersGroup(bot))
         {
             uint32 const oldLevel = bot->GetLevel();
             if (bot->IsMounted())
