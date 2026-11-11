@@ -212,11 +212,12 @@ inline bool OutOfFairRange(std::uint64_t perItem, std::uint64_t reference)
 }
 
 // A scanned price kept between half and three times its band's median (no median: as it is; no price: 0).
-inline std::uint64_t ClampToBand(std::uint64_t price, std::uint64_t median)
+// highTenths: the top of the range in tenths of the median (30 = three times; gear uses 15, see QualityStep).
+inline std::uint64_t ClampToBand(std::uint64_t price, std::uint64_t median, std::uint64_t highTenths = 30)
 {
     if (!price || !median)
         return price;
-    return std::clamp<std::uint64_t>(price, median / 2, median * 3);
+    return std::clamp<std::uint64_t>(price, median / 2, median * highTenths / 10);
 }
 
 // A fair price that looks human (user, 10/11): crafted goods sit between 1.1 and 2 times their reagents (a scan alone
@@ -234,6 +235,8 @@ inline std::uint64_t FairPrice(std::uint64_t value, std::uint64_t reagents, std:
 }
 
 // The least price of a better quality: 1.5 times the scaled median of the quality below (0 when unknown).
+// Gear's scanned price tops at 1.5 times its median, so this step puts a better quality at or over the dearest piece
+// of the quality below, slot or not.
 inline std::uint64_t QualityStep(std::uint64_t lowerMedian, float lowerFactor)
 {
     return std::uint64_t(double(lowerMedian) * lowerFactor * 1.5);
