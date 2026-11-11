@@ -5479,3 +5479,12 @@ AiPlayerbot.CoaCombat.CallOfTheGrave.Enable = 0
 #                  1 - (Enabled)
 
 AiPlayerbot.CoaCombat.PlayerLed.Enable = 0
+
+# AiPlayerbot.CoaCombat.BenchKeyOnly
+#     Description: Bench only, leave at 0. With 1, the breath guard, the stuck combat breaker, the combat purge and
+#                  Sunken Temple's Avatar of Hakkar read their own key alone, inside a Dungeon Clear run too (they are
+#                  always on in a run otherwise), so that a Dungeon Clear series can compare each key at 0 and at 1.
+#     Default:     0 - (Disabled)
+#                  1 - (Enabled)
+
+AiPlayerbot.CoaCombat.BenchKeyOnly = 0

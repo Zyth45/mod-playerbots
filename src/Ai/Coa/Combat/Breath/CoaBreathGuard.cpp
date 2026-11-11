@@ -30,7 +30,7 @@ namespace
     {
         if (!CoaGroupTank::GuardScope(bot))
             return false;
-        return CoaGroupTank::InDungeonClearRun(bot) || sPlayerbotAIConfig.coaCombatBreathGuardEnable;
+        return CoaGroupTank::RunOrKey(bot, sPlayerbotAIConfig.coaCombatBreathGuardEnable);
     }
 }
 

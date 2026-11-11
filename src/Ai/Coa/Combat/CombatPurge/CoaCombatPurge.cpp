@@ -62,7 +62,7 @@ namespace
     {
         if (!CoaGroupTank::GuardScope(bot))
             return false;
-        return CoaGroupTank::InDungeonClearRun(bot) || sPlayerbotAIConfig.coaCombatCombatPurgeEnable;
+        return CoaGroupTank::RunOrKey(bot, sPlayerbotAIConfig.coaCombatCombatPurgeEnable);
     }
 
     bool IsListed(Unit* u, uint32 mapId)

@@ -769,6 +769,9 @@ public:
     // "The player leads" (docs/JOUEUR-MENE-3.0.md): the player's Main Tank bar comes first for the raid strategies'
     // main tank, and the boss stand-down falls back to the boss flags outside a Dungeon Clear run.
     bool coaCombatPlayerLedEnable = false;
+    // Bench only: the breath guard, stuck combat breaker, combat purge and Sunken Temple read their own key alone, also
+    // inside a Dungeon Clear run, so that a Dungeon Clear series compares key 0 with key 1.
+    bool coaCombatBenchKeyOnly = false;
     // ---- end of CoA Combat ----
 
 private:

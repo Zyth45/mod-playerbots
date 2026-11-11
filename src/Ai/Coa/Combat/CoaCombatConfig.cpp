@@ -40,4 +40,5 @@ void PlayerbotAIConfig::LoadCoaCombatConfig()
     coaCombatLootNeedEpicOnly = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaCombat.LootNeedEpicOnly", false);
     coaCombatCallOfTheGraveEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaCombat.CallOfTheGrave.Enable", false);
     coaCombatPlayerLedEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaCombat.PlayerLed.Enable", false);
+    coaCombatBenchKeyOnly = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaCombat.BenchKeyOnly", false);
 }
