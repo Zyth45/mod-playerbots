@@ -432,7 +432,7 @@ namespace
     void LoadSettings()
     {
         auto key = [](char const* name) { return std::string(PREFIX) + name; };
-        settings.enabled = sConfigMgr->GetOption<bool>(key("Enable"), false, false);
+        settings.enabled = sConfigMgr->GetOption<bool>(key("Enable"), true, false);
         settings.skirmishEnabled = sConfigMgr->GetOption<bool>(key("Skirmish.Enable"), true, false);
         settings.skirmishIntervalMin = sConfigMgr->GetOption<uint32>(key("Skirmish.IntervalMin"), 45, false);
         settings.skirmishIntervalMax = sConfigMgr->GetOption<uint32>(key("Skirmish.IntervalMax"), 90, false);

@@ -477,7 +477,7 @@ namespace
     void LoadSettings()
     {
         auto key = [](char const* name) { return std::string(PREFIX) + name; };
-        settings.enabled = sConfigMgr->GetOption<bool>(key("Enable"), false, false);
+        settings.enabled = sConfigMgr->GetOption<bool>(key("Enable"), true, false);
         settings.stuckSeconds = std::clamp<uint32>(sConfigMgr->GetOption<uint32>(key("StuckSeconds"), 90, false), 30, 1800);
         settings.loopSeconds = std::clamp<uint32>(sConfigMgr->GetOption<uint32>(key("LoopSeconds"), 180, false), 60, 1800);
         settings.deathsLimit = std::clamp<uint32>(sConfigMgr->GetOption<uint32>(key("DeathsLimit"), 3, false), 2, 20);

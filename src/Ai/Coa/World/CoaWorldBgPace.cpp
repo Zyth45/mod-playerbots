@@ -95,7 +95,7 @@ public:
 private:
     static void Read()
     {
-        g_on = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaWorld.BotOnlyBgPace.Enable", false, false);
+        g_on = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaWorld.BotOnlyBgPace.Enable", true, false);
         g_intervalMs = std::clamp<uint32>(sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaWorld.BotOnlyBgPace.IntervalMs", 500, false),
                                           100, 5000);
     }

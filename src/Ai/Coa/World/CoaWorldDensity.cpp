@@ -149,7 +149,7 @@ namespace
     void LoadSettings()
     {
         auto key = [](char const* name) { return std::string(PREFIX) + name; };
-        settings.enabled = sConfigMgr->GetOption<bool>(key("Enable"), false, false);
+        settings.enabled = sConfigMgr->GetOption<bool>(key("Enable"), true, false);
         settings.farSharePct = std::min<uint32>(100, sConfigMgr->GetOption<uint32>(key("FarSharePct"), 30, false));
         settings.retirePerMinute = std::min<uint32>(200, sConfigMgr->GetOption<uint32>(key("RetirePerMinute"), 10, false));
         settings.nearRange = float(std::clamp<uint32>(sConfigMgr->GetOption<uint32>(key("NearRange"), 800, false), 100, 5000));

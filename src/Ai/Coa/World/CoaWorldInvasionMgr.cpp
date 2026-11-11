@@ -107,6 +107,7 @@ namespace CoaWorld
         struct Settings
         {
             bool enabled = false;
+            bool autoStart = false;     // Auto: invasions come by themselves (else only a GM starts one)
             uint32 minRealPlayers = 1;
             uint32 retry = 5;           // minutes
             // One invasion at a time (announced or running), the kinds in turn, a gap between two (minutes).
@@ -471,7 +472,7 @@ namespace CoaWorld
             void TryAnnounce(Slot& slot)
             {
                 int64 retry = int64(std::max<uint32>(1, settings.retry)) * MINUTE_MS;
-                if (!IsAvailable(slot) || MustWait(slot))
+                if (!IsAvailable(slot) || !settings.autoStart || MustWait(slot))
                 {
                     slot.timer = retry;
                     return;
@@ -929,10 +930,11 @@ namespace CoaWorld
         {
             auto key = [](std::string const& name) { return std::string(PREFIX) + name; };
 
-            settings.enabled = sConfigMgr->GetOption<bool>(key("Enable"), false, false);
+            settings.enabled = sConfigMgr->GetOption<bool>(key("Enable"), true, false);
+            settings.autoStart = sConfigMgr->GetOption<bool>(key("Auto"), false, false);
             settings.minRealPlayers = sConfigMgr->GetOption<uint32>(key("MinRealPlayers"), 1, false);
             settings.retry = std::max<uint32>(1, sConfigMgr->GetOption<uint32>(key("RetryMinutes"), 5, false));
-            settings.oneAtATime = sConfigMgr->GetOption<bool>(key("OneAtATime"), false, false);
+            settings.oneAtATime = sConfigMgr->GetOption<bool>(key("OneAtATime"), true, false);
             settings.gapMin = std::clamp<uint32>(sConfigMgr->GetOption<uint32>(key("GapMinutesMin"), 30, false), 1, 24 * 60);
             settings.gapMax = std::clamp<uint32>(sConfigMgr->GetOption<uint32>(key("GapMinutesMax"), 60, false), 1, 24 * 60);
             settings.warning = sConfigMgr->GetOption<uint32>(key("WarningMinutes"), 10, false);
@@ -1130,8 +1132,12 @@ public:
                     handler->PSendSysMessage("{} at {} in {}.", slot.plan->name, slot.Site().name, FormatMinutes(slot.timer));
                     break;
                 case State::Idle:
-                    handler->PSendSysMessage("{}: next chance in about {} (from level {}).", slot.plan->name,
-                        FormatMinutes(slot.timer), slot.Conf().minLevel);
+                    if (!settings.autoStart)
+                        handler->PSendSysMessage("{}: none now; a GM can start one (from level {}).", slot.plan->name,
+                            slot.Conf().minLevel);
+                    else
+                        handler->PSendSysMessage("{}: next chance in about {} (from level {}).", slot.plan->name,
+                            FormatMinutes(slot.timer), slot.Conf().minLevel);
                     break;
             }
         }

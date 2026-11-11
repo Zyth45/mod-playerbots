@@ -253,9 +253,9 @@ private:
     static void Read()
     {
         auto key = [](char const* name) { return std::string("AiPlayerbot.CoaWorld.Guilds.") + name; };
-        settings.enabled = sConfigMgr->GetOption<bool>(key("Enable"), false, false) &&
-                           sConfigMgr->GetOption<bool>(key("Activities"), false, false);
-        settings.addon = sConfigMgr->GetOption<bool>(key("Addon"), false, false);
+        settings.enabled = sConfigMgr->GetOption<bool>(key("Enable"), true, false) &&
+                           sConfigMgr->GetOption<bool>(key("Activities"), true, false);
+        settings.addon = sConfigMgr->GetOption<bool>(key("Addon"), true, false);
         settings.cooldownMinutes = std::min<uint32>(1440, sConfigMgr->GetOption<uint32>(key("ActivityCooldownMinutes"), 10, false));
         settings.gatherMinutes = std::clamp<uint32>(sConfigMgr->GetOption<uint32>(key("GatherMinutes"), 15, false), 1, 120);
         settings.bringSeconds = std::min<uint32>(600, sConfigMgr->GetOption<uint32>(key("GatherBringSeconds"), 30, false));

@@ -185,7 +185,7 @@ public:
     void OnStartup() override
     {
         g_started = int64(time(nullptr));
-        g_on = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaWorld.StateFile.Enable", false, false) &&
+        g_on = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaWorld.StateFile.Enable", true, false) &&
                sConfigMgr->GetOption<bool>("AiPlayerbot.CoaDataFiles", true, false);
         std::string dir = sConfigMgr->GetOption<std::string>("AiPlayerbot.CoaDataDir", "", false);
         g_dir = dir.empty() ? std::filesystem::path(sConfigMgr->GetOption<std::string>("LogsDir", "", false)) / "squidbot"
