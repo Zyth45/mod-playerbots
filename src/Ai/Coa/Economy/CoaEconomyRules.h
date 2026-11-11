@@ -213,11 +213,12 @@ inline bool OutOfFairRange(std::uint64_t perItem, std::uint64_t reference)
 
 // A scanned price kept between half and three times its band's median (no median: as it is; no price: 0).
 // highTenths: the top of the range in tenths of the median (30 = three times; gear uses 15, see QualityStep).
-inline std::uint64_t ClampToBand(std::uint64_t price, std::uint64_t median, std::uint64_t highTenths = 30)
+inline std::uint64_t ClampToBand(std::uint64_t price, std::uint64_t median, std::uint64_t highTenths = 30,
+                                 std::uint64_t lowTenths = 5)
 {
     if (!price || !median)
         return price;
-    return std::clamp<std::uint64_t>(price, median / 2, median * highTenths / 10);
+    return std::clamp<std::uint64_t>(price, median * lowTenths / 10, std::max(median * lowTenths / 10, median * highTenths / 10));
 }
 
 // A fair price that looks human (user, 10/11): crafted goods sit between 1.1 and 2 times their reagents (a scan alone
