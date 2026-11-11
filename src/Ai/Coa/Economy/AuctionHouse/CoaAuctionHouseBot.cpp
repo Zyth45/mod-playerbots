@@ -461,7 +461,7 @@ void AuctionHouseBot::CalculateItemValue(ItemTemplate const* itemProto, uint64& 
 
     // CoA: the real CoA auction house's market value (user, 09/11); an item it never showed gets a floor below.
     if (CoaRealHousePrices)
-        if (uint64 const reference = CoaEconomy::RealPrices::Scaled(CoaEconomy::RealPrices::Of(itemProto->ItemId), itemProto,
+        if (uint64 const reference = CoaEconomy::RealPrices::Scaled(CoaEconomy::RealPrices::Priced(itemProto), itemProto,
                                                                     CoaRealPriceMultipliers))
         {
             outBuyoutPrice = PriceRoll(uint64(reference * (1.0f - BuyoutVariationReducePercent)),

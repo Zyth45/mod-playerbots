@@ -24,7 +24,12 @@ namespace CoaEconomy::RealPrices
     uint64 Of(uint32 itemId);
     // The floor of its quality and item level (uncommon and better; 0 otherwise or without enough samples).
     uint64 Floor(ItemTemplate const* proto);
-    // Of() when seen, else Floor().
+    // The median of the scanned items of its quality and item level (0 without enough samples).
+    uint64 Band(ItemTemplate const* proto);
+    // Of(), kept between half and three times Band() (scans hold a few joke or dumped listings: a 4,500 g fishing pole,
+    // epics at a few gold); 0 when not seen.
+    uint64 Priced(ItemTemplate const* proto);
+    // Priced() when seen, else Floor().
     uint64 Reference(ItemTemplate const* proto);
 
     // The scans are the last week of a 7 months old server: relative values. A live server's price is the scanned one

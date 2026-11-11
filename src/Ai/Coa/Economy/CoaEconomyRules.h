@@ -205,6 +205,14 @@ inline bool UnderHalf(std::uint64_t perItem, std::uint64_t reference)
     return reference && perItem * 2 < reference;
 }
 
+// A scanned price kept between half and three times its band's median (no median: as it is; no price: 0).
+inline std::uint64_t ClampToBand(std::uint64_t price, std::uint64_t median)
+{
+    if (!price || !median)
+        return price;
+    return std::clamp<std::uint64_t>(price, median / 2, median * 3);
+}
+
 // The median of some prices (the lower middle one for an even count; 0 when empty).
 inline std::uint64_t Median(std::vector<std::uint64_t> values)
 {
