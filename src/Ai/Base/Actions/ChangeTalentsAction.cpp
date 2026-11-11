@@ -11,6 +11,7 @@
 #include "AscensionSpecialization.h"
 #include "AiObjectContext.h"
 #include "ChatHelper.h"
+#include "CoaAltAddon.h"
 #include "CoaSpecLookup.h"
 #include "CoaSpecialization.h"
 #include "CoaWildcard.h"
@@ -218,6 +219,37 @@ bool ChangeTalentsAction::Execute(Event event)
                 ++count;
             }
             botAI->TellMaster("Talent options: " + std::to_string(count));
+            return true;
+        }
+        else if (IsCoaClass(bot) && param == "tree")
+        {
+            // CoA: the bot's talent trees for SquidBots Lite's tree view (addon lines "TT", SQBA whisper to the
+            // master). The layout (rows, columns, links) is the addon's own, from the CoA Spec calculator, keyed by
+            // entry; the server sends what changes: each entry the bot may hold (class tree "0" and its active
+            // specialization's tree), its spell, rank, highest rank, whether it can rise now, and the points of each
+            // tree. Format agreed with the CoA Addon session.
+            uint32 const activeSpec = GetAscensionActiveSpecialization(bot);
+            for (AscensionCompatData::CoATalentEntry const& entry : AscensionCompatData::CoATalentEntries)
+            {
+                if (!CoaEntryOffered(bot, entry) || !entry.SpellCount)
+                    continue;
+                uint32 const rank = GetAscensionTalentRank(bot, entry.EntryId);
+                uint32 const spellId = entry.SpellIds[std::min<uint32>(rank ? rank - 1 : 0, entry.SpellIds.size() - 1)];
+                bool const learnable = rank < entry.SpellCount && RefusalFor(bot, entry, rank + 1).empty();
+                CoaAltAddon::SendToMaster(botAI, "TT	n	" + std::to_string(entry.SpecId) + "	" +
+                                                     std::to_string(entry.EntryId) + "	" + std::to_string(spellId) +
+                                                     "	" + std::to_string(rank) + "	" +
+                                                     std::to_string(uint32(entry.SpellCount)) + "	" +
+                                                     (learnable ? "1" : "0"));
+            }
+            CoaPoints const points = PointsOf(bot);
+            CoaAltAddon::SendToMaster(botAI, "TT	pts	0	" + std::to_string(points.classSpent) + "	" +
+                                                 std::to_string(points.classBudget));
+            if (activeSpec)
+                CoaAltAddon::SendToMaster(botAI, "TT	pts	" + std::to_string(activeSpec) + "	" +
+                                                     std::to_string(points.specSpent) + "	" +
+                                                     std::to_string(points.specBudget));
+            CoaAltAddon::SendToMaster(botAI, "TT	-");
             return true;
         }
         else if (IsCoaClass(bot) && param.rfind("learn ", 0) == 0)
