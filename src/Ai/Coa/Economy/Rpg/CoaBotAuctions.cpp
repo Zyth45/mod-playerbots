@@ -102,7 +102,7 @@ namespace
         // The real CoA auction house first (its market value, else its floor for the quality and level): our own
         // sales, made by bots at bots' prices, would keep a price low.
         if (settings.realHousePrices)
-            if (uint64 real = RealPrices::Scaled(RealPrices::Of(proto->ItemId), proto, settings.multipliers))
+            if (uint64 real = RealPrices::Scaled(RealPrices::Priced(proto), proto, settings.multipliers))
                 return real;
         uint64 price = std::max<uint64>(100, uint64(proto->SellPrice) * 4);
         if (MarketBand const* band = sCoaMarketPrices->GetBand(proto->ItemId); band && band->Usual)

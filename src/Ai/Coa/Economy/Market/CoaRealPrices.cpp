@@ -45,8 +45,7 @@ namespace
         for (auto const& [id, price] : Table())
             if (price)
                 if (ItemTemplate const* proto = sObjectMgr->GetItemTemplate(id))
-                    if (proto->Quality >= ITEM_QUALITY_UNCOMMON)
-                        samples[{proto->Quality, proto->ItemLevel / BandLevels}].push_back(price);
+                    samples[{proto->Quality, proto->ItemLevel / BandLevels}].push_back(price);
         for (auto& [key, values] : samples)
             if (values.size() >= MinSamples)
                 floors[key] = CoaEconomyRules::Median(values);
@@ -64,20 +63,33 @@ uint64 Of(uint32 itemId)
     return found == Table().end() ? 0 : found->second;
 }
 
-uint64 Floor(ItemTemplate const* proto)
+// The median of the scanned items of its quality and item level (any quality; 0 without enough samples).
+uint64 Band(ItemTemplate const* proto)
 {
-    if (!proto || proto->Quality < ITEM_QUALITY_UNCOMMON)
+    if (!proto)
         return 0;
     std::call_once(floorsBuilt, BuildFloors);
     auto found = floors.find({proto->Quality, proto->ItemLevel / BandLevels});
     return found == floors.end() ? 0 : found->second;
 }
 
+uint64 Floor(ItemTemplate const* proto)
+{
+    return proto && proto->Quality >= ITEM_QUALITY_UNCOMMON ? Band(proto) : 0;
+}
+
+uint64 Priced(ItemTemplate const* proto)
+{
+    if (!proto)
+        return 0;
+    return CoaEconomyRules::ClampToBand(Of(proto->ItemId), Band(proto));
+}
+
 uint64 Reference(ItemTemplate const* proto)
 {
     if (!proto)
         return 0;
-    if (uint64 price = Of(proto->ItemId))
+    if (uint64 price = Priced(proto))
         return price;
     return Floor(proto);
 }

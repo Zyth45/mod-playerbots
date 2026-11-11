@@ -10,6 +10,12 @@ int main()
     // Under half the real price: taken back at start-up.
     assert(CoaEconomyRules::UnderHalf(49, 100) && !CoaEconomyRules::UnderHalf(50, 100) && !CoaEconomyRules::UnderHalf(1, 0));
 
+    // Scanned prices kept within half and three times their band.
+    assert(CoaEconomyRules::ClampToBand(45000000, 100000) == 300000);
+    assert(CoaEconomyRules::ClampToBand(10000, 100000) == 50000);
+    assert(CoaEconomyRules::ClampToBand(120000, 100000) == 120000);
+    assert(CoaEconomyRules::ClampToBand(120000, 0) == 120000 && CoaEconomyRules::ClampToBand(0, 5) == 0);
+
     // Median of prices (real house floors).
     assert(CoaEconomyRules::Median({}) == 0);
     assert(CoaEconomyRules::Median({5}) == 5);
