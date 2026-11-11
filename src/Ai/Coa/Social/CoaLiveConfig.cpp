@@ -48,6 +48,7 @@ void PlayerbotAIConfig::LoadCoaLiveConfig()
     coaLiveTradeMessagesPerMinute =
         std::min<uint32>(6, sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaLive.TradeMessagesPerMinute", 0));
     coaLiveNoAwayFlag = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaLive.NoAwayFlag", false);
+    coaLiveChatEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaLive.Chat.Enable", true);
     coaLiveHeavyRefreshPerTick = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaLive.HeavyRefreshPerTick", 0);
     coaLiveMaintenanceSpread = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaLive.MaintenanceSpread", false);
     coaLiveTrainerDedup = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaLive.TrainerDedup", false);

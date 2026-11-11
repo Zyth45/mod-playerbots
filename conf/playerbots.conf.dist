@@ -3282,6 +3282,19 @@ AiPlayerbot.CoaLive.NightBank.Enable = 0
 
 AiPlayerbot.CoaLive.NoAwayFlag = 0
 
+#    AiPlayerbot.CoaLive.Chat.Enable
+#        Description: The bots' written chat (the launcher's "Bot chat" switch). Off, the bots write
+#                     no CoA Live line: zone, world, Trade, LFG, guild, party and say lines, greetings,
+#                     the night bank, answers to whispers. Everything else goes on: group invites near
+#                     players, idling in inns and capitals, emotes, events, sales by COD mail. Bot
+#                     commands and answers to a master's orders are not concerned. Needs
+#                     AiPlayerbot.CoaLive.Enable = 1 for the lines to exist at all. Read again by
+#                     ".reload config".
+#        Default:     1 - on
+#                     0 - the bots write nothing
+
+AiPlayerbot.CoaLive.Chat.Enable = 1
+
 #    AiPlayerbot.CoaLive.TradeMessagesPerMinute
 #        Description: The pace of the Trade channel while a real player is in a capital of the
 #                     faction: at least this many lines a minute, everything counted (sales, buys,
