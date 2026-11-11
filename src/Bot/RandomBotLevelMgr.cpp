@@ -10,6 +10,8 @@
 
 #include "RandomBotLevelMgr.h"
 #include "ArenaTeamMgr.h"
+#include "CharacterCache.h"
+#include "Group.h"
 #include "CoaMissionMgr.h"
 #include "DatabaseEnv.h"
 #include "LFGMgr.h"
@@ -28,6 +30,24 @@
 #include <cmath>
 #include <limits>
 #include <mutex>
+
+namespace
+{
+// A random bot in the group of a player (a recruit, a guild party): the player chose it at its level, so the level
+// resets leave it alone while it is there (a raid's bots fell back from 60, a47). Read from the group's slots, so a
+// player offline still counts.
+bool InPlayersGroup(Player* bot)
+{
+    Group* group = bot ? bot->GetGroup() : nullptr;
+    if (!group)
+        return false;
+    for (Group::MemberSlot const& slot : group->GetMemberSlots())
+        if (slot.guid != bot->GetGUID() &&
+            !sPlayerbotAIConfig.IsInRandomAccountList(sCharacterCache->GetCharacterAccountIdByGuid(slot.guid)))
+            return true;
+    return false;
+}
+}  // namespace
 #include <string>
 #include <unordered_set>
 #include <unordered_map>
@@ -1081,6 +1101,9 @@ void RandomBotLevelMgr::OnBotLogin(Player* player)
     if (!sRandomPlayerbotMgr.IsRandomBot(player))
         return;
 
+    if (InPlayersGroup(player))
+        return;
+
     if (IsNameInExcludeList(player, sPlayerbotAIConfig.resetBotLevelExcludeNames))
         return;
 
@@ -1135,6 +1158,9 @@ void RandomBotLevelMgr::OnBotLevelChanged(Player* player, uint8 oldLevel)
         return;
 
     if (!sRandomPlayerbotMgr.IsRandomBot(player))
+        return;
+
+    if (InPlayersGroup(player))
         return;
 
     // Only react to a natural level up.
