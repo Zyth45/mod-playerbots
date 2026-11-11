@@ -6,7 +6,7 @@
 
 #include "CoaQuestMenu.h"
 
-#include "CoaWorldBots.h"  // CoA World: CoaWorldQuestQuarantined
+#include "CoaWorldBots.h"  // CoA World: CoaWorldQuestQuarantined, CoaWorldAreaTooHigh
 #include "CoaRpgTrade.h"
 #include "CoaQuestLogRules.h"
 #include "NewRpgBaseAction.h"
@@ -1027,6 +1027,12 @@ WorldPosition NewRpgBaseAction::SelectRandomGrindPos(Player* bot)
                                                 loc.GetPositionZ()) != bot->GetZoneId())
             continue;
 
+        // --- CoA World (CoA Monde session) ---
+        // Not a subzone for levels well above the bot's (CoaWorldLeveling's AreaGuard).
+        if (CoaWorldAreaTooHigh(bot, loc.GetMapId(), loc.GetPositionX(), loc.GetPositionY(), loc.GetPositionZ()))
+            continue;
+        // --- end CoA World ---
+
         if (bot->GetExactDist(loc) < hiRange)
         {
             hi_prepared_locs.push_back(loc);
@@ -1199,6 +1205,12 @@ WorldPosition NewRpgBaseAction::SelectRandomCampPos(Player* bot)
                                                 loc.GetPositionZ()) != bot->GetZoneId())
             continue;
 
+        // --- CoA World (CoA Monde session) ---
+        // Not a subzone for levels well above the bot's (CoaWorldLeveling's AreaGuard).
+        if (CoaWorldAreaTooHigh(bot, loc.GetMapId(), loc.GetPositionX(), loc.GetPositionY(), loc.GetPositionZ()))
+            continue;
+        // --- end CoA World ---
+
         prepared_locs.push_back(loc);
     }
     WorldPosition dest{};
@@ -1323,6 +1335,12 @@ bool NewRpgBaseAction::RandomChangeStatus(std::vector<NewRpgStatus> candidateSta
                 std::vector<POIInfo> poiInfo;
                 if (GetQuestPOIPosAndObjectiveIdx(questId, poiInfo, true))
                 {
+                    // --- CoA World (CoA Monde session) ---
+                    // Not a quest whose place is a subzone for levels well above the bot's (Leveling's AreaGuard).
+                    if (!poiInfo.empty() && CoaWorldAreaTooHigh(bot, bot->GetMapId(), poiInfo.front().pos.x,
+                                                                poiInfo.front().pos.y, bot->GetPositionZ()))
+                        continue;
+                    // --- end CoA World ---
                     availableQuests.push_back(questId);
                 }
             }
@@ -1451,6 +1469,11 @@ bool NewRpgBaseAction::CheckRpgStatusAvailable(NewRpgStatus status)
                 std::vector<POIInfo> poiInfo;
                 if (GetQuestPOIPosAndObjectiveIdx(questId, poiInfo, true))
                 {
+                    // --- CoA World (CoA Monde session) ---
+                    if (!poiInfo.empty() && CoaWorldAreaTooHigh(bot, bot->GetMapId(), poiInfo.front().pos.x,
+                                                                poiInfo.front().pos.y, bot->GetPositionZ()))
+                        continue;
+                    // --- end CoA World ---
                     return true;
                 }
             }

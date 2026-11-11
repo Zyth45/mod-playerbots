@@ -3058,6 +3058,16 @@ AiPlayerbot.CoaWorld.Events.Enable = 0
 AiPlayerbot.CoaWorld.Leveling.Enable = 0
 
 #    AiPlayerbot.CoaWorld.Leveling.SameContinentPct
+
+#    AiPlayerbot.CoaWorld.Leveling.AreaGuard
+#    AiPlayerbot.CoaWorld.Leveling.AreaGuardLevels
+#        Description: The bots leave out, for their grind spots, quest places and the places they are sent to, the
+#                     subzones for levels more than AreaGuardLevels above theirs (the game's exploration level of the
+#                     subzone): a level 10 bot from Mulgore no longer walks into the Barrens' level 20 packs.
+#        Default:     0 - off; 3 levels
+
+AiPlayerbot.CoaWorld.Leveling.AreaGuard = 0
+AiPlayerbot.CoaWorld.Leveling.AreaGuardLevels = 3
 #        Description: Chance in percent that the next zone is on the bot's continent, when one fits (0-100).
 #        Default:     70
 

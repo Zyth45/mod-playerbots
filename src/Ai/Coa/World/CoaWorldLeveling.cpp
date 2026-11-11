@@ -17,6 +17,10 @@
  * The zone of each spot is looked up once and kept (thousands of spots, a few bytes each). Called from the map
  * threads: the cache has its own lock.
  *
+ * AreaGuard: wherever a bot of the route picks a spot (RandomTeleportForLevel's spots, NewRpg's grind spots and
+ * quest places), a subzone whose exploration level (AreaTable) is more than AreaGuardLevels above the bot's is left
+ * out: the a47 had level 10 Mulgore bots walk into the Barrens' level 20 packs and die there over and over.
+ *
  * Config: AiPlayerbot.CoaWorld.Leveling.*, off by default.
  */
 
@@ -24,6 +28,7 @@
 #include "CoaWorldZoneLevels.h"
 
 #include "Config.h"
+#include "DBCStores.h"
 #include "MapMgr.h"
 #include "Player.h"
 #include "ScriptMgr.h"
@@ -38,6 +43,8 @@ namespace
 
     std::atomic<bool> g_enabled{false};
     std::atomic<uint32> g_sameContinentPct{70};
+    std::atomic<bool> g_areaGuard{false};
+    std::atomic<uint32> g_areaGuardLevels{3};
 
     std::shared_mutex g_zoneLock;
     std::unordered_map<uint64, uint32> g_zoneOf;
@@ -64,11 +71,31 @@ namespace
         return zone;
     }
 
+    // The subzone of a spot, kept as the zones are (the quest places and grind spots come back again and again).
+    std::unordered_map<uint64, uint32> g_areaOf;
+
+    uint32 AreaOf(uint32 mapId, float x, float y, float z)
+    {
+        uint64 const key = (uint64(mapId) << 32) | (uint64(uint16(int32(x) + 32768)) << 16) | uint16(int32(y) + 32768);
+        {
+            std::shared_lock<std::shared_mutex> lock(g_zoneLock);
+            auto itr = g_areaOf.find(key);
+            if (itr != g_areaOf.end())
+                return itr->second;
+        }
+        uint32 const area = sMapMgr->GetAreaId(PHASEMASK_NORMAL, mapId, x, y, z);
+        std::unique_lock<std::shared_mutex> lock(g_zoneLock);
+        g_areaOf[key] = area;
+        return area;
+    }
+
     void LoadSettings()
     {
         auto key = [](char const* name) { return std::string(PREFIX) + name; };
         g_enabled = sConfigMgr->GetOption<bool>(key("Enable"), false, false);
         g_sameContinentPct = std::min<uint32>(100, sConfigMgr->GetOption<uint32>(key("SameContinentPct"), 70, false));
+        g_areaGuard = sConfigMgr->GetOption<bool>(key("AreaGuard"), false, false);
+        g_areaGuardLevels = std::min<uint32>(20, sConfigMgr->GetOption<uint32>(key("AreaGuardLevels"), 3, false));
     }
 }
 
@@ -82,7 +109,8 @@ void CoaWorldLevelingFilter(Player* bot, std::vector<WorldLocation>& locs)
     std::vector<WorldLocation> route, sameContinent;
     for (WorldLocation const& loc : locs)
     {
-        if (!CoaWorldZones::OnRoute(ZoneOf(loc), level, horde))
+        if (!CoaWorldZones::OnRoute(ZoneOf(loc), level, horde) ||
+            CoaWorldAreaTooHigh(bot, loc.GetMapId(), loc.GetPositionX(), loc.GetPositionY(), loc.GetPositionZ()))
             continue;
         route.push_back(loc);
         if (loc.GetMapId() == bot->GetMapId())
@@ -94,6 +122,16 @@ void CoaWorldLevelingFilter(Player* bot, std::vector<WorldLocation>& locs)
         locs = std::move(sameContinent);
     else
         locs = std::move(route);
+}
+
+bool CoaWorldAreaTooHigh(Player* bot, uint32 mapId, float x, float y, float z)
+{
+    if (!g_areaGuard.load(std::memory_order_relaxed) || !bot)
+        return false;
+    AreaTableEntry const* area = sAreaTableStore.LookupEntry(AreaOf(mapId, x, y, z));
+    if (!area || area->area_level <= 0)
+        return false;
+    return area->area_level > int32(bot->GetLevel()) + int32(g_areaGuardLevels.load(std::memory_order_relaxed));
 }
 
 class CoaWorldLevelingWorldScript : public WorldScript
