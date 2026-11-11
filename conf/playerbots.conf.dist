@@ -4525,11 +4525,10 @@ AiPlayerbot.SummonAtInnkeepersEnabled = 1
 #
 # The auction house bot (seller and buyer of the house), merged into SquidBot. Its settings stay
 # the AuctionHouseBot.* keys of mod_ahbot.conf (same file, same values as before).
-#    1 = SquidBot runs the auction house bot. Read at start-up only (restart to change it).
-#    0 = off (default). Leave it at 0 while mod-ah-bot-plus is still built into the core: only one
-#        of the two may run.
-# Default: 0
-AiPlayerbot.CoaEconomy.AHBot.Enable = 0
+#    1 = SquidBot runs the auction house bot (default). Read at start-up only (restart to change it).
+#    0 = off. Set 0 if another auction house bot module is built into the core: only one may run.
+# Default: 1
+AiPlayerbot.CoaEconomy.AHBot.Enable = 1
 
 # Once, at the first start in 3.0: the old auction house module's stock goes. Every auction of its seller characters
 # (AuctionHouseBot.GUIDs and the characters of the AHBOT account) is removed, as ".ahbot empty" does: a bidder gets
@@ -4540,13 +4539,13 @@ AiPlayerbot.CoaEconomy.AHBot.EmptyOldAuctions = 0
 
 # Auction house bot, CoA sellable filter: the bot only lists goods a CoA player could really sell.
 # Read again by ".ahbot reload". Each rule below only counts when Filter.Enable = 1.
-#    Enable            1 = on, 0 = off (default).
+#    Enable            1 = on (default), 0 = off.
 #    Deprecated        Leave out items flagged deprecated (cannot be equipped or used). Default 1.
 #    Bloodforged       Leave out Bloodforged variants. Default 1. While Bloodforged.Enable = 0 they are
 #                      always left out; with it on, AllowBloodforged = 1 lets them in (default 0).
 #    Worldforged       Leave out Worldforged items. Default 1.
 #    ScaledEntries     Leave out the generated scaled copies of items (ids 4400001 to 4912583). Default 1.
-AiPlayerbot.CoaEconomy.Filter.Enable = 0
+AiPlayerbot.CoaEconomy.Filter.Enable = 1
 AiPlayerbot.CoaEconomy.Filter.Deprecated = 1
 AiPlayerbot.CoaEconomy.Filter.Bloodforged = 1
 AiPlayerbot.CoaEconomy.Filter.AllowBloodforged = 0
@@ -4573,11 +4572,11 @@ AiPlayerbot.CoaEconomy.Buyer.ArbitrageMarginPercent = 90
 # Auction house bot, rarity premium: the house's formula price rises for items that drop rarely. Only items
 # with a known drop rate get it (AuctionHouseBot.AdvancedListingRules.UseDropRates lists).
 # Read again by ".reload config" and ".ahbot reload".
-#    Enable             1 = on, 0 = off (default).
+#    Enable             1 = on (default), 0 = off.
 #    PremiumPercent     Premium at RareDropPercent or below (default 100, so x2).
 #    CommonDropPercent  No premium from this drop chance up (default 5).
 #    RareDropPercent    Full premium at this drop chance or below (default 0.01); log scale in between.
-AiPlayerbot.CoaEconomy.Rarity.Enable = 0
+AiPlayerbot.CoaEconomy.Rarity.Enable = 1
 AiPlayerbot.CoaEconomy.Rarity.PremiumPercent = 100
 AiPlayerbot.CoaEconomy.Rarity.CommonDropPercent = 5
 AiPlayerbot.CoaEconomy.Rarity.RareDropPercent = 0.01
@@ -4585,13 +4584,13 @@ AiPlayerbot.CoaEconomy.Rarity.RareDropPercent = 0.01
 # Market prices learned from real auction sales (player or SquidBot to player or SquidBot; the house bot's
 # own sales and purchases never count). The house bot's price moves toward the learned usual price.
 # Stored in the playerbots database (table coa_economy_market).
-#    Enable            1 = on, 0 = off (default). Read at start-up (restart to change it).
+#    Enable            1 = on (default), 0 = off. Read at start-up (restart to change it).
 #    MinSales          Sales needed before the learned price has its full weight (default 5).
 #    HalfLifeDays      The weight halves after this many days without a sale (default 3).
 #    MaxWeightPercent  Most the learned price weighs against the house formula (default 80).
 #    BandMinPercent    The learned price is kept between these shares of the formula price
 #    BandMaxPercent    (default 50 and 300), so a thin market cannot run away.
-AiPlayerbot.CoaEconomy.Market.Enable = 0
+AiPlayerbot.CoaEconomy.Market.Enable = 1
 AiPlayerbot.CoaEconomy.Market.MinSales = 5
 AiPlayerbot.CoaEconomy.Market.HalfLifeDays = 3
 AiPlayerbot.CoaEconomy.Market.MaxWeightPercent = 80
@@ -4631,9 +4630,9 @@ AiPlayerbot.CoaEconomy.LaunchCurve.LaunchPremiumPercent = 150
 # worth only a vendor price) and repair at an armorer when their gear is worn.
 # Pairs with AiPlayerbot.RefreshClearsInventory = 0 (bots keep their loot between refreshes); that key is not
 # changed here. Read at start-up, and again on ".reload config" or the playerbots config reload.
-#    Enable      1 = on, 0 = off (default).
+#    Enable      1 = on (default), 0 = off.
 #    BagPercent  Bag fill (%) from which a bot looks for a vendor (default 70).
-AiPlayerbot.CoaEconomy.RpgSell.Enable = 0
+AiPlayerbot.CoaEconomy.RpgSell.Enable = 1
 AiPlayerbot.CoaEconomy.RpgSell.BagPercent = 70
 
 # Random bots use the auction house like players. A bot with loot its item usage marks for the auction house
@@ -4643,14 +4642,14 @@ AiPlayerbot.CoaEconomy.RpgSell.BagPercent = 70
 # CoA Combat's gear score, else a bag for an empty bag slot. Each bot has its own thrift and patience (stable
 # per character). All of it goes through the core's auction packets: deposits, cuts and mails as for players.
 # With RpgSell on, auction loot is kept for the auction house unless the bags are nearly full (95 %).
-#    Enable                1 = on, 0 = off (default). Read at start-up (restart to change it).
+#    Enable                1 = on (default), 0 = off. Read at start-up (restart to change it).
 #    VisitCooldownMinutes  Least time between two visits of a bot (default 45).
 #    ListPerVisit          Items listed at most per visit (default 3).
 #    MaxBudgetPercent      Most of its gold a bot spends in a visit (default 30; a thrifty bot spends less).
 #    VisitsPerTick         Visits run per world update, to spread the cost (default 2).
 #    DurationHours         Auction duration: 12, 24 or 48 (default 24).
 #    MaxScan               Gear auctions looked at per visit for an upgrade (default 300).
-AiPlayerbot.CoaEconomy.BotAuctions.Enable = 0
+AiPlayerbot.CoaEconomy.BotAuctions.Enable = 1
 AiPlayerbot.CoaEconomy.BotAuctions.VisitCooldownMinutes = 45
 AiPlayerbot.CoaEconomy.BotAuctions.ListPerVisit = 3
 AiPlayerbot.CoaEconomy.BotAuctions.MaxBudgetPercent = 30
@@ -4660,8 +4659,8 @@ AiPlayerbot.CoaEconomy.BotAuctions.MaxScan = 300
 
 # Bots' auction prices from the real CoA auction house: the market value of scans of the real house (17,121 items),
 # else the median of the scanned items of the same quality and item level (uncommon and better). Our own sales, made
-# by bots at bots' prices, would otherwise keep prices low. 1 = on, 0 = off (default). Read again on reload.
-AiPlayerbot.CoaEconomy.BotAuctions.RealHousePrices = 0
+# by bots at bots' prices, would otherwise keep prices low. 1 = on (default), 0 = off. Read again on reload.
+AiPlayerbot.CoaEconomy.BotAuctions.RealHousePrices = 1
 # Factors on the real house's prices by quality (the scans are the last week of a 7 months old server: relative
 # values). Common covers poor and common items. Read again on reload.
 AiPlayerbot.CoaEconomy.BotAuctions.RealPriceMultiplier.Common = 1
@@ -4673,9 +4672,9 @@ AiPlayerbot.CoaEconomy.BotAuctions.RealPriceMultiplier.Epic = 6
 # of the client data, CoA's own included) and sell the product. At an auction house visit (BotAuctions) an artisan
 # makes one piece worth at least MinProfitPercent over its materials, the best margins first, and lists it with its
 # loot. Reagents it holds are used; missing ones are paid in gold at market price, as if it had shopped.
-#    Enable            1 = on, 0 = off (default). Read at start-up (restart to change it). Needs BotAuctions.
+#    Enable            1 = on (default), 0 = off. Read at start-up (restart to change it). Needs BotAuctions.
 #    MinProfitPercent  Least margin over the materials' market price (default 20).
-AiPlayerbot.CoaEconomy.Artisans.Enable = 0
+AiPlayerbot.CoaEconomy.Artisans.Enable = 1
 AiPlayerbot.CoaEconomy.Artisans.MinProfitPercent = 20
 
 # Craft on order and artisans in Trade, with CoA Live's lines (bank 3_0_05 of CoA IA MIND) and COD mail. Needs
@@ -4685,34 +4684,34 @@ AiPlayerbot.CoaEconomy.Artisans.MinProfitPercent = 20
 # OrderCooldownMinutes per bot, else it says it is busy. Back from the auction house in a capital, an artisan may
 # offer the piece it just made in Trade (TradeOfferPercent; a player who answers gets it COD at the price said)
 # or say it takes orders.
-#    Enable                1 = on, 0 = off (default). Read at start-up (restart to change it).
+#    Enable                1 = on (default), 0 = off. Read at start-up (restart to change it).
 #    FeePercent            Least margin over the materials (default 15).
 #    OrderCooldownMinutes  Least time between two orders of a bot (default 5).
 #    TradeOfferPercent     Chance to offer a fresh piece in Trade rather than at the auction house (default 50).
 #    AdvertiseMinutes      Every N minutes, in each capital where a real player is, an artisan of that player's
 #                          faction says in Trade that it takes orders, with its profession and recipe links; another
 #                          artisan and profession each time (0 = off, default).
-AiPlayerbot.CoaEconomy.CraftOrders.Enable = 0
+AiPlayerbot.CoaEconomy.CraftOrders.Enable = 1
 AiPlayerbot.CoaEconomy.CraftOrders.FeePercent = 15
 AiPlayerbot.CoaEconomy.CraftOrders.OrderCooldownMinutes = 5
 AiPlayerbot.CoaEconomy.CraftOrders.TradeOfferPercent = 50
-AiPlayerbot.CoaEconomy.CraftOrders.AdvertiseMinutes = 0
+AiPlayerbot.CoaEconomy.CraftOrders.AdvertiseMinutes = 8
 
 # Recursive craft price: a reagent costs an artisan the least of its market price and what its own reagents cost
 # (a Bolt of Silk Cloth: its price, or four Silk Cloth), down to Depth levels, from the learned prices. Used for the
 # artisans' margins, what they pay for missing reagents and the price of an order. Needs Artisans.
 #    Enable  1 = on, 0 = off (default: reagents at their market price only).
 #    Depth   Levels followed, 1 to 5 (default 3).
-AiPlayerbot.CoaEconomy.Artisans.RecursiveCost.Enable = 0
+AiPlayerbot.CoaEconomy.Artisans.RecursiveCost.Enable = 1
 AiPlayerbot.CoaEconomy.Artisans.RecursiveCost.Depth = 3
 
 # Materials: at an auction house visit (BotAuctions), a bot with the profession smelts its ore into bars (Mining,
 # needs Artisans), prospects five ores into gems (Jewelcrafting) and disenchants the greens, blues and epics it would
 # sell (Enchanting), only when what comes out is worth more at market price. Nothing CoA does not have comes out.
-#    Enable      1 = on, 0 = off (default). Read at start-up (restart to change it).
+#    Enable      1 = on (default), 0 = off. Read at start-up (restart to change it).
 #    Smelt, Prospect, Disenchant   Each step, 1 = on (default), 0 = off.
 #    PerVisit    Most items smelted, prospected or disenchanted per visit (default 5).
-AiPlayerbot.CoaEconomy.Materials.Enable = 0
+AiPlayerbot.CoaEconomy.Materials.Enable = 1
 AiPlayerbot.CoaEconomy.Materials.Smelt = 1
 AiPlayerbot.CoaEconomy.Materials.Prospect = 1
 AiPlayerbot.CoaEconomy.Materials.Disenchant = 1
@@ -4721,10 +4720,10 @@ AiPlayerbot.CoaEconomy.Materials.PerVisit = 5
 # Artisans' material stock: an artisan keeps the reagents of its recipes instead of selling them (at the auction
 # house or a vendor, unless its bags are 95 % full), up to MaxStacks stacks of each, and when it buys nothing else at
 # the auction house it buys one lot of them below BuyBelowPercent of the market price. Needs Artisans and BotAuctions.
-#    Enable           1 = on, 0 = off (default). Read at start-up (restart to change it).
+#    Enable           1 = on (default), 0 = off. Read at start-up (restart to change it).
 #    MaxStacks        Stacks kept of each reagent (default 2).
 #    BuyBelowPercent  Most it pays, in percent of the market price (default 90).
-AiPlayerbot.CoaEconomy.Artisans.Stock.Enable = 0
+AiPlayerbot.CoaEconomy.Artisans.Stock.Enable = 1
 AiPlayerbot.CoaEconomy.Artisans.Stock.MaxStacks = 2
 AiPlayerbot.CoaEconomy.Artisans.Stock.BuyBelowPercent = 90
 
@@ -4732,8 +4731,8 @@ AiPlayerbot.CoaEconomy.Artisans.Stock.BuyBelowPercent = 90
 # recipes, a quote without crafting (held 10 minutes), the order of a quote (crafted and mailed cash on delivery, 1 to
 # 20 crafts in one mail of 12 stacks at most) and the player's CoD mails of the last 7 days. The server checks every request; 1 request a second per
 # player, lists cached 10 s. Needs Artisans; quotes and orders also need CraftOrders.
-#    Addon  1 = on, 0 = off (default). Read at start-up (restart to change it).
-AiPlayerbot.CoaEconomy.Artisans.Addon = 0
+#    Addon  1 = on (default), 0 = off. Read at start-up (restart to change it).
+AiPlayerbot.CoaEconomy.Artisans.Addon = 1
 
 # Auctions on game time: the core ends an auction at a real date, so a server off for a night found every auction
 # over at start-up. With this on, the world writes a sign of life every minute (table coa_economy_clock of the
@@ -4749,8 +4748,8 @@ AiPlayerbot.CoaEconomy.AuctionClock.MaxPauseDays = 30
 # while the dashboard watches the economy (squidbot/watch.json), and written off the world thread; nothing is built
 # while nobody looks. Written to AiPlayerbot.CoaDataDir (empty = <LogsDir>/squidbot); AiPlayerbot.CoaDataFiles = 0
 # turns it off too. Sales and price bands need Market, crafts need Artisans, orders need CraftOrders.
-#    Enable  1 = on, 0 = off (default). Read at start-up (restart to change it).
-AiPlayerbot.CoaEconomy.DataFile.Enable = 0
+#    Enable  1 = on (default), 0 = off. Read at start-up (restart to change it).
+AiPlayerbot.CoaEconomy.DataFile.Enable = 1
 
 ###################################################################################################
 #  CoA Combat — owned by the CoA Combat session

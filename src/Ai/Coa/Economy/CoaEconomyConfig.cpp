@@ -14,7 +14,7 @@
 
 void PlayerbotAIConfig::LoadCoaEconomyConfig()
 {
-    coaEconomyRpgSellEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.RpgSell.Enable", false);
+    coaEconomyRpgSellEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.RpgSell.Enable", true);
     coaEconomyRpgSellBagPercent =
         std::min<uint32>(100, sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaEconomy.RpgSell.BagPercent", 70));
 }

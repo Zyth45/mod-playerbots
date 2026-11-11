@@ -252,7 +252,7 @@ public:
 
 void AddSC_coa_economy_ahbot()
 {
-    if (!sConfigMgr->GetOption<bool>(KEY_MODULE_ENABLE, false))
+    if (!sConfigMgr->GetOption<bool>(KEY_MODULE_ENABLE, true))
         return;
 
     new CoaAhBotWorldHooks();

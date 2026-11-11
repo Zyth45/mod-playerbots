@@ -101,11 +101,11 @@ bool IsEnabled()
 
 void LoadSettings()
 {
-    enabled = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.Artisans.Enable", false, false);
+    enabled = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.Artisans.Enable", true, false);
     minProfitPercent = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaEconomy.Artisans.MinProfitPercent", 20);
-    realPrices = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.BotAuctions.RealHousePrices", false);
+    realPrices = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.BotAuctions.RealHousePrices", true);
     realMultipliers = RealPrices::LoadMultipliers("AiPlayerbot.CoaEconomy.BotAuctions.RealPriceMultiplier");
-    recursiveDepth = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.Artisans.RecursiveCost.Enable", false)
+    recursiveDepth = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.Artisans.RecursiveCost.Enable", true)
         ? std::min<uint32>(5, sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaEconomy.Artisans.RecursiveCost.Depth", 3))
         : 0;
 }
@@ -378,7 +378,7 @@ namespace
 void AddSC_coa_economy_artisans()
 {
     // Off by default; read at start-up (restart to change it). MinProfitPercent is read again on reload.
-    if (!sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.Artisans.Enable", false, false))
+    if (!sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.Artisans.Enable", true, false))
         return;
     CoaEconomy::Artisans::LoadSettings();
     new CoaArtisansWorld();

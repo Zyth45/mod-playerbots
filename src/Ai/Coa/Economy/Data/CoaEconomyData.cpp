@@ -102,7 +102,7 @@ namespace
 
     void LoadSettings()
     {
-        enabled = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.DataFile.Enable", false, false) &&
+        enabled = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.DataFile.Enable", true, false) &&
                   sConfigMgr->GetOption<bool>("AiPlayerbot.CoaDataFiles", true, false);
         dir = sConfigMgr->GetOption<std::string>("AiPlayerbot.CoaDataDir", "", false);
         if (dir.empty())
@@ -605,7 +605,7 @@ void RecordClock(uint32 offlineSeconds, uint32 resumed)
 void AddSC_coa_economy_data()
 {
     // Off by default; read at start-up (restart to change it). AiPlayerbot.CoaDataFiles = 0 also turns it off.
-    if (!sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.DataFile.Enable", false, false))
+    if (!sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.DataFile.Enable", true, false))
         return;
     CoaEconomy::Data::LoadSettings();
     new CoaEconomy::Data::CoaEconomyDataWorld();

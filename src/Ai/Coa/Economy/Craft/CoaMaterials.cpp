@@ -197,12 +197,12 @@ namespace
 
 void LoadSettings()
 {
-    settings.enabled = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.Materials.Enable", false, false);
+    settings.enabled = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.Materials.Enable", true, false);
     settings.smelt = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.Materials.Smelt", true);
     settings.prospect = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.Materials.Prospect", true);
     settings.disenchant = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.Materials.Disenchant", true);
     settings.perVisit = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaEconomy.Materials.PerVisit", 5);
-    settings.stock = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.Artisans.Stock.Enable", false, false);
+    settings.stock = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.Artisans.Stock.Enable", true, false);
     settings.maxStacks = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaEconomy.Artisans.Stock.MaxStacks", 2);
     settings.buyBelowPercent = std::min<uint32>(100,
         sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaEconomy.Artisans.Stock.BuyBelowPercent", 90));
@@ -315,8 +315,8 @@ namespace
 void AddSC_coa_economy_materials()
 {
     // Off by default; the two Enable keys are read at start-up (restart to change them).
-    if (!sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.Materials.Enable", false, false) &&
-        !sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.Artisans.Stock.Enable", false, false))
+    if (!sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.Materials.Enable", true, false) &&
+        !sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.Artisans.Stock.Enable", true, false))
         return;
     CoaEconomy::Materials::LoadSettings();
     new CoaMaterialsWorld();

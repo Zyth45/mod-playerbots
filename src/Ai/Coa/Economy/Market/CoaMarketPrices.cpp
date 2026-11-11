@@ -44,7 +44,7 @@ MarketPrices* MarketPrices::instance()
 
 void MarketPrices::LoadSettings()
 {
-    _enabled = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.Market.Enable", false, false);
+    _enabled = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.Market.Enable", true, false);
     _minSales = std::max<uint32>(1, sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaEconomy.Market.MinSales", 5));
     _halfLifeDays = std::max(0.1f, sConfigMgr->GetOption<float>("AiPlayerbot.CoaEconomy.Market.HalfLifeDays", 3.0f));
     _maxWeight = std::clamp(sConfigMgr->GetOption<float>("AiPlayerbot.CoaEconomy.Market.MaxWeightPercent", 80.0f) / 100.0f, 0.0f, 1.0f);
@@ -198,7 +198,7 @@ namespace
 void AddSC_coa_economy_market()
 {
     // Off by default; read at start-up (restart to change it).
-    if (!sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.Market.Enable", false, false))
+    if (!sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.Market.Enable", true, false))
         return;
 
     sCoaMarketPrices->LoadSettings();
