@@ -64,13 +64,25 @@ uint64 Of(uint32 itemId)
 }
 
 // The median of the scanned items of its quality and item level (any quality; 0 without enough samples).
+uint64 BandOf(uint32 quality, uint32 itemLevel)
+{
+    std::call_once(floorsBuilt, BuildFloors);
+    auto found = floors.find({quality, itemLevel / BandLevels});
+    return found == floors.end() ? 0 : found->second;
+}
+
 uint64 Band(ItemTemplate const* proto)
 {
-    if (!proto)
+    return proto ? BandOf(proto->Quality, proto->ItemLevel) : 0;
+}
+
+uint64 QualityStep(ItemTemplate const* proto, Multipliers const& multipliers)
+{
+    if (!proto || (proto->Class != ITEM_CLASS_WEAPON && proto->Class != ITEM_CLASS_ARMOR) ||
+        proto->Quality <= ITEM_QUALITY_UNCOMMON)
         return 0;
-    std::call_once(floorsBuilt, BuildFloors);
-    auto found = floors.find({proto->Quality, proto->ItemLevel / BandLevels});
-    return found == floors.end() ? 0 : found->second;
+    uint32 const lower = std::min<uint32>(proto->Quality, ITEM_QUALITY_EPIC) - 1;
+    return CoaEconomyRules::QualityStep(BandOf(lower, proto->ItemLevel), multipliers.For(lower));
 }
 
 uint64 Floor(ItemTemplate const* proto)

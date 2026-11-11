@@ -233,6 +233,12 @@ inline std::uint64_t FairPrice(std::uint64_t value, std::uint64_t reagents, std:
     return value;
 }
 
+// The least price of a better quality: 1.5 times the scaled median of the quality below (0 when unknown).
+inline std::uint64_t QualityStep(std::uint64_t lowerMedian, float lowerFactor)
+{
+    return std::uint64_t(double(lowerMedian) * lowerFactor * 1.5);
+}
+
 // The median of some prices (the lower middle one for an even count; 0 when empty).
 inline std::uint64_t Median(std::vector<std::uint64_t> values)
 {
