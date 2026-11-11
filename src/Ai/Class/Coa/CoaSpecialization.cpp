@@ -776,6 +776,11 @@ bool SpendAltBotTalentPoints(Player* bot)
     if (IsAscensionCustomClassId(bot->getClass()))
         return SpendCoaTalentPoints(bot) > 0;
 
+    // Warcraft Reborn: the talents of a player's character are its Character Advancement, chosen by its owner; the
+    // tree below would apply the guide build over it.
+    if (IsRebornBot(bot))
+        return false;
+
     if (bot->GetFreeTalentPoints() <= 0)
         return false;
 
