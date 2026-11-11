@@ -38,6 +38,9 @@ bool AnswersWhispers(PlayerbotAI* botAI, ObjectGuid from);
 // AiPlayerbot.CoaLive.Chat.Enable (the launcher's "Bot chat" switch): false, no bot line is written. Other sessions
 // writing their own lines ask it too.
 bool ChatOn();
+// The module's older unsolicited lines (broadcasts, RandomBotTalk): false while the living chat speaks, unless
+// AiPlayerbot.CoaLive.LegacyChat (CoaChatRules.h).
+bool LegacyChatOn();
 
 // The bot accepted a resurrection cast by "by".
 void OnResurrectAccepted(Player* bot, ObjectGuid by);

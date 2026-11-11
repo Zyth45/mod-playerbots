@@ -12,5 +12,10 @@ int main()
     assert(CoaChat::ChannelLineAllowed(true) && !CoaChat::ChannelLineAllowed(false));
     assert(CoaChat::ChatReplyAllowed(true, false) && CoaChat::ChatReplyAllowed(false, true) &&
            !CoaChat::ChatReplyAllowed(false, false));
+    // Older lines: silent while the living chat speaks, unless LegacyChat; as before with CoA Live off.
+    assert(!CoaChat::LegacyLinesAllowed(true, true, false));
+    assert(CoaChat::LegacyLinesAllowed(true, true, true));
+    assert(CoaChat::LegacyLinesAllowed(false, true, false));
+    assert(!CoaChat::LegacyLinesAllowed(false, false, true) && !CoaChat::LegacyLinesAllowed(true, false, true));
     return 0;
 }

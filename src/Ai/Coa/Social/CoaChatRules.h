@@ -29,6 +29,12 @@ inline bool TradePaceRuns(bool chatOn, unsigned perMinute) { return chatOn && pe
 // kept for its master only (an order and its answer are not chat).
 inline bool ChannelLineAllowed(bool chatOn) { return chatOn; }
 inline bool ChatReplyAllowed(bool chatOn, bool fromMaster) { return chatOn || fromMaster; }
+
+// The module's older unsolicited lines (broadcasts, RandomBotTalk suggestions and replies to chatter): while the
+// living chat speaks (CoaLive.Enable and CoaLive.Chat.Enable), its banks say these moments and the older lines
+// stay silent, unless AiPlayerbot.CoaLive.LegacyChat = 1. With CoA Live off, they speak as before; with the chat
+// off, never. EnableBroadcasts and RandomBotTalk keep the player's value.
+inline bool LegacyLinesAllowed(bool liveOn, bool chatOn, bool legacyChat) { return chatOn && (!liveOn || legacyChat); }
 }  // namespace CoaChat
 
 #endif

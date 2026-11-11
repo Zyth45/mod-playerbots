@@ -1975,6 +1975,12 @@ void OnBotUpdate(Player* bot, PlayerbotAI* botAI, uint32 diff)
 
 bool ChatOn() { return sPlayerbotAIConfig.coaLiveChatEnable; }
 
+bool LegacyChatOn()
+{
+    return CoaChat::LegacyLinesAllowed(sPlayerbotAIConfig.coaLiveEnable, sPlayerbotAIConfig.coaLiveChatEnable,
+                                       sPlayerbotAIConfig.coaLiveLegacyChat);
+}
+
 bool AnswersWhispers(PlayerbotAI* botAI, ObjectGuid from)
 {
     // Off: decided before anything is looked up, so the old path is untouched.

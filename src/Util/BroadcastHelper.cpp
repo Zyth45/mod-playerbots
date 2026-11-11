@@ -5,6 +5,7 @@
  */
 
 #include "BroadcastHelper.h"
+#include "CoaLive.h"
 #include "AiFactory.h"
 #include "Channel.h"
 #include "PlayerbotOperations.h"
@@ -102,6 +103,8 @@ static bool SayNow(PlayerbotAI* ai, std::string const& message, BroadcastHelper:
 */
 bool BroadcastHelper::BroadcastToChannelWithGlobalChance(PlayerbotAI* ai, std::string message, std::list<std::pair<ToChannel, uint32>> toChannels)
 {
+    if (!CoaLive::LegacyChatOn())  // the living chat says these moments (AiPlayerbot.CoaLive.LegacyChat)
+        return false;
     if (!sPlayerbotAIConfig.enableBroadcasts)
         return false;
     if (message.empty())
@@ -579,6 +582,8 @@ bool BroadcastHelper::BroadcastLevelup(PlayerbotAI* ai, Player* bot)
 
 bool BroadcastHelper::BroadcastGuildMemberPromotion(PlayerbotAI* ai, Player* /* bot */, Player* player)
 {
+    if (!CoaLive::LegacyChatOn())  // the living chat says these moments (AiPlayerbot.CoaLive.LegacyChat)
+        return false;
     if (!sPlayerbotAIConfig.enableBroadcasts)
         return false;
     if (urand(1, sPlayerbotAIConfig.broadcastChanceMaxValue) <= sPlayerbotAIConfig.broadcastChanceGuildManagement)
@@ -597,6 +602,8 @@ bool BroadcastHelper::BroadcastGuildMemberPromotion(PlayerbotAI* ai, Player* /* 
 
 bool BroadcastHelper::BroadcastGuildMemberDemotion(PlayerbotAI* ai, Player* /* bot */, Player* player)
 {
+    if (!CoaLive::LegacyChatOn())  // the living chat says these moments (AiPlayerbot.CoaLive.LegacyChat)
+        return false;
     if (urand(1, sPlayerbotAIConfig.broadcastChanceMaxValue) <= sPlayerbotAIConfig.broadcastChanceGuildManagement)
     {
         std::map<std::string, std::string> placeholders;
@@ -613,6 +620,8 @@ bool BroadcastHelper::BroadcastGuildMemberDemotion(PlayerbotAI* ai, Player* /* b
 
 bool BroadcastHelper::BroadcastGuildGroupOrRaidInvite(PlayerbotAI* ai, Player* /* bot */, Player* player, Group* group)
 {
+    if (!CoaLive::LegacyChatOn())  // the living chat says these moments (AiPlayerbot.CoaLive.LegacyChat)
+        return false;
     if (!sPlayerbotAIConfig.enableBroadcasts)
         return false;
     std::map<std::string, std::string> placeholders;
