@@ -9,5 +9,8 @@ int main()
     CoaChat::Parts off = CoaChat::PartsOf(false);
     assert(!off.text && off.emote && off.invite && off.cod);
     assert(CoaChat::TradePaceRuns(true, 2) && !CoaChat::TradePaceRuns(false, 2) && !CoaChat::TradePaceRuns(true, 0));
+    assert(CoaChat::ChannelLineAllowed(true) && !CoaChat::ChannelLineAllowed(false));
+    assert(CoaChat::ChatReplyAllowed(true, false) && CoaChat::ChatReplyAllowed(false, true) &&
+           !CoaChat::ChatReplyAllowed(false, false));
     return 0;
 }

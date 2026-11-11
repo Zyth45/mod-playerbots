@@ -7,6 +7,7 @@
 #include "PlayerbotAI.h"
 
 #include "CoaLive.h"
+#include "CoaChatRules.h"
 #include "CoaPet.h"
 #include "CurrentTargetValue.h"
 
@@ -1554,6 +1555,10 @@ void PlayerbotAI::HearChat(WorldPacket const& packet)
                 return;
 
             if (HasGameClientMaster() && guid1 != GetMaster()->GetGUID())
+                return;
+
+            // Chat off (AiPlayerbot.CoaLive.Chat.Enable = 0): no reply to chatter, only to the master.
+            if (!CoaChat::ChatReplyAllowed(CoaLive::ChatOn(), GetMaster() && guid1 == GetMaster()->GetGUID()))
                 return;
 
             auto itemIds = GetChatHelper()->ExtractAllItemIds(message);
@@ -3470,6 +3475,8 @@ void PlayerbotAI::LogChat(std::string_view how, std::string const& msg) const
 
 bool PlayerbotAI::SayToGuild(std::string const& msg)
 {
+    if (!CoaChat::ChannelLineAllowed(CoaLive::ChatOn()))  // AiPlayerbot.CoaLive.Chat.Enable = 0
+        return false;
     if (msg.empty())
     {
         return false;
@@ -3494,6 +3501,8 @@ bool PlayerbotAI::SayToGuild(std::string const& msg)
 
 bool PlayerbotAI::SayToWorld(std::string const& msg)
 {
+    if (!CoaChat::ChannelLineAllowed(CoaLive::ChatOn()))  // AiPlayerbot.CoaLive.Chat.Enable = 0
+        return false;
     if (msg.empty())
         return false;
 
@@ -3503,6 +3512,8 @@ bool PlayerbotAI::SayToWorld(std::string const& msg)
 
 bool PlayerbotAI::SayToWorldNow(std::string const& msg)
 {
+    if (!CoaChat::ChannelLineAllowed(CoaLive::ChatOn()))  // AiPlayerbot.CoaLive.Chat.Enable = 0
+        return false;
     if (msg.empty())
     {
         return false;
@@ -3528,6 +3539,8 @@ bool PlayerbotAI::SayToWorldNow(std::string const& msg)
 
 bool PlayerbotAI::SayToChannel(std::string const& msg, ChatChannelId const& chanId)
 {
+    if (!CoaChat::ChannelLineAllowed(CoaLive::ChatOn()))  // AiPlayerbot.CoaLive.Chat.Enable = 0
+        return false;
     if (msg.empty())
         return false;
 
@@ -3538,6 +3551,8 @@ bool PlayerbotAI::SayToChannel(std::string const& msg, ChatChannelId const& chan
 
 bool PlayerbotAI::SayToChannelNow(std::string const& msg, ChatChannelId chanId)
 {
+    if (!CoaChat::ChannelLineAllowed(CoaLive::ChatOn()))  // AiPlayerbot.CoaLive.Chat.Enable = 0
+        return false;
     // Checks whether the message or ChannelMgr is valid
     if (msg.empty())
         return false;
