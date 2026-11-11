@@ -2018,7 +2018,14 @@ void PlayerbotAI::DoNextAction(bool min)
 
     if (minimal)
     {
-        if (!bot->isAFK() && !bot->InBattleground() && !HasGameClientMaster())
+        // CoA Live (AiPlayerbot.CoaLive.NoAwayFlag): a bot resting its turn of the BotActiveAlone rotation is not
+        // shown <Away>: it still talks (channels, trade, whispers), and the chat was full of <Away> bots.
+        if (sPlayerbotAIConfig.coaLiveNoAwayFlag)
+        {
+            if (bot->isAFK() && !IsSelfBot(bot))
+                bot->ToggleAFK();
+        }
+        else if (!bot->isAFK() && !bot->InBattleground() && !HasGameClientMaster())
             bot->ToggleAFK();
 
         SetNextCheckDelay(sPlayerbotAIConfig.passiveDelay);
