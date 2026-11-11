@@ -29,6 +29,9 @@ int main()
     // A rare at its top (1.5 x median x3) never above the epic step (1.5 x rare median x3).
     assert(CoaEconomyRules::ClampToBand(900000, 100000, 15) * 3 <= CoaEconomyRules::QualityStep(100000, 3.0f));
     assert(CoaEconomyRules::ClampToBand(120000, 0) == 120000 && CoaEconomyRules::ClampToBand(0, 5) == 0);
+    // Goods keep a cheap scan (no floor), lose only a joke price.
+    assert(CoaEconomyRules::ClampToBand(517, 12000, 30, 0) == 517);
+    assert(CoaEconomyRules::ClampToBand(99000, 12000, 30, 0) == 36000);
 
     // A better quality's least price: 1.5 x the scaled median of the quality below.
     assert(CoaEconomyRules::QualityStep(100000, 3.0f) == 450000 && CoaEconomyRules::QualityStep(0, 3.0f) == 0);

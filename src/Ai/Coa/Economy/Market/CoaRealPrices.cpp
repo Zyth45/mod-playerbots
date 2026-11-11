@@ -15,6 +15,7 @@
 #include <algorithm>
 #include <map>
 #include <mutex>
+#include <tuple>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -35,17 +36,23 @@ namespace
     constexpr uint32 BandLevels = 5;
     constexpr std::size_t MinSamples = 5;
 
-    // (quality, item level band) -> median market value of the scanned items of our item templates. Built once.
-    std::map<std::pair<uint32, uint32>, uint64> floors;
+    bool IsGear(ItemTemplate const* proto)
+    {
+        return proto->Class == ITEM_CLASS_WEAPON || proto->Class == ITEM_CLASS_ARMOR;
+    }
+
+    // (gear, quality, item level band) -> median market value of the scanned items of our item templates. Gear and
+    // goods apart: white gear of level 55 is worth far more than a runecloth of level 55 (bench a52). Built once.
+    std::map<std::tuple<bool, uint32, uint32>, uint64> floors;
     std::once_flag floorsBuilt;
 
     void BuildFloors()
     {
-        std::map<std::pair<uint32, uint32>, std::vector<uint64>> samples;
+        std::map<std::tuple<bool, uint32, uint32>, std::vector<uint64>> samples;
         for (auto const& [id, price] : Table())
             if (price)
                 if (ItemTemplate const* proto = sObjectMgr->GetItemTemplate(id))
-                    samples[{proto->Quality, proto->ItemLevel / BandLevels}].push_back(price);
+                    samples[{IsGear(proto), proto->Quality, proto->ItemLevel / BandLevels}].push_back(price);
         for (auto& [key, values] : samples)
             if (values.size() >= MinSamples)
                 floors[key] = CoaEconomyRules::Median(values);
@@ -63,17 +70,17 @@ uint64 Of(uint32 itemId)
     return found == Table().end() ? 0 : found->second;
 }
 
-// The median of the scanned items of its quality and item level (any quality; 0 without enough samples).
-uint64 BandOf(uint32 quality, uint32 itemLevel)
+// The median of the scanned items of its kind, quality and item level (any quality; 0 without enough samples).
+uint64 BandOf(uint32 quality, uint32 itemLevel, bool gear)
 {
     std::call_once(floorsBuilt, BuildFloors);
-    auto found = floors.find({quality, itemLevel / BandLevels});
+    auto found = floors.find({gear, quality, itemLevel / BandLevels});
     return found == floors.end() ? 0 : found->second;
 }
 
 uint64 Band(ItemTemplate const* proto)
 {
-    return proto ? BandOf(proto->Quality, proto->ItemLevel) : 0;
+    return proto ? BandOf(proto->Quality, proto->ItemLevel, IsGear(proto)) : 0;
 }
 
 uint64 QualityStep(ItemTemplate const* proto, Multipliers const& multipliers)
@@ -94,10 +101,12 @@ uint64 Priced(ItemTemplate const* proto)
 {
     if (!proto)
         return 0;
-    // Gear tops at 1.5 times its median: the quality above starts there (QualityStep), so a blue never outprices an
-    // epic of its item level; goods keep a wider range.
-    bool const gear = proto->Class == ITEM_CLASS_WEAPON || proto->Class == ITEM_CLASS_ARMOR;
-    return CoaEconomyRules::ClampToBand(Of(proto->ItemId), Band(proto), gear ? 15 : 30);
+    // Gear stays between half and 1.5 times its median: the quality above starts there (QualityStep), so a blue never
+    // outprices an epic of its item level. Goods only lose their joke prices (over 3 times): a cheap cloth or hide stays
+    // cheap (bench a52: the band's floor sold a 5 s runecloth at 1.3 g); the vendor floor guards the bottom.
+    if (IsGear(proto))
+        return CoaEconomyRules::ClampToBand(Of(proto->ItemId), Band(proto), 15);
+    return CoaEconomyRules::ClampToBand(Of(proto->ItemId), Band(proto), 30, 0);
 }
 
 uint64 Reference(ItemTemplate const* proto)
@@ -134,8 +143,7 @@ uint64 Scaled(uint64 price, ItemTemplate const* proto, Multipliers const& multip
 {
     if (!proto)
         return 0;
-    bool const gear = proto->Class == ITEM_CLASS_WEAPON || proto->Class == ITEM_CLASS_ARMOR;
-    return uint64(double(price) * (gear ? multipliers.For(proto->Quality) : multipliers.other));
+    return uint64(double(price) * (IsGear(proto) ? multipliers.For(proto->Quality) : multipliers.other));
 }
 
 } // namespace CoaEconomy::RealPrices
