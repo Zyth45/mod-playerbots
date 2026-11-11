@@ -379,7 +379,7 @@ namespace
                 {
                     uint64 const real = Artisans::FairPrice(proto, houseBot ? houseBotMultipliers : settings.multipliers);
                     if (real && auction->buyout && auction->itemCount &&
-                        CoaEconomyRules::UnderHalf(auction->buyout / auction->itemCount, real))
+                        CoaEconomyRules::OutOfFairRange(auction->buyout / auction->itemCount, real))
                     {
                         forbidden.push_back(auction);
                         ++underpriced;
@@ -399,8 +399,8 @@ namespace
         }
         CharacterDatabase.CommitTransaction(trans);
         if (taken)
-            LOG_INFO("server.loading", "CoA Economy: {} bots' auctions went back to them ({} under half the real CoA "
-                     "house's price, the others items a bot may not list)", taken, underpriced);
+            LOG_INFO("server.loading", "CoA Economy: {} bots' auctions went back to them ({} out of the "
+                     "fair price: under half or over twice it; the others items a bot may not list)", taken, underpriced);
     }
 
     class CoaBotAuctionsWorld : public WorldScript

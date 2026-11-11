@@ -205,6 +205,12 @@ inline bool UnderHalf(std::uint64_t perItem, std::uint64_t reference)
     return reference && perItem * 2 < reference;
 }
 
+// A listing price per item out of the fair range: under half or over twice the reference (the reference 0: never).
+inline bool OutOfFairRange(std::uint64_t perItem, std::uint64_t reference)
+{
+    return reference && (perItem * 2 < reference || perItem > reference * 2);
+}
+
 // A scanned price kept between half and three times its band's median (no median: as it is; no price: 0).
 inline std::uint64_t ClampToBand(std::uint64_t price, std::uint64_t median)
 {

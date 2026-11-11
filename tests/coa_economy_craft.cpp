@@ -9,6 +9,8 @@ int main()
 {
     // Under half the real price: taken back at start-up.
     assert(CoaEconomyRules::UnderHalf(49, 100) && !CoaEconomyRules::UnderHalf(50, 100) && !CoaEconomyRules::UnderHalf(1, 0));
+    assert(CoaEconomyRules::OutOfFairRange(49, 100) && CoaEconomyRules::OutOfFairRange(201, 100) &&
+           !CoaEconomyRules::OutOfFairRange(200, 100) && !CoaEconomyRules::OutOfFairRange(50, 100) && !CoaEconomyRules::OutOfFairRange(9, 0));
 
     // Fair prices: a craft between 1.1 and 2 times its reagents, vendor bounds.
     assert(CoaEconomyRules::FairPrice(100000, 10000, 0, 0) == 20000);   // a scan far above its reagents
