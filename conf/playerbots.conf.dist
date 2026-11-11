@@ -3704,6 +3704,62 @@ AiPlayerbot.CoaLive.Immersion.FishingPerThousand = 25
 
 AiPlayerbot.CoaFreshStart.Enable = 0
 
+#    AiPlayerbot.CoaFreshStart.CatchUp.Enable
+#        Description: On a new living realm (AiPlayerbot.CoaFreshStart.Enable = 1) only: a random bot
+#                     playing alone or with bots, behind the human players, earns more experience the
+#                     further behind it is, so the bot world keeps up with the players. The front is the
+#                     median of the highest character of each active human account (no GM, no bot
+#                     account), surveyed every 10 minutes: one rushing player does not pull it. No bonus
+#                     within MarginLevels under the front or above it, never slower than the bot's own
+#                     pace (fast, mass, late), never for an alt, an addclass bot or a bot in a group with
+#                     a real player (it keeps the normal rate). The simulated dungeons go through it too.
+#                     World.json "leveling" (AiPlayerbot.CoaLive.DataFile.Enable) records the front and
+#                     the random bots' levels every hour. No effect on a realm without FreshStart.
+#                     Read again by ".reload config".
+#        Default:     1 - on
+#                     0 - off (the pace only)
+
+AiPlayerbot.CoaFreshStart.CatchUp.Enable = 1
+
+#    AiPlayerbot.CoaFreshStart.CatchUp.MarginLevels
+#        Description: No bonus for a bot this many levels under the front or closer.
+#        Default:     3
+
+AiPlayerbot.CoaFreshStart.CatchUp.MarginLevels = 3
+
+#    AiPlayerbot.CoaFreshStart.CatchUp.StepPercent
+#        Description: Extra experience, in percent, for each level behind beyond MarginLevels.
+#        Default:     25 (10 levels behind the front: +175 %)
+
+AiPlayerbot.CoaFreshStart.CatchUp.StepPercent = 25
+
+#    AiPlayerbot.CoaFreshStart.CatchUp.MaxRate
+#        Description: The highest catch-up rate, whatever the delay (1 to 10).
+#        Default:     4 (x4)
+
+AiPlayerbot.CoaFreshStart.CatchUp.MaxRate = 4
+
+#    AiPlayerbot.CoaFreshStart.CatchUp.MinHumans
+#        Description: Fewer active human accounts than this: no front, no bonus (the pace only).
+#                     With 1, a player alone with their bots counts: the front is their highest character.
+#        Default:     1
+
+AiPlayerbot.CoaFreshStart.CatchUp.MinHumans = 1
+
+#    AiPlayerbot.CoaFreshStart.CatchUp.MaxTotalRate
+#        Description: Pace x catch-up x AiPlayerbot.RandomBotXPRate never above this; the catch-up
+#                     gives way first, never the pace. 0: no cap.
+#        Default:     6 (x6)
+
+AiPlayerbot.CoaFreshStart.CatchUp.MaxTotalRate = 6
+
+#    AiPlayerbot.CoaFreshStart.CatchUp.ActiveDays
+#        Description: A human account counts for the front when one of its characters played within
+#                     this many days (1 to 90).
+#        Default:     7
+
+AiPlayerbot.CoaFreshStart.CatchUp.ActiveDays = 7
+
 #    AiPlayerbot.CoaSoul.Enable
 #        Description: Souls of the bots. Each random bot gets an archetype (lazy, quester, wanderer,
 #                     trader, PvP) and five traits, drawn once from its character, the same at every

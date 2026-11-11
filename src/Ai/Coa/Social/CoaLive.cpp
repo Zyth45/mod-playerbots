@@ -15,6 +15,7 @@
 #include "Chat.h"
 #include "AttackAction.h"
 #include "CoaFreshStartRules.h"
+#include "CoaCatchUp.h"
 #include "CoaImmersionRules.h"
 #include "CoaCleanWorld.h"
 #include "CoaLiveRules.h"
@@ -1759,12 +1760,16 @@ public:
                         item->GetEntry()});
     }
 
-    // The launch of a new realm: each random bot levels at a pace of its own (fast, mass, late), always the same.
+    // The launch of a new realm: each random bot levels at a pace of its own (fast, mass, late), always the same,
+    // and catches up with the human players when behind (CoaCatchUp). A bot in a group with a real player keeps
+    // the normal rate and follows its group; never an alt nor an addclass bot. The simulated dungeons give their
+    // experience through GiveXP, so this rule too.
     void OnPlayerGiveXP(Player* player, uint32& amount, Unit* /*victim*/, uint8 /*xpSource*/) override
     {
-        if (!sPlayerbotAIConfig.coaFreshStartEnable || !player || !amount || !IsRandom(player))
+        if (!sPlayerbotAIConfig.coaFreshStartEnable || !player || !amount || !IsRandom(player) ||
+            sRandomPlayerbotMgr.IsAddclassBot(player) || GroupHasRealPlayer(player))
             return;
-        amount = CoaFreshStart::ScaleXp(amount, player->GetGUID().GetCounter());
+        amount = static_cast<uint32>(uint64(amount) * CoaCatchUp::XpPercent(player) / 100);
     }
 
     // A bot pulls a boss in a group with a real player.
@@ -1913,6 +1918,7 @@ public:
     {
         CoaWorldFile::Tick(GameTime::GetGameTimeMS().count());  // world.json, only while the dashboard watches
         CountOnlineRandomBots(GameTime::GetGameTimeMS().count());
+        CoaCatchUp::Tick(GameTime::GetGameTimeMS().count());  // the human front of a new living realm
         CoaSoul::Flush(GameTime::GetGameTimeMS().count());       // new souls into their table
         if (Enabled())
         {
