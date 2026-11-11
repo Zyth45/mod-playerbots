@@ -4666,7 +4666,7 @@ AiPlayerbot.CoaEconomy.BotAuctions.RealHousePrices = 0
 # values). Common covers poor and common items. Read again on reload.
 AiPlayerbot.CoaEconomy.BotAuctions.RealPriceMultiplier.Common = 1
 AiPlayerbot.CoaEconomy.BotAuctions.RealPriceMultiplier.Uncommon = 2
-AiPlayerbot.CoaEconomy.BotAuctions.RealPriceMultiplier.Rare = 3
+AiPlayerbot.CoaEconomy.BotAuctions.RealPriceMultiplier.Rare = 1.5
 AiPlayerbot.CoaEconomy.BotAuctions.RealPriceMultiplier.Epic = 6
 
 # Artisans: bots with a profession craft from the recipes they really know (any primary or secondary profession
