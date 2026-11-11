@@ -3297,6 +3297,19 @@ AiPlayerbot.CoaLive.NoAwayFlag = 1
 
 AiPlayerbot.CoaLive.Chat.Enable = 1
 
+#    AiPlayerbot.CoaLive.LegacyChat
+#        Description: The module's older unsolicited lines while the living chat speaks
+#                     (AiPlayerbot.CoaLive.Enable = 1 and AiPlayerbot.CoaLive.Chat.Enable = 1): the
+#                     broadcasts (loot, quests, kills, level up, guild, recruiting, EnableBroadcasts) and
+#                     RandomBotTalk (dungeon, quest and trade suggestions, replies to what players say).
+#                     At 0 they stay silent and the CoA Live banks say these moments; EnableBroadcasts and
+#                     RandomBotTalk keep their value and speak again with CoA Live off. Answers to
+#                     commands and to the master are not concerned. Read again by ".reload config".
+#        Default:     0 - the living chat only
+#                     1 - the older lines too
+
+AiPlayerbot.CoaLive.LegacyChat = 0
+
 #    AiPlayerbot.CoaLive.TradeMessagesPerMinute
 #        Description: The pace of the Trade channel while a real player is in a capital of the
 #                     faction: at least this many lines a minute, everything counted (sales, buys,

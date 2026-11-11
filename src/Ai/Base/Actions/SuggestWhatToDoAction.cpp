@@ -5,6 +5,7 @@
  */
 
 #include "SuggestWhatToDoAction.h"
+#include "CoaLive.h"
 #include "AiFactory.h"
 #include "BroadcastHelper.h"
 #include "Channel.h"
@@ -42,6 +43,9 @@ SuggestWhatToDoAction::SuggestWhatToDoAction(PlayerbotAI* botAI, std::string con
 
 bool SuggestWhatToDoAction::isUseful()
 {
+    // RandomBotTalk suggestions: silent while the living chat speaks (AiPlayerbot.CoaLive.LegacyChat).
+    if (!CoaLive::LegacyChatOn())
+        return false;
     if (!sRandomPlayerbotMgr.IsRandomBot(bot) || bot->GetGroup() || bot->GetInstanceId() || bot->GetBattleground())
         return false;
 

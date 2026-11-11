@@ -1557,8 +1557,9 @@ void PlayerbotAI::HearChat(WorldPacket const& packet)
             if (HasGameClientMaster() && guid1 != GetMaster()->GetGUID())
                 return;
 
-            // Chat off (AiPlayerbot.CoaLive.Chat.Enable = 0): no reply to chatter, only to the master.
-            if (!CoaChat::ChatReplyAllowed(CoaLive::ChatOn(), GetMaster() && guid1 == GetMaster()->GetGUID()))
+            // Chat off (AiPlayerbot.CoaLive.Chat.Enable = 0), or the living chat speaking without
+            // AiPlayerbot.CoaLive.LegacyChat: no reply to chatter, only to the master.
+            if (!CoaChat::ChatReplyAllowed(CoaLive::LegacyChatOn(), GetMaster() && guid1 == GetMaster()->GetGUID()))
                 return;
 
             auto itemIds = GetChatHelper()->ExtractAllItemIds(message);
