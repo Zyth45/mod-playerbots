@@ -3206,6 +3206,13 @@ AiPlayerbot.CoaWorld.Guilds.Greetings = 0
 
 AiPlayerbot.CoaWorld.Guilds.GearAsk = 0
 
+#    AiPlayerbot.CoaWorld.Guilds.LoginGraceSeconds
+#        Description: Seconds after a real player logs in before the guild's gifts and gear offers, and before a
+#                     guild charter is offered to them: nobody is met with an offer in the first second.
+#        Default:     40
+
+AiPlayerbot.CoaWorld.Guilds.LoginGraceSeconds = 40
+
 #    AiPlayerbot.CoaWorld.Guilds.Catalog
 #        Description: With Guilds.Orders and Guilds.Addon: the SquidBots Lite addon can search what the guild's online
 #                     bots can send (in their bags, or crafted from a recipe they know, at the materials' cost) and
