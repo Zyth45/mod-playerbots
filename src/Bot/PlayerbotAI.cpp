@@ -4852,7 +4852,9 @@ bool PlayerbotAI::CanCastVehicleSpell(uint32 spellId, Unit* target)
     if (!spellId)
         return false;
 
-    if (!IsValidUnit(target))
+    // No target is allowed: a siege weapon aims at the vehicle's own spot or at the "bg siege" position (a gate is a
+    // game object, not a unit). Only a target that is gone stops the cast (CoA Combat, Isle of Conquest).
+    if (target && !IsValidUnit(target))
         return false;
 
     Vehicle* vehicle = bot->GetVehicle();
@@ -4937,7 +4939,9 @@ bool PlayerbotAI::CastVehicleSpell(uint32 spellId, Unit* target)
     if (!spellId)
         return false;
 
-    if (!IsValidUnit(target))
+    // No target is allowed: a siege weapon aims at the vehicle's own spot or at the "bg siege" position (a gate is a
+    // game object, not a unit). Only a target that is gone stops the cast (CoA Combat, Isle of Conquest).
+    if (target && !IsValidUnit(target))
         return false;
 
     Vehicle* vehicle = bot->GetVehicle();
