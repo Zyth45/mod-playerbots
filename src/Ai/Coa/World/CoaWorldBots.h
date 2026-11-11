@@ -147,6 +147,10 @@ bool CoaWorldQuestQuarantined(uint32 botLowGuid, uint32 questId);
 // For RandomPlayerbotMgr::RandomTeleportForLevel (map threads): narrows the spots of the bot's level to the zones of
 // its side's levelling route, mostly on its continent (CoaWorldLeveling). Off, or no spot on the route: unchanged.
 void CoaWorldLevelingFilter(Player* bot, std::vector<WorldLocation>& locs);
+// For the NewRpg grind spots and quest places (map threads): the subzone there is for levels well above the bot's
+// (AreaTable's exploration level above its level + Leveling.AreaGuardLevels): a level 10 bot from Mulgore no longer
+// walks into the Barrens' level 20 packs. Off (Leveling.AreaGuard 0), or a subzone without a level: false.
+bool CoaWorldAreaTooHigh(Player* bot, uint32 mapId, float x, float y, float z);
 
 // For RandomPlayerbotMgr::AddRandomBots: the accounts with a character in a real player's zone go first
 // (AiPlayerbot.CoaWorld.Density). Off: returns at once.
