@@ -175,7 +175,7 @@ public:
     void OnStartup() override { Read(); }
 
 private:
-    static void Read() { g_eventsAddon = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaWorld.Events.Addon", false, false); }
+    static void Read() { g_eventsAddon = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaWorld.Events.Addon", true, false); }
 };
 }  // namespace
 

@@ -2549,10 +2549,18 @@ AiPlayerbot.CoaLfgAnnounceText =
 #                     The creatures take the level of the players online, and random bots of that
 #                     level come to defend with them. GMs: .coaworld invasion list|start|stop <scourge|legion|aq>.
 #                     Everyone: .coaworld invasion next.
-#        Default:     0 - off
-#                     1 - on
+#        Default:     1 - on (3.0: the living world is the base)
+#                     0 - off
 
-AiPlayerbot.CoaWorld.Invasions.Enable = 0
+AiPlayerbot.CoaWorld.Invasions.Enable = 1
+
+#    AiPlayerbot.CoaWorld.Invasions.Auto
+#        Description: Invasions come by themselves (at the kinds' IntervalMin/IntervalMax, or one at a time with
+#                     OneAtATime and its gap). Off: none comes by itself; a GM starts one from the addon's Events
+#                     panel or with .coaworld invasion start <scourge|legion|aq> (Enable stays 1 for that).
+#        Default:     0 - off (only a GM starts them)
+
+AiPlayerbot.CoaWorld.Invasions.Auto = 0
 
 #    AiPlayerbot.CoaWorld.Invasions.MinRealPlayers
 #        Description: Real players of the band who must be online for an invasion to be announced.
@@ -2573,9 +2581,9 @@ AiPlayerbot.CoaWorld.Invasions.RetryMinutes = 5
 #                     turn, and GapMinutesMin to GapMinutesMax minutes after one ends before the next is announced.
 #                     The kinds' own IntervalMin/IntervalMax are not used then. A kind whose players are not there
 #                     lets the next one go first.
-#        Default:     0 - off (each kind on its own timer); gap 30 to 60 minutes
+#        Default:     1 - on (3.0: the living world is the base, one invasion at a time); gap 30 to 60 minutes
 
-AiPlayerbot.CoaWorld.Invasions.OneAtATime = 0
+AiPlayerbot.CoaWorld.Invasions.OneAtATime = 1
 AiPlayerbot.CoaWorld.Invasions.GapMinutesMin = 30
 AiPlayerbot.CoaWorld.Invasions.GapMinutesMax = 60
 
@@ -2674,10 +2682,17 @@ AiPlayerbot.CoaWorld.Invasions.AhnQiraj.MinLevel = 55
 #                     sanctuary), the players of about that level are told, and random bots run there:
 #                     both sides in a contested zone, only its own side in a faction zone. Each node can
 #                     be gathered once. GMs: .coaworld rush start|stop; everyone: .coaworld rush status.
-#        Default:     0 - off
-#                     1 - on
+#        Default:     1 - on (3.0: the living world is the base)
+#                     0 - off
 
-AiPlayerbot.CoaWorld.ResourceRush.Enable = 0
+AiPlayerbot.CoaWorld.ResourceRush.Enable = 1
+
+#    AiPlayerbot.CoaWorld.ResourceRush.Auto
+#        Description: Gold rushes come by themselves (at IntervalMin/IntervalMax). Off: none comes by itself; a GM
+#                     starts one from the addon's Events panel or with .coaworld rush start (Enable stays 1 for that).
+#        Default:     0 - off (only a GM starts them)
+
+AiPlayerbot.CoaWorld.ResourceRush.Auto = 0
 
 #    AiPlayerbot.CoaWorld.ResourceRush.IntervalMin
 #    AiPlayerbot.CoaWorld.ResourceRush.IntervalMax
@@ -2754,10 +2769,10 @@ AiPlayerbot.CoaWorld.ResourceRush.BotsReturnHome = 1
 #                     loot tables. Their loot feeds trade and the auction house like any bot's.
 #                     When a real player is queued, the bots fill that queue instead, as before.
 #                     GMs: .coaworld dungeon status|start <alliance|horde> [name]|stop.
-#        Default:     0 - off
-#                     1 - on
+#        Default:     1 - on (3.0: the living world is the base)
+#                     0 - off
 
-AiPlayerbot.CoaWorld.DungeonSim.Enable = 0
+AiPlayerbot.CoaWorld.DungeonSim.Enable = 1
 
 #    AiPlayerbot.CoaWorld.DungeonSim.GroupsPerFaction
 #        Description: Simulated runs going on at once for each side (at most 10).
@@ -2815,10 +2830,10 @@ AiPlayerbot.CoaWorld.DungeonSim.Announce = 1
 #                     Capital defence: when real players of the other side are inside a capital,
 #                     random bots of that side and level rally in the city and go for them.
 #                     GMs: .coaworld pvp status|skirmish [1-4]|stop.
-#        Default:     0 - off
-#                     1 - on
+#        Default:     1 - on (3.0: the living world is the base)
+#                     0 - off
 
-AiPlayerbot.CoaWorld.WorldPvp.Enable = 0
+AiPlayerbot.CoaWorld.WorldPvp.Enable = 1
 
 #    AiPlayerbot.CoaWorld.WorldPvp.Skirmish.Enable
 #    AiPlayerbot.CoaWorld.WorldPvp.Skirmish.IntervalMin
@@ -2865,10 +2880,10 @@ AiPlayerbot.CoaWorld.WorldPvp.BotsLevelRange = 5
 #                     the bot drops what it was doing; again within ten minutes, or after the deaths,
 #                     it uses its hearthstone (the real 10 s cast) and rests at home a while.
 #                     GMs: .coaworld recovery status.
-#        Default:     0 - off
-#                     1 - on
+#        Default:     1 - on (3.0: the living world is the base)
+#                     0 - off
 
-AiPlayerbot.CoaWorld.Recovery.Enable = 0
+AiPlayerbot.CoaWorld.Recovery.Enable = 1
 
 #    AiPlayerbot.CoaWorld.Recovery.StuckSeconds
 #    AiPlayerbot.CoaWorld.Recovery.LoopSeconds
@@ -2925,10 +2940,10 @@ AiPlayerbot.CoaWorld.Recovery.OutOfRangeLevels = 8
 #                     none is aboard; otherwise they wait for the next one), and when it docks at the
 #                     other end they step off on the platform there and walk away (never right in front
 #                     of a real player standing on it). GMs: .coaworld travel status.
-#        Default:     0 - off
-#                     1 - on
+#        Default:     1 - on (3.0: the living world is the base)
+#                     0 - off
 
-AiPlayerbot.CoaWorld.Travel.Enable = 0
+AiPlayerbot.CoaWorld.Travel.Enable = 1
 
 #    AiPlayerbot.CoaWorld.Travel.BotsPct
 #    AiPlayerbot.CoaWorld.Travel.BotsMax
@@ -2966,10 +2981,10 @@ AiPlayerbot.CoaWorld.ServerFirst.Enable = 0
 #                     drop and guildmates congratulating them (Chat), calls for members in General
 #                     (RecruitMinutes, 0 never), and a real player in a guild with bots greeted at login
 #                     and, at most every GiftHours, mailed potions and bandages of their level (Help).
-#        Default:     0 - off
-#                     1 - on
+#        Default:     1 - on (3.0: the living world is the base)
+#                     0 - off
 
-AiPlayerbot.CoaWorld.Guilds.Enable = 0
+AiPlayerbot.CoaWorld.Guilds.Enable = 1
 AiPlayerbot.CoaWorld.Guilds.Balance = 1
 AiPlayerbot.CoaWorld.Guilds.Motd = 1
 AiPlayerbot.CoaWorld.Guilds.Chat = 1
@@ -3034,10 +3049,10 @@ AiPlayerbot.CoaWorld.Guilds.GearQuality = 2
 #                     them a minute end their time in the world early, so others log in near the players.
 #                     Offline bots cost no CPU. Bots in a group, an event, a battleground or in sight of a
 #                     real player are never sent off. GMs: .coaworld density status.
-#        Default:     0 - off
-#                     1 - on
+#        Default:     1 - on (3.0: the living world is the base)
+#                     0 - off
 
-AiPlayerbot.CoaWorld.Density.Enable = 0
+AiPlayerbot.CoaWorld.Density.Enable = 1
 
 #    AiPlayerbot.CoaWorld.Density.FarSharePct
 #    AiPlayerbot.CoaWorld.Density.RetirePerMinute
@@ -3056,19 +3071,19 @@ AiPlayerbot.CoaWorld.Density.NearRange = 800
 #                     guild ding or drop, and bot found stuck or sent home. Written by a thread of its own in
 #                     AiPlayerbot.CoaDataDir (default <LogsDir>/squidbot), turned over at 5 MB.
 #                     AiPlayerbot.CoaDataFiles = 0 turns it off too. Read at start-up.
-#        Default:     0 - off
-#                     1 - on
+#        Default:     1 - on (3.0: the living world is the base)
+#                     0 - off
 
-AiPlayerbot.CoaWorld.Events.Enable = 0
+AiPlayerbot.CoaWorld.Events.Enable = 1
 
 #    AiPlayerbot.CoaWorld.Leveling.Enable
 #        Description: Credible levelling routes. When a random bot is sent to a place of its level (after a
 #                     revive or a level-up), it goes to a zone its side levels in at that level (Westfall or Loch
 #                     Modan for the Alliance at 10-20, the Barrens or Silverpine for the Horde, Stranglethorn for
 #                     both at 30-45...), most of the time on the continent it is on. No spot on the route: as before.
-#        Default:     0 - off
+#        Default:     1 - on (3.0: the living world is the base)
 
-AiPlayerbot.CoaWorld.Leveling.Enable = 0
+AiPlayerbot.CoaWorld.Leveling.Enable = 1
 
 #    AiPlayerbot.CoaWorld.Leveling.SameContinentPct
 
@@ -3077,9 +3092,9 @@ AiPlayerbot.CoaWorld.Leveling.Enable = 0
 #        Description: The bots leave out, for their grind spots, quest places and the places they are sent to, the
 #                     subzones for levels more than AreaGuardLevels above theirs (the game's exploration level of the
 #                     subzone): a level 10 bot from Mulgore no longer walks into the Barrens' level 20 packs.
-#        Default:     0 - off; 3 levels
+#        Default:     1 - on (3.0: the living world is the base); 3 levels
 
-AiPlayerbot.CoaWorld.Leveling.AreaGuard = 0
+AiPlayerbot.CoaWorld.Leveling.AreaGuard = 1
 AiPlayerbot.CoaWorld.Leveling.AreaGuardLevels = 3
 #        Description: Chance in percent that the next zone is on the bot's continent, when one fits (0-100).
 #        Default:     70
@@ -3099,9 +3114,9 @@ AiPlayerbot.CoaWorld.DpsTargetCache = 0
 #                     group with a player, no queue, not in an instance: the rules of BotActiveAlone) checks its
 #                     triggers of relevance under 100 once a second instead of on every AI pass. Combat and bots
 #                     near real players are not touched.
-#        Default:     0 - off
+#        Default:     1 - on (3.0: the living world is the base)
 
-AiPlayerbot.CoaWorld.SlowIdleTriggers = 0
+AiPlayerbot.CoaWorld.SlowIdleTriggers = 1
 
 #    AiPlayerbot.CoaWorld.AiBudgetMs
 #        Description: Performance. A time budget for the bots' AI per map tick, in milliseconds. Once the bots of a
@@ -3117,9 +3132,9 @@ AiPlayerbot.CoaWorld.AiBudgetMs = 0
 #        Description: Performance. A bot in a battleground or arena where no real player is, and that no real player
 #                     is queued for, runs its AI every IntervalMs instead of every server tick. Back to normal within
 #                     a second when a real player enters or queues. Dungeons are not touched.
-#        Default:     0 - off; IntervalMs 500 (100 to 5000)
+#        Default:     1 - on (3.0: the living world is the base); IntervalMs 500 (100 to 5000)
 
-AiPlayerbot.CoaWorld.BotOnlyBgPace.Enable = 0
+AiPlayerbot.CoaWorld.BotOnlyBgPace.Enable = 1
 AiPlayerbot.CoaWorld.BotOnlyBgPace.IntervalMs = 500
 
 #    AiPlayerbot.CoaWorld.BgSim.Enable
@@ -3154,9 +3169,9 @@ AiPlayerbot.CoaWorld.BgSim.Announce = 1
 #                     last guild orders, last server firsts and the recovery counts of the last 24 hours. Written
 #                     every 30 seconds, only while the dashboard asks for it (squidbot/watch.json, "monde"), in
 #                     AiPlayerbot.CoaDataDir. Needs AiPlayerbot.CoaDataFiles. Read at start-up.
-#        Default:     0 - off
+#        Default:     1 - on (3.0: the living world is the base)
 
-AiPlayerbot.CoaWorld.StateFile.Enable = 0
+AiPlayerbot.CoaWorld.StateFile.Enable = 1
 
 #    AiPlayerbot.CoaWorld.Guilds.Addon
 #    AiPlayerbot.CoaWorld.Events.Addon
@@ -3166,9 +3181,9 @@ AiPlayerbot.CoaWorld.StateFile.Enable = 0
 #                     invasions, rushes and server firsts the player can see (WEV?), with the changes pushed for
 #                     30 minutes after; needs one of Invasions, Rush or ServerFirst on (not Events.Enable).
 #                     One request per second per player, lists kept 10 seconds. Off: no answer at all.
-#        Default:     0 - off
+#        Default:     1 - on (3.0: the living world is the base)
 
-AiPlayerbot.CoaWorld.Guilds.Addon = 0
+AiPlayerbot.CoaWorld.Guilds.Addon = 1
 
 #    AiPlayerbot.CoaWorld.Guilds.Charters
 #        Description: Guild charters (needs Guilds.Enable). A random bot without a guild offered a real player's
@@ -3176,7 +3191,7 @@ AiPlayerbot.CoaWorld.Guilds.Addon = 0
 #                     who asks aloud for signatures ("sign", "charter") gets the guildless bots around to sign it.
 #                     Now and then a guildless bot in a capital buys a charter, gathers signatures from bots passing
 #                     by (rarely asks a real player near, once an hour per player) and founds its own guild.
-#        Default:     0 - off
+#        Default:     1 - on (3.0: the living world is the base)
 #    AiPlayerbot.CoaWorld.Guilds.UnguildedPercent
 #        Description: With Charters on: no bot charter and no bot joining a bot guild while the random bots without
 #                     a guild would fall under this share. Signing a real player's charter is always allowed.
@@ -3185,7 +3200,7 @@ AiPlayerbot.CoaWorld.Guilds.Addon = 0
 #        Description: Minutes between two bot charters of a side.
 #        Default:     60
 
-AiPlayerbot.CoaWorld.Guilds.Charters = 0
+AiPlayerbot.CoaWorld.Guilds.Charters = 1
 AiPlayerbot.CoaWorld.Guilds.UnguildedPercent = 30
 AiPlayerbot.CoaWorld.Guilds.CharterMinutes = 60
 
@@ -3194,17 +3209,17 @@ AiPlayerbot.CoaWorld.Guilds.CharterMinutes = 60
 #                     guildmates answer after 2 to 20 seconds (not again within 10 minutes); when a real player of
 #                     the guild logs in, 1 or 2 of them greet it. Lines from the phrase bank (guild_greet_reply,
 #                     guild_welcome), French fallback with BotTextLocale = 2. Needs Guilds.Enable.
-#        Default:     0 - off
+#        Default:     1 - on (3.0: the living world is the base)
 
-AiPlayerbot.CoaWorld.Guilds.Greetings = 0
+AiPlayerbot.CoaWorld.Guilds.Greetings = 1
 
 #    AiPlayerbot.CoaWorld.Guilds.GearAsk
 #        Description: With Guilds.Gear: the guild's gift of gear is offered first (a whisper from the bot, and the
 #                     SquidBots Lite addon's Gifts view with Guilds.Addon); it is mailed only if the player accepts
 #                     (whisper yes/no). An offer lasts 24 hours; a refused item is not offered again for 30 days.
-#        Default:     0 - off (gifts mailed at once, as before)
+#        Default:     1 - on (3.0: the living world is the base; 0 mails the gifts at once)
 
-AiPlayerbot.CoaWorld.Guilds.GearAsk = 0
+AiPlayerbot.CoaWorld.Guilds.GearAsk = 1
 
 #    AiPlayerbot.CoaWorld.Guilds.LoginGraceSeconds
 #        Description: Seconds after a real player logs in before the guild's gifts and gear offers, and before a
@@ -3217,9 +3232,9 @@ AiPlayerbot.CoaWorld.Guilds.LoginGraceSeconds = 40
 #        Description: With Guilds.Orders and Guilds.Addon: the SquidBots Lite addon can search what the guild's online
 #                     bots can send (in their bags, or crafted from a recipe they know, at the materials' cost) and
 #                     order it in one click. Built when asked, kept 5 minutes per guild.
-#        Default:     0 - off
+#        Default:     1 - on (3.0: the living world is the base)
 
-AiPlayerbot.CoaWorld.Guilds.Catalog = 0
+AiPlayerbot.CoaWorld.Guilds.Catalog = 1
 
 #    AiPlayerbot.CoaWorld.Guilds.Activities
 #    AiPlayerbot.CoaWorld.Guilds.ActivityCooldownMinutes
@@ -3231,9 +3246,9 @@ AiPlayerbot.CoaWorld.Guilds.Catalog = 0
 #                     builds. One activity at a time per player, then ActivityCooldownMinutes before the next.
 #                     GatherBringSeconds after a gathering starts, its bots still far (another map, or more than 120 m)
 #                     land 40 to 60 m behind the player, out of sight, and come on foot (0: they never come).
-#        Default:     0 - off; cooldown 10, gather 15, bring 30
+#        Default:     1 - on (3.0: the living world is the base); cooldown 10, gather 15, bring 30
 
-AiPlayerbot.CoaWorld.Guilds.Activities = 0
+AiPlayerbot.CoaWorld.Guilds.Activities = 1
 AiPlayerbot.CoaWorld.Guilds.ActivityCooldownMinutes = 10
 AiPlayerbot.CoaWorld.Guilds.GatherMinutes = 15
 AiPlayerbot.CoaWorld.Guilds.GatherBringSeconds = 30
@@ -3247,9 +3262,9 @@ AiPlayerbot.CoaWorld.Guilds.GatherBringSeconds = 30
 #                     dies, when no attacker is left standing, or when time is up. Started by a game master
 #                     (.coaworld capitalraid start <stormwind|orgrimmar>, list, stop) or, with Auto, by itself about
 #                     every AutoHours while a real player is online. Never while an invasion holds the city.
-#        Default:     0 - off; Auto 0, AutoHours 24
+#        Default:     1 - on (3.0: the living world is the base); Auto 0, AutoHours 24
 
-AiPlayerbot.CoaWorld.CapitalRaid.Enable = 0
+AiPlayerbot.CoaWorld.CapitalRaid.Enable = 1
 AiPlayerbot.CoaWorld.CapitalRaid.Auto = 0
 AiPlayerbot.CoaWorld.CapitalRaid.AutoHours = 24
 
@@ -3279,11 +3294,11 @@ AiPlayerbot.CoaWorld.CapitalRaid.RewardSilverPerLevel = 50
 #        Description: With the online/offline rotation (EnablePeriodicOnlineOffline): while a real member of a guild
 #                     is online, the rotation logs in first the bot members of that guild, up to this share of them
 #                     (within the bot count), and they log out last. Needs Guilds.Enable.
-#        Default:     0 - off; Percent 40
+#        Default:     1 - on (3.0: the living world is the base); Percent 40
 
-AiPlayerbot.CoaWorld.Guilds.PlayerGuildOnline = 0
+AiPlayerbot.CoaWorld.Guilds.PlayerGuildOnline = 1
 AiPlayerbot.CoaWorld.Guilds.PlayerGuildOnlinePercent = 40
-AiPlayerbot.CoaWorld.Events.Addon = 0
+AiPlayerbot.CoaWorld.Events.Addon = 1
 
 # Quality a looted item must reach to be written to the "playerbots.loot" logger:
 # 3 rare (blue), 4 epic, 5 legendary. Nothing is written unless worldserver.conf

@@ -110,8 +110,8 @@ public:
 private:
     static void Read()
     {
-        g_on = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaWorld.Guilds.Enable", false, false) &&
-               sConfigMgr->GetOption<bool>("AiPlayerbot.CoaWorld.Guilds.PlayerGuildOnline", false, false);
+        g_on = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaWorld.Guilds.Enable", true, false) &&
+               sConfigMgr->GetOption<bool>("AiPlayerbot.CoaWorld.Guilds.PlayerGuildOnline", true, false);
         g_pct = std::min<uint32>(100, sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaWorld.Guilds.PlayerGuildOnlinePercent", 40, false));
         if (!g_on)
             g_guilds.clear();

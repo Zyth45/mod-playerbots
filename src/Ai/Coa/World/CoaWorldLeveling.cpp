@@ -92,9 +92,9 @@ namespace
     void LoadSettings()
     {
         auto key = [](char const* name) { return std::string(PREFIX) + name; };
-        g_enabled = sConfigMgr->GetOption<bool>(key("Enable"), false, false);
+        g_enabled = sConfigMgr->GetOption<bool>(key("Enable"), true, false);
         g_sameContinentPct = std::min<uint32>(100, sConfigMgr->GetOption<uint32>(key("SameContinentPct"), 70, false));
-        g_areaGuard = sConfigMgr->GetOption<bool>(key("AreaGuard"), false, false);
+        g_areaGuard = sConfigMgr->GetOption<bool>(key("AreaGuard"), true, false);
         g_areaGuardLevels = std::min<uint32>(20, sConfigMgr->GetOption<uint32>(key("AreaGuardLevels"), 3, false));
     }
 }

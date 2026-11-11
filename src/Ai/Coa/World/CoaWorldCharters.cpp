@@ -426,8 +426,8 @@ private:
 void LoadSettings()
 {
     auto key = [](char const* name) { return std::string(PREFIX) + name; };
-    settings.enabled = sConfigMgr->GetOption<bool>(key("Enable"), false, false) &&
-                       sConfigMgr->GetOption<bool>(key("Charters"), false, false);
+    settings.enabled = sConfigMgr->GetOption<bool>(key("Enable"), true, false) &&
+                       sConfigMgr->GetOption<bool>(key("Charters"), true, false);
     settings.floorPct = std::min<uint32>(90, sConfigMgr->GetOption<uint32>(key("UnguildedPercent"), 30, false));
     settings.everyMinutes = std::max<uint32>(5, sConfigMgr->GetOption<uint32>(key("CharterMinutes"), 60, false));
 }

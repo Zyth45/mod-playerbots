@@ -491,7 +491,7 @@ bool AnyRealPlayer()
 void ReadSettings()
 {
     auto key = [](char const* name) { return std::string("AiPlayerbot.CoaWorld.CapitalRaid.") + name; };
-    settings.enabled = sConfigMgr->GetOption<bool>(key("Enable"), false, false);
+    settings.enabled = sConfigMgr->GetOption<bool>(key("Enable"), true, false);
     settings.autoStart = sConfigMgr->GetOption<bool>(key("Auto"), false, false);
     settings.autoHours = std::clamp<uint32>(sConfigMgr->GetOption<uint32>(key("AutoHours"), 24, false), 1, 24 * 14);
     settings.attackers = std::clamp<uint32>(sConfigMgr->GetOption<uint32>(key("Attackers"), 60, false), 5, 120);

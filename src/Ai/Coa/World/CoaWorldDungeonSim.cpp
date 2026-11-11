@@ -741,7 +741,7 @@ namespace
     void LoadSettings()
     {
         auto key = [](char const* name) { return std::string(PREFIX) + name; };
-        settings.enabled = sConfigMgr->GetOption<bool>(key("Enable"), false, false);
+        settings.enabled = sConfigMgr->GetOption<bool>(key("Enable"), true, false);
         settings.groupsPerFaction = std::min<uint32>(10, sConfigMgr->GetOption<uint32>(key("GroupsPerFaction"), 2, false));
         settings.factionIntervalSeconds = sConfigMgr->GetOption<uint32>(key("FactionIntervalSeconds"), 600, false);
         settings.botCooldownMinutes = sConfigMgr->GetOption<uint32>(key("BotCooldownMinutes"), 120, false);

@@ -101,7 +101,7 @@ namespace
 
     void Start()
     {
-        g_enabled = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaWorld.Events.Enable", false, false) &&
+        g_enabled = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaWorld.Events.Enable", true, false) &&
                     sConfigMgr->GetOption<bool>("AiPlayerbot.CoaDataFiles", true, false);
         if (!g_enabled || g_thread.joinable())
             return;

@@ -15,7 +15,7 @@
 void PlayerbotAIConfig::LoadCoaWorldConfig()
 {
     coaDpsTargetCache = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaWorld.DpsTargetCache", false, false);
-    coaSlowIdleTriggers = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaWorld.SlowIdleTriggers", false, false);
+    coaSlowIdleTriggers = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaWorld.SlowIdleTriggers", true, false);
 }
 
 // ".reload config" re-reads these keys too (PlayerbotAIConfig::Initialize runs only at start-up and on the

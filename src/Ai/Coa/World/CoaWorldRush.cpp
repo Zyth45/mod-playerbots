@@ -87,6 +87,7 @@ namespace
     struct Settings
     {
         bool enabled = false;
+        bool autoStart = false;  // Auto: rushes come by themselves (else only a GM starts one)
         uint32 intervalMin = 60;
         uint32 intervalMax = 120;
         uint32 duration = 20;
@@ -164,7 +165,7 @@ namespace
 
             if (_running)
                 Finish();
-            else if (!settings.enabled || !Start(nullptr))
+            else if (!settings.enabled || !settings.autoStart || !Start(nullptr))
                 _timer = int64(std::max<uint32>(1, settings.retry)) * MINUTE_MS;
         }
 
@@ -266,8 +267,11 @@ namespace
                 return Acore::StringFormat("Gold rush near {} in {} (level {}): {} nodes, {} bots, {} min left.",
                     AreaName(_areaId), AreaName(_zoneId), _level, _nodes.size(), BorrowedCount(BOT_OWNER_RUSH),
                     (_timer + MINUTE_MS - 1) / MINUTE_MS);
-            return Acore::StringFormat("No gold rush now; next chance in about {} min{}.", (_timer + MINUTE_MS - 1) / MINUTE_MS,
-                settings.enabled ? "" : " (switched off)");
+            if (!settings.enabled)
+                return "No gold rush now (switched off).";
+            if (!settings.autoStart)
+                return "No gold rush now. A GM can start one here (.coaworld rush start).";
+            return Acore::StringFormat("No gold rush now; next chance in about {} min.", (_timer + MINUTE_MS - 1) / MINUTE_MS);
         }
 
     private:
@@ -437,7 +441,8 @@ namespace
     void LoadSettings()
     {
         auto key = [](char const* name) { return std::string(PREFIX) + name; };
-        settings.enabled = sConfigMgr->GetOption<bool>(key("Enable"), false, false);
+        settings.enabled = sConfigMgr->GetOption<bool>(key("Enable"), true, false);
+        settings.autoStart = sConfigMgr->GetOption<bool>(key("Auto"), false, false);
         settings.intervalMin = sConfigMgr->GetOption<uint32>(key("IntervalMin"), 60, false);
         settings.intervalMax = sConfigMgr->GetOption<uint32>(key("IntervalMax"), 120, false);
         settings.duration = std::max<uint32>(1, sConfigMgr->GetOption<uint32>(key("DurationMinutes"), 20, false));

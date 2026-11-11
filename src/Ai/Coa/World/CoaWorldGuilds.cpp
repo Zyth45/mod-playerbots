@@ -1151,7 +1151,7 @@ namespace
     void LoadSettings()
     {
         auto key = [](char const* name) { return std::string(PREFIX) + name; };
-        settings.enabled = sConfigMgr->GetOption<bool>(key("Enable"), false, false);
+        settings.enabled = sConfigMgr->GetOption<bool>(key("Enable"), true, false);
         settings.balance = sConfigMgr->GetOption<bool>(key("Balance"), true, false);
         settings.motd = sConfigMgr->GetOption<bool>(key("Motd"), true, false);
         settings.chat = sConfigMgr->GetOption<bool>(key("Chat"), true, false);
@@ -1167,12 +1167,12 @@ namespace
         settings.gearDays = std::clamp<uint32>(sConfigMgr->GetOption<uint32>(key("GearDays"), 3, false), 1, 60);
         settings.gearQuality = std::clamp<uint32>(sConfigMgr->GetOption<uint32>(key("GearQuality"), ITEM_QUALITY_UNCOMMON, false),
             ITEM_QUALITY_UNCOMMON, ITEM_QUALITY_RARE);
-        settings.coaLive = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaLive.Enable", false, false);
-        settings.addon = sConfigMgr->GetOption<bool>(key("Addon"), false, false);
-        settings.greetings = sConfigMgr->GetOption<bool>(key("Greetings"), false, false);
-        settings.gearAsk = sConfigMgr->GetOption<bool>(key("GearAsk"), false, false);
+        settings.coaLive = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaLive.Enable", true, false);
+        settings.addon = sConfigMgr->GetOption<bool>(key("Addon"), true, false);
+        settings.greetings = sConfigMgr->GetOption<bool>(key("Greetings"), true, false);
+        settings.gearAsk = sConfigMgr->GetOption<bool>(key("GearAsk"), true, false);
         settings.loginGrace = std::min<uint32>(600, sConfigMgr->GetOption<uint32>(key("LoginGraceSeconds"), 40, false));
-        settings.catalog = sConfigMgr->GetOption<bool>(key("Catalog"), false, false);
+        settings.catalog = sConfigMgr->GetOption<bool>(key("Catalog"), true, false);
         if (settings.enabled)
             LogInit(time(nullptr));
     }

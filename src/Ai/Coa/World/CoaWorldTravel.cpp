@@ -430,7 +430,7 @@ namespace
     void LoadSettings()
     {
         auto key = [](char const* name) { return std::string(PREFIX) + name; };
-        settings.enabled = sConfigMgr->GetOption<bool>(key("Enable"), false, false);
+        settings.enabled = sConfigMgr->GetOption<bool>(key("Enable"), true, false);
         settings.botsPct = std::min<uint32>(50, sConfigMgr->GetOption<uint32>(key("BotsPct"), 3, false));
         settings.botsMax = std::min<uint32>(200, sConfigMgr->GetOption<uint32>(key("BotsMax"), 20, false));
         settings.perPlatform = std::clamp<uint32>(sConfigMgr->GetOption<uint32>(key("BotsPerPlatform"), 3, false), 1, 10);
