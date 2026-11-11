@@ -71,6 +71,11 @@ bool IsVendorItem(uint32 itemId)
     return vendorItems.count(itemId) != 0;
 }
 
+bool IsFreeVendorItem(uint32 itemId)
+{
+    return freeVendorItems.count(itemId) != 0;
+}
+
 bool IsLaterExpansion(ItemTemplate const* proto)
 {
     return proto && CoaEconomyRules::IsLaterExpansion(proto->ItemId, proto->RequiredLevel, proto->ItemLevel,

@@ -7,6 +7,7 @@
 #ifndef COA_ECONOMY_ARTISANS_H
 #define COA_ECONOMY_ARTISANS_H
 
+#include "CoaRealPrices.h"
 #include "Define.h"
 
 #include <string>
@@ -15,6 +16,7 @@
 class Item;
 class Player;
 class SpellInfo;
+struct ItemTemplate;
 
 // CoA Economy (lot 4): bots with a profession craft from the recipes they really know (AiPlayerbot.CoaEconomy.
 // Artisans.*, off by default). A recipe is any spell the bot knows, of a primary or secondary profession skill
@@ -61,8 +63,14 @@ namespace CoaEconomy::Artisans
     std::string ProfessionLink(Player* bot, uint32 skillId);
     std::string RecipeLink(Player* bot, Recipe const& recipe);
 
-    // One item's market price (learned price, else the house bot's, else a vendor-based guess), copper.
+    // One item's market price (learned price, else the house bot's, else a vendor-based guess), copper. With
+    // BotAuctions.RealHousePrices: its FairPrice at the bots' factors.
     uint64 MarketPrice(uint32 itemId);
+
+    // A price that looks human: the real CoA house's (scaled), a crafted good kept between 1.1 and 2 times its
+    // reagents at the same prices, never under a vendor's buying price plus a quarter, never over what a vendor sells
+    // it for at will. 0 when nothing is known.
+    uint64 FairPrice(ItemTemplate const* proto, RealPrices::Multipliers const& multipliers);
 
     // What a reagent costs an artisan: its market price, or less when making it from its own reagents is cheaper
     // (Artisans.RecursiveCost; the market price alone when it is off).

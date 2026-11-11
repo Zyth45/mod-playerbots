@@ -17,6 +17,8 @@ namespace CoaEconomy::Sellable
 {
 
 bool IsVendorItem(uint32 itemId);
+// Sold without a stock limit by a vendor standing in the world.
+bool IsFreeVendorItem(uint32 itemId);
 // No source in the original game's world (Netherweave, Fel Iron...). Before the load, every candidate is out.
 bool IsLaterExpansion(ItemTemplate const* proto);
 // What a bot may list at the auction house (crafted: made by its artisan during this visit).

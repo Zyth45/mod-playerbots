@@ -117,7 +117,10 @@ Multipliers LoadMultipliers(std::string const& prefix)
 
 uint64 Scaled(uint64 price, ItemTemplate const* proto, Multipliers const& multipliers)
 {
-    return proto ? uint64(double(price) * multipliers.For(proto->Quality)) : 0;
+    if (!proto)
+        return 0;
+    bool const gear = proto->Class == ITEM_CLASS_WEAPON || proto->Class == ITEM_CLASS_ARMOR;
+    return uint64(double(price) * (gear ? multipliers.For(proto->Quality) : multipliers.other));
 }
 
 } // namespace CoaEconomy::RealPrices

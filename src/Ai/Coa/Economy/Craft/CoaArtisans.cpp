@@ -10,6 +10,7 @@
 #include "CoaEconomyData.h"
 #include "CoaEconomyRules.h"
 #include "CoaMarketPrices.h"
+#include "CoaRealPrices.h"
 #include "CoaSellable.h"
 #include "Config.h"
 #include "DBCStores.h"
@@ -35,6 +36,8 @@ namespace
     bool enabled = false;
     uint32 minProfitPercent = 20;
     uint32 recursiveDepth = 0; // 0 = off: reagents at their market price only
+    bool realPrices = false;   // BotAuctions.RealHousePrices: market prices are fair prices
+    RealPrices::Multipliers realMultipliers;
 
     // What makes each item, from every profession recipe of the client data; built once, read-only afterwards.
     std::unordered_map<uint32, CoaEconomyRules::CraftPath> craftPaths;
@@ -100,6 +103,8 @@ void LoadSettings()
 {
     enabled = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.Artisans.Enable", false, false);
     minProfitPercent = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaEconomy.Artisans.MinProfitPercent", 20);
+    realPrices = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.BotAuctions.RealHousePrices", false);
+    realMultipliers = RealPrices::LoadMultipliers("AiPlayerbot.CoaEconomy.BotAuctions.RealPriceMultiplier");
     recursiveDepth = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.Artisans.RecursiveCost.Enable", false)
         ? std::min<uint32>(5, sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaEconomy.Artisans.RecursiveCost.Depth", 3))
         : 0;
@@ -162,11 +167,43 @@ std::string RecipeLink(Player* bot, Recipe const& recipe)
     return CoaEconomyRules::SpellChatLink(recipe.spell->Id, SpellNameFor(bot, recipe.spell), true);
 }
 
+uint64 FairPrice(ItemTemplate const* proto, RealPrices::Multipliers const& multipliers)
+{
+    if (!proto)
+        return 0;
+    std::call_once(craftPathsBuilt, BuildCraftPaths);
+    auto value = [&](ItemTemplate const* item) { return RealPrices::Scaled(RealPrices::Reference(item), item, multipliers); };
+    // Its reagents at the same prices, per item made (one level).
+    uint64 reagents = 0;
+    if (auto path = craftPaths.find(proto->ItemId); path != craftPaths.end())
+    {
+        bool known = true;
+        for (auto const& [reagent, count] : path->second.reagents)
+        {
+            ItemTemplate const* reagentProto = sObjectMgr->GetItemTemplate(reagent);
+            uint64 const each = CoaEconomyRules::FairPrice(value(reagentProto), 0, reagentProto ? reagentProto->SellPrice : 0,
+                Sellable::IsFreeVendorItem(reagent) && reagentProto ? reagentProto->BuyPrice : 0);
+            if (!each)
+            {
+                known = false;
+                break;
+            }
+            reagents += each * count;
+        }
+        reagents = known ? reagents / std::max<uint32>(1, path->second.made) : 0;
+    }
+    return CoaEconomyRules::FairPrice(value(proto), reagents, proto->SellPrice,
+                                      Sellable::IsFreeVendorItem(proto->ItemId) ? proto->BuyPrice : 0);
+}
+
 uint64 MarketPrice(uint32 itemId)
 {
     ItemTemplate const* proto = sObjectMgr->GetItemTemplate(itemId);
     if (!proto)
         return 0;
+    if (realPrices)
+        if (uint64 fair = FairPrice(proto, realMultipliers))
+            return fair;
     if (MarketBand const* band = sCoaMarketPrices->GetBand(itemId))
         if (band->Usual)
             return band->Usual;

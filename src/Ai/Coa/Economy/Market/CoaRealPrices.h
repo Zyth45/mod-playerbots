@@ -44,7 +44,8 @@ namespace CoaEconomy::RealPrices
     };
     // <prefix>.Common, .Uncommon, .Rare, .Epic (e.g. "AuctionHouseBot.CoA.RealPriceMultiplier").
     Multipliers LoadMultipliers(std::string const& prefix);
-    // The scanned price (or floor) times its quality's factor; 0 when none.
+    // The scanned price (or floor) times its factor: the quality's for gear (weapons, armour), the common one for goods,
+    // materials, consumables and recipes, so that a green reagent is not priced like a green sword; 0 when none.
     uint64 Scaled(uint64 price, ItemTemplate const* proto, Multipliers const& multipliers);
 }
 
