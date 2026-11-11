@@ -352,6 +352,8 @@ namespace CoaWorld
                     ++said;
     }
 
+    bool BotChatOn() { return CoaLive::ChatOn(); }
+
     bool BotsFrench()
     {
         int32 const forced = sPlayerbotAIConfig.botTextLocale;

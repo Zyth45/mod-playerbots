@@ -407,7 +407,7 @@ namespace
             auto const& pool = fr ? linesFr : lines;
             std::string line = Acore::StringFormat(pool[urand(0, pool.size() - 1)], DungeonName(*run.dungeon, fr));
             // The bank's line when it has one.
-            if (!BotLine(leader, "dsim_lfm", { { "dungeon", run.dungeon->name }, { "need", "1 dps" } }))
+            if (!BotLine(leader, "dsim_lfm", { { "dungeon", run.dungeon->name }, { "need", "1 dps" } }) && BotChatOn())
                 botAI->SayToChannel(line, LOOKING_FOR_GROUP);
         }
 
@@ -720,6 +720,8 @@ namespace
                         if (proto->Quality >= ITEM_QUALITY_RARE)
                             item = proto->Name1;
             if (BotLine(bot, goodDrop ? "dsim_back_drop" : "dsim_back_plain", { { "dungeon", run.dungeon->name }, { "item", item } }))
+                return;
+            if (!BotChatOn())
                 return;
             if (bot->GetGuildId())
                 botAI->SayToGuild(line);

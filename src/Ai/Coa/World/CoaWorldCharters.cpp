@@ -93,7 +93,7 @@ void Line(Player* bot, char const* situation, Slots const& slots, std::vector<ch
           std::vector<char const*> const& fallbackFr)
 {
     PlayerbotAI* botAI = GET_PLAYERBOT_AI(bot);
-    if (!botAI || BotLine(bot, situation, slots))
+    if (!botAI || BotLine(bot, situation, slots) || !BotChatOn())
         return;
     auto const& pool = BotsFrench() ? fallbackFr : fallback;
     std::string text = pool[urand(0, pool.size() - 1)];

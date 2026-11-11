@@ -119,6 +119,9 @@ namespace CoaWorld
     // The bots speak French: AiPlayerbot.BotTextLocale = 2, or -1 with French first among the players' locales
     // (as CoaLive's lines). Tr: the text in that language.
     bool BotsFrench();
+    // The bots' chat is on (AiPlayerbot.CoaLive.Chat.Enable, the launcher's "Bot chat"): the lines CoA World writes
+    // itself are said only then; the actions around them (events, mails) go on either way.
+    bool BotChatOn();
     inline char const* Tr(char const* en, char const* fr) { return BotsFrench() ? fr : en; }
     // The invader of an event in the reader's language (IA MIND's %event, never at the start of a line).
     std::string EventName(Player* reader, std::string const& key);
