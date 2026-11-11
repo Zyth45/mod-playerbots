@@ -3594,7 +3594,9 @@ AiPlayerbot.CoaLive.NoAwayFlag = 0
 #    AiPlayerbot.CoaLive.Chat.Enable
 #        Description: The bots' written chat (the launcher's "Bot chat" switch). Off, the bots write
 #                     no CoA Live line: zone, world, Trade, LFG, guild, party and say lines, greetings,
-#                     the night bank, answers to whispers. Everything else goes on: group invites near
+#                     the night bank, answers to whispers, and the module's older lines too
+#                     (EnableBroadcasts, RandomBotTalk suggestions, replies to what players say: the
+#                     guild, world and zone channels stay silent). Everything else goes on: group invites near
 #                     players, idling in inns and capitals, emotes, events, sales by COD mail. Bot
 #                     commands and answers to a master's orders are not concerned. Needs
 #                     AiPlayerbot.CoaLive.Enable = 1 for the lines to exist at all. Read again by
