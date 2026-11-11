@@ -60,6 +60,19 @@ void PlayerbotAIConfig::LoadCoaLiveConfig()
     coaLiveImmersionFishingPerThousand =
         std::min<uint32>(1000, sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaLive.Immersion.FishingPerThousand", 25));
     coaFreshStartEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaFreshStart.Enable", false);
+    coaCatchUpEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaFreshStart.CatchUp.Enable", true);
+    coaCatchUpMarginLevels =
+        std::min<uint32>(20, sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaFreshStart.CatchUp.MarginLevels", 3));
+    coaCatchUpStepPercent =
+        std::min<uint32>(200, sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaFreshStart.CatchUp.StepPercent", 25));
+    coaCatchUpMaxRate =
+        std::clamp(sConfigMgr->GetOption<float>("AiPlayerbot.CoaFreshStart.CatchUp.MaxRate", 4.0f), 1.0f, 10.0f);
+    coaCatchUpMinHumans =
+        std::max<uint32>(1, sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaFreshStart.CatchUp.MinHumans", 2));
+    coaCatchUpMaxTotalRate =
+        std::clamp(sConfigMgr->GetOption<float>("AiPlayerbot.CoaFreshStart.CatchUp.MaxTotalRate", 6.0f), 0.0f, 20.0f);
+    coaCatchUpActiveDays =
+        std::clamp<uint32>(sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaFreshStart.CatchUp.ActiveDays", 7), 1, 90);
     coaSoulEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaSoul.Enable", true);
     coaPetsAutoBooks = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaPets.AutoBooks", false);
     coaSoulAddon = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaSoul.Addon", true);

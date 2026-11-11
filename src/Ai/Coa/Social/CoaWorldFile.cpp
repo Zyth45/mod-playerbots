@@ -11,6 +11,7 @@
 #include "CoaSurnameRules.h"
 #include "CoaWorldFileRules.h"
 #include "CoaGroupRunsRules.h"
+#include "CoaCatchUp.h"
 #include "Creature.h"
 #include "Group.h"
 #include "InstanceScript.h"
@@ -243,6 +244,7 @@ Snapshot Build()
         std::lock_guard<std::mutex> guard(runsLock);
         s.groups = runs.Json();
     }
+    s.leveling = CoaCatchUp::Json();
     s.tickAvgMs = ticks.Avg();
     s.tickMaxMs = ticks.Max();
     s.tickP95Ms = ticks.P95();

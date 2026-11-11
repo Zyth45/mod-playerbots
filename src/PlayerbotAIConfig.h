@@ -696,6 +696,13 @@ public:
     bool coaSoulAddon;            // AiPlayerbot.CoaSoul.Addon: SquidBots Lite asks a bot's soul (SQBW SOUL?)
     std::string coaSoulWeights;   // AiPlayerbot.CoaSoul.Weights: lazy, quester, wanderer, trader, pvp
     bool coaFreshStartEnable;  // AiPlayerbot.CoaFreshStart.Enable (launch of a new living realm)
+    bool coaCatchUpEnable;          // AiPlayerbot.CoaFreshStart.CatchUp.Enable (only with FreshStart)
+    uint32 coaCatchUpMarginLevels;  // AiPlayerbot.CoaFreshStart.CatchUp.MarginLevels
+    uint32 coaCatchUpStepPercent;   // AiPlayerbot.CoaFreshStart.CatchUp.StepPercent
+    float coaCatchUpMaxRate;        // AiPlayerbot.CoaFreshStart.CatchUp.MaxRate
+    uint32 coaCatchUpMinHumans;     // AiPlayerbot.CoaFreshStart.CatchUp.MinHumans
+    float coaCatchUpMaxTotalRate;   // AiPlayerbot.CoaFreshStart.CatchUp.MaxTotalRate (0: no cap)
+    uint32 coaCatchUpActiveDays;    // AiPlayerbot.CoaFreshStart.CatchUp.ActiveDays
     bool coaLiveImmersionEnable;
     uint32 coaLiveImmersionFishingPerThousand;  // AiPlayerbot.CoaLive.Immersion.FishingPerThousand  // AiPlayerbot.CoaLive.Immersion.Enable (L2 fishing)
     bool coaLiveCleanWorldEnable;  // AiPlayerbot.CoaLive.CleanWorld.Enable

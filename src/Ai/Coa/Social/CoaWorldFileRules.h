@@ -298,6 +298,7 @@ struct Snapshot
     int64_t tickP95Ms = -1;
     Ramp ramp;
     std::string groups;  // the "groups" object (CoaGroupRunsRules.h), empty: null
+    std::string leveling;  // the "leveling" object (CoaCatchUp.h), empty: null
     Everyone everyone;  // every character online ("everyone")
 };
 
@@ -351,6 +352,7 @@ inline std::string Data(Snapshot s, size_t maxZones = 40, size_t maxSurnames = 1
     }
     out += ",\"everyone\":" + EveryoneJson(s.everyone);
     out += ",\"groups\":" + (s.groups.empty() ? std::string("null") : s.groups);
+    out += ",\"leveling\":" + (s.leveling.empty() ? std::string("null") : s.leveling);
     out += ",\"health\":{\"tick_ms\":{\"avg\":" + Num(s.tickAvgMs) + ",\"p95\":" + Num(s.tickP95Ms) + ",\"max\":" + Num(s.tickMaxMs) +
            "},\"ramp\":{\"target\":" + std::to_string(s.ramp.target) + ",\"done_at\":" + Num(s.ramp.doneAt) +
            ",\"after_s\":" + std::to_string(RAMP_AFTER_S) + "},\"bots_us_per_tick\":null,\"by_strategy_us\":null,\"stuck\":null}}";
