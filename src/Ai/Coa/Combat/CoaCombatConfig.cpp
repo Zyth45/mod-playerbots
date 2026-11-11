@@ -31,7 +31,7 @@ void PlayerbotAIConfig::LoadCoaCombatConfig()
     coaCombatOffTankEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaCombat.OffTank.Enable", false);
     coaCombatGearScoreEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaCombat.GearScore.Enable", false);
     coaCombatLootNeedWaitMs = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaCombat.LootNeedWaitSeconds", 20) * 1000;
-    coaCombatMoltenCoreEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaCombat.MoltenCore.Enable", false);
+    coaCombatMoltenCoreEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaCombat.MoltenCore.Enable", true);
     coaCombatBlackwingLairEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaCombat.BlackwingLair.Enable", false);
     coaCombatZulGurubEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaCombat.ZulGurub.Enable", false);
     coaCombatAhnQirajEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaCombat.AhnQiraj.Enable", false);
