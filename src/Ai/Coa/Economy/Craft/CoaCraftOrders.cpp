@@ -6,6 +6,8 @@
 
 #include "CoaCraftOrders.h"
 
+#include "CoaEconomyConf.h"
+
 #include "ChatHelper.h"
 #include "CoaArtisans.h"
 #include "CoaBotAuctions.h"
@@ -52,11 +54,11 @@ namespace
 
     void LoadSettings()
     {
-        enabled = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.CraftOrders.Enable", true, false);
-        feePercent = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaEconomy.CraftOrders.FeePercent", 15);
-        orderCooldownSeconds = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaEconomy.CraftOrders.OrderCooldownMinutes", 5) * MINUTE;
-        tradeOfferPercent = std::min<uint32>(100, sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaEconomy.CraftOrders.TradeOfferPercent", 50));
-        advertiseMs = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaEconomy.CraftOrders.AdvertiseMinutes", 8) * MINUTE * IN_MILLISECONDS;
+        enabled = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.CraftOrders.Enable", true, false);
+        feePercent = CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.CraftOrders.FeePercent", 15);
+        orderCooldownSeconds = CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.CraftOrders.OrderCooldownMinutes", 5) * MINUTE;
+        tradeOfferPercent = std::min<uint32>(100, CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.CraftOrders.TradeOfferPercent", 50));
+        advertiseMs = CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.CraftOrders.AdvertiseMinutes", 8) * MINUTE * IN_MILLISECONDS;
     }
 
     // The first item link of a (lowered) whisper: "|hitem:12345:..." -> 12345.
@@ -294,7 +296,7 @@ bool OfferInTrade(Player* bot, Item* crafted, unsigned long long price)
 void AddSC_coa_economy_craft_orders()
 {
     // Off by default; read at start-up (restart to change it). The settings below it are read again on reload.
-    if (!sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.CraftOrders.Enable", true, false))
+    if (!CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.CraftOrders.Enable", true, false))
         return;
     CoaEconomy::CraftOrders::LoadSettings();
     CoaLive::RegisterWhisperHandler("craft", &CoaEconomy::CraftOrders::OnCraftWhisper);

@@ -9,14 +9,16 @@
 // The auction house bot reads its own AiPlayerbot.CoaEconomy.* keys (AuctionHouse/, Market/, Launch/).
 
 #include "Config.h"
+
+#include "CoaEconomyConf.h"
 #include "PlayerbotAIConfig.h"
 #include "ScriptMgr.h"
 
 void PlayerbotAIConfig::LoadCoaEconomyConfig()
 {
-    coaEconomyRpgSellEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.RpgSell.Enable", true);
+    coaEconomyRpgSellEnable = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.RpgSell.Enable", true);
     coaEconomyRpgSellBagPercent =
-        std::min<uint32>(100, sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaEconomy.RpgSell.BagPercent", 70));
+        std::min<uint32>(100, CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.RpgSell.BagPercent", 70));
 }
 
 namespace

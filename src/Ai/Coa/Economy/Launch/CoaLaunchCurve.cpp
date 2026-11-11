@@ -5,6 +5,8 @@
  */
 
 #include "CoaLaunchCurve.h"
+
+#include "CoaEconomyConf.h"
 #include "CoaEconomyRules.h"
 
 #include "AccountMgr.h"
@@ -36,17 +38,17 @@ LaunchCurve* LaunchCurve::instance()
 
 void LaunchCurve::LoadSettings()
 {
-    _enabled = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.LaunchCurve.Enable", false, false);
-    _refreshMs = std::max<uint32>(1, sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaEconomy.LaunchCurve.RefreshMinutes", 10)) * MINUTE * IN_MILLISECONDS;
-    _frontPercentile = std::clamp<uint32>(sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaEconomy.LaunchCurve.FrontPercentile", 80), 1, 100);
-    _topCount = std::max<uint32>(1, sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaEconomy.LaunchCurve.TopCount", 3));
-    _minPopulation = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaEconomy.LaunchCurve.MinPopulation", 20);
-    _levelMargin = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaEconomy.LaunchCurve.LevelMargin", 3);
-    _rareFromLevel = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaEconomy.LaunchCurve.RareFromLevel", 20);
-    _epicFromLevel = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaEconomy.LaunchCurve.EpicFromLevel", 50);
-    _allowLegendary = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.LaunchCurve.AllowLegendary", false);
-    _startStock = std::clamp(sConfigMgr->GetOption<float>("AiPlayerbot.CoaEconomy.LaunchCurve.StartStockPercent", 10.0f) / 100.0f, 0.0f, 1.0f);
-    _launchPremium = std::max(0.0f, sConfigMgr->GetOption<float>("AiPlayerbot.CoaEconomy.LaunchCurve.LaunchPremiumPercent", 150.0f) / 100.0f);
+    _enabled = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.LaunchCurve.Enable", false, false);
+    _refreshMs = std::max<uint32>(1, CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.LaunchCurve.RefreshMinutes", 10)) * MINUTE * IN_MILLISECONDS;
+    _frontPercentile = std::clamp<uint32>(CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.LaunchCurve.FrontPercentile", 80), 1, 100);
+    _topCount = std::max<uint32>(1, CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.LaunchCurve.TopCount", 3));
+    _minPopulation = CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.LaunchCurve.MinPopulation", 20);
+    _levelMargin = CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.LaunchCurve.LevelMargin", 3);
+    _rareFromLevel = CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.LaunchCurve.RareFromLevel", 20);
+    _epicFromLevel = CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.LaunchCurve.EpicFromLevel", 50);
+    _allowLegendary = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.LaunchCurve.AllowLegendary", false);
+    _startStock = std::clamp(CoaEconomy::Conf::Get<float>("AiPlayerbot.CoaEconomy.LaunchCurve.StartStockPercent", 10.0f) / 100.0f, 0.0f, 1.0f);
+    _launchPremium = std::max(0.0f, CoaEconomy::Conf::Get<float>("AiPlayerbot.CoaEconomy.LaunchCurve.LaunchPremiumPercent", 150.0f) / 100.0f);
     // A changed setting is taken into account at the next survey.
     _timer = std::min(_timer, _refreshMs);
 }
@@ -172,7 +174,7 @@ namespace
 void AddSC_coa_economy_launch()
 {
     // Off by default; read at start-up (restart to change it). The settings below it are read again on reload.
-    if (!sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.LaunchCurve.Enable", false, false))
+    if (!CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.LaunchCurve.Enable", false, false))
         return;
 
     sCoaLaunchCurve->LoadSettings();

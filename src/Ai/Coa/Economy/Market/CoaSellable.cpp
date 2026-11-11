@@ -6,6 +6,8 @@
 
 #include "CoaSellable.h"
 
+#include "CoaEconomyConf.h"
+
 #include "CoaEconomyRules.h"
 #include "Config.h"
 #include "DatabaseEnv.h"
@@ -94,8 +96,8 @@ bool BotMayList(ItemTemplate const* proto, bool crafted)
 void AddSC_coa_economy_sellable()
 {
     // Needed only by the bots' trade; both are off by default and read at start-up.
-    if (!sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.BotAuctions.Enable", true, false) &&
-        !sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.Artisans.Enable", true, false))
+    if (!CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.BotAuctions.Enable", true, false) &&
+        !CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.Artisans.Enable", true, false))
         return;
     new CoaEconomy::Sellable::CoaSellableWorld();
 }

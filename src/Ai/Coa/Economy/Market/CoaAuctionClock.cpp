@@ -10,6 +10,8 @@
 // off is added to the end of every auction, in memory and in the characters database.
 
 #include "CoaEconomyDb.h"
+
+#include "CoaEconomyConf.h"
 #include "CoaEconomyData.h"
 #include "AuctionHouseMgr.h"
 #include "CoaEconomyRules.h"
@@ -55,7 +57,7 @@ namespace
         if (QueryResult result = PlayerbotsDatabase.Query("SELECT value FROM {} WHERE name = 'last_alive'", TableName))
             lastAlive = result->Fetch()[0].Get<uint32>();
 
-        uint32 const maxDays = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaEconomy.AuctionClock.MaxPauseDays", 30);
+        uint32 const maxDays = CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.AuctionClock.MaxPauseDays", 30);
         uint32 const pause = CoaEconomyRules::AuctionPause(lastAlive, Now(), 5 * MINUTE, maxDays * DAY);
         uint32 moved = 0;
         if (pause)
@@ -103,7 +105,7 @@ namespace
 void AddSC_coa_economy_auction_clock()
 {
     // Off by default; read at start-up only (restart to change it).
-    if (!sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.AuctionClock.Enable", true, false))
+    if (!CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.AuctionClock.Enable", true, false))
         return;
     new CoaEconomy::AuctionClock::CoaAuctionClockWorld();
 }

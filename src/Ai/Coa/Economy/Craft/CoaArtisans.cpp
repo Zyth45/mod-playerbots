@@ -6,6 +6,8 @@
 
 #include "CoaArtisans.h"
 
+#include "CoaEconomyConf.h"
+
 #include "CoaAuctionHouseBot.h"
 #include "CoaEconomyData.h"
 #include "CoaEconomyRules.h"
@@ -101,12 +103,12 @@ bool IsEnabled()
 
 void LoadSettings()
 {
-    enabled = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.Artisans.Enable", true, false);
-    minProfitPercent = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaEconomy.Artisans.MinProfitPercent", 20);
-    realPrices = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.BotAuctions.RealHousePrices", true);
+    enabled = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.Artisans.Enable", true, false);
+    minProfitPercent = CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.Artisans.MinProfitPercent", 20);
+    realPrices = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.BotAuctions.RealHousePrices", true);
     realMultipliers = RealPrices::LoadMultipliers("AiPlayerbot.CoaEconomy.BotAuctions.RealPriceMultiplier");
-    recursiveDepth = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.Artisans.RecursiveCost.Enable", true)
-        ? std::min<uint32>(5, sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaEconomy.Artisans.RecursiveCost.Depth", 3))
+    recursiveDepth = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.Artisans.RecursiveCost.Enable", true)
+        ? std::min<uint32>(5, CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.Artisans.RecursiveCost.Depth", 3))
         : 0;
 }
 
@@ -378,7 +380,7 @@ namespace
 void AddSC_coa_economy_artisans()
 {
     // Off by default; read at start-up (restart to change it). MinProfitPercent is read again on reload.
-    if (!sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.Artisans.Enable", true, false))
+    if (!CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.Artisans.Enable", true, false))
         return;
     CoaEconomy::Artisans::LoadSettings();
     new CoaArtisansWorld();

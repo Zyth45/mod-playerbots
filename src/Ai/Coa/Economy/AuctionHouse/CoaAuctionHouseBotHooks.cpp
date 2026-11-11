@@ -8,6 +8,8 @@
 // macro `auctionbot`) to server events. Written from a behaviour description.
 
 #include "AuctionHouseMgr.h"
+
+#include "CoaEconomyConf.h"
 #include "CoaEconomyData.h"
 #include "Chat.h"
 #include "CoaAuctionHouseBot.h"
@@ -33,12 +35,12 @@ bool gStartupDone = false;
 
 bool UseDropRates()
 {
-    return sConfigMgr->GetOption<bool>(KEY_USE_DROP_RATES, false);
+    return CoaEconomy::Conf::Get<bool>(KEY_USE_DROP_RATES, false);
 }
 
 bool ReturnExpiredToBot()
 {
-    return sConfigMgr->GetOption<bool>(KEY_RETURN_EXPIRED, false);
+    return CoaEconomy::Conf::Get<bool>(KEY_RETURN_EXPIRED, false);
 }
 
 // True when the low guid belongs to one of the bot's own characters.
@@ -252,7 +254,7 @@ public:
 
 void AddSC_coa_economy_ahbot()
 {
-    if (!sConfigMgr->GetOption<bool>(KEY_MODULE_ENABLE, true))
+    if (!CoaEconomy::Conf::Get<bool>(KEY_MODULE_ENABLE, true))
         return;
 
     new CoaAhBotWorldHooks();
