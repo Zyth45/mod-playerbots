@@ -14,6 +14,7 @@
 #include "CoaAltAddon.h"
 #include "CoaSpecLookup.h"
 #include "CoaSpecialization.h"
+#include "CoaTalentOfferRules.h"
 #include "CoaWildcard.h"
 #include "Event.h"
 #include "Log.h"
@@ -249,6 +250,27 @@ bool ChangeTalentsAction::Execute(Event event)
                 CoaAltAddon::SendToMaster(botAI, "TT	pts	" + std::to_string(activeSpec) + "	" +
                                                      std::to_string(points.specSpent) + "	" +
                                                      std::to_string(points.specBudget));
+            // The active specialization's level-unlocked spells (not bought with points, not learnable):
+            // "TT a <tree> <entry> <spell> <known 1|0> <unlock level>", the spell the bot holds or the first.
+            for (AscensionCompatData::CoATalentEntry const& entry : AscensionCompatData::CoATalentEntries)
+            {
+                if (!CoaLevelUnlockedEntry(entry.ClassId, bot->getClass(), entry.AECost, entry.TECost,
+                                           entry.SpellCount, CoaFreeGroupOf(entry.EntryId), entry.SpecId, activeSpec))
+                    continue;
+                uint32 spellId = entry.SpellIds[0];
+                bool known = false;
+                for (uint32 i = entry.SpellCount; i-- > 0;)
+                    if (entry.SpellIds[i] && bot->HasSpell(entry.SpellIds[i]))
+                    {
+                        spellId = entry.SpellIds[i];
+                        known = true;
+                        break;
+                    }
+                CoaAltAddon::SendToMaster(botAI, "TT	a	" + std::to_string(entry.SpecId) + "	" +
+                                                     std::to_string(entry.EntryId) + "	" + std::to_string(spellId) +
+                                                     "	" + (known ? "1" : "0") + "	" +
+                                                     std::to_string(uint32(entry.RequiredLevel)));
+            }
             CoaAltAddon::SendToMaster(botAI, "TT	-");
             return true;
         }

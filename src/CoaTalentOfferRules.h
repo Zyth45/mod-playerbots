@@ -24,4 +24,14 @@ inline bool CoaTalentEntryOffered(std::uint32_t entryClass, std::uint32_t botCla
     return !entrySpec || entrySpec == activeSpec;
 }
 
+// A spell of the active specialization's tree that the level grants, not bought with points (the column of
+// level-unlocked nodes of the tree view, "TT a" lines): no cost, no free-choice group, in that tree.
+inline bool CoaLevelUnlockedEntry(std::uint32_t entryClass, std::uint32_t botClass, std::uint32_t aeCost,
+                                  std::uint32_t teCost, std::uint32_t spellCount, std::uint32_t freeGroup,
+                                  std::uint32_t entrySpec, std::uint32_t activeSpec)
+{
+    return entryClass == botClass && spellCount && !aeCost && !teCost && !freeGroup && entrySpec &&
+           entrySpec == activeSpec;
+}
+
 #endif

@@ -42,5 +42,14 @@ int main()
     // No rank: never.
     assert(!CoaTalentEntryOffered(12, 12, 1, 0, 0, 0, 0, 3));
     assert(!CoaTalentEntryOffered(12, 12, 0, 0, 0, 8456221, 3, 3));
+
+    // Level-unlocked spells: costless, groupless, of the active specialization's tree only.
+    assert(CoaLevelUnlockedEntry(12, 12, 0, 0, 1, 0, 3, 3));
+    assert(!CoaLevelUnlockedEntry(12, 12, 0, 0, 1, 0, 3, 4));       // another specialization
+    assert(!CoaLevelUnlockedEntry(12, 12, 0, 0, 1, 0, 0, 3));       // class tree
+    assert(!CoaLevelUnlockedEntry(12, 12, 0, 1, 1, 0, 3, 3));       // bought with points
+    assert(!CoaLevelUnlockedEntry(12, 12, 0, 0, 1, 8456221, 3, 3)); // a free choice
+    assert(!CoaLevelUnlockedEntry(12, 13, 0, 0, 1, 0, 3, 3));       // another class
+    assert(!CoaLevelUnlockedEntry(12, 12, 0, 0, 0, 0, 3, 3));       // no rank
     return 0;
 }
