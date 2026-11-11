@@ -313,6 +313,8 @@ private:
                                                "direction {}, souhaitez-nous bonne chance", "file {} lanc\u00e9e, brb" };
         bool const fr = BotsFrench();
         std::string const text = Acore::StringFormat(fr ? linesFr[urand(0, 3)] : lines[urand(0, 3)], BgName(bg, fr));
+        if (!BotChatOn())
+            return;
         if (bot->GetGuildId())
             botAI->SayToGuild(text);
         else
@@ -367,7 +369,7 @@ private:
         bool const fr = BotsFrench();
         char const* const* pool = won ? (fr ? wonFr : wonLines) : (fr ? lostFr : lostLines);
         std::string const text = Acore::StringFormat(pool[urand(0, 2)], BgName(*match.bg, fr));
-        if (bot->GetGuildId())
+        if (bot->GetGuildId() && BotChatOn())
             botAI->SayToGuild(text);
     }
 

@@ -552,7 +552,7 @@ namespace
                     continue;
                 if (!s.situation.empty() && BotLine(speaker, s.situation.c_str(), { { "player", s.player } }))
                     continue;
-                if (PlayerbotAI* botAI = GET_PLAYERBOT_AI(speaker))
+                if (PlayerbotAI* botAI = GET_PLAYERBOT_AI(speaker); botAI && CoaWorld::BotChatOn())
                     botAI->SayToGuild(s.text);
             }
             _speeches.swap(later);
@@ -1130,7 +1130,7 @@ namespace
                 "guilde sympa <{}> recrute, on aide pour les qu\u00eates et l'artisanat",
                 "<{}> recrute ! raids plus tard, donjons maintenant. /w pour une invit",
             };
-            if (BotLine(bot, "guild_recruit", { { "guild", guild->GetName() } }))
+            if (BotLine(bot, "guild_recruit", { { "guild", guild->GetName() } }) || !CoaWorld::BotChatOn())
                 return;
             if (PlayerbotAI* botAI = GET_PLAYERBOT_AI(bot))
                 botAI->SayToChannel(Acore::StringFormat(BotsFrench() ? Pick(callsFr) : Pick(calls), guild->GetName()), GENERAL);
