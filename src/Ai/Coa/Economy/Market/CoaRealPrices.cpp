@@ -94,7 +94,10 @@ uint64 Priced(ItemTemplate const* proto)
 {
     if (!proto)
         return 0;
-    return CoaEconomyRules::ClampToBand(Of(proto->ItemId), Band(proto));
+    // Gear tops at 1.5 times its median: the quality above starts there (QualityStep), so a blue never outprices an
+    // epic of its item level; goods keep a wider range.
+    bool const gear = proto->Class == ITEM_CLASS_WEAPON || proto->Class == ITEM_CLASS_ARMOR;
+    return CoaEconomyRules::ClampToBand(Of(proto->ItemId), Band(proto), gear ? 15 : 30);
 }
 
 uint64 Reference(ItemTemplate const* proto)
