@@ -35,12 +35,12 @@ namespace CoaEconomy::RealPrices
     uint64 Reference(ItemTemplate const* proto);
 
     // The scans are the last week of a 7 months old server: relative values. A live server's price is the scanned one
-    // times a factor of the item's quality (user, 09/11: epic about x6).
+    // times a factor of the item's quality (user, 09/11: epic about x6; 11/11: blue x1.5).
     struct Multipliers
     {
         float other = 1.0f;   // poor, common: goods and materials
         float uncommon = 2.0f;
-        float rare = 3.0f;
+        float rare = 1.5f;    // user, 11/11: blues were 4 times too dear at x3
         float epic = 6.0f;    // and legendary
         float For(uint32 quality) const;
     };

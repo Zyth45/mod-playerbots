@@ -112,7 +112,7 @@ AuctionHouseBot.CoA.RealHousePrices = true
 # materials, consumables.
 AuctionHouseBot.CoA.RealPriceMultiplier.Common = 1
 AuctionHouseBot.CoA.RealPriceMultiplier.Uncommon = 2
-AuctionHouseBot.CoA.RealPriceMultiplier.Rare = 3
+AuctionHouseBot.CoA.RealPriceMultiplier.Rare = 1.5
 AuctionHouseBot.CoA.RealPriceMultiplier.Epic = 6
 
 AuctionHouseBot.DEBUG = false
