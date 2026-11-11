@@ -6,6 +6,7 @@
 
 #include "GuildManagementActions.h"
 #include "BroadcastHelper.h"
+#include "CoaLive.h"
 #include "GuildMgr.h"
 #include "GuildPackets.h"
 #include "Playerbots.h"
@@ -153,7 +154,9 @@ bool GuildManageNearbyAction::Execute(Event /*event*/)
 
             if (!urand(0, 30) && dCount < 2 && guild->GetRankRights(botMember->GetRankId()) & GR_RIGHT_PROMOTE)
             {
-                BroadcastHelper::BroadcastGuildMemberPromotion(botAI, bot, player);
+                // CoA Live bank first ("guild_promotion"); the older broadcast only when the bank said nothing.
+                if (!CoaLive::SayLine(bot, "guild_promotion", {{"player", player->GetName()}}))
+                    BroadcastHelper::BroadcastGuildMemberPromotion(botAI, bot, player);
 
                 botAI->DoSpecificAction("guild promote", Event("guild management", guid), true);
                 continue;
