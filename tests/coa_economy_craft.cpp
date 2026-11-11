@@ -9,6 +9,17 @@ int main()
 {
     // Under half the real price: taken back at start-up.
     assert(CoaEconomyRules::UnderHalf(49, 100) && !CoaEconomyRules::UnderHalf(50, 100) && !CoaEconomyRules::UnderHalf(1, 0));
+    assert(CoaEconomyRules::OutOfFairRange(49, 100) && CoaEconomyRules::OutOfFairRange(201, 100) &&
+           !CoaEconomyRules::OutOfFairRange(200, 100) && !CoaEconomyRules::OutOfFairRange(50, 100) && !CoaEconomyRules::OutOfFairRange(9, 0));
+
+    // Fair prices: a craft between 1.1 and 2 times its reagents, vendor bounds.
+    assert(CoaEconomyRules::FairPrice(100000, 10000, 0, 0) == 20000);   // a scan far above its reagents
+    assert(CoaEconomyRules::FairPrice(5000, 10000, 0, 0) == 11000);     // under its reagents
+    assert(CoaEconomyRules::FairPrice(0, 10000, 0, 0) == 13000);        // not scanned: reagents + 30 %
+    assert(CoaEconomyRules::FairPrice(15000, 10000, 0, 0) == 15000);
+    assert(CoaEconomyRules::FairPrice(100, 0, 400, 0) == 500);          // never under a vendor's price + 25 %
+    assert(CoaEconomyRules::FairPrice(900, 0, 10, 300) == 300);         // never over a vendor that sells it at will
+    assert(CoaEconomyRules::FairPrice(0, 0, 400, 0) == 0);
 
     // Scanned prices kept within half and three times their band.
     assert(CoaEconomyRules::ClampToBand(45000000, 100000) == 300000);

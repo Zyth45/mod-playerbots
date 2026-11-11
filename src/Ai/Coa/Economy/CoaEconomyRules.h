@@ -205,12 +205,32 @@ inline bool UnderHalf(std::uint64_t perItem, std::uint64_t reference)
     return reference && perItem * 2 < reference;
 }
 
+// A listing price per item out of the fair range: under half or over twice the reference (the reference 0: never).
+inline bool OutOfFairRange(std::uint64_t perItem, std::uint64_t reference)
+{
+    return reference && (perItem * 2 < reference || perItem > reference * 2);
+}
+
 // A scanned price kept between half and three times its band's median (no median: as it is; no price: 0).
 inline std::uint64_t ClampToBand(std::uint64_t price, std::uint64_t median)
 {
     if (!price || !median)
         return price;
     return std::clamp<std::uint64_t>(price, median / 2, median * 3);
+}
+
+// A fair price that looks human (user, 10/11): crafted goods sit between 1.1 and 2 times their reagents (a scan alone
+// may say anything), nothing sells under what a vendor pays plus a quarter, and what a vendor sells at will never costs
+// more than at the vendor. reagents 0: not crafted; vendorBuy 0: no vendor sells it.
+inline std::uint64_t FairPrice(std::uint64_t value, std::uint64_t reagents, std::uint64_t vendorSell, std::uint64_t vendorBuy)
+{
+    if (reagents)
+        value = value ? std::clamp<std::uint64_t>(value, reagents * 11 / 10, reagents * 2) : reagents * 13 / 10;
+    if (value && value < vendorSell + vendorSell / 4)
+        value = vendorSell + vendorSell / 4;
+    if (vendorBuy && value > vendorBuy)
+        value = vendorBuy;
+    return value;
 }
 
 // The median of some prices (the lower middle one for an even count; 0 when empty).
