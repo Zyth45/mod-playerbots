@@ -118,6 +118,9 @@ bool CoaStuckCombat::Acts(Player* bot)
 {
     if (!bot || !CoaGroupTank::ModuleGuardActs(bot, CoaStuckCombatGuard))
         return false;
+    // Bench only: the key alone decides, inside a Dungeon Clear run too.
+    if (sPlayerbotAIConfig.coaCombatBenchKeyOnly)
+        return sPlayerbotAIConfig.coaCombatStuckCombatEnable;
     // In a Dungeon Clear run its hook decides, except with a real player as reference tank, where the hook always
     // said no: the module key decides then (CoaPlayerLedRule::StuckCombatAllowed).
     bool const inRun = CoaGroupTank::InDungeonClearRun(bot);

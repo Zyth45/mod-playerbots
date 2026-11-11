@@ -17,6 +17,7 @@
 #include "ObjectAccessor.h"
 #include "Player.h"
 #include "PlayerbotAI.h"
+#include "PlayerbotAIConfig.h"
 #include "Playerbots.h"
 
 #include <set>
@@ -88,6 +89,13 @@ Player* CoaGroupTank::Reference(Player const* member)
 bool CoaGroupTank::InDungeonClearRun(Player const* member)
 {
     return RunLeader(member).inRun;
+}
+
+bool CoaGroupTank::RunOrKey(Player const* member, bool keyOn)
+{
+    if (sPlayerbotAIConfig.coaCombatBenchKeyOnly)
+        return keyOn;
+    return keyOn || InDungeonClearRun(member);
 }
 
 void CoaGroupTank::SetHandledByDungeonClear(std::string const& guard, bool handled)

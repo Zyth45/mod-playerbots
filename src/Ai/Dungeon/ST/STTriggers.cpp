@@ -50,7 +50,7 @@ bool SunkenTemple::HakkarEncounterActs(Player* bot)
 {
     if (!bot || !bot->IsAlive() || bot->GetMapId() != MAP_ID)
         return false;
-    if (!CoaGroupTank::InDungeonClearRun(bot) && !sPlayerbotAIConfig.coaCombatSunkenTempleEnable)
+    if (!CoaGroupTank::RunOrKey(bot, sPlayerbotAIConfig.coaCombatSunkenTempleEnable))
         return false;
     if (EncounterLive(bot))
         return true;

@@ -49,6 +49,10 @@ namespace CoaGroupTank
     // Whether this member is in an active Dungeon Clear run (the provider gives it a run leader).
     bool InDungeonClearRun(Player const* member);
 
+    // A guard that is always on inside a Dungeon Clear run and behind `keyOn` outside one. With
+    // AiPlayerbot.CoaCombat.BenchKeyOnly (bench only), the key alone decides, inside a run too.
+    bool RunOrKey(Player const* member, bool keyOn);
+
     // The guards Dungeon Clear still runs itself during its runs (by name, e.g. "heal reposition"): the module's guard
     // of the same name stands down for the members of an active run, so that no guard acts twice. Dungeon Clear
     // declares them at load, and drops a name in the same change that cuts its own guard. Set before the maps update.
