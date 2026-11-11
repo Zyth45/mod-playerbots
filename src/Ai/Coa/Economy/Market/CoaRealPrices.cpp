@@ -6,6 +6,8 @@
 
 #include "CoaRealPrices.h"
 
+#include "CoaEconomyConf.h"
+
 #include "CoaEconomyRules.h"
 #include "Config.h"
 #include "ItemTemplate.h"
@@ -135,10 +137,10 @@ float Multipliers::For(uint32 quality) const
 Multipliers LoadMultipliers(std::string const& prefix)
 {
     Multipliers m;
-    m.other = std::max(0.0f, sConfigMgr->GetOption<float>(prefix + ".Common", m.other));
-    m.uncommon = std::max(0.0f, sConfigMgr->GetOption<float>(prefix + ".Uncommon", m.uncommon));
-    m.rare = std::max(0.0f, sConfigMgr->GetOption<float>(prefix + ".Rare", m.rare));
-    m.epic = std::max(0.0f, sConfigMgr->GetOption<float>(prefix + ".Epic", m.epic));
+    m.other = std::max(0.0f, CoaEconomy::Conf::Get<float>(prefix + ".Common", m.other));
+    m.uncommon = std::max(0.0f, CoaEconomy::Conf::Get<float>(prefix + ".Uncommon", m.uncommon));
+    m.rare = std::max(0.0f, CoaEconomy::Conf::Get<float>(prefix + ".Rare", m.rare));
+    m.epic = std::max(0.0f, CoaEconomy::Conf::Get<float>(prefix + ".Epic", m.epic));
     return m;
 }
 

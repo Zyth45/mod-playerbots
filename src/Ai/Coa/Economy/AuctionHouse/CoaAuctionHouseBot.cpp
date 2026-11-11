@@ -19,6 +19,8 @@
  */
 
 #include "ObjectMgr.h"
+
+#include "CoaEconomyConf.h"
 #include "CoaEconomyData.h"
 #include "CoaArtisans.h"
 #include "CoaRealPrices.h"
@@ -147,16 +149,16 @@ struct CoaSellableFilter
 
     void Load()
     {
-        enabled = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.Filter.Enable", true, false);
+        enabled = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.Filter.Enable", true, false);
         if (!enabled)
             return;
-        deprecated = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.Filter.Deprecated", true);
-        worldforged = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.Filter.Worldforged", true);
-        scaled = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.Filter.ScaledEntries", true);
-        bool const bloodforgedOn = sConfigMgr->GetOption<bool>("Bloodforged.Enable", false, false);
-        bool const allowBloodforged = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.Filter.AllowBloodforged", false);
+        deprecated = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.Filter.Deprecated", true);
+        worldforged = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.Filter.Worldforged", true);
+        scaled = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.Filter.ScaledEntries", true);
+        bool const bloodforgedOn = CoaEconomy::Conf::Get<bool>("Bloodforged.Enable", false, false);
+        bool const allowBloodforged = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.Filter.AllowBloodforged", false);
         bloodforged = CoaEconomyRules::LeavesOutBloodforged(
-            sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.Filter.Bloodforged", true), bloodforgedOn, allowBloodforged);
+            CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.Filter.Bloodforged", true), bloodforgedOn, allowBloodforged);
     }
 
     bool Keeps(ItemTemplate const& proto)
@@ -933,7 +935,7 @@ void AuctionHouseBot::PopulateItemCandidatesAndProportions()
     ItemIDsProducedByRecipes = GetItemIDsProducedByRecipes();
 
     std::unordered_set<uint32> obtainableItems;
-    bool coaSourcesOnly = sConfigMgr->GetOption<bool>("AuctionHouseBot.CoA.ObtainableItemsOnly", true);
+    bool coaSourcesOnly = CoaEconomy::Conf::Get<bool>("AuctionHouseBot.CoA.ObtainableItemsOnly", true);
     if (coaSourcesOnly)
     {
         obtainableItems = ItemIDsProducedByRecipes;
@@ -962,7 +964,7 @@ void AuctionHouseBot::PopulateItemCandidatesAndProportions()
     // or more, are kept only with a source in the original game's world: their requirements alone let Netherweave
     // Cloth (level 58, item level 60) and Fel Iron Ore through the level 60 limits.
     std::unordered_set<uint32> vanillaItems;
-    bool coaVanillaOnly = sConfigMgr->GetOption<bool>("AuctionHouseBot.CoA.VanillaItemsOnly", true);
+    bool coaVanillaOnly = CoaEconomy::Conf::Get<bool>("AuctionHouseBot.CoA.VanillaItemsOnly", true);
     if (coaVanillaOnly)
     {
         QueryResult sources = WorldDatabase.Query(VanillaSourcesQuery);
@@ -977,7 +979,7 @@ void AuctionHouseBot::PopulateItemCandidatesAndProportions()
     uint32 laterExpansionItems = 0;
     // CoA: what players sold on the real CoA auction house (scans of the house, incomplete) counts as obtainable too,
     // with ObtainableItemsOnly (user, 09/11: the scans are a guide, not a whitelist).
-    bool const coaSeenAdds = sConfigMgr->GetOption<bool>("AuctionHouseBot.CoA.SeenOnCoAHouse", false);
+    bool const coaSeenAdds = CoaEconomy::Conf::Get<bool>("AuctionHouseBot.CoA.SeenOnCoAHouse", false);
     uint32 addedBySeen = 0;
     uint32 obtainableUnseen = 0;
     CoaSellableFilter coaFilter;
@@ -1847,7 +1849,7 @@ void AuctionHouseBot::InitializeAdvancedListingRuleUseDropRatesTiers()
     // Re-initialize to reset
     DropRatesToTierMap = std::map<double, int, std::greater<double>>();
     ItemTiersByClassAndQuality = std::vector<std::vector<std::vector<std::vector<uint32>>>>(17); // 17 Categories
-    std::string tiersConfigString = sConfigMgr->GetOption<std::string>("AuctionHouseBot.AdvancedListingRules.UseDropRates.TiersConfig", "50,10,5,2,1,0.5,0.2,0.1,0.05,0.02,0.01,0.005");
+    std::string tiersConfigString = CoaEconomy::Conf::Get<std::string>("AuctionHouseBot.AdvancedListingRules.UseDropRates.TiersConfig", "50,10,5,2,1,0.5,0.2,0.1,0.05,0.02,0.01,0.005");
 
     // Parse tiers config, populate DropRate -> Tier map for later lookups
     int curTier = 0;
@@ -2227,10 +2229,10 @@ void AuctionHouseBot::AddNewAuctionBuyerBotBid(std::vector<Player*> AHBPlayers, 
 
 void AuctionHouseBot::LoadRaritySettings()
 {
-    RarityEnabled = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.Rarity.Enable", true, false);
-    RarityPremium = std::max(0.0, double(sConfigMgr->GetOption<float>("AiPlayerbot.CoaEconomy.Rarity.PremiumPercent", 100.0f)) / 100.0);
-    RarityCommonRate = std::max(0.000001, double(sConfigMgr->GetOption<float>("AiPlayerbot.CoaEconomy.Rarity.CommonDropPercent", 5.0f)));
-    RarityRareRate = std::clamp(double(sConfigMgr->GetOption<float>("AiPlayerbot.CoaEconomy.Rarity.RareDropPercent", 0.01f)), 0.0000001, RarityCommonRate * 0.999);
+    RarityEnabled = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.Rarity.Enable", true, false);
+    RarityPremium = std::max(0.0, double(CoaEconomy::Conf::Get<float>("AiPlayerbot.CoaEconomy.Rarity.PremiumPercent", 100.0f)) / 100.0);
+    RarityCommonRate = std::max(0.000001, double(CoaEconomy::Conf::Get<float>("AiPlayerbot.CoaEconomy.Rarity.CommonDropPercent", 5.0f)));
+    RarityRareRate = std::clamp(double(CoaEconomy::Conf::Get<float>("AiPlayerbot.CoaEconomy.Rarity.RareDropPercent", 0.01f)), 0.0000001, RarityCommonRate * 0.999);
 }
 
 // 1 for an item dropping at CommonDropPercent or more, up to 1 + PremiumPercent for RareDropPercent or less,
@@ -2264,13 +2266,13 @@ uint64 AuctionHouseBot::GetHouseLowestBuyoutPerItem(ItemTemplate const* itemProt
 
 void AuctionHouseBot::LoadHumanBuyerSettings()
 {
-    HumanBuyer.Enabled = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.Buyer.Enable", true, false);
-    HumanBuyer.DelayMinSeconds = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaEconomy.Buyer.DelayMinSeconds", 60);
+    HumanBuyer.Enabled = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.Buyer.Enable", true, false);
+    HumanBuyer.DelayMinSeconds = CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.Buyer.DelayMinSeconds", 60);
     HumanBuyer.DelayMaxSeconds = std::max(HumanBuyer.DelayMinSeconds,
-        sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaEconomy.Buyer.DelayMaxSeconds", 900));
-    HumanBuyer.BaseChancePercent = std::min<uint32>(100, sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaEconomy.Buyer.BaseChancePercent", 35));
-    HumanBuyer.RivalPercent = std::min<uint32>(100, sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaEconomy.Buyer.RivalPercent", 25));
-    HumanBuyer.ArbitrageMarginPercent = std::min<uint32>(100, sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaEconomy.Buyer.ArbitrageMarginPercent", 90));
+        CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.Buyer.DelayMaxSeconds", 900));
+    HumanBuyer.BaseChancePercent = std::min<uint32>(100, CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.Buyer.BaseChancePercent", 35));
+    HumanBuyer.RivalPercent = std::min<uint32>(100, CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.Buyer.RivalPercent", 25));
+    HumanBuyer.ArbitrageMarginPercent = std::min<uint32>(100, CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.Buyer.ArbitrageMarginPercent", 90));
     if (!HumanBuyer.Enabled)
         HumanBuyerEligibleAt.clear();
 }
@@ -2398,13 +2400,13 @@ void AuctionHouseBot::Update()
 
 bool AuctionHouseBot::IsModuleEnabled()
 {
-    if (!sConfigMgr->GetOption<bool>("AuctionHouseBot.Enable", false))
+    if (!CoaEconomy::Conf::Get<bool>("AuctionHouseBot.Enable", false))
         return false;
-    bool sellerEnabled = sConfigMgr->GetOption<bool>("AuctionHouseBot.EnableSeller", false);
-    bool buyerEnabled = sConfigMgr->GetOption<bool>("AuctionHouseBot.Buyer.Enabled", false);
+    bool sellerEnabled = CoaEconomy::Conf::Get<bool>("AuctionHouseBot.EnableSeller", false);
+    bool buyerEnabled = CoaEconomy::Conf::Get<bool>("AuctionHouseBot.Buyer.Enabled", false);
     if (sellerEnabled == false && buyerEnabled == false)
         return false;
-    string charString = sConfigMgr->GetOption<std::string>("AuctionHouseBot.GUIDs", "0");
+    string charString = CoaEconomy::Conf::Get<std::string>("AuctionHouseBot.GUIDs", "0");
     if ((charString == "0" || charString.empty()) && !UsesAutoCharacter())
     {
         LOG_INFO("module", "AuctionHouseBot: AuctionHouseBot.GUIDs is not configured and AuctionHouseBot.AutoCharacter is off so this module will be disabled");
@@ -2421,10 +2423,10 @@ namespace
 
 bool AuctionHouseBot::UsesAutoCharacter()
 {
-    string charString = sConfigMgr->GetOption<std::string>("AuctionHouseBot.GUIDs", "0");
+    string charString = CoaEconomy::Conf::Get<std::string>("AuctionHouseBot.GUIDs", "0");
     if (charString != "0" && !charString.empty())
         return false;
-    return sConfigMgr->GetOption<bool>("AuctionHouseBot.AutoCharacter", true);
+    return CoaEconomy::Conf::Get<bool>("AuctionHouseBot.AutoCharacter", true);
 }
 
 uint32 AuctionHouseBot::FindAutoCharacter()
@@ -2490,12 +2492,12 @@ bool AuctionHouseBot::EnsureAutoCharacter()
 
 void AuctionHouseBot::InitializeConfiguration()
 {
-    debug_Out = sConfigMgr->GetOption<bool>("AuctionHouseBot.DEBUG", false);
-    debug_Out_Filters = sConfigMgr->GetOption<bool>("AuctionHouseBot.DEBUG_FILTERS", false);
+    debug_Out = CoaEconomy::Conf::Get<bool>("AuctionHouseBot.DEBUG", false);
+    debug_Out_Filters = CoaEconomy::Conf::Get<bool>("AuctionHouseBot.DEBUG_FILTERS", false);
 
-    bool enabled = sConfigMgr->GetOption<bool>("AuctionHouseBot.Enable", false);
-    SellingBotEnabled = enabled && sConfigMgr->GetOption<bool>("AuctionHouseBot.EnableSeller", false);
-    BuyingBotEnabled = enabled && sConfigMgr->GetOption<bool>("AuctionHouseBot.Buyer.Enabled", false);
+    bool enabled = CoaEconomy::Conf::Get<bool>("AuctionHouseBot.Enable", false);
+    SellingBotEnabled = enabled && CoaEconomy::Conf::Get<bool>("AuctionHouseBot.EnableSeller", false);
+    BuyingBotEnabled = enabled && CoaEconomy::Conf::Get<bool>("AuctionHouseBot.Buyer.Enabled", false);
 
     if (!IsModuleEnabled())
     {
@@ -2504,7 +2506,7 @@ void AuctionHouseBot::InitializeConfiguration()
         return;
     }
 
-    string charString = sConfigMgr->GetOption<std::string>("AuctionHouseBot.GUIDs", "0");
+    string charString = CoaEconomy::Conf::Get<std::string>("AuctionHouseBot.GUIDs", "0");
     if (UsesAutoCharacter())
     {
         uint32 autoGuid = FindAutoCharacter();
@@ -2522,45 +2524,45 @@ void AuctionHouseBot::InitializeConfiguration()
         AddCharacters(charString);
 
     // Top level overrides
-    CompleteItemValueOverrideEnabled = sConfigMgr->GetOption<bool>("AuctionHouseBot.CompleteItemValueOverride.Enabled", false);
-    AddItemValuePairsToItemIDMap(CompleteItemValueOverrideItemListByItemID, sConfigMgr->GetOption<std::string>("AuctionHouseBot.CompleteItemValueOverride.Items", ""));
-    CompleteItemValueOverrideDoApplyBidVariations = sConfigMgr->GetOption<bool>("AuctionHouseBot.CompleteItemValueOverride.DoApplyBidVariations", false);
-    CompleteItemValueOverrideDoApplyBuyoutVariations = sConfigMgr->GetOption<bool>("AuctionHouseBot.CompleteItemValueOverride.DoApplyBuyoutVariations", false);
+    CompleteItemValueOverrideEnabled = CoaEconomy::Conf::Get<bool>("AuctionHouseBot.CompleteItemValueOverride.Enabled", false);
+    AddItemValuePairsToItemIDMap(CompleteItemValueOverrideItemListByItemID, CoaEconomy::Conf::Get<std::string>("AuctionHouseBot.CompleteItemValueOverride.Items", ""));
+    CompleteItemValueOverrideDoApplyBidVariations = CoaEconomy::Conf::Get<bool>("AuctionHouseBot.CompleteItemValueOverride.DoApplyBidVariations", false);
+    CompleteItemValueOverrideDoApplyBuyoutVariations = CoaEconomy::Conf::Get<bool>("AuctionHouseBot.CompleteItemValueOverride.DoApplyBuyoutVariations", false);
 
     // Buyer & Seller core properties
     SetCyclesBetweenBuyOrSell();
-    ReturnExpiredAuctionItemsToBot = sConfigMgr->GetOption<bool>("AuctionHouseBot.ReturnExpiredAuctionItemsToBot", false);
-    ItemsPerCycle = sConfigMgr->GetOption<uint32>("AuctionHouseBot.ItemsPerCycle", 75);
-    AdvancedListingRuleUseDropRatesEnabled = sConfigMgr->GetOption<bool>("AuctionHouseBot.AdvancedListingRules.UseDropRates.Enabled", false);
-    AdvancedListingRuleUseDropRatesWeaponEnabled = sConfigMgr->GetOption<bool>("AuctionHouseBot.AdvancedListingRules.UseDropRates.Weapon", true);
-    AdvancedListingRuleUseDropRatesArmorEnabled = sConfigMgr->GetOption<bool>("AuctionHouseBot.AdvancedListingRules.UseDropRates.Armor", true);
-    AdvancedListingRuleUseDropRatesRecipeEnabled = sConfigMgr->GetOption<bool>("AuctionHouseBot.AdvancedListingRules.UseDropRates.Recipe", true);
-    AdvancedListingRuleUseDropRatesMinDropRate = sConfigMgr->GetOption<float>("AuctionHouseBot.AdvancedListingRules.UseDropRates.MinDropRate", 0.005);
+    ReturnExpiredAuctionItemsToBot = CoaEconomy::Conf::Get<bool>("AuctionHouseBot.ReturnExpiredAuctionItemsToBot", false);
+    ItemsPerCycle = CoaEconomy::Conf::Get<uint32>("AuctionHouseBot.ItemsPerCycle", 75);
+    AdvancedListingRuleUseDropRatesEnabled = CoaEconomy::Conf::Get<bool>("AuctionHouseBot.AdvancedListingRules.UseDropRates.Enabled", false);
+    AdvancedListingRuleUseDropRatesWeaponEnabled = CoaEconomy::Conf::Get<bool>("AuctionHouseBot.AdvancedListingRules.UseDropRates.Weapon", true);
+    AdvancedListingRuleUseDropRatesArmorEnabled = CoaEconomy::Conf::Get<bool>("AuctionHouseBot.AdvancedListingRules.UseDropRates.Armor", true);
+    AdvancedListingRuleUseDropRatesRecipeEnabled = CoaEconomy::Conf::Get<bool>("AuctionHouseBot.AdvancedListingRules.UseDropRates.Recipe", true);
+    AdvancedListingRuleUseDropRatesMinDropRate = CoaEconomy::Conf::Get<float>("AuctionHouseBot.AdvancedListingRules.UseDropRates.MinDropRate", 0.005);
     if (AdvancedListingRuleUseDropRatesMinDropRate < 0 || AdvancedListingRuleUseDropRatesMinDropRate > 100) AdvancedListingRuleUseDropRatesMinDropRate = 0.005;
     AdvancedListingRuleUseDropRatesWeaponAffectedQualities.clear();
     AdvancedListingRuleUseDropRatesArmorAffectedQualities.clear();
     AdvancedListingRuleUseDropRatesRecipeAffectedQualities.clear();
-    ParseNumberListToSet(AdvancedListingRuleUseDropRatesWeaponAffectedQualities, sConfigMgr->GetOption<std::string>("AuctionHouseBot.AdvancedListingRules.UseDropRates.Weapon.AffectedQualities", "2,3,4,5"), "AdvancedListingRules.UseDropRates.Weapon.AffectedQualities");
-    ParseNumberListToSet(AdvancedListingRuleUseDropRatesArmorAffectedQualities, sConfigMgr->GetOption<std::string>("AuctionHouseBot.AdvancedListingRules.UseDropRates.Armor.AffectedQualities", "2,3,4,5"), "AdvancedListingRules.UseDropRates.Armor.AffectedQualities");
-    ParseNumberListToSet(AdvancedListingRuleUseDropRatesRecipeAffectedQualities, sConfigMgr->GetOption<std::string>("AuctionHouseBot.AdvancedListingRules.UseDropRates.Recipe.AffectedQualities", "2,3,4,5"), "AdvancedListingRules.UseDropRates.Recipe.AffectedQualities");
+    ParseNumberListToSet(AdvancedListingRuleUseDropRatesWeaponAffectedQualities, CoaEconomy::Conf::Get<std::string>("AuctionHouseBot.AdvancedListingRules.UseDropRates.Weapon.AffectedQualities", "2,3,4,5"), "AdvancedListingRules.UseDropRates.Weapon.AffectedQualities");
+    ParseNumberListToSet(AdvancedListingRuleUseDropRatesArmorAffectedQualities, CoaEconomy::Conf::Get<std::string>("AuctionHouseBot.AdvancedListingRules.UseDropRates.Armor.AffectedQualities", "2,3,4,5"), "AdvancedListingRules.UseDropRates.Armor.AffectedQualities");
+    ParseNumberListToSet(AdvancedListingRuleUseDropRatesRecipeAffectedQualities, CoaEconomy::Conf::Get<std::string>("AuctionHouseBot.AdvancedListingRules.UseDropRates.Recipe.AffectedQualities", "2,3,4,5"), "AdvancedListingRules.UseDropRates.Recipe.AffectedQualities");
     AdvancedListingRuleUseDropRatesExceptionItems.clear();
-    ParseNumberListToSet(AdvancedListingRuleUseDropRatesExceptionItems, sConfigMgr->GetOption<std::string>("AuctionHouseBot.AdvancedListingRules.UseDropRates.DisabledItemIDs", ""), "AdvancedListingRules.UseDropRates.DisabledItemIDs");
-    MaxBuyoutPriceInCopper = sConfigMgr->GetOption<uint32>("AuctionHouseBot.MaxBuyoutPriceInCopper", 1000000000);
-    BuyoutVariationReducePercent = sConfigMgr->GetOption<float>("AuctionHouseBot.BuyoutVariationReducePercent", 0.15f);
-    CoaRealHousePrices = sConfigMgr->GetOption<bool>("AuctionHouseBot.CoA.RealHousePrices", false);
+    ParseNumberListToSet(AdvancedListingRuleUseDropRatesExceptionItems, CoaEconomy::Conf::Get<std::string>("AuctionHouseBot.AdvancedListingRules.UseDropRates.DisabledItemIDs", ""), "AdvancedListingRules.UseDropRates.DisabledItemIDs");
+    MaxBuyoutPriceInCopper = CoaEconomy::Conf::Get<uint32>("AuctionHouseBot.MaxBuyoutPriceInCopper", 1000000000);
+    BuyoutVariationReducePercent = CoaEconomy::Conf::Get<float>("AuctionHouseBot.BuyoutVariationReducePercent", 0.15f);
+    CoaRealHousePrices = CoaEconomy::Conf::Get<bool>("AuctionHouseBot.CoA.RealHousePrices", false);
     CoaRealPriceMultipliers = CoaEconomy::RealPrices::LoadMultipliers("AuctionHouseBot.CoA.RealPriceMultiplier");
-    BuyoutVariationAddPercent = sConfigMgr->GetOption<float>("AuctionHouseBot.BuyoutVariationAddPercent", 0.25f);
-    BidVariationHighReducePercent = sConfigMgr->GetOption<float>("AuctionHouseBot.BidVariationHighReducePercent", 0);
-    BidVariationLowReducePercent = sConfigMgr->GetOption<float>("AuctionHouseBot.BidVariationLowReducePercent", 0.25f);
-    BuyoutBelowVendorVariationAddPercentEnabled = sConfigMgr->GetOption<bool>("AuctionHouseBot.BuyoutBelowVendorVariationAddPercentEnabled", true);
-    BuyoutBelowVendorVariationAddPercent = sConfigMgr->GetOption<float>("AuctionHouseBot.BuyoutBelowVendorVariationAddPercent", 0.25f);
-    ListingExpireTimeInSecondsMin = sConfigMgr->GetOption<uint32>("AuctionHouseBot.ListingExpireTimeInSecondsMin", 900);
+    BuyoutVariationAddPercent = CoaEconomy::Conf::Get<float>("AuctionHouseBot.BuyoutVariationAddPercent", 0.25f);
+    BidVariationHighReducePercent = CoaEconomy::Conf::Get<float>("AuctionHouseBot.BidVariationHighReducePercent", 0);
+    BidVariationLowReducePercent = CoaEconomy::Conf::Get<float>("AuctionHouseBot.BidVariationLowReducePercent", 0.25f);
+    BuyoutBelowVendorVariationAddPercentEnabled = CoaEconomy::Conf::Get<bool>("AuctionHouseBot.BuyoutBelowVendorVariationAddPercentEnabled", true);
+    BuyoutBelowVendorVariationAddPercent = CoaEconomy::Conf::Get<float>("AuctionHouseBot.BuyoutBelowVendorVariationAddPercent", 0.25f);
+    ListingExpireTimeInSecondsMin = CoaEconomy::Conf::Get<uint32>("AuctionHouseBot.ListingExpireTimeInSecondsMin", 900);
     if (ListingExpireTimeInSecondsMin < 900)
     {
         LOG_ERROR("module", "AuctionHouseBot: ListingExpireTimeInSecondsMin was set below 900 (15 min), so setting to 900");
         ListingExpireTimeInSecondsMin = 900;
     }
-    ListingExpireTimeInSecondsMax = sConfigMgr->GetOption<uint32>("AuctionHouseBot.ListingExpireTimeInSecondsMax", 86400);
+    ListingExpireTimeInSecondsMax = CoaEconomy::Conf::Get<uint32>("AuctionHouseBot.ListingExpireTimeInSecondsMax", 86400);
     if (ListingExpireTimeInSecondsMax > 172800)
     {
         LOG_ERROR("module", "AuctionHouseBot: ListingExpireTimeInSecondsMax was set above 172800 (48 hours), so setting to 172800");
@@ -2575,15 +2577,15 @@ void AuctionHouseBot::InitializeConfiguration()
 
     // Buyer Bot
     SetBuyingBotBuyCandidatesPerBuyCycle();
-    BuyingBotAcceptablePriceModifier = sConfigMgr->GetOption<float>("AuctionHouseBot.Buyer.AcceptablePriceModifier", 1);
-    BuyingBotAlwaysBidMaxCalculatedPrice = sConfigMgr->GetOption<bool>("AuctionHouseBot.Buyer.AlwaysBidMaxCalculatedPrice", false);
-    PreventOverpayingForVendorItems = sConfigMgr->GetOption<bool>("AuctionHouseBot.Buyer.PreventOverpayingForVendorItems", true);
+    BuyingBotAcceptablePriceModifier = CoaEconomy::Conf::Get<float>("AuctionHouseBot.Buyer.AcceptablePriceModifier", 0.65f);
+    BuyingBotAlwaysBidMaxCalculatedPrice = CoaEconomy::Conf::Get<bool>("AuctionHouseBot.Buyer.AlwaysBidMaxCalculatedPrice", false);
+    PreventOverpayingForVendorItems = CoaEconomy::Conf::Get<bool>("AuctionHouseBot.Buyer.PreventOverpayingForVendorItems", true);
     if (PreventOverpayingForVendorItems)
         PopulateVendorItemsPrices();
-    BuyingBotWillBidAgainstPlayers = sConfigMgr->GetOption<bool>("AuctionHouseBot.Buyer.BidAgainstPlayers", false);
-    BuyingBotOnlyBuyListableItems = sConfigMgr->GetOption<bool>("AuctionHouseBot.Buyer.OnlyBuyListableItems", false);
-    BuyingBotMaxPurchasesPerSellerPerDay = sConfigMgr->GetOption<uint32>("AuctionHouseBot.Buyer.MaxPurchasesPerSellerPerDay", 0);
-    BuyingBotInstantBids = sConfigMgr->GetOption<bool>("AuctionHouseBot.Buyer.InstantBids", false);
+    BuyingBotWillBidAgainstPlayers = CoaEconomy::Conf::Get<bool>("AuctionHouseBot.Buyer.BidAgainstPlayers", false);
+    BuyingBotOnlyBuyListableItems = CoaEconomy::Conf::Get<bool>("AuctionHouseBot.Buyer.OnlyBuyListableItems", false);
+    BuyingBotMaxPurchasesPerSellerPerDay = CoaEconomy::Conf::Get<uint32>("AuctionHouseBot.Buyer.MaxPurchasesPerSellerPerDay", 20);
+    BuyingBotInstantBids = CoaEconomy::Conf::Get<bool>("AuctionHouseBot.Buyer.InstantBids", false);
 
     // Stack Ratios
     RandomStackRatioConsumable = GetRandomStackValue("AuctionHouseBot.ListingStack.RandomRatio.Consumable", 50);
@@ -2620,21 +2622,21 @@ void AuctionHouseBot::InitializeConfiguration()
     RandomStackIncrementGlyph = GetRandomStackIncrementValue("AuctionHouseBot.ListingStack.RandomStackIncrement.Glyph", 1);
 
     // Max stack size
-    MaximumStackSizeConsumable = sConfigMgr->GetOption<uint32>("AuctionHouseBot.ListingStack.MaxStackSize.Consumable", 0);
-    MaximumStackSizeContainer = sConfigMgr->GetOption<uint32>("AuctionHouseBot.ListingStack.MaxStackSize.Container", 0);
-    MaximumStackSizeWeapon = sConfigMgr->GetOption<uint32>("AuctionHouseBot.ListingStack.MaxStackSize.Weapon", 0);
-    MaximumStackSizeGem = sConfigMgr->GetOption<uint32>("AuctionHouseBot.ListingStack.MaxStackSize.Gem", 0);
-    MaximumStackSizeArmor = sConfigMgr->GetOption<uint32>("AuctionHouseBot.ListingStack.MaxStackSize.Armor", 0);
-    MaximumStackSizeReagent = sConfigMgr->GetOption<uint32>("AuctionHouseBot.ListingStack.MaxStackSize.Reagent", 0);
-    MaximumStackSizeProjectile = sConfigMgr->GetOption<uint32>("AuctionHouseBot.ListingStack.MaxStackSize.Projectile", 0);
-    MaximumStackSizeTradeGood = sConfigMgr->GetOption<uint32>("AuctionHouseBot.ListingStack.MaxStackSize.TradeGood", 0);
-    MaximumStackSizeGeneric = sConfigMgr->GetOption<uint32>("AuctionHouseBot.ListingStack.MaxStackSize.Generic", 0);
-    MaximumStackSizeRecipe = sConfigMgr->GetOption<uint32>("AuctionHouseBot.ListingStack.MaxStackSize.Recipe", 0);
-    MaximumStackSizeQuiver = sConfigMgr->GetOption<uint32>("AuctionHouseBot.ListingStack.MaxStackSize.Quiver", 0);
-    MaximumStackSizeQuest = sConfigMgr->GetOption<uint32>("AuctionHouseBot.ListingStack.MaxStackSize.Quest", 0);
-    MaximumStackSizeKey = sConfigMgr->GetOption<uint32>("AuctionHouseBot.ListingStack.MaxStackSize.Key", 0);
-    MaximumStackSizeMisc = sConfigMgr->GetOption<uint32>("AuctionHouseBot.ListingStack.MaxStackSize.Misc", 0);
-    MaximumStackSizeGlyph = sConfigMgr->GetOption<uint32>("AuctionHouseBot.ListingStack.MaxStackSize.Glyph", 0);
+    MaximumStackSizeConsumable = CoaEconomy::Conf::Get<uint32>("AuctionHouseBot.ListingStack.MaxStackSize.Consumable", 0);
+    MaximumStackSizeContainer = CoaEconomy::Conf::Get<uint32>("AuctionHouseBot.ListingStack.MaxStackSize.Container", 0);
+    MaximumStackSizeWeapon = CoaEconomy::Conf::Get<uint32>("AuctionHouseBot.ListingStack.MaxStackSize.Weapon", 0);
+    MaximumStackSizeGem = CoaEconomy::Conf::Get<uint32>("AuctionHouseBot.ListingStack.MaxStackSize.Gem", 0);
+    MaximumStackSizeArmor = CoaEconomy::Conf::Get<uint32>("AuctionHouseBot.ListingStack.MaxStackSize.Armor", 0);
+    MaximumStackSizeReagent = CoaEconomy::Conf::Get<uint32>("AuctionHouseBot.ListingStack.MaxStackSize.Reagent", 0);
+    MaximumStackSizeProjectile = CoaEconomy::Conf::Get<uint32>("AuctionHouseBot.ListingStack.MaxStackSize.Projectile", 0);
+    MaximumStackSizeTradeGood = CoaEconomy::Conf::Get<uint32>("AuctionHouseBot.ListingStack.MaxStackSize.TradeGood", 0);
+    MaximumStackSizeGeneric = CoaEconomy::Conf::Get<uint32>("AuctionHouseBot.ListingStack.MaxStackSize.Generic", 0);
+    MaximumStackSizeRecipe = CoaEconomy::Conf::Get<uint32>("AuctionHouseBot.ListingStack.MaxStackSize.Recipe", 0);
+    MaximumStackSizeQuiver = CoaEconomy::Conf::Get<uint32>("AuctionHouseBot.ListingStack.MaxStackSize.Quiver", 0);
+    MaximumStackSizeQuest = CoaEconomy::Conf::Get<uint32>("AuctionHouseBot.ListingStack.MaxStackSize.Quest", 0);
+    MaximumStackSizeKey = CoaEconomy::Conf::Get<uint32>("AuctionHouseBot.ListingStack.MaxStackSize.Key", 0);
+    MaximumStackSizeMisc = CoaEconomy::Conf::Get<uint32>("AuctionHouseBot.ListingStack.MaxStackSize.Misc", 0);
+    MaximumStackSizeGlyph = CoaEconomy::Conf::Get<uint32>("AuctionHouseBot.ListingStack.MaxStackSize.Glyph", 0);
 
     // List proportions
     ItemListProportionNodesSeed.clear();
@@ -2648,53 +2650,53 @@ void AuctionHouseBot::InitializeConfiguration()
                 ListProportionNode node;
                 node.ItemClassID = category;
                 node.ItemQualityID = quality;
-                node.Proportion = sConfigMgr->GetOption<uint32>(key.c_str(), 0);
+                node.Proportion = CoaEconomy::Conf::Get<uint32>(key.c_str(), 0);
                 ItemListProportionNodesSeed.push_back(node);
             }
         }
     }
     ItemListProportionMultipliedItemIDs.clear();
-    AddItemValuePairsToItemIDMap(ItemListProportionMultipliedItemIDs, sConfigMgr->GetOption<std::string>("AuctionHouseBot.ListProportion.ListMultipliedItemIDs", ""));
+    AddItemValuePairsToItemIDMap(ItemListProportionMultipliedItemIDs, CoaEconomy::Conf::Get<std::string>("AuctionHouseBot.ListProportion.ListMultipliedItemIDs", ""));
 
     // Price Multipliers
-    PriceMultiplierCategoryConsumable = sConfigMgr->GetOption<float>("AuctionHouseBot.PriceMultiplier.Category.Consumable", 1);
-    PriceMultiplierCategoryContainer = sConfigMgr->GetOption<float>("AuctionHouseBot.PriceMultiplier.Category.Container", 1);
-    PriceMultiplierCategoryWeapon = sConfigMgr->GetOption<float>("AuctionHouseBot.PriceMultiplier.Category.Weapon", 1);
-    PriceMultiplierCategoryGem = sConfigMgr->GetOption<float>("AuctionHouseBot.PriceMultiplier.Category.Gem", 1);
-    PriceMultiplierCategoryArmor = sConfigMgr->GetOption<float>("AuctionHouseBot.PriceMultiplier.Category.Armor", 1);
-    PriceMultiplierCategoryReagent = sConfigMgr->GetOption<float>("AuctionHouseBot.PriceMultiplier.Category.Reagent", 1);
-    PriceMultiplierCategoryProjectile = sConfigMgr->GetOption<float>("AuctionHouseBot.PriceMultiplier.Category.Projectile", 1);
-    PriceMultiplierCategoryTradeGood = sConfigMgr->GetOption<float>("AuctionHouseBot.PriceMultiplier.Category.TradeGood", 1);
-    PriceMultiplierCategoryGeneric = sConfigMgr->GetOption<float>("AuctionHouseBot.PriceMultiplier.Category.Generic", 1);
-    PriceMultiplierCategoryRecipe = sConfigMgr->GetOption<float>("AuctionHouseBot.PriceMultiplier.Category.Recipe", 1);
-    PriceMultiplierCategoryQuiver = sConfigMgr->GetOption<float>("AuctionHouseBot.PriceMultiplier.Category.Quiver", 1);
-    PriceMultiplierCategoryQuest = sConfigMgr->GetOption<float>("AuctionHouseBot.PriceMultiplier.Category.Quest", 1);
-    PriceMultiplierCategoryKey = sConfigMgr->GetOption<float>("AuctionHouseBot.PriceMultiplier.Category.Key", 1);
-    PriceMultiplierCategoryMisc = sConfigMgr->GetOption<float>("AuctionHouseBot.PriceMultiplier.Category.Misc", 1);
-    PriceMultiplierCategoryGlyph = sConfigMgr->GetOption<float>("AuctionHouseBot.PriceMultiplier.Category.Glyph", 1);
-    PriceMultiplierItemLevelCategoryConsumable = sConfigMgr->GetOption<float>("AuctionHouseBot.PriceMultiplier.ItemLevel.Category.Consumable", 0);
-    PriceMultiplierItemLevelCategoryContainer = sConfigMgr->GetOption<float>("AuctionHouseBot.PriceMultiplier.ItemLevel.Category.Container", 0);
-    PriceMultiplierItemLevelCategoryWeapon = sConfigMgr->GetOption<float>("AuctionHouseBot.PriceMultiplier.ItemLevel.Category.Weapon", 0);
-    PriceMultiplierItemLevelCategoryGem = sConfigMgr->GetOption<float>("AuctionHouseBot.PriceMultiplier.ItemLevel.Category.Gem", 0);
-    PriceMultiplierItemLevelCategoryArmor = sConfigMgr->GetOption<float>("AuctionHouseBot.PriceMultiplier.ItemLevel.Category.Armor", 0);
-    PriceMultiplierItemLevelCategoryReagent = sConfigMgr->GetOption<float>("AuctionHouseBot.PriceMultiplier.ItemLevel.Category.Reagent", 0);
-    PriceMultiplierItemLevelCategoryProjectile = sConfigMgr->GetOption<float>("AuctionHouseBot.PriceMultiplier.ItemLevel.Category.Projectile", 0);
-    PriceMultiplierItemLevelCategoryTradeGood = sConfigMgr->GetOption<float>("AuctionHouseBot.PriceMultiplier.ItemLevel.Category.TradeGood", 0);
-    PriceMultiplierItemLevelCategoryGeneric = sConfigMgr->GetOption<float>("AuctionHouseBot.PriceMultiplier.ItemLevel.Category.Generic", 0);
-    PriceMultiplierItemLevelCategoryRecipe = sConfigMgr->GetOption<float>("AuctionHouseBot.PriceMultiplier.ItemLevel.Category.Recipe", 0);
-    PriceMultiplierItemLevelCategoryQuiver = sConfigMgr->GetOption<float>("AuctionHouseBot.PriceMultiplier.ItemLevel.Category.Quiver", 0);
-    PriceMultiplierItemLevelCategoryQuest = sConfigMgr->GetOption<float>("AuctionHouseBot.PriceMultiplier.ItemLevel.Category.Quest", 0);
-    PriceMultiplierItemLevelCategoryKey = sConfigMgr->GetOption<float>("AuctionHouseBot.PriceMultiplier.ItemLevel.Category.Key", 0);
-    PriceMultiplierItemLevelCategoryMisc = sConfigMgr->GetOption<float>("AuctionHouseBot.PriceMultiplier.ItemLevel.Category.Misc", 0);
-    PriceMultiplierItemLevelCategoryGlyph = sConfigMgr->GetOption<float>("AuctionHouseBot.PriceMultiplier.ItemLevel.Category.Glyph", 0);
-    PriceMultiplierQualityPoor = sConfigMgr->GetOption<float>("AuctionHouseBot.PriceMultiplier.Quality.Poor", 1);
-    PriceMultiplierQualityNormal = sConfigMgr->GetOption<float>("AuctionHouseBot.PriceMultiplier.Quality.Normal", 1);
-    PriceMultiplierQualityUncommon = sConfigMgr->GetOption<float>("AuctionHouseBot.PriceMultiplier.Quality.Uncommon", 1.8);
-    PriceMultiplierQualityRare = sConfigMgr->GetOption<float>("AuctionHouseBot.PriceMultiplier.Quality.Rare", 1.9);
-    PriceMultiplierQualityEpic = sConfigMgr->GetOption<float>("AuctionHouseBot.PriceMultiplier.Quality.Epic", 2.1);
-    PriceMultiplierQualityLegendary = sConfigMgr->GetOption<float>("AuctionHouseBot.PriceMultiplier.Quality.Legendary", 3);
-    PriceMultiplierQualityArtifact = sConfigMgr->GetOption<float>("AuctionHouseBot.PriceMultiplier.Quality.Artifact", 3);
-    PriceMultiplierQualityHeirloom = sConfigMgr->GetOption<float>("AuctionHouseBot.PriceMultiplier.Quality.Heirloom", 3);
+    PriceMultiplierCategoryConsumable = CoaEconomy::Conf::Get<float>("AuctionHouseBot.PriceMultiplier.Category.Consumable", 1);
+    PriceMultiplierCategoryContainer = CoaEconomy::Conf::Get<float>("AuctionHouseBot.PriceMultiplier.Category.Container", 1);
+    PriceMultiplierCategoryWeapon = CoaEconomy::Conf::Get<float>("AuctionHouseBot.PriceMultiplier.Category.Weapon", 1);
+    PriceMultiplierCategoryGem = CoaEconomy::Conf::Get<float>("AuctionHouseBot.PriceMultiplier.Category.Gem", 1);
+    PriceMultiplierCategoryArmor = CoaEconomy::Conf::Get<float>("AuctionHouseBot.PriceMultiplier.Category.Armor", 1);
+    PriceMultiplierCategoryReagent = CoaEconomy::Conf::Get<float>("AuctionHouseBot.PriceMultiplier.Category.Reagent", 1);
+    PriceMultiplierCategoryProjectile = CoaEconomy::Conf::Get<float>("AuctionHouseBot.PriceMultiplier.Category.Projectile", 1);
+    PriceMultiplierCategoryTradeGood = CoaEconomy::Conf::Get<float>("AuctionHouseBot.PriceMultiplier.Category.TradeGood", 1);
+    PriceMultiplierCategoryGeneric = CoaEconomy::Conf::Get<float>("AuctionHouseBot.PriceMultiplier.Category.Generic", 1);
+    PriceMultiplierCategoryRecipe = CoaEconomy::Conf::Get<float>("AuctionHouseBot.PriceMultiplier.Category.Recipe", 1);
+    PriceMultiplierCategoryQuiver = CoaEconomy::Conf::Get<float>("AuctionHouseBot.PriceMultiplier.Category.Quiver", 1);
+    PriceMultiplierCategoryQuest = CoaEconomy::Conf::Get<float>("AuctionHouseBot.PriceMultiplier.Category.Quest", 1);
+    PriceMultiplierCategoryKey = CoaEconomy::Conf::Get<float>("AuctionHouseBot.PriceMultiplier.Category.Key", 1);
+    PriceMultiplierCategoryMisc = CoaEconomy::Conf::Get<float>("AuctionHouseBot.PriceMultiplier.Category.Misc", 1);
+    PriceMultiplierCategoryGlyph = CoaEconomy::Conf::Get<float>("AuctionHouseBot.PriceMultiplier.Category.Glyph", 1);
+    PriceMultiplierItemLevelCategoryConsumable = CoaEconomy::Conf::Get<float>("AuctionHouseBot.PriceMultiplier.ItemLevel.Category.Consumable", 0);
+    PriceMultiplierItemLevelCategoryContainer = CoaEconomy::Conf::Get<float>("AuctionHouseBot.PriceMultiplier.ItemLevel.Category.Container", 0);
+    PriceMultiplierItemLevelCategoryWeapon = CoaEconomy::Conf::Get<float>("AuctionHouseBot.PriceMultiplier.ItemLevel.Category.Weapon", 0);
+    PriceMultiplierItemLevelCategoryGem = CoaEconomy::Conf::Get<float>("AuctionHouseBot.PriceMultiplier.ItemLevel.Category.Gem", 0);
+    PriceMultiplierItemLevelCategoryArmor = CoaEconomy::Conf::Get<float>("AuctionHouseBot.PriceMultiplier.ItemLevel.Category.Armor", 0);
+    PriceMultiplierItemLevelCategoryReagent = CoaEconomy::Conf::Get<float>("AuctionHouseBot.PriceMultiplier.ItemLevel.Category.Reagent", 0);
+    PriceMultiplierItemLevelCategoryProjectile = CoaEconomy::Conf::Get<float>("AuctionHouseBot.PriceMultiplier.ItemLevel.Category.Projectile", 0);
+    PriceMultiplierItemLevelCategoryTradeGood = CoaEconomy::Conf::Get<float>("AuctionHouseBot.PriceMultiplier.ItemLevel.Category.TradeGood", 0);
+    PriceMultiplierItemLevelCategoryGeneric = CoaEconomy::Conf::Get<float>("AuctionHouseBot.PriceMultiplier.ItemLevel.Category.Generic", 0);
+    PriceMultiplierItemLevelCategoryRecipe = CoaEconomy::Conf::Get<float>("AuctionHouseBot.PriceMultiplier.ItemLevel.Category.Recipe", 0);
+    PriceMultiplierItemLevelCategoryQuiver = CoaEconomy::Conf::Get<float>("AuctionHouseBot.PriceMultiplier.ItemLevel.Category.Quiver", 0);
+    PriceMultiplierItemLevelCategoryQuest = CoaEconomy::Conf::Get<float>("AuctionHouseBot.PriceMultiplier.ItemLevel.Category.Quest", 0);
+    PriceMultiplierItemLevelCategoryKey = CoaEconomy::Conf::Get<float>("AuctionHouseBot.PriceMultiplier.ItemLevel.Category.Key", 0);
+    PriceMultiplierItemLevelCategoryMisc = CoaEconomy::Conf::Get<float>("AuctionHouseBot.PriceMultiplier.ItemLevel.Category.Misc", 0);
+    PriceMultiplierItemLevelCategoryGlyph = CoaEconomy::Conf::Get<float>("AuctionHouseBot.PriceMultiplier.ItemLevel.Category.Glyph", 0);
+    PriceMultiplierQualityPoor = CoaEconomy::Conf::Get<float>("AuctionHouseBot.PriceMultiplier.Quality.Poor", 1);
+    PriceMultiplierQualityNormal = CoaEconomy::Conf::Get<float>("AuctionHouseBot.PriceMultiplier.Quality.Normal", 1);
+    PriceMultiplierQualityUncommon = CoaEconomy::Conf::Get<float>("AuctionHouseBot.PriceMultiplier.Quality.Uncommon", 1.8);
+    PriceMultiplierQualityRare = CoaEconomy::Conf::Get<float>("AuctionHouseBot.PriceMultiplier.Quality.Rare", 1.9);
+    PriceMultiplierQualityEpic = CoaEconomy::Conf::Get<float>("AuctionHouseBot.PriceMultiplier.Quality.Epic", 2.1);
+    PriceMultiplierQualityLegendary = CoaEconomy::Conf::Get<float>("AuctionHouseBot.PriceMultiplier.Quality.Legendary", 3);
+    PriceMultiplierQualityArtifact = CoaEconomy::Conf::Get<float>("AuctionHouseBot.PriceMultiplier.Quality.Artifact", 3);
+    PriceMultiplierQualityHeirloom = CoaEconomy::Conf::Get<float>("AuctionHouseBot.PriceMultiplier.Quality.Heirloom", 3);
     for (int category = 0; category < MAX_ITEM_CLASS; category++)
     {
         for (int quality = 0; quality < MAX_ITEM_QUALITY; quality++)
@@ -2702,103 +2704,103 @@ void AuctionHouseBot::InitializeConfiguration()
             std::string key = std::string("AuctionHouseBot.PriceMultiplier.Category") + GetCategoryName((ItemClass)category) +
                             ".Quality" + GetQualityName((ItemQualities)quality);
 
-            float multiplier = sConfigMgr->GetOption<float>(key.c_str(), 1.0f);
+            float multiplier = CoaEconomy::Conf::Get<float>(key.c_str(), 1.0f);
             PriceMultiplierCategoryQuality[category][quality] = multiplier;
         }
     }
-    PriceMultiplierCategoryMountQualityPoor = sConfigMgr->GetOption<float>("AuctionHouseBot.PriceMultiplier.CategoryMount.QualityPoor", 1.0);
-    PriceMultiplierCategoryMountQualityNormal = sConfigMgr->GetOption<float>("AuctionHouseBot.PriceMultiplier.CategoryMount.QualityNormal", 1.0);
-    PriceMultiplierCategoryMountQualityUncommon = sConfigMgr->GetOption<float>("AuctionHouseBot.PriceMultiplier.CategoryMount.QualityUncommon", 1.0);
-    PriceMultiplierCategoryMountQualityRare = sConfigMgr->GetOption<float>("AuctionHouseBot.PriceMultiplier.CategoryMount.QualityRare", 3000.0);
-    PriceMultiplierCategoryMountQualityEpic = sConfigMgr->GetOption<float>("AuctionHouseBot.PriceMultiplier.CategoryMount.QualityEpic", 5750.0);
-    PriceMultiplierCategoryMountQualityLegendary = sConfigMgr->GetOption<float>("AuctionHouseBot.PriceMultiplier.CategoryMount.QualityLegendary", 1.0);
-    PriceMultiplierCategoryMountQualityArtifact = sConfigMgr->GetOption<float>("AuctionHouseBot.PriceMultiplier.CategoryMount.QualityArtifact", 1.0);
-    PriceMultiplierCategoryMountQualityHeirloom = sConfigMgr->GetOption<float>("AuctionHouseBot.PriceMultiplier.CategoryMount.QualityHeirloom", 1.0);
+    PriceMultiplierCategoryMountQualityPoor = CoaEconomy::Conf::Get<float>("AuctionHouseBot.PriceMultiplier.CategoryMount.QualityPoor", 1.0);
+    PriceMultiplierCategoryMountQualityNormal = CoaEconomy::Conf::Get<float>("AuctionHouseBot.PriceMultiplier.CategoryMount.QualityNormal", 1.0);
+    PriceMultiplierCategoryMountQualityUncommon = CoaEconomy::Conf::Get<float>("AuctionHouseBot.PriceMultiplier.CategoryMount.QualityUncommon", 1.0);
+    PriceMultiplierCategoryMountQualityRare = CoaEconomy::Conf::Get<float>("AuctionHouseBot.PriceMultiplier.CategoryMount.QualityRare", 3000.0);
+    PriceMultiplierCategoryMountQualityEpic = CoaEconomy::Conf::Get<float>("AuctionHouseBot.PriceMultiplier.CategoryMount.QualityEpic", 5750.0);
+    PriceMultiplierCategoryMountQualityLegendary = CoaEconomy::Conf::Get<float>("AuctionHouseBot.PriceMultiplier.CategoryMount.QualityLegendary", 1.0);
+    PriceMultiplierCategoryMountQualityArtifact = CoaEconomy::Conf::Get<float>("AuctionHouseBot.PriceMultiplier.CategoryMount.QualityArtifact", 1.0);
+    PriceMultiplierCategoryMountQualityHeirloom = CoaEconomy::Conf::Get<float>("AuctionHouseBot.PriceMultiplier.CategoryMount.QualityHeirloom", 1.0);
 
-    PriceMultiplierCategoryPetQualityPoor = sConfigMgr->GetOption<float>("AuctionHouseBot.PriceMultiplier.CategoryPet.QualityPoor", 1.0);
-    PriceMultiplierCategoryPetQualityNormal = sConfigMgr->GetOption<float>("AuctionHouseBot.PriceMultiplier.CategoryPet.QualityNormal", 1.0);
-    PriceMultiplierCategoryPetQualityUncommon = sConfigMgr->GetOption<float>("AuctionHouseBot.PriceMultiplier.CategoryPet.QualityUncommon", 1.0);
-    PriceMultiplierCategoryPetQualityRare = sConfigMgr->GetOption<float>("AuctionHouseBot.PriceMultiplier.CategoryPet.QualityRare", 1.0);
-    PriceMultiplierCategoryPetQualityEpic = sConfigMgr->GetOption<float>("AuctionHouseBot.PriceMultiplier.CategoryPet.QualityEpic", 1.0);
-    PriceMultiplierCategoryPetQualityLegendary = sConfigMgr->GetOption<float>("AuctionHouseBot.PriceMultiplier.CategoryPet.QualityLegendary", 1.0);
-    PriceMultiplierCategoryPetQualityArtifact = sConfigMgr->GetOption<float>("AuctionHouseBot.PriceMultiplier.CategoryPet.QualityArtifact", 1.0);
-    PriceMultiplierCategoryPetQualityHeirloom = sConfigMgr->GetOption<float>("AuctionHouseBot.PriceMultiplier.CategoryPet.QualityHeirloom", 1.0);
+    PriceMultiplierCategoryPetQualityPoor = CoaEconomy::Conf::Get<float>("AuctionHouseBot.PriceMultiplier.CategoryPet.QualityPoor", 1.0);
+    PriceMultiplierCategoryPetQualityNormal = CoaEconomy::Conf::Get<float>("AuctionHouseBot.PriceMultiplier.CategoryPet.QualityNormal", 1.0);
+    PriceMultiplierCategoryPetQualityUncommon = CoaEconomy::Conf::Get<float>("AuctionHouseBot.PriceMultiplier.CategoryPet.QualityUncommon", 1.0);
+    PriceMultiplierCategoryPetQualityRare = CoaEconomy::Conf::Get<float>("AuctionHouseBot.PriceMultiplier.CategoryPet.QualityRare", 1.0);
+    PriceMultiplierCategoryPetQualityEpic = CoaEconomy::Conf::Get<float>("AuctionHouseBot.PriceMultiplier.CategoryPet.QualityEpic", 1.0);
+    PriceMultiplierCategoryPetQualityLegendary = CoaEconomy::Conf::Get<float>("AuctionHouseBot.PriceMultiplier.CategoryPet.QualityLegendary", 1.0);
+    PriceMultiplierCategoryPetQualityArtifact = CoaEconomy::Conf::Get<float>("AuctionHouseBot.PriceMultiplier.CategoryPet.QualityArtifact", 1.0);
+    PriceMultiplierCategoryPetQualityHeirloom = CoaEconomy::Conf::Get<float>("AuctionHouseBot.PriceMultiplier.CategoryPet.QualityHeirloom", 1.0);
 
     // Advanced Pricing
-    AdvancedPricingConsumablePotionEnabled = sConfigMgr->GetOption<bool>("AuctionHouseBot.AdvancedPricing.Consumable.Potion.Enabled", true);
-    AdvancedPricingConsumableElixirEnabled = sConfigMgr->GetOption<bool>("AuctionHouseBot.AdvancedPricing.Consumable.Elixir.Enabled", true);
-    AdvancedPricingConsumableFlaskEnabled = sConfigMgr->GetOption<bool>("AuctionHouseBot.AdvancedPricing.Consumable.Flask.Enabled", true);
-    AdvancedPricingGemEnabled = sConfigMgr->GetOption<bool>("AuctionHouseBot.AdvancedPricing.Gem.Enabled", true);
-    AdvancedPricingTradeGoodClothEnabled = sConfigMgr->GetOption<bool>("AuctionHouseBot.AdvancedPricing.TradeGood.Cloth.Enabled", true);
-    AdvancedPricingTradeGoodHerbEnabled = sConfigMgr->GetOption<bool>("AuctionHouseBot.AdvancedPricing.TradeGood.Herb.Enabled", true);
-    AdvancedPricingTradeGoodMetalStoneEnabled = sConfigMgr->GetOption<bool>("AuctionHouseBot.AdvancedPricing.TradeGood.MetalStone.Enabled", true);
-    AdvancedPricingTradeGoodLeatherEnabled = sConfigMgr->GetOption<bool>("AuctionHouseBot.AdvancedPricing.TradeGood.Leather.Enabled", true);
-    AdvancedPricingTradeGoodEnchantingEnabled = sConfigMgr->GetOption<bool>("AuctionHouseBot.AdvancedPricing.TradeGood.Enchanting.Enabled", true);
-    AdvancedPricingTradeGoodElementalEnabled = sConfigMgr->GetOption<bool>("AuctionHouseBot.AdvancedPricing.TradeGood.Elemental.Enabled", true);
-    AdvancedPricingTradeGoodMeatEnabled = sConfigMgr->GetOption<bool>("AuctionHouseBot.AdvancedPricing.TradeGood.Meat.Enabled", true);
-    AdvancedPricingMiscJunkEnabled = sConfigMgr->GetOption<bool>("AuctionHouseBot.AdvancedPricing.Misc.Junk.Enabled", true);
-    AdvancedPricingMiscMountEnabled = sConfigMgr->GetOption<bool>("AuctionHouseBot.AdvancedPricing.Misc.Mount.Enabled", true);
-    AdvancedPricingMiscPetEnabled = sConfigMgr->GetOption<bool>("AuctionHouseBot.AdvancedPricing.Misc.Pet.Enabled", true);
+    AdvancedPricingConsumablePotionEnabled = CoaEconomy::Conf::Get<bool>("AuctionHouseBot.AdvancedPricing.Consumable.Potion.Enabled", true);
+    AdvancedPricingConsumableElixirEnabled = CoaEconomy::Conf::Get<bool>("AuctionHouseBot.AdvancedPricing.Consumable.Elixir.Enabled", true);
+    AdvancedPricingConsumableFlaskEnabled = CoaEconomy::Conf::Get<bool>("AuctionHouseBot.AdvancedPricing.Consumable.Flask.Enabled", true);
+    AdvancedPricingGemEnabled = CoaEconomy::Conf::Get<bool>("AuctionHouseBot.AdvancedPricing.Gem.Enabled", true);
+    AdvancedPricingTradeGoodClothEnabled = CoaEconomy::Conf::Get<bool>("AuctionHouseBot.AdvancedPricing.TradeGood.Cloth.Enabled", true);
+    AdvancedPricingTradeGoodHerbEnabled = CoaEconomy::Conf::Get<bool>("AuctionHouseBot.AdvancedPricing.TradeGood.Herb.Enabled", true);
+    AdvancedPricingTradeGoodMetalStoneEnabled = CoaEconomy::Conf::Get<bool>("AuctionHouseBot.AdvancedPricing.TradeGood.MetalStone.Enabled", true);
+    AdvancedPricingTradeGoodLeatherEnabled = CoaEconomy::Conf::Get<bool>("AuctionHouseBot.AdvancedPricing.TradeGood.Leather.Enabled", true);
+    AdvancedPricingTradeGoodEnchantingEnabled = CoaEconomy::Conf::Get<bool>("AuctionHouseBot.AdvancedPricing.TradeGood.Enchanting.Enabled", true);
+    AdvancedPricingTradeGoodElementalEnabled = CoaEconomy::Conf::Get<bool>("AuctionHouseBot.AdvancedPricing.TradeGood.Elemental.Enabled", true);
+    AdvancedPricingTradeGoodMeatEnabled = CoaEconomy::Conf::Get<bool>("AuctionHouseBot.AdvancedPricing.TradeGood.Meat.Enabled", true);
+    AdvancedPricingMiscJunkEnabled = CoaEconomy::Conf::Get<bool>("AuctionHouseBot.AdvancedPricing.Misc.Junk.Enabled", true);
+    AdvancedPricingMiscMountEnabled = CoaEconomy::Conf::Get<bool>("AuctionHouseBot.AdvancedPricing.Misc.Mount.Enabled", true);
+    AdvancedPricingMiscPetEnabled = CoaEconomy::Conf::Get<bool>("AuctionHouseBot.AdvancedPricing.Misc.Pet.Enabled", true);
 
     // Price minimums
-    UseItemSellPriceIfHigherThanPriceMinimumCenterBase = sConfigMgr->GetOption<bool>("AuctionHouseBot.PriceMinimumCenterBase.UseItemSellPriceIfHigher", true);
-    PriceMinimumCenterBaseConsumable = sConfigMgr->GetOption<uint32>("AuctionHouseBot.PriceMinimumCenterBase.Consumable",1000);
-    PriceMinimumCenterBaseContainer = sConfigMgr->GetOption<uint32>("AuctionHouseBot.PriceMinimumCenterBase.Container", 1000);
-    PriceMinimumCenterBaseWeapon = sConfigMgr->GetOption<uint32>("AuctionHouseBot.PriceMinimumCenterBase.Weapon", 1000);
-    PriceMinimumCenterBaseGem = sConfigMgr->GetOption<uint32>("AuctionHouseBot.PriceMinimumCenterBase.Gem", 1000);
-    PriceMinimumCenterBaseArmor = sConfigMgr->GetOption<uint32>("AuctionHouseBot.PriceMinimumCenterBase.Armor", 1000);
-    PriceMinimumCenterBaseReagent = sConfigMgr->GetOption<uint32>("AuctionHouseBot.PriceMinimumCenterBase.Reagent", 1000);
-    PriceMinimumCenterBaseProjectile = sConfigMgr->GetOption<uint32>("AuctionHouseBot.PriceMinimumCenterBase.Projectile", 5);
-    PriceMinimumCenterBaseTradeGood = sConfigMgr->GetOption<uint32>("AuctionHouseBot.PriceMinimumCenterBase.TradeGood", 850);
-    PriceMinimumCenterBaseGeneric = sConfigMgr->GetOption<uint32>("AuctionHouseBot.PriceMinimumCenterBase.Generic", 1000);
-    PriceMinimumCenterBaseRecipe = sConfigMgr->GetOption<uint32>("AuctionHouseBot.PriceMinimumCenterBase.Recipe", 1000);
-    PriceMinimumCenterBaseQuiver = sConfigMgr->GetOption<uint32>("AuctionHouseBot.PriceMinimumCenterBase.Quiver", 1000);
-    PriceMinimumCenterBaseQuest = sConfigMgr->GetOption<uint32>("AuctionHouseBot.PriceMinimumCenterBase.Quest", 1000);
-    PriceMinimumCenterBaseKey = sConfigMgr->GetOption<uint32>("AuctionHouseBot.PriceMinimumCenterBase.Key", 1000);
-    PriceMinimumCenterBaseMisc = sConfigMgr->GetOption<uint32>("AuctionHouseBot.PriceMinimumCenterBase.Misc", 1000);
-    PriceMinimumCenterBaseGlyph = sConfigMgr->GetOption<uint32>("AuctionHouseBot.PriceMinimumCenterBase.Glyph", 1000);
-    AddItemValuePairsToItemIDMap(PriceMinimumCenterBaseOverridesByItemID, sConfigMgr->GetOption<std::string>("AuctionHouseBot.PriceMinimumCenterBase.OverrideItems", ""));
+    UseItemSellPriceIfHigherThanPriceMinimumCenterBase = CoaEconomy::Conf::Get<bool>("AuctionHouseBot.PriceMinimumCenterBase.UseItemSellPriceIfHigher", true);
+    PriceMinimumCenterBaseConsumable = CoaEconomy::Conf::Get<uint32>("AuctionHouseBot.PriceMinimumCenterBase.Consumable",1000);
+    PriceMinimumCenterBaseContainer = CoaEconomy::Conf::Get<uint32>("AuctionHouseBot.PriceMinimumCenterBase.Container", 1000);
+    PriceMinimumCenterBaseWeapon = CoaEconomy::Conf::Get<uint32>("AuctionHouseBot.PriceMinimumCenterBase.Weapon", 1000);
+    PriceMinimumCenterBaseGem = CoaEconomy::Conf::Get<uint32>("AuctionHouseBot.PriceMinimumCenterBase.Gem", 1000);
+    PriceMinimumCenterBaseArmor = CoaEconomy::Conf::Get<uint32>("AuctionHouseBot.PriceMinimumCenterBase.Armor", 1000);
+    PriceMinimumCenterBaseReagent = CoaEconomy::Conf::Get<uint32>("AuctionHouseBot.PriceMinimumCenterBase.Reagent", 1000);
+    PriceMinimumCenterBaseProjectile = CoaEconomy::Conf::Get<uint32>("AuctionHouseBot.PriceMinimumCenterBase.Projectile", 5);
+    PriceMinimumCenterBaseTradeGood = CoaEconomy::Conf::Get<uint32>("AuctionHouseBot.PriceMinimumCenterBase.TradeGood", 850);
+    PriceMinimumCenterBaseGeneric = CoaEconomy::Conf::Get<uint32>("AuctionHouseBot.PriceMinimumCenterBase.Generic", 1000);
+    PriceMinimumCenterBaseRecipe = CoaEconomy::Conf::Get<uint32>("AuctionHouseBot.PriceMinimumCenterBase.Recipe", 1000);
+    PriceMinimumCenterBaseQuiver = CoaEconomy::Conf::Get<uint32>("AuctionHouseBot.PriceMinimumCenterBase.Quiver", 1000);
+    PriceMinimumCenterBaseQuest = CoaEconomy::Conf::Get<uint32>("AuctionHouseBot.PriceMinimumCenterBase.Quest", 1000);
+    PriceMinimumCenterBaseKey = CoaEconomy::Conf::Get<uint32>("AuctionHouseBot.PriceMinimumCenterBase.Key", 1000);
+    PriceMinimumCenterBaseMisc = CoaEconomy::Conf::Get<uint32>("AuctionHouseBot.PriceMinimumCenterBase.Misc", 1000);
+    PriceMinimumCenterBaseGlyph = CoaEconomy::Conf::Get<uint32>("AuctionHouseBot.PriceMinimumCenterBase.Glyph", 1000);
+    AddItemValuePairsToItemIDMap(PriceMinimumCenterBaseOverridesByItemID, CoaEconomy::Conf::Get<std::string>("AuctionHouseBot.PriceMinimumCenterBase.OverrideItems", ""));
 
     // Item level Restrictions
-    ListedItemLevelRestrictedEnabled = sConfigMgr->GetOption<bool>("AuctionHouseBot.ListedItemLevelRestrict.Enabled", false);
-    ListedItemLevelRestrictedUseCraftedItemForCalculation = sConfigMgr->GetOption<bool>("AuctionHouseBot.ListedItemLevelRestrict.UseCraftedItemForCalculation", true);
+    ListedItemLevelRestrictedEnabled = CoaEconomy::Conf::Get<bool>("AuctionHouseBot.ListedItemLevelRestrict.Enabled", false);
+    ListedItemLevelRestrictedUseCraftedItemForCalculation = CoaEconomy::Conf::Get<bool>("AuctionHouseBot.ListedItemLevelRestrict.UseCraftedItemForCalculation", true);
     ListedItemLevelMin = sConfigMgr->GetOption("AuctionHouseBot.ListedItemLevelRestrict.MinItemLevel", 0);
     ListedItemLevelMax = sConfigMgr->GetOption("AuctionHouseBot.ListedItemLevelRestrict.MaxItemLevel", 999);
     ListedItemLevelExceptionItems.clear();
-    ParseNumberListToSet(ListedItemLevelExceptionItems, sConfigMgr->GetOption<std::string>("AuctionHouseBot.ListedItemLevelRestrict.ExceptionItemIDs", ""), "ListedItemLevelRestrict.ExceptionItemIDs");
+    ParseNumberListToSet(ListedItemLevelExceptionItems, CoaEconomy::Conf::Get<std::string>("AuctionHouseBot.ListedItemLevelRestrict.ExceptionItemIDs", ""), "ListedItemLevelRestrict.ExceptionItemIDs");
 
     // Item ID Restrictions
-    ListedItemIDRestrictedEnabled = sConfigMgr->GetOption<bool>("AuctionHouseBot.ListedItemIDRestrict.Enabled", false);
+    ListedItemIDRestrictedEnabled = CoaEconomy::Conf::Get<bool>("AuctionHouseBot.ListedItemIDRestrict.Enabled", false);
     ListedItemIDMin = sConfigMgr->GetOption("AuctionHouseBot.ListedItemIDRestrict.MinItemID", 0);
     ListedItemIDMax = sConfigMgr->GetOption("AuctionHouseBot.ListedItemIDRestrict.MaxItemID", 200000);
     ListedItemIDExceptionItems.clear();
-    ParseNumberListToSet(ListedItemIDExceptionItems, sConfigMgr->GetOption<std::string>("AuctionHouseBot.ListedItemIDRestrict.ExceptionItemIDs", ""), "ListedItemIDRestrict.ExceptionItemIDs");
+    ParseNumberListToSet(ListedItemIDExceptionItems, CoaEconomy::Conf::Get<std::string>("AuctionHouseBot.ListedItemIDRestrict.ExceptionItemIDs", ""), "ListedItemIDRestrict.ExceptionItemIDs");
 
     // Equip or use restrictions
-    ListedItemUseOrEquipRestrictedEnabled = sConfigMgr->GetOption<bool>("AuctionHouseBot.EquipItemUseOrEquipLevelRestrict.Enabled", false);
+    ListedItemUseOrEquipRestrictedEnabled = CoaEconomy::Conf::Get<bool>("AuctionHouseBot.EquipItemUseOrEquipLevelRestrict.Enabled", false);
     ListedItemUseOrEquipRestrictMinLevel = sConfigMgr->GetOption("AuctionHouseBot.EquipItemUseOrEquipLevelRestrict.MinLevel", 0);
     ListedItemUseOrEquipRestrictMaxLevel = sConfigMgr->GetOption("AuctionHouseBot.EquipItemUseOrEquipLevelRestrict.MaxLevel", 999);
     ListedItemUseOrEquipExceptionItems.clear();
-    ParseNumberListToSet(ListedItemUseOrEquipExceptionItems, sConfigMgr->GetOption<std::string>("AuctionHouseBot.EquipItemUseOrEquipLevelRestrict.ExceptionItemIDs", ""), "EquipItemUseOrEquipLevelRestrict.ExceptionItemIDs");
+    ParseNumberListToSet(ListedItemUseOrEquipExceptionItems, CoaEconomy::Conf::Get<std::string>("AuctionHouseBot.EquipItemUseOrEquipLevelRestrict.ExceptionItemIDs", ""), "EquipItemUseOrEquipLevelRestrict.ExceptionItemIDs");
 
     // Disabled Items
-    DisabledItemTextFilter = sConfigMgr->GetOption<bool>("AuctionHouseBot.DisabledItemTextFilter", true);
-    DisabledRecipeProducedItemFilterEnabled = sConfigMgr->GetOption<bool>("AuctionHouseBot.DisabledRecipeProducedItemFilterEnabled", false);
+    DisabledItemTextFilter = CoaEconomy::Conf::Get<bool>("AuctionHouseBot.DisabledItemTextFilter", true);
+    DisabledRecipeProducedItemFilterEnabled = CoaEconomy::Conf::Get<bool>("AuctionHouseBot.DisabledRecipeProducedItemFilterEnabled", false);
     DisabledItems.clear();
-    ParseNumberListToSet(DisabledItems, sConfigMgr->GetOption<std::string>("AuctionHouseBot.DisabledInvalidItemIDs", ""), "AuctionHouseBot.DisabledInvalidItemIDs");
-    ParseNumberListToSet(DisabledItems, sConfigMgr->GetOption<std::string>("AuctionHouseBot.DisabledCustomItemIDs", ""), "AuctionHouseBot.DisabledCustomItemIDs");
-    AddValuesToSetByKeyMap(DisabledRecipeProducedItemClassSubClasses, sConfigMgr->GetOption<std::string>("AuctionHouseBot.DisabledRecipeProducedItemClassSubClasses", ""), 0, 20);
+    ParseNumberListToSet(DisabledItems, CoaEconomy::Conf::Get<std::string>("AuctionHouseBot.DisabledInvalidItemIDs", ""), "AuctionHouseBot.DisabledInvalidItemIDs");
+    ParseNumberListToSet(DisabledItems, CoaEconomy::Conf::Get<std::string>("AuctionHouseBot.DisabledCustomItemIDs", ""), "AuctionHouseBot.DisabledCustomItemIDs");
+    AddValuesToSetByKeyMap(DisabledRecipeProducedItemClassSubClasses, CoaEconomy::Conf::Get<std::string>("AuctionHouseBot.DisabledRecipeProducedItemClassSubClasses", ""), 0, 20);
 
     if (!sWorld->getBoolConfig(CONFIG_ALLOW_TWO_SIDE_INTERACTION_AUCTION))
     {
-        AllianceConfig.SetMinItems(sConfigMgr->GetOption<uint32>("AuctionHouseBot.Alliance.MinItems", 15000));
-        AllianceConfig.SetMaxItems(sConfigMgr->GetOption<uint32>("AuctionHouseBot.Alliance.MaxItems", 15000));
+        AllianceConfig.SetMinItems(CoaEconomy::Conf::Get<uint32>("AuctionHouseBot.Alliance.MinItems", 15000));
+        AllianceConfig.SetMaxItems(CoaEconomy::Conf::Get<uint32>("AuctionHouseBot.Alliance.MaxItems", 15000));
 
-        HordeConfig.SetMinItems(sConfigMgr->GetOption<uint32>("AuctionHouseBot.Horde.MinItems", 15000));
-        HordeConfig.SetMaxItems(sConfigMgr->GetOption<uint32>("AuctionHouseBot.Horde.MaxItems", 15000));
+        HordeConfig.SetMinItems(CoaEconomy::Conf::Get<uint32>("AuctionHouseBot.Horde.MinItems", 15000));
+        HordeConfig.SetMaxItems(CoaEconomy::Conf::Get<uint32>("AuctionHouseBot.Horde.MaxItems", 15000));
     }
-    NeutralConfig.SetMinItems(sConfigMgr->GetOption<uint32>("AuctionHouseBot.Neutral.MinItems", 15000));
-    NeutralConfig.SetMaxItems(sConfigMgr->GetOption<uint32>("AuctionHouseBot.Neutral.MaxItems", 15000));
+    NeutralConfig.SetMinItems(CoaEconomy::Conf::Get<uint32>("AuctionHouseBot.Neutral.MinItems", 15000));
+    NeutralConfig.SetMaxItems(CoaEconomy::Conf::Get<uint32>("AuctionHouseBot.Neutral.MaxItems", 15000));
 
     LoadHumanBuyerSettings();
     LoadRaritySettings();
@@ -2882,7 +2884,7 @@ void AuctionHouseBot::EmptyAuctionHouses()
 
 uint32 AuctionHouseBot::GetRandomStackValue(std::string configKeyString, uint32 defaultValue)
 {
-    uint32 stackValue = sConfigMgr->GetOption<uint32>(configKeyString, defaultValue);
+    uint32 stackValue = CoaEconomy::Conf::Get<uint32>(configKeyString, defaultValue);
     if (stackValue > 100 || stackValue < 0)
     {
         LOG_ERROR("module", "{} value is invalid.  Setting to default ({}).", configKeyString, defaultValue);
@@ -2893,7 +2895,7 @@ uint32 AuctionHouseBot::GetRandomStackValue(std::string configKeyString, uint32 
 
 uint32 AuctionHouseBot::GetRandomStackIncrementValue(std::string configKeyString, uint32 defaultValue)
 {
-    uint32 stackIncrementValue = sConfigMgr->GetOption<uint32>(configKeyString, defaultValue);
+    uint32 stackIncrementValue = CoaEconomy::Conf::Get<uint32>(configKeyString, defaultValue);
     if (stackIncrementValue <= 0)
     {
         LOG_ERROR("module", "{} value is invalid.  Setting to default ({}).", configKeyString, defaultValue);
@@ -2904,18 +2906,18 @@ uint32 AuctionHouseBot::GetRandomStackIncrementValue(std::string configKeyString
 
 void AuctionHouseBot::SetCyclesBetweenBuyOrSell()
 {
-    std::string buyCyclesConfigString = sConfigMgr->GetOption<std::string>("AuctionHouseBot.MinutesBetweenBuyCycle", "1");
+    std::string buyCyclesConfigString = CoaEconomy::Conf::Get<std::string>("AuctionHouseBot.MinutesBetweenBuyCycle", "1");
     GetConfigMinAndMax(buyCyclesConfigString, CyclesBetweenBuyActionMin, CyclesBetweenBuyActionMax);
     CyclesBetweenBuyAction = urand(CyclesBetweenBuyActionMin, CyclesBetweenBuyActionMax);
 
-    std::string sellCyclesConfigString = sConfigMgr->GetOption<std::string>("AuctionHouseBot.MinutesBetweenSellCycle", "1");
+    std::string sellCyclesConfigString = CoaEconomy::Conf::Get<std::string>("AuctionHouseBot.MinutesBetweenSellCycle", "1");
     GetConfigMinAndMax(sellCyclesConfigString, CyclesBetweenSellActionMin, CyclesBetweenSellActionMax);
     CyclesBetweenSellAction = urand(CyclesBetweenSellActionMin, CyclesBetweenSellActionMax);
 }
 
 void AuctionHouseBot::SetBuyingBotBuyCandidatesPerBuyCycle()
 {
-    std::string candidatesPerCycleString = sConfigMgr->GetOption<string>("AuctionHouseBot.Buyer.BuyCandidatesPerBuyCycle", "1");
+    std::string candidatesPerCycleString = CoaEconomy::Conf::Get<std::string>("AuctionHouseBot.Buyer.BuyCandidatesPerBuyCycle", "1");
     GetConfigMinAndMax(candidatesPerCycleString, BuyingBotBuyCandidatesPerBuyCycleMin, BuyingBotBuyCandidatesPerBuyCycleMax);
 }
 

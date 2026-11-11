@@ -12,6 +12,8 @@
 // nothing). Off unless AiPlayerbot.CoaEconomy.AHBot.EmptyOldAuctions = 1 (the 3.0 update sets it).
 
 #include "AccountMgr.h"
+
+#include "CoaEconomyConf.h"
 #include "AuctionHouseMgr.h"
 #include "CoaEconomyDb.h"
 #include "Config.h"
@@ -34,7 +36,7 @@ namespace
     std::unordered_set<uint32> OldSellers()
     {
         std::unordered_set<uint32> sellers;
-        std::string const guids = sConfigMgr->GetOption<std::string>("AuctionHouseBot.GUIDs", "0", false);
+        std::string const guids = CoaEconomy::Conf::Get<std::string>("AuctionHouseBot.GUIDs", "0", false);
         for (std::string_view token : Acore::Tokenize(guids, ',', false))
             if (Optional<uint32> guid = Acore::StringTo<uint32>(token); guid && *guid)
                 sellers.insert(*guid);
@@ -105,7 +107,7 @@ namespace
 
 void AddSC_coa_economy_ah_migration()
 {
-    if (!sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.AHBot.EmptyOldAuctions", false, false))
+    if (!CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.AHBot.EmptyOldAuctions", false, false))
         return;
     new CoaAhMigrationWorld();
 }

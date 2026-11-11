@@ -5,6 +5,8 @@
  */
 
 #include "CoaEconomyDb.h"
+
+#include "CoaEconomyConf.h"
 #include "CoaMarketPrices.h"
 
 #include "AccountMgr.h"
@@ -44,15 +46,15 @@ MarketPrices* MarketPrices::instance()
 
 void MarketPrices::LoadSettings()
 {
-    _enabled = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.Market.Enable", true, false);
-    _minSales = std::max<uint32>(1, sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaEconomy.Market.MinSales", 5));
-    _halfLifeDays = std::max(0.1f, sConfigMgr->GetOption<float>("AiPlayerbot.CoaEconomy.Market.HalfLifeDays", 3.0f));
-    _maxWeight = std::clamp(sConfigMgr->GetOption<float>("AiPlayerbot.CoaEconomy.Market.MaxWeightPercent", 80.0f) / 100.0f, 0.0f, 1.0f);
-    _bandMin = std::max(0.01f, sConfigMgr->GetOption<float>("AiPlayerbot.CoaEconomy.Market.BandMinPercent", 50.0f) / 100.0f);
-    _bandMax = std::max(_bandMin, sConfigMgr->GetOption<float>("AiPlayerbot.CoaEconomy.Market.BandMaxPercent", 300.0f) / 100.0f);
+    _enabled = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.Market.Enable", true, false);
+    _minSales = std::max<uint32>(1, CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.Market.MinSales", 5));
+    _halfLifeDays = std::max(0.1f, CoaEconomy::Conf::Get<float>("AiPlayerbot.CoaEconomy.Market.HalfLifeDays", 3.0f));
+    _maxWeight = std::clamp(CoaEconomy::Conf::Get<float>("AiPlayerbot.CoaEconomy.Market.MaxWeightPercent", 80.0f) / 100.0f, 0.0f, 1.0f);
+    _bandMin = std::max(0.01f, CoaEconomy::Conf::Get<float>("AiPlayerbot.CoaEconomy.Market.BandMinPercent", 50.0f) / 100.0f);
+    _bandMax = std::max(_bandMin, CoaEconomy::Conf::Get<float>("AiPlayerbot.CoaEconomy.Market.BandMaxPercent", 300.0f) / 100.0f);
 
     _houseGuids.clear();
-    std::string const guids = sConfigMgr->GetOption<std::string>("AuctionHouseBot.GUIDs", "0");
+    std::string const guids = CoaEconomy::Conf::Get<std::string>("AuctionHouseBot.GUIDs", "0");
     for (std::string_view token : Acore::Tokenize(guids, ',', false))
         if (Optional<uint32> guid = Acore::StringTo<uint32>(token); guid && *guid)
             _houseGuids.insert(*guid);
@@ -198,7 +200,7 @@ namespace
 void AddSC_coa_economy_market()
 {
     // Off by default; read at start-up (restart to change it).
-    if (!sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.Market.Enable", true, false))
+    if (!CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.Market.Enable", true, false))
         return;
 
     sCoaMarketPrices->LoadSettings();

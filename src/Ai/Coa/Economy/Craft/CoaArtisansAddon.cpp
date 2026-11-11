@@ -13,6 +13,8 @@
 // is thread-unsafe, handled in the world update).
 
 #include "CoaArtisans.h"
+
+#include "CoaEconomyConf.h"
 #include "CoaArtisansAddonRules.h"
 #include "ChatHelper.h"
 #include "CoaLive.h"
@@ -646,8 +648,8 @@ namespace
 void AddSC_coa_economy_artisans_addon()
 {
     // Off by default; read at start-up (restart to change it).
-    if (!sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.Artisans.Enable", true, false) ||
-        !sConfigMgr->GetOption<bool>("AiPlayerbot.CoaEconomy.Artisans.Addon", true, false))
+    if (!CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.Artisans.Enable", true, false) ||
+        !CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.Artisans.Addon", true, false))
         return;
     new CoaEconomy::ArtisansAddon::CoaArtisansAddonPlayer();
     new CoaEconomy::ArtisansAddon::CoaArtisansAddonMail();
