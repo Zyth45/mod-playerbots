@@ -104,8 +104,11 @@ uint64 Priced(ItemTemplate const* proto)
     // Gear stays between half and 1.5 times its median: the quality above starts there (QualityStep), so a blue never
     // outprices an epic of its item level. Goods only lose their joke prices (over 3 times): a cheap cloth or hide stays
     // cheap (bench a52: the band's floor sold a 5 s runecloth at 1.3 g); the vendor floor guards the bottom.
+    // Poor and common gear has no floor either: the band's floor put white gear at 2 to 3 times the Classic Era
+    // houses' prices (Pilote, 11/11); nothing is priced under it.
     if (IsGear(proto))
-        return CoaEconomyRules::ClampToBand(Of(proto->ItemId), Band(proto), 15);
+        return CoaEconomyRules::ClampToBand(Of(proto->ItemId), Band(proto), 15,
+                                            proto->Quality <= ITEM_QUALITY_NORMAL ? 0 : 5);
     return CoaEconomyRules::ClampToBand(Of(proto->ItemId), Band(proto), 30, 0);
 }
 
