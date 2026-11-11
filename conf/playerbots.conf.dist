@@ -3417,9 +3417,10 @@ AiPlayerbot.CoaFreshStart.CatchUp.MaxRate = 4
 
 #    AiPlayerbot.CoaFreshStart.CatchUp.MinHumans
 #        Description: Fewer active human accounts than this: no front, no bonus (the pace only).
-#        Default:     2
+#                     With 1, a player alone with their bots counts: the front is their highest character.
+#        Default:     1
 
-AiPlayerbot.CoaFreshStart.CatchUp.MinHumans = 2
+AiPlayerbot.CoaFreshStart.CatchUp.MinHumans = 1
 
 #    AiPlayerbot.CoaFreshStart.CatchUp.MaxTotalRate
 #        Description: Pace x catch-up x AiPlayerbot.RandomBotXPRate never above this; the catch-up

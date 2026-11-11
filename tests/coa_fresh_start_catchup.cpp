@@ -14,6 +14,12 @@ int main()
     assert(MedianFront({60, 20}, 2) == 20);  // lower middle: one rushing player does not pull it
     assert(MedianFront({60, 30, 25}, 2) == 30);
     assert(MedianFront({60, 59, 12, 11, 10}, 2) == 12);
+    // The default (MinHumans 1): a player alone is the front; two players, the slower one; none, no front.
+    assert(s.minHumans == 1);
+    assert(MedianFront({}, s.minHumans) == 0);
+    assert(MedianFront({23}, s.minHumans) == 23);
+    assert(MedianFront({23, 41}, s.minHumans) == 23);
+    assert(CatchUpPercent(10, MedianFront({23}, s.minHumans), s) == 350);  // 13 behind, 10 beyond the margin
 
     // The bonus: none within the margin or ahead, +25 % a level beyond, at most x4.
     assert(CatchUpPercent(10, 0, s) == 100);

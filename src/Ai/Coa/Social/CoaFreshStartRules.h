@@ -59,7 +59,7 @@ struct CatchUpSettings
     uint32_t marginLevels = 3;       // no bonus within this many levels under the front
     uint32_t stepPercent = 25;       // +25 % for each level behind beyond the margin
     uint32_t maxRatePercent = 400;   // the bonus never above x4
-    uint32_t minHumans = 2;          // fewer active humans: no front, no bonus
+    uint32_t minHumans = 1;          // fewer active humans: no front, no bonus (1: a player alone counts)
     uint32_t maxTotalPercent = 600;  // pace x bonus x RandomBotXPRate never above x6 (the bonus gives way first)
 };
 

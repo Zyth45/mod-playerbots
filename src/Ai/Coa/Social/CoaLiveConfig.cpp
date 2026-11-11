@@ -68,7 +68,7 @@ void PlayerbotAIConfig::LoadCoaLiveConfig()
     coaCatchUpMaxRate =
         std::clamp(sConfigMgr->GetOption<float>("AiPlayerbot.CoaFreshStart.CatchUp.MaxRate", 4.0f), 1.0f, 10.0f);
     coaCatchUpMinHumans =
-        std::max<uint32>(1, sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaFreshStart.CatchUp.MinHumans", 2));
+        std::max<uint32>(1, sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaFreshStart.CatchUp.MinHumans", 1));
     coaCatchUpMaxTotalRate =
         std::clamp(sConfigMgr->GetOption<float>("AiPlayerbot.CoaFreshStart.CatchUp.MaxTotalRate", 6.0f), 0.0f, 20.0f);
     coaCatchUpActiveDays =
