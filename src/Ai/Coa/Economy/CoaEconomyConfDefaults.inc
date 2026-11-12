@@ -66,6 +66,7 @@
 {"AiPlayerbot.CoaEconomy.Materials.PerVisit", R"coa(5)coa"},
 {"AiPlayerbot.CoaEconomy.Materials.Prospect", R"coa(1)coa"},
 {"AiPlayerbot.CoaEconomy.Materials.Smelt", R"coa(1)coa"},
+{"AiPlayerbot.CoaEconomy.PriceScalePercent", R"coa(100)coa"},
 {"AiPlayerbot.CoaEconomy.Rarity.CommonDropPercent", R"coa(5)coa"},
 {"AiPlayerbot.CoaEconomy.Rarity.Enable", R"coa(1)coa"},
 {"AiPlayerbot.CoaEconomy.Rarity.PremiumPercent", R"coa(100)coa"},

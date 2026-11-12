@@ -15,6 +15,7 @@
 #include "SharedDefines.h"
 
 #include <algorithm>
+#include <atomic>
 #include <map>
 #include <mutex>
 #include <tuple>
@@ -142,6 +143,22 @@ Multipliers LoadMultipliers(std::string const& prefix)
     m.rare = std::max(0.0f, CoaEconomy::Conf::Get<float>(prefix + ".Rare", m.rare));
     m.epic = std::max(0.0f, CoaEconomy::Conf::Get<float>(prefix + ".Epic", m.epic));
     return m;
+}
+
+namespace
+{
+    std::atomic<uint32> priceScale{100};
+}
+
+void LoadPriceScale()
+{
+    priceScale = CoaEconomyRules::ClampPriceScale(
+        CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.PriceScalePercent", 100));
+}
+
+uint32 PriceScalePercent()
+{
+    return priceScale;
 }
 
 uint64 Scaled(uint64 price, ItemTemplate const* proto, Multipliers const& multipliers)

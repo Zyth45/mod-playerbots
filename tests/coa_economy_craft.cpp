@@ -93,6 +93,13 @@ int main()
     assert(AuctionPause(5000, 1000, 300, 30 * 86400) == 0);
     assert(AuctionPause(1, 1 + 60 * 86400, 300, 30 * 86400) == 30 * 86400);
 
+    // House-wide price scale: kept within 50-150, exact at 100, no overflow on large prices.
+    assert(ClampPriceScale(10) == 50 && ClampPriceScale(100) == 100 && ClampPriceScale(400) == 150);
+    assert(ScalePrice(12345, 100) == 12345 && ScalePrice(1000, 50) == 500 && ScalePrice(1000, 150) == 1500);
+    assert(ScalePrice(199, 50) == 99 && ScalePrice(UINT64_MAX / 2, 150) > UINT64_MAX / 2);
+    // Scaled down to half, a value still meets the vendor floor (FairPrice runs after the scale).
+    assert(FairPrice(ScalePrice(100, 50), 0, 80, 0) == 100);
+
     // Rare recipes: the same answer for the same bot and recipe, never at 0 %, always at 100 %, near the percent.
     assert(RareRecipeDrawn(42, 16729, 15) == RareRecipeDrawn(42, 16729, 15));
     assert(!RareRecipeDrawn(42, 16729, 0) && RareRecipeDrawn(42, 16729, 100));

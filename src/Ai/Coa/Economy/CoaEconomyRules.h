@@ -375,6 +375,19 @@ inline std::uint64_t CraftQuote(std::uint64_t productValue, std::uint64_t materi
     return std::max<std::uint64_t>(1, std::uint64_t(double(std::max(productValue, floor)) * mood));
 }
 
+// The house-wide price scale (PriceScalePercent): kept between 50 and 150 percent.
+inline std::uint32_t ClampPriceScale(std::uint32_t percent)
+{
+    return std::clamp<std::uint32_t>(percent, 50, 150);
+}
+
+// A market value at the house-wide scale. Applied to market values only, before the vendor floor and cap (FairPrice),
+// so that no scale makes buying from the house and selling to a vendor pay.
+inline std::uint64_t ScalePrice(std::uint64_t value, std::uint32_t percent)
+{
+    return percent == 100 ? value : value / 100 * percent + value % 100 * percent / 100;
+}
+
 // Artisans' rare recipes: whether a bot knows a recipe found in the world, drawn once per bot and recipe (the same
 // artisan always keeps the same ones). percent of 100; 0 never, 100 always.
 inline bool RareRecipeDrawn(std::uint64_t botGuid, std::uint32_t spellId, std::uint32_t percent)

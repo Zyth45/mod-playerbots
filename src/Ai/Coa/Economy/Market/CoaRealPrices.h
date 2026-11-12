@@ -52,6 +52,11 @@ namespace CoaEconomy::RealPrices
     // Gear of a better quality never sells under the quality below it: 1.5 times that quality's scaled median at the
     // same item level (a blue over a green, an epic over a blue); 0 for goods, greens and when unknown.
     uint64 QualityStep(ItemTemplate const* proto, Multipliers const& multipliers);
+
+    // AiPlayerbot.CoaEconomy.PriceScalePercent (50 to 150, default 100): every market value the bots sell and buy at,
+    // scaled. Read at start-up and again on reload; any thread.
+    void LoadPriceScale();
+    uint32 PriceScalePercent();
 }
 
 #endif

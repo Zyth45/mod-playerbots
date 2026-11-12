@@ -11,6 +11,7 @@
 #include "Config.h"
 
 #include "CoaEconomyConf.h"
+#include "CoaRealPrices.h"
 #include "PlayerbotAIConfig.h"
 #include "ScriptMgr.h"
 
@@ -33,11 +34,13 @@ namespace
         {
             if (reload)
                 sPlayerbotAIConfig.LoadCoaEconomyConfig();
+            CoaEconomy::RealPrices::LoadPriceScale();
         }
     };
 }
 
 void AddSC_coa_economy_config()
 {
+    CoaEconomy::RealPrices::LoadPriceScale();
     new CoaEconomyConfigWorld();
 }

@@ -5323,6 +5323,14 @@ AiPlayerbot.CoaEconomy.BotAuctions.VisitsPerTick = 2
 AiPlayerbot.CoaEconomy.BotAuctions.DurationHours = 24
 AiPlayerbot.CoaEconomy.BotAuctions.MaxScan = 300
 
+# House-wide price scale, in percent: every price the bots ask and pay at the auction house (the house's seller and
+# buyer, the bots' own auctions, the artisans' crafts and quotes) is the market value times this. 100 = no change;
+# 50 = half price, 150 = half again as dear (kept between 50 and 150). What the bots pay follows what they ask, so
+# buying from them to sell back never pays, and no price goes under a vendor's buying price plus a quarter. Read again
+# on reload (.reload config): new auctions and purchases follow at once, auctions already up keep their price until
+# they end (12 to 48 hours).
+AiPlayerbot.CoaEconomy.PriceScalePercent = 100
+
 # Bots' auction prices from the real CoA auction house: the market value of scans of the real house (17,121 items),
 # else the median of the scanned items of the same quality and item level (uncommon and better). Our own sales, made
 # by bots at bots' prices, would otherwise keep prices low. 1 = on (default), 0 = off. Read again on reload.
