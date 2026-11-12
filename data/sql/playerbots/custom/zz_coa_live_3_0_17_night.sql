@@ -1,6 +1,6 @@
--- CoA Live 3_0_17 : banque de nuit (source 1, nuit-3-0, banque_relue.jsonl), 40548 phrases, 2554 conversations.
+-- CoA Live 3_0_17 : banque de nuit (source 1), 40548 phrases, 2554 conversations.
 -- Table à part, lue seulement si AiPlayerbot.CoaLive.NightBank.Enable = 1. Aucune autre table touchée.
--- Généré par banque-phrases/exporter_nuit.py le 2026-11-11 22:12.
+-- Fichier généré : ne pas le modifier à la main.
 
 CREATE TABLE IF NOT EXISTS `playerbots_coa_night_lines` (
   `id`         INT UNSIGNED      NOT NULL AUTO_INCREMENT,
