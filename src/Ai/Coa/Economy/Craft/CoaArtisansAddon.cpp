@@ -210,22 +210,35 @@ namespace
             return;
         }
         std::string const name = Rules::Clean(bot->GetName());
-        std::vector<uint32> seen;
+        // One entry per product, with the rank its recipe needs (to sort by tier).
+        struct Listed { Artisans::Recipe recipe; ItemTemplate const* proto; uint32 rank; };
+        std::vector<Listed> listed;
         for (Artisans::Recipe const& recipe : Artisans::KnownRecipes(bot))
         {
-            if (seen.size() >= Rules::MaxRecipes)
-                break;
-            if (std::find(seen.begin(), seen.end(), recipe.itemId) != seen.end())
+            if (std::any_of(listed.begin(), listed.end(), [&](Listed const& l) { return l.recipe.itemId == recipe.itemId; }))
                 continue;
-            seen.push_back(recipe.itemId);
-            ItemTemplate const* proto = sObjectMgr->GetItemTemplate(recipe.itemId);
-            // The rank the recipe needs (to sort by tier) and the English name (the client may not have the item cached).
             uint32 rank = 0;
             SkillLineAbilityMapBounds const bounds = sSpellMgr->GetSkillLineAbilityMapBounds(recipe.spell->Id);
             for (auto it = bounds.first; it != bounds.second; ++it)
                 if (it->second->SkillLine == recipe.skillId)
                     rank = it->second->MinSkillLineRank ? it->second->MinSkillLineRank : it->second->TrivialSkillLineRankLow;
-            // The name is last: Wire() cuts the line, so only the name can be cut.
+            listed.push_back({recipe, sObjectMgr->GetItemTemplate(recipe.itemId), rank});
+        }
+        // The best first, so the cap drops the least: a bot's spells come in no order.
+        std::sort(listed.begin(), listed.end(), [](Listed const& a, Listed const& b)
+        {
+            return Rules::RecipeBefore(a.proto ? a.proto->Quality : 0, a.rank, a.recipe.itemId,
+                                       b.proto ? b.proto->Quality : 0, b.rank, b.recipe.itemId);
+        });
+        if (listed.size() > Rules::MaxRecipes)
+            listed.resize(Rules::MaxRecipes);
+        for (Listed const& entry : listed)
+        {
+            Artisans::Recipe const& recipe = entry.recipe;
+            ItemTemplate const* proto = entry.proto;
+            uint32 const rank = entry.rank;
+            // The English name (the client may not have the item cached) is last: Wire() cuts the line, so only the
+            // name can be cut.
             lines.push_back("AR\t" + name + "\t" + std::to_string(recipe.itemId) + "\t" + std::to_string(recipe.spell->Id) +
                             "\t" + std::to_string(recipe.skillId) + "\t" + std::to_string(proto ? proto->Quality : 0) +
                             "\t" + std::to_string(rank) + "\t" + (proto ? Rules::Clean(proto->Name1) : std::string()));

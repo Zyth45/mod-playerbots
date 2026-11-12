@@ -5393,6 +5393,18 @@ AiPlayerbot.CoaEconomy.Artisans.Stock.Enable = 1
 AiPlayerbot.CoaEconomy.Artisans.Stock.MaxStacks = 2
 AiPlayerbot.CoaEconomy.Artisans.Stock.BuyBelowPercent = 90
 
+# Artisans' rare recipes: bots learn only what profession trainers teach, so no artisan ever made the recipes players
+# find (Lionheart Helm, Flarecore Robe...). With this on, an artisan also knows a few of the recipes of its professions
+# that a recipe item in the world teaches (dropped or sold by a vendor), up to its rank and level, and that make a
+# tradable item of its era. Each recipe is drawn once per bot, so the same artisan keeps the same recipes; it learns
+# more as its rank rises (checked when it trades or is asked for its recipes). Needs Artisans.
+#    Enable       1 = on, 0 = off (default). Read at start-up (restart to change it).
+#    Percent      Chance, in percent, that an artisan knows a given rare recipe (default 15).
+#    EpicPercent  The same for a recipe that makes an epic (default 5).
+AiPlayerbot.CoaEconomy.Artisans.LearnRareRecipes.Enable = 0
+AiPlayerbot.CoaEconomy.Artisans.LearnRareRecipes.Percent = 15
+AiPlayerbot.CoaEconomy.Artisans.LearnRareRecipes.EpicPercent = 5
+
 # Artisans in the SquidBots Lite addon (prefix SQBW): the list of the artisan bots of the player's faction and their
 # recipes, a quote without crafting (held 10 minutes), the order of a quote (crafted and mailed cash on delivery, 1 to
 # 20 crafts in one mail of 12 stacks at most) and the player's CoD mails of the last 7 days. The server checks every request; 1 request a second per

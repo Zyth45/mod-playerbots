@@ -62,6 +62,18 @@ namespace CoaArtisansAddonRules
         return value;
     }
 
+    // The order of an artisan's recipe list before the cap: the best quality first, then the highest rank, then the
+    // item id (a stable order between two asks). A bot's spells come in no order, so the cap once cut its epics.
+    inline bool RecipeBefore(uint32_t qualityA, uint32_t rankA, uint32_t itemA, uint32_t qualityB, uint32_t rankB,
+                             uint32_t itemB)
+    {
+        if (qualityA != qualityB)
+            return qualityA > qualityB;
+        if (rankA != rankB)
+            return rankA > rankB;
+        return itemA < itemB;
+    }
+
     inline bool QtyOk(uint32_t qty) { return qty >= 1 && qty <= MaxQty; }
 
     inline bool QuoteExpired(uint32_t quotedAt, uint32_t now) { return now > quotedAt + QuoteSeconds; }

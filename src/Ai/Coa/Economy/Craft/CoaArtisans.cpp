@@ -13,6 +13,7 @@
 #include "CoaLaunchCurve.h"
 #include "CoaEconomyRules.h"
 #include "CoaMarketPrices.h"
+#include "CoaRareRecipes.h"
 #include "CoaRealPrices.h"
 #include "CoaSellable.h"
 #include "Config.h"
@@ -100,6 +101,11 @@ namespace
 bool IsEnabled()
 {
     return enabled;
+}
+
+bool IsTradableProduct(ItemTemplate const* proto)
+{
+    return IsTradable(proto);
 }
 
 void LoadSettings()
@@ -242,6 +248,8 @@ std::vector<Recipe> KnownRecipes(Player* bot)
     std::vector<Recipe> recipes;
     if (!enabled || !bot)
         return recipes;
+    // The rare recipes it has come to know since it was last asked (RareRecipes; nothing when off).
+    RareRecipes::Maintain(bot);
 
     for (auto const& [spellId, playerSpell] : bot->GetSpellMap())
     {

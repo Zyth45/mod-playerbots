@@ -375,6 +375,26 @@ inline std::uint64_t CraftQuote(std::uint64_t productValue, std::uint64_t materi
     return std::max<std::uint64_t>(1, std::uint64_t(double(std::max(productValue, floor)) * mood));
 }
 
+// Artisans' rare recipes: whether a bot knows a recipe found in the world, drawn once per bot and recipe (the same
+// artisan always keeps the same ones). percent of 100; 0 never, 100 always.
+inline bool RareRecipeDrawn(std::uint64_t botGuid, std::uint32_t spellId, std::uint32_t percent)
+{
+    std::uint64_t x = botGuid * 0x9E3779B97F4A7C15ull ^ (std::uint64_t(spellId) << 1);
+    x ^= x >> 30;
+    x *= 0xBF58476D1CE4E5B9ull;
+    x ^= x >> 27;
+    x *= 0x94D049BB133111EBull;
+    x ^= x >> 31;
+    return x % 100 < percent;
+}
+
+// Within the bot's reach: its rank in the profession and its level are at least the recipe's and the product's.
+inline bool RareRecipeReachable(std::uint32_t skillValue, std::uint32_t requiredRank, std::uint32_t botLevel,
+                                std::uint32_t productLevel)
+{
+    return skillValue && skillValue >= requiredRank && botLevel >= productLevel;
+}
+
 } // namespace CoaEconomyRules
 
 #endif

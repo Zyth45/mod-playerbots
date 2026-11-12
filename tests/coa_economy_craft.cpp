@@ -92,5 +92,18 @@ int main()
     assert(AuctionPause(0, 5000, 300, 30 * 86400) == 0);
     assert(AuctionPause(5000, 1000, 300, 30 * 86400) == 0);
     assert(AuctionPause(1, 1 + 60 * 86400, 300, 30 * 86400) == 30 * 86400);
+
+    // Rare recipes: the same answer for the same bot and recipe, never at 0 %, always at 100 %, near the percent.
+    assert(RareRecipeDrawn(42, 16729, 15) == RareRecipeDrawn(42, 16729, 15));
+    assert(!RareRecipeDrawn(42, 16729, 0) && RareRecipeDrawn(42, 16729, 100));
+    {
+        uint32_t drawn = 0;
+        for (uint64_t bot = 1; bot <= 2000; ++bot)
+            for (uint32_t spell = 16000; spell < 16010; ++spell)
+                drawn += RareRecipeDrawn(bot, spell, 15) ? 1 : 0;
+        assert(drawn > 2600 && drawn < 3400); // 15 % of 20000
+    }
+    assert(RareRecipeReachable(300, 300, 60, 55) && !RareRecipeReachable(299, 300, 60, 55));
+    assert(!RareRecipeReachable(300, 300, 54, 55) && !RareRecipeReachable(0, 0, 60, 0));
     return 0;
 }
