@@ -15,7 +15,7 @@
  *  - dying over and over: DeathsLimit deaths within DeathsWindowMinutes;
  *  - back and forth: walking, but no nearer its destination for NoProgressSeconds (a level 60 bot pacing in
  *    Thousand Needles).
- * Out of its level range: a bot far above the zone it walks in (a level 55 in Elwynn, test of 09/11) for
+ * Out of its level range: a bot far above the zone it walks in (a level 55 in Elwynn) for
  * OutOfRangeMinutes is sent to a place of its level, out of sight of the players (it waits while one is near,
  * then takes its hearthstone). Capitals are fine, and so is crossing a zone on the way.
  * Bots held by an event (CoA World, the city duels, the level brackets) are left to it.

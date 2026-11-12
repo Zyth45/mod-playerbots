@@ -20,8 +20,8 @@
  * (GPL-2.0, autonomy v0.12); this is a different design, decided for CoA (simulated run, no queue,
  * no group object, no instance).
  *
- * Bosses and times come from the CoA data (coa-local MCP: world DB 2.9.3, DC test runs to
- * 08/11/2026). World thread only. Config: AiPlayerbot.CoaWorld.DungeonSim.*, off by default.
+ * Bosses and times come from the CoA data (coa-local MCP: world DB 2.9.3, Dungeon Clear
+ * test runs). World thread only. Config: AiPlayerbot.CoaWorld.DungeonSim.*, off by default.
  */
 
 #include "CoaWorldBots.h"

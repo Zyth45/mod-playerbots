@@ -7,7 +7,7 @@
 /*
  * CoA World: a time budget for the bots' AI per map tick (AiPlayerbot.CoaWorld.AiBudgetMs, 0 = off).
  *
- * Builder's peak study (09/11, 3000 bots): 96% of the map update peaks are the sum of 1400-1500 bot updates on one
+ * A peak study (3000 bots): 96% of the map update peaks are the sum of 1400-1500 bot updates on one
  * continent's thread, no bot above 10-15 ms. With a budget, once the bots' AI of a map has taken AiBudgetMs in a tick,
  * the next bots skip their AI for that tick and keep the elapsed time for their next pass. A bot that skipped runs
  * first-class on the next tick (even over the budget): none waits two ticks in a row. Never skipped: a bot in combat,

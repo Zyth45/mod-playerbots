@@ -91,7 +91,7 @@ namespace
     // Levels within this of a zone's range (or of the player's level) fit it.
     constexpr uint8 LEVEL_MARGIN = 5;
 
-    // Near a player, and at a level for where it stands (09/11 test: level 55 bots walking in Elwynn were kept
+    // Near a player, and at a level for where it stands (seen in a test: level 55 bots walking in Elwynn were kept
     // there as "near" the player).
     bool IsNear(Player* bot, std::vector<Player*> const& humans)
     {

@@ -108,7 +108,7 @@ bool Running = false;  // pairs exist: Enable = 0 releases them once
 // --- CoA World (CoA Monde session) ---
 // Released bots that could not be sent back at once (dead, in a duel someone else started, mid-teleport): sent back
 // as soon as they can, for PendingBackSeconds. Before, they stayed at the spot and wandered off in Elwynn or Durotar
-// at level 60 (test of 09/11).
+// at level 60.
 constexpr time_t PendingBackSeconds = 15 * MINUTE;
 struct PendingBack
 {

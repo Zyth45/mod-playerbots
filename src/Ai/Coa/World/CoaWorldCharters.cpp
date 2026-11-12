@@ -5,7 +5,7 @@
  */
 
 /*
- * CoA World: guild charters (AiPlayerbot.CoaWorld.Guilds.Charters, under Guilds.Enable; user's idea, 09/11).
+ * CoA World: guild charters (AiPlayerbot.CoaWorld.Guilds.Charters, under Guilds.Enable).
  *
  *  1. A real player's charter: a random bot of its own without a guild that is offered the charter signs it after a
  *     few seconds, refuses now and then, with a word (PetitionSignAction asks CoaWorldCharterOffered). A player
