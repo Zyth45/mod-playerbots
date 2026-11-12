@@ -226,8 +226,8 @@ namespace
         return player && GET_PLAYERBOT_AI(player);
     }
 
-    // A real player. At a bot's login its PlayerbotAI is not attached yet: the session says it is a bot (a9 on the
-    // LAPTOP-mini gave gear to bots, by mail to online bots).
+    // A real player. At a bot's login its PlayerbotAI is not attached yet: the session says it is a bot (without it, a
+    // test gave gear to bots, by mail to online bots).
     bool IsHuman(Player* player)
     {
         return player && player->GetSession() && !player->GetSession()->IsBot() && !GET_PLAYERBOT_AI(player) && !CoaWorld::IsTestDriver(player);
@@ -1004,7 +1004,7 @@ namespace
 
             StatsWeightCalculator calc(player);
             // A real player's role, as the bots' gear code reads it (by spec): the Cold-Iron Scepter (spell power
-            // only) went to a physical spec for its weapon damage (user's report, 09/11).
+            // only) went to a physical spec for its weapon damage.
             bool const caster = PlayerbotAI::IsCaster(player, true) || PlayerbotAI::IsHeal(player, true);
             uint32 bestEntry = 0;
             int32 bestRandom = 0;

@@ -15,7 +15,7 @@
  * spawned in the world and sells it for honor (npc_vendor + ItemExtendedCost), with the item's reputation needs.
  * Nothing is hard-coded: when CoA opens such vendors, the bots use them.
  *
- * BgSim.ReplaceAutoJoin (default 0, user's choice of 09/11: bot battlegrounds keep the world alive): 1, the bots
+ * BgSim.ReplaceAutoJoin (default 0: bot battlegrounds keep the world alive): 1, the bots
  * no longer start real battlegrounds and arenas by themselves (RandomBotAutoJoinBG). Always: when a real player
  * queues, the bots look at the queues at once (RequestBgCheck) instead of up to 35 s later.
  * World thread only. Off by default (BgSim.Enable).

@@ -5,7 +5,7 @@
  */
 
 /*
- * CoA World: guild charters (AiPlayerbot.CoaWorld.Guilds.Charters, under Guilds.Enable; user's idea, 09/11).
+ * CoA World: guild charters (AiPlayerbot.CoaWorld.Guilds.Charters, under Guilds.Enable).
  *
  *  1. A real player's charter: a random bot of its own without a guild that is offered the charter signs it after a
  *     few seconds, refuses now and then, with a word (PetitionSignAction asks CoaWorldCharterOffered). A player
@@ -243,9 +243,10 @@ private:
                 continue;
             }
             Sign(bot, sign.petition);
-            if (urand(0, 2) == 0 || sign.offered)
-                Line(bot, "charter_sign", slots, { "signed, good luck {}", "sure, signed", "there you go", "signed! gl with the guild" },
-                     { "sign\u00e9, bonne chance {}", "ok, sign\u00e9", "voil\u00e0", "sign\u00e9 ! bonne chance avec la guilde" });
+            // IA MIND's charter_signed: its rule decides who speaks (chance, pacing, a real player near) and the
+            // bank's no-repeat ring keeps one line from coming twice in a zone. Not allowed: the signer stays silent.
+            // The bank's lines follow the bots' language and AiPlayerbot.CoaLive.Chat.Enable.
+            BotLine(bot, "charter_signed", slots);
         }
     }
 

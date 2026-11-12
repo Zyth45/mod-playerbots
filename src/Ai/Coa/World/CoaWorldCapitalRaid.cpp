@@ -5,8 +5,8 @@
  */
 
 /*
- * CoA World: a faction raid on a capital (AiPlayerbot.CoaWorld.CapitalRaid.*, user's choice of 09/11: "le raid h2 /
- * ally dans la 3.0").
+ * CoA World: a faction raid on a capital (AiPlayerbot.CoaWorld.CapitalRaid.*): Horde and Alliance
+ * raids in 3.0.
  *
  * About 60 Horde bots march on Stormwind to kill King Varian Wrynn, or 60 Alliance bots on Orgrimmar to kill Thrall.
  *  - Start (with Enable): a game master (.coaworld capitalraid start <stormwind|orgrimmar>, the addon's GM buttons), or now and then

@@ -17,7 +17,7 @@ int main()
         assert(z.sides >= SIDE_ALLIANCE && z.sides <= SIDE_BOTH);
     }
 
-    // The test report (LAPTOP-mini, 09/11): level 55 and 60 bots in Elwynn are far above it.
+    // Seen in a test: level 55 and 60 bots in Elwynn are far above it.
     assert(FarAbove(12, 60, 8));
     assert(FarAbove(12, 55, 8));
     assert(!FarAbove(12, 18, 8));

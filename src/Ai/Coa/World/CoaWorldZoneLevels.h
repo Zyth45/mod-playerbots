@@ -11,7 +11,7 @@
 
 // The levelling zones of Kalimdor and the Eastern Kingdoms, with their level range and the side whose players level
 // there, apart from the game objects so that tests/coa_world_zone_levels.cpp can check them. Zone ids from the CoA
-// client's AreaTable (MCP coa-local, 09/11: the classic ids; Westfall and Elwynn Alliance, the Barrens and Silverpine
+// client's AreaTable (the classic ids; Westfall and Elwynn Alliance, the Barrens and Silverpine
 // Horde, as their FactionGroupMask says). Capitals and zones not listed have no range: nothing is decided there.
 // Used by CoA World: the levelling routes (where a random bot goes for its level), the density (a bot counts as near
 // a player only in a zone of its level) and the recovery (a bot far above a zone does not walk around in it).
