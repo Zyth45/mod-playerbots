@@ -24,7 +24,7 @@ void RaidMcStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
         new TriggerNode("mc lucifron mark",
                         { NextAction("mc lucifron mark", ACTION_RAID) }));
 
-    // CoA Combat (bench a12): Curse of Gehennas, Arcane Instability and the trash debuffs come off, tanks first;
+    // CoA Combat: Curse of Gehennas, Arcane Instability and the trash debuffs come off, tanks first;
     // above the heals, so a healer cleans only the tanks.
     triggers.push_back(
         new TriggerNode("mc raid dispel",
@@ -87,7 +87,7 @@ void RaidMcStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
     triggers.push_back(
         new TriggerNode("mc baron geddon inferno",
                         { NextAction("mc move from baron geddon", ACTION_RAID) }));
-    // CoA Combat (bench a12): out of a Living Bomb's Burning Ground, which never burns out.
+    // CoA Combat: out of a Living Bomb's Burning Ground, which never burns out.
     triggers.push_back(
         new TriggerNode("mc baron geddon burning ground",
                         { NextAction("mc move from ground effect", ACTION_RAID + 1) }));

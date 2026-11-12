@@ -692,7 +692,7 @@ namespace CoaHazardData
         { 668, 72362, 6.0f, 6.0f, 3.0f, 2.0f, 6.0f },
         // Rain of Fire -- Gehennas', on a random raid member every 6s.
         { 409, 19717, 13.0f, 6.0f, 10.0f, 2.0f, 6.0f },
-        // CoA Combat (bench a12, not in Dungeon Clear 2.9.4) -- Burning Ground, the fire a CoA Living Bomb leaves
+        // CoA Combat (not in Dungeon Clear 2.9.4) -- Burning Ground, the fire a CoA Living Bomb leaves
         // where its carrier stood (boss_geddon_coa.cpp): a 2yd persistent area aura, 800 to 1,600 fire a second
         // (D0..D3), with no end in the DBC, so the floor around Geddon fills up during the pull. Vacate 3 is the
         // aura plus a body; the 6yd keep-out keeps the melee chase out of an old patch.

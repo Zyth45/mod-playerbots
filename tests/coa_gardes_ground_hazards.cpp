@@ -217,7 +217,7 @@ int main()
         else
             SameRow(R::FindTrap(dc.mapId, dc.key), dc);
     }
-    // The module's own rows past Dungeon Clear 2.9.4: Geddon's Burning Ground D0..D3 (CoA Combat, bench a12).
+    // The module's own rows past Dungeon Clear 2.9.4: Geddon's Burning Ground D0..D3 (CoA Combat).
     unsigned const moduleGroundRows = 4;
     for (unsigned spellId = 2105713; spellId <= 2105716; ++spellId)
         assert(R::FindGround(409, spellId));

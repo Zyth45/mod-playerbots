@@ -145,11 +145,11 @@ constexpr uint32 MAGMA_SPLASH_COA_AURAS[] = {2105802, 2105803, 2105804, 2105805}
 constexpr uint32 RAGNAROS_MAGMA_STRIKE_AURAS[] = {2108657, 2108658, 2108659, 2108660,
                                                   2108726, 2108727, 2108728, 2108729};
 
-// CoA Combat (bench a12): Burning Ground, the 2 yd fire a CoA Living Bomb leaves where its carrier stood
+// CoA Combat: Burning Ground, the 2 yd fire a CoA Living Bomb leaves where its carrier stood
 // (boss_geddon_coa.cpp, D0..D3, 800 to 1,600 a second, with no end in the DBC).
 constexpr uint32 GEDDON_BURNING_GROUND_AURAS[] = {2105713, 2105714, 2105715, 2105716};
 
-// CoA Combat (bench a12): the debuffs the raid removes first, from the tanks down. Curses: Curse of Gehennas (stock
+// CoA Combat: the debuffs the raid removes first, from the tanks down. Curses: Curse of Gehennas (stock
 // 19716, CoA 2105416 on the whole raid, -50 % healing taken, and Cull the Destroyer's 2105974), the Ancient Core
 // Hounds' Ancient Hysteria (19372 and CoA 2105311, -25 % stats) and Ancient Dread (19365 and CoA 2105312, -50 % stats,
 // so health), CoA's Curse of Lucifron (2105207). Ancient Despair (2105310) stays on purpose: its -50 % damage taken

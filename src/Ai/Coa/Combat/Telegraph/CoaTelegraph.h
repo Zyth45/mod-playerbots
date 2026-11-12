@@ -28,7 +28,7 @@ namespace CoaTelegraph
 }
 
 // While such a marker lies under the bot's target, no melee approach: melee reach of the boss ends inside the 4 yd
-// slam, so a bot that stepped out walked straight back in (bench a20, Targorr). Bench a39: no approach move at all
+// slam, so a bot that stepped out walked straight back in (Targorr). No approach move at all
 // (reach, attack, follow, regroup, tank assist, heal reposition) while a live marker is near the bot (MarkerToHoldFor).
 class CoaTelegraphMeleeMultiplier : public Multiplier
 {
