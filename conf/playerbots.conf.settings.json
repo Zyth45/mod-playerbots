@@ -345,7 +345,7 @@
    "title": "Specializations bots never play",
    "description": "Conquest of Azeroth specialization ids, comma separated; a bot holding one switches to another of its role.",
    "type": "string",
-   "default": "99",
+   "default": "",
    "coa": true
   },
   {

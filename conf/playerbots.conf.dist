@@ -2371,9 +2371,11 @@ AiPlayerbot.CoaDungeonPriorities = 1
 #       side can repair it. Take it out again once the form is granted.
 #       10/10: tried again (the core grants the form since jealous-sound#5655): still broken on the tank
 #       bench, 12 to 53% of the fight held, Scarlet Delirium cast 80 times in 3 minutes and almost nothing else.
+#       3.1: back in play, its dungeon runs now hold up. An installation that still has 99 here keeps it
+#       left out; empty the value to let bots play it.
 # Read again by ".reload config".
-# Default: 99
-AiPlayerbot.CoaExcludedSpecializations = 99
+# Default: (empty, every specialization is played)
+AiPlayerbot.CoaExcludedSpecializations =
 
 #    AiPlayerbot.CoaOffensiveHealerSpecs
 #        Description: Healer specializations whose damage is their healing: they keep dealing damage
