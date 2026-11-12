@@ -12,7 +12,7 @@
 class Item;
 class Player;
 
-// CoA Economy (lot 4): artisan bots talk business in Trade and take orders by whisper, through CoA Live's bank
+// CoA Economy: artisan bots talk business in Trade and take orders by whisper, through CoA Live's bank
 // engine (lines from CoA IA MIND, bank 3_0_05) and CoA Live's COD mail (AiPlayerbot.CoaEconomy.CraftOrders.*, off by
 // default; does nothing either while AiPlayerbot.CoaLive.Enable is 0).
 // - "can you make [item]?" whispered to a bot that knows the recipe: it quotes a price (materials at market price

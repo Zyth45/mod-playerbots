@@ -16,7 +16,7 @@
 // thread, only while the dashboard watches the "economy" topic (squidbot/watch.json less than 90 s old), and written
 // by a thread of its own (.tmp, then renamed). Nothing is built and almost nothing costs while nobody watches.
 //
-// The bricks of the session report what happens; every call is on the world thread and costs a map insert.
+// The CoA Economy features report what happens; every call is on the world thread and costs a map insert.
 namespace CoaEconomy::Data
 {
     // A real auction sale (market prices brick): item, stack size, price paid for the stack.

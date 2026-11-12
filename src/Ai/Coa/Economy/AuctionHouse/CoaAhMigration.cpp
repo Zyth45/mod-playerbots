@@ -4,7 +4,7 @@
  * or (at your option) any later version.
  */
 
-// CoA Economy: at the first start in 3.0, the old auction house module's stock goes (the user's decision, 09/11): every
+// CoA Economy: at the first start in 3.0, the old auction house module's stock goes: every
 // auction of its seller characters (AuctionHouseBot.GUIDs, and the characters of the AHBOT account) is removed, as
 // ".ahbot empty" does; a bidder gets its money back by mail, the item is destroyed (the bot made it from nothing).
 // Players' and alts' auctions are never touched. Once only: the row 'ahbot_old_emptied' of coa_economy_clock; a new

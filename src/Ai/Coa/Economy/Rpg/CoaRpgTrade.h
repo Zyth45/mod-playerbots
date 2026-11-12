@@ -14,7 +14,7 @@
 class PlayerbotAI;
 class WorldObject;
 
-// CoA Economy (lot 3): the "new rpg" random bots stop at vendors to sell their loot and repair, and at
+// CoA Economy: the "new rpg" random bots stop at vendors to sell their loot and repair, and at
 // auctioneers to sell and buy, as people do between two quests (AiPlayerbot.CoaEconomy.RpgSell.* and
 // BotAuctions.*, off by default). The new rpg had no such step (RpgSellAction only exists in the old rpg).
 // Small hooks in NewRpgAction.cpp / NewRpgBaseAction.cpp call these functions; everything else lives here.
