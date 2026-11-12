@@ -10,7 +10,7 @@
  *  1. A real player's charter: a random bot of its own without a guild that is offered the charter signs it after a
  *     few seconds, refuses now and then, with a word (PetitionSignAction asks CoaWorldCharterOffered). A player
  *     holding a charter who asks aloud for signatures ("sign", "charter"...) gets the guildless bots around to sign
- *     it, one after the other, up to the count required. Always allowed, whatever the floor.
+ *     it, one after the other, each with a word, up to the count required. Always allowed, whatever the floor.
  *  2. A bot's charter: now and then a free guildless bot in a capital walks to the guild master, buys a charter, has
  *     the guildless bots passing by sign it (rarely asks a real player near, once an hour per player at most) and
  *     founds its guild, a living bot guild.
@@ -243,9 +243,9 @@ private:
                 continue;
             }
             Sign(bot, sign.petition);
-            if (urand(0, 2) == 0 || sign.offered)
-                Line(bot, "charter_sign", slots, { "signed, good luck {}", "sure, signed", "there you go", "signed! gl with the guild" },
-                     { "sign\u00e9, bonne chance {}", "ok, sign\u00e9", "voil\u00e0", "sign\u00e9 ! bonne chance avec la guilde" });
+            // A word at every signature, offered or asked aloud: the owner hears who signed, a few seconds apart.
+            Line(bot, "charter_sign", slots, { "signed, good luck {}", "sure, signed", "there you go", "signed! gl with the guild" },
+                 { "sign\u00e9, bonne chance {}", "ok, sign\u00e9", "voil\u00e0", "sign\u00e9 ! bonne chance avec la guilde" });
         }
     }
 
