@@ -26,8 +26,9 @@ namespace CoaEconomy
 
 namespace
 {
-    // The house bot's automatic account (see CoaAuctionHouseBot.cpp): its characters are not population.
-    constexpr char const* HouseAccountName = "AHBOT";
+    // Accounts the server makes for itself: the house bot's (see CoaAuctionHouseBot.cpp) and Dungeon Clear's driver.
+    // Their characters are not population.
+    constexpr char const* ServiceAccountNames[] = { "AHBOT", "DCDRIVER" };
 }
 
 LaunchCurve* LaunchCurve::instance()
@@ -68,7 +69,8 @@ void LaunchCurve::Update(uint32 diff)
     StartSurvey();
 }
 
-// Two async queries, never on the world tick: GM accounts (they are not population), then the levels.
+// Two async queries, never on the world tick: GM accounts, then the levels. On a solo server the player often plays the
+// repack's GM account: its characters count once really played (play time), its untouched ones do not (SquidBot).
 void LaunchCurve::StartSurvey()
 {
     _surveying = true;
@@ -76,16 +78,18 @@ void LaunchCurve::StartSurvey()
         [this](QueryResult gmAccounts)
         {
             _excludedAccounts.clear();
+            _gmAccounts.clear();
             if (gmAccounts)
             {
                 do
-                    _excludedAccounts.insert(gmAccounts->Fetch()[0].Get<uint32>());
+                    _gmAccounts.insert(gmAccounts->Fetch()[0].Get<uint32>());
                 while (gmAccounts->NextRow());
             }
-            if (uint32 houseAccount = AccountMgr::GetId(HouseAccountName))
-                _excludedAccounts.insert(houseAccount);
+            for (char const* name : ServiceAccountNames)
+                if (uint32 serviceAccount = AccountMgr::GetId(name))
+                    _excludedAccounts.insert(serviceAccount);
 
-            _callbacks.AddCallback(CharacterDatabase.AsyncQuery("SELECT account, level FROM characters WHERE deleteDate IS NULL")
+            _callbacks.AddCallback(CharacterDatabase.AsyncQuery("SELECT account, level, totaltime FROM characters WHERE deleteDate IS NULL")
                 .WithCallback([this](QueryResult levels) { ReadLevels(std::move(levels)); }));
         }));
 }
@@ -94,7 +98,7 @@ void LaunchCurve::ReadLevels(QueryResult result)
 {
     _surveying = false;
 
-    // level -> characters at that level, players' alts and bots alike, GMs and the house left out
+    // level -> characters at that level, players' alts and bots alike, service accounts and unplayed GM characters left out
     std::map<uint32, uint32> byLevel;
     uint32 population = 0;
     if (result)
@@ -102,7 +106,8 @@ void LaunchCurve::ReadLevels(QueryResult result)
         do
         {
             Field* fields = result->Fetch();
-            if (_excludedAccounts.count(fields[0].Get<uint32>()))
+            uint32 const account = fields[0].Get<uint32>();
+            if (_excludedAccounts.count(account) || (_gmAccounts.count(account) && !fields[2].Get<uint32>()))
                 continue;
             ++byLevel[fields[1].Get<uint8>()];
             ++population;
