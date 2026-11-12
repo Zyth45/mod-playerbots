@@ -1148,6 +1148,13 @@ public:
     {
         for (Slot& slot : Mgr().Slots())
         {
+            // Invasions.Auto = 0: an idle invasion never starts by itself (TryAnnounce only rearms its timer).
+            if (slot.state == State::Idle && (!settings.autoStart || !Mgr().IsAvailable(slot)))
+            {
+                handler->PSendSysMessage("{} ({}): {}", slot.plan->name, slot.plan->key,
+                    Mgr().IsAvailable(slot) ? "idle (manual start only)" : "idle (disabled)");
+                continue;
+            }
             handler->PSendSysMessage("{} ({}): {}{}, next step in {}, level {}, site {}, {} bots borrowed, {} creatures",
                 slot.plan->name, slot.plan->key, StateName(slot.state), Mgr().IsAvailable(slot) ? "" : " (disabled)",
                 FormatMinutes(slot.timer), slot.level, slot.state == State::Idle ? "-" : slot.Site().name,
