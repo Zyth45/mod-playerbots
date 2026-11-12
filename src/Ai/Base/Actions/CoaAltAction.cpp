@@ -8,6 +8,7 @@
 
 #include "ChatHelper.h"
 #include "CoaAltAddon.h"
+#include "CoaAltBags.h"
 #include "CoaEnchanter.h"
 #include "Event.h"
 #include "GameObject.h"
@@ -70,12 +71,16 @@ bool CoaAltAction::Execute(Event event)
         arg.erase(0, arg.find_first_not_of(' '));
     }
 
+    // "alt cmp|bags|sell|destroy": compare with the alt's gear, sell or destroy its bag items (CoaAltBags).
+    if (CoaAltBags::Command(botAI, command, arg))
+        return true;
+
     if (command == "hello")
     {
         CoaAltAddon::MarkSeen(master);
         std::ostringstream out;
         out << "HELLO\t" << CoaAltAddon::PROTOCOL << "\t" << (sPlayerbotAIConfig.catchUpQuestChains ? 1 : 0) << "\t"
-            << (sPlayerbotAIConfig.altChatToAddon ? 1 : 0) << "\t1";
+            << (sPlayerbotAIConfig.altChatToAddon ? 1 : 0) << "\t1\t" << (sPlayerbotAIConfig.coaAltBags ? 1 : 0);
         CoaAltAddon::SendToMaster(botAI, out.str());
         CoaEnchanter::SendStatus(botAI);
         return true;

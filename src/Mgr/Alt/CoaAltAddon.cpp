@@ -392,7 +392,7 @@ bool OnAddonWhisper(Player* from, Player* receiver, std::string const& msg)
         }
         std::ostringstream out;
         out << "HELLO\t" << PROTOCOL << "\t" << (sPlayerbotAIConfig.catchUpQuestChains ? 1 : 0) << "\t"
-            << (sPlayerbotAIConfig.altChatToAddon ? 1 : 0) << "\t1";
+            << (sPlayerbotAIConfig.altChatToAddon ? 1 : 0) << "\t1\t" << (sPlayerbotAIConfig.coaAltBags ? 1 : 0);
         Send(receiver, from, out.str());
         CoaEnchanter::SendStatus(botAI);
         return true;
