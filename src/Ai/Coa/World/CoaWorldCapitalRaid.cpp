@@ -18,7 +18,8 @@
  *    always do; the king keeps his own script, with less health for the raid (KingHealthPct), given back after.
  *  - End: the king dies (the attackers win), no attacker is left standing in the city, or the time is up. Gold for the
  *    real players of the winning side near the throne; the bots go back to their lives.
- * Level: bots of MinLevel and up; with AiPlayerbot.CoaFreshStart.Enable, level 60 only, and no raid without enough.
+ * Level: bots of MinLevel and up; with AiPlayerbot.CoaFreshStart.Enable, the top level only (MaxPlayerLevel, 60 on a
+ * CoA realm), and no raid without enough.
  * World thread only; nothing to do while no raid is on (a timer, and a minute check for the automatic start).
  */
 
@@ -44,6 +45,7 @@
 #include "Playerbots.h"
 #include "ScriptMgr.h"
 #include "StringFormat.h"
+#include "World.h"
 #include "WorldSession.h"
 
 #include <algorithm>
@@ -230,7 +232,13 @@ std::vector<Player*> Bots(uint32 owner)
     return out;
 }
 
-uint32 MinLevel() { return sPlayerbotAIConfig.coaFreshStartEnable ? 60 : settings.minLevel; }
+// The realm's top level (MaxPlayerLevel: 60 on a CoA realm, as the installer writes it) with a fresh start, else
+// MinLevel; never above the top level (a realm capped lower would otherwise never see a raid).
+uint32 MinLevel()
+{
+    uint32 const top = sWorld->getIntConfig(CONFIG_MAX_PLAYER_LEVEL);
+    return std::min(top, sPlayerbotAIConfig.coaFreshStartEnable ? top : settings.minLevel);
+}
 
 void Finish(bool attackersWon, char const* why)
 {

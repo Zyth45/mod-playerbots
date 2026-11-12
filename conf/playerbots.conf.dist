@@ -3277,7 +3277,7 @@ AiPlayerbot.CoaWorld.CapitalRaid.AutoHours = 24
 #    AiPlayerbot.CoaWorld.CapitalRaid.RewardSilverPerLevel
 #        Description: Attacking bots (at least 20 free ones needed), defending bots, the assault's time, the
 #                     gathering before it, the king's health during the raid (percent of his own), the bots' level
-#                     (60 only on a realm with CoaFreshStart.Enable; no bot is raised), and the silver per level for
+#                     (the top level only, MaxPlayerLevel = 60 on a CoA realm, with CoaFreshStart.Enable; no bot is raised), and the silver per level for
 #                     the real players of the winning side near the throne.
 #        Default:     60, 20, 30, 180, 25, 55, 50
 
