@@ -1,8 +1,8 @@
 -- CoA Live 3_0_16 : correctif typographique de la banque de nuit (playerbots_coa_night_lines).
--- Apostrophes et guillemets courbes, tirets longs, points de suspension et espaces insécables -> ASCII, que le
--- client 3.3.5 affiche mal. Les accents et les %variables ne sont pas touchés. Rejouable (sans effet la 2e fois).
--- Livré avec la 3_0_09_night (branche de CoA SquidBot), chargé après elle. 45 lignes concernées dans la 3_0_09.
--- La banque LIVE (playerbots_coa_live_lines, jusqu'à 3_0_15) n'en contient aucune : rien à corriger.
+-- Rendu inoffensif le 12/11 (avant toute publication) : son UPDATE ... LIKE sur des littéraux binaires échouait
+-- (ERROR 1267, mélange de collations) quand la connexion n'est pas en utf8mb4_0900_ai_ci, comme sur un repack 2.9.5.
+-- La 3_0_17_night, chargée juste après, recharge toute la source 1 déjà convertie en ASCII : ce correctif ne sert
+-- plus. Le fichier garde seulement la création de la table, sans aucune comparaison de texte. Rejouable.
 
 CREATE TABLE IF NOT EXISTS `playerbots_coa_night_lines` (
   `id`         INT UNSIGNED      NOT NULL AUTO_INCREMENT,
@@ -23,16 +23,3 @@ CREATE TABLE IF NOT EXISTS `playerbots_coa_night_lines` (
   KEY `k_pick` (`locale`, `channel`, `event`, `level_band`),
   KEY `k_thread` (`source`, `thread`, `step`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='CoA Live : banque de nuit (clé AiPlayerbot.CoaLive.NightBank.Enable)';
-
-UPDATE `playerbots_coa_night_lines` SET `text` =
-  REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(`text`,
-    _utf8mb4 0xE28098, ''''), _utf8mb4 0xE28099, ''''), _utf8mb4 0xE2809A, ''''), _utf8mb4 0xE2809B, ''''),
-    _utf8mb4 0xE2809C, '"'), _utf8mb4 0xE2809D, '"'), _utf8mb4 0xE2809E, '"'),
-    _utf8mb4 0xE28093, '-'), _utf8mb4 0xE28094, '-'), _utf8mb4 0xE280A6, '...'),
-    _utf8mb4 0xC2A0, ' '), _utf8mb4 0xE280AF, ' ')
-WHERE `text` LIKE CONCAT('%', _utf8mb4 0xE28098, '%') OR `text` LIKE CONCAT('%', _utf8mb4 0xE28099, '%')
-   OR `text` LIKE CONCAT('%', _utf8mb4 0xE2809A, '%') OR `text` LIKE CONCAT('%', _utf8mb4 0xE2809B, '%')
-   OR `text` LIKE CONCAT('%', _utf8mb4 0xE2809C, '%') OR `text` LIKE CONCAT('%', _utf8mb4 0xE2809D, '%')
-   OR `text` LIKE CONCAT('%', _utf8mb4 0xE2809E, '%') OR `text` LIKE CONCAT('%', _utf8mb4 0xE28093, '%')
-   OR `text` LIKE CONCAT('%', _utf8mb4 0xE28094, '%') OR `text` LIKE CONCAT('%', _utf8mb4 0xE280A6, '%')
-   OR `text` LIKE CONCAT('%', _utf8mb4 0xC2A0, '%') OR `text` LIKE CONCAT('%', _utf8mb4 0xE280AF, '%');
