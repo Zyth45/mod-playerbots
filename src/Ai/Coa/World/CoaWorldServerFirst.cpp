@@ -23,6 +23,7 @@
 
 #include <deque>
 
+#include "AccountMgr.h"
 #include "Chat.h"
 #include "Config.h"
 #include "Creature.h"
@@ -108,9 +109,13 @@ namespace
             } while (result->NextRow());
         }
 
-        // An older realm: a side with characters at the top level already had its first.
+        // An older realm: a side with characters at the top level already had its first. Not the auction house's
+        // seller (account AHBOT, made at the top level and never played), nor a character never logged in: on a new
+        // realm they would take the first top level of their side at the next start, without a word.
         uint32 top = sWorld->getIntConfig(CONFIG_MAX_PLAYER_LEVEL);
-        if (QueryResult result = CharacterDatabase.Query("SELECT DISTINCT `race` FROM `characters` WHERE `level` >= {}", top))
+        uint32 const ahAccount = AccountMgr::GetId("AHBOT");
+        if (QueryResult result = CharacterDatabase.Query("SELECT DISTINCT `race` FROM `characters` WHERE `level` >= {} "
+                                                         "AND `account` <> {} AND `totaltime` > 0", top, ahAccount))
         {
             do
             {
