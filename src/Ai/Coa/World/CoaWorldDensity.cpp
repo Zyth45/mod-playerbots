@@ -76,7 +76,7 @@ namespace
     bool IsHumanPlayer(Player* player)
     {
         return player && player->IsInWorld() && !GET_PLAYERBOT_AI(player) && !player->IsGameMaster() &&
-               player->GetSession() && !player->GetSession()->IsBot();
+               player->GetSession() && !player->GetSession()->IsBot() && !CoaWorld::IsTestDriver(player);
     }
 
     std::vector<Player*> Humans()

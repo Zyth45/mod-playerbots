@@ -163,7 +163,7 @@ namespace CoaWorld
         bool IsRealParticipant(Player* player)
         {
             return player && player->IsInWorld() && !IsBotPlayer(player) && !player->IsGameMaster() &&
-                   player->GetSession() && !player->GetSession()->IsBot();
+                   player->GetSession() && !player->GetSession()->IsBot() && !CoaWorld::IsTestDriver(player);
         }
 
         void Tell(Player* player, std::string const& text, bool onScreen)

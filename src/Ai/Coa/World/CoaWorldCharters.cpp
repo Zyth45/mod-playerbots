@@ -74,7 +74,7 @@ std::atomic<uint32> g_total{ 0 };
 
 bool IsHuman(Player* player)
 {
-    return player && player->GetSession() && !player->GetSession()->IsBot() && !GET_PLAYERBOT_AI(player);
+    return player && player->GetSession() && !player->GetSession()->IsBot() && !GET_PLAYERBOT_AI(player) && !CoaWorld::IsTestDriver(player);
 }
 
 // A random bot of its own (no real-player master), the only one a stranger's charter may reach.
