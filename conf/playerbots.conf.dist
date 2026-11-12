@@ -3397,7 +3397,7 @@ AiPlayerbot.CoaFreshStart.Enable = 0
 #        Description: On a new living realm (AiPlayerbot.CoaFreshStart.Enable = 1) only: a random bot
 #                     playing alone or with bots, behind the human players, earns more experience the
 #                     further behind it is, so the bot world keeps up with the players. The front is the
-#                     median of the highest character of each active human account (no GM, no bot
+#                     median of the highest character of each active human account (no bot
 #                     account), surveyed every 10 minutes: one rushing player does not pull it. No bonus
 #                     within MarginLevels under the front or above it, never slower than the bot's own
 #                     pace (fast, mass, late), never for an alt, an addclass bot or a bot in a group with
@@ -3453,11 +3453,20 @@ AiPlayerbot.CoaFreshStart.CatchUp.ActiveDays = 7
 #        Description: Accounts that are never a player for the front, separated by commas: the server's
 #                     own characters (the auction house seller, the Dungeon Clear driver; the driver
 #                     named in DungeonClear.TestRun.DriverAccount is added on its own). An account
-#                     that never entered through the login server, a GM, a random bot account and a
+#                     that never entered through the login server, a random bot account and a
 #                     character never played (no play time) do not count either, whatever this list.
 #        Default:     "AHBOT,DCDRIVER"
 
 AiPlayerbot.CoaFreshStart.CatchUp.ServiceAccounts = "AHBOT,DCDRIVER"
+
+#    AiPlayerbot.CoaFreshStart.CatchUp.CountGameMasters
+#        Description: An account with GM rights counts as a player for the front when it has a
+#                     character really played. On a solo server the player owns the realm and often
+#                     plays a GM account (the repack's LOCAL).
+#        Default:     1 - GM accounts count
+#                     0 - GM accounts never count
+
+AiPlayerbot.CoaFreshStart.CatchUp.CountGameMasters = 1
 
 #    AiPlayerbot.CoaSoul.Enable
 #        Description: Souls of the bots. Each random bot gets an archetype (lazy, quester, wanderer,

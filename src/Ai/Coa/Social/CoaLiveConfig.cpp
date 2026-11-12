@@ -77,6 +77,7 @@ void PlayerbotAIConfig::LoadCoaLiveConfig()
         std::clamp<uint32>(sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaFreshStart.CatchUp.ActiveDays", 7), 1, 90);
     coaCatchUpServiceAccounts = CoaFreshStart::ServiceAccounts(
         sConfigMgr->GetOption<std::string>("AiPlayerbot.CoaFreshStart.CatchUp.ServiceAccounts", "AHBOT,DCDRIVER"));
+    coaCatchUpCountGameMasters = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaFreshStart.CatchUp.CountGameMasters", true);
     // The Dungeon Clear driver under another name (mod-dungeon-clear, DungeonClear.TestRun.DriverAccount).
     for (std::string const& driver : CoaFreshStart::ServiceAccounts(
              sConfigMgr->GetOption<std::string>("DungeonClear.TestRun.DriverAccount", "dcdriver", false)))

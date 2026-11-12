@@ -93,11 +93,13 @@ inline std::vector<std::string> ServiceAccounts(std::string const& list)
 
 // A player's account, for the front: entered the game through the login server at least once (everLoggedIn:
 // account.last_login set; the accounts the server makes for itself, the auction house seller, the Dungeon Clear
-// driver, the random bots, never do), no GM rights, not a random bot account (botPrefix), not a service account.
+// driver, the random bots, never do), not a random bot account (botPrefix), not a service account. A GM account counts
+// too unless countGameMasters is off: on a solo server the player owns the realm and often plays a GM account (the
+// repack's LOCAL).
 inline bool HumanAccount(std::string const& username, bool everLoggedIn, bool gm, std::string const& botPrefix,
-                         std::vector<std::string> const& service)
+                         std::vector<std::string> const& service, bool countGameMasters = true)
 {
-    if (!everLoggedIn || gm)
+    if (!everLoggedIn || (gm && !countGameMasters))
         return false;
     std::string const name = UpperName(username);
     std::string const prefix = UpperName(botPrefix);
