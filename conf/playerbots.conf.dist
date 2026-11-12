@@ -3449,6 +3449,16 @@ AiPlayerbot.CoaFreshStart.CatchUp.MaxTotalRate = 6
 
 AiPlayerbot.CoaFreshStart.CatchUp.ActiveDays = 7
 
+#    AiPlayerbot.CoaFreshStart.CatchUp.ServiceAccounts
+#        Description: Accounts that are never a player for the front, separated by commas: the server's
+#                     own characters (the auction house seller, the Dungeon Clear driver; the driver
+#                     named in DungeonClear.TestRun.DriverAccount is added on its own). An account
+#                     that never entered through the login server, a GM, a random bot account and a
+#                     character never played (no play time) do not count either, whatever this list.
+#        Default:     "AHBOT,DCDRIVER"
+
+AiPlayerbot.CoaFreshStart.CatchUp.ServiceAccounts = "AHBOT,DCDRIVER"
+
 #    AiPlayerbot.CoaSoul.Enable
 #        Description: Souls of the bots. Each random bot gets an archetype (lazy, quester, wanderer,
 #                     trader, PvP) and five traits, drawn once from its character, the same at every

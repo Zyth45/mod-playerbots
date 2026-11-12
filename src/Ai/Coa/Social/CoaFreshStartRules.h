@@ -8,7 +8,9 @@
 #define PLAYERBOTS_COAFRESHSTARTRULES_H
 
 #include <algorithm>
+#include <cctype>
 #include <cstdint>
+#include <string>
 #include <vector>
 
 // The launch of a new realm (AiPlayerbot.CoaFreshStart.Enable, "New living server" of the launcher, with the Solo
@@ -62,6 +64,55 @@ struct CatchUpSettings
     uint32_t minHumans = 1;          // fewer active humans: no front, no bonus (1: a player alone counts)
     uint32_t maxTotalPercent = 600;  // pace x bonus x RandomBotXPRate never above x6 (the bonus gives way first)
 };
+
+inline std::string UpperName(std::string s)
+{
+    for (char& c : s)
+        c = char(std::toupper(static_cast<unsigned char>(c)));
+    return s;
+}
+
+// AiPlayerbot.CoaFreshStart.CatchUp.ServiceAccounts: account names split on commas and spaces, upper case.
+inline std::vector<std::string> ServiceAccounts(std::string const& list)
+{
+    std::vector<std::string> out;
+    std::string name;
+    for (char c : list + ",")
+    {
+        if (c == ',' || std::isspace(static_cast<unsigned char>(c)))
+        {
+            if (!name.empty())
+                out.push_back(UpperName(name));
+            name.clear();
+        }
+        else
+            name += c;
+    }
+    return out;
+}
+
+// A player's account, for the front: entered the game through the login server at least once (everLoggedIn:
+// account.last_login set; the accounts the server makes for itself, the auction house seller, the Dungeon Clear
+// driver, the random bots, never do), no GM rights, not a random bot account (botPrefix), not a service account.
+inline bool HumanAccount(std::string const& username, bool everLoggedIn, bool gm, std::string const& botPrefix,
+                         std::vector<std::string> const& service)
+{
+    if (!everLoggedIn || gm)
+        return false;
+    std::string const name = UpperName(username);
+    std::string const prefix = UpperName(botPrefix);
+    if (!prefix.empty() && name.compare(0, prefix.size(), prefix) == 0)
+        return false;
+    return std::find(service.begin(), service.end(), name) == service.end();
+}
+
+// A character of a human account counts for the front only when someone really played it: some play time
+// (totalTimeS > 0: the auction house seller, a character made by a tool or never entered have none), and online now
+// or logged out since the start of the active days (logoutTime 0: never logged out).
+inline bool PlayedCharacter(bool online, uint32_t totalTimeS, int64_t logoutTime, int64_t since)
+{
+    return totalTimeS > 0 && (online || (logoutTime > 0 && logoutTime >= since));
+}
 
 // The front of the human players: the median of the highest character of each active human account (the lower
 // middle when even), 0 with fewer than minHumans accounts.
