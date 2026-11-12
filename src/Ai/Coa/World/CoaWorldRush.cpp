@@ -40,6 +40,7 @@
 #include "WorldSession.h"
 
 #include <cmath>
+#include <unordered_set>
 #include <vector>
 
 using namespace Acore::ChatCommands;
@@ -159,6 +160,16 @@ namespace
                 Reschedule();
             }
 
+            if (_running)
+            {
+                _nodeTimer += diff;
+                if (_nodeTimer >= NODE_LOOK_MS)
+                {
+                    _nodeTimer = 0;
+                    NodeLines();
+                }
+            }
+
             _timer -= diff;
             if (_timer > 0)
                 return;
@@ -254,6 +265,7 @@ namespace
                     if (GameObject* go = map->GetGameObject(guid))
                         go->DespawnOrUnsummon();
             _nodes.clear();
+            _atNode.clear();
 
             ReleaseBots(BOT_OWNER_RUSH, settings.botsReturnHome);
             LOG_INFO("module", "CoA World: resource rush near {} ended", AreaName(_areaId));
@@ -425,6 +437,42 @@ namespace
             BorrowedSay(BOT_OWNER_RUSH, 0, "rush_heard", { { "subzone", AreaName(_areaId) }, { "zone", AreaName(_zoneId) } }, 2);
         }
 
+        // A borrowed bot that reaches a vein or herb of the rush may say a word (IA MIND's rush_node: the bank's rule
+        // decides, chance and pacing, and AiPlayerbot.CoaLive.Chat.Enable silences it). One try per bot and node.
+        void NodeLines()
+        {
+            Map* map = sMapMgr->FindBaseMap(_mapId);
+            if (!map)
+                return;
+            for (ObjectGuid const& guid : BorrowedBots(BOT_OWNER_RUSH))
+            {
+                Player* bot = ObjectAccessor::FindPlayer(guid);
+                if (!bot || !bot->IsInWorld() || !bot->IsAlive() || bot->GetMap() != map)
+                    continue;
+                for (ObjectGuid const& node : _nodes)
+                {
+                    GameObject* go = map->GetGameObject(node);
+                    if (!go || !go->isSpawned() || !bot->IsWithinDistInMap(go, NODE_REACH))
+                        continue;
+                    if (_atNode.insert(std::make_pair(guid, node)).second)
+                        BotLine(bot, "rush_node", {});
+                    break;
+                }
+            }
+        }
+
+        struct PairHash
+        {
+            size_t operator()(std::pair<ObjectGuid, ObjectGuid> const& p) const
+            {
+                return std::hash<ObjectGuid>()(p.first) ^ (std::hash<ObjectGuid>()(p.second) << 1);
+            }
+        };
+        static constexpr uint32 NODE_LOOK_MS = 3 * IN_MILLISECONDS;
+        static constexpr float NODE_REACH = 6.0f;
+
+        std::unordered_set<std::pair<ObjectGuid, ObjectGuid>, PairHash> _atNode;  // bot, node: tried already
+        uint32 _nodeTimer = 0;
         bool _scheduled = false;
         bool _running = false;
         int64 _timer = 0;
