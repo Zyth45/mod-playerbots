@@ -11,7 +11,7 @@
 
 class Player;
 
-// CoA Economy (lot 3): random bots use the auction house like players (AiPlayerbot.CoaEconomy.BotAuctions.*, off
+// CoA Economy: random bots use the auction house like players (AiPlayerbot.CoaEconomy.BotAuctions.*, off
 // by default). At an auctioneer a bot collects its auction mail (gold of its sales, items it won), lists the loot
 // its item usage marks for the auction house, and buys an upgrade (CoA Combat's CoaGearScore::UpgradeGain) or a
 // bag it can afford. Everything goes through the core's own auction packets (deposit, cut, mails), so the

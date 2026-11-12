@@ -306,7 +306,7 @@ namespace
         // Ore smelted or prospected, gear disenchanted, when what comes out is worth more (Materials).
         Materials::Process(bot, botAI);
 
-        // An artisan makes a piece worth more than its materials and puts it up with its loot (lot 4).
+        // An artisan makes a piece worth more than its materials and puts it up with its loot.
         Item* crafted = nullptr;
         Artisans::Recipe recipe;
         if (Artisans::IsEnabled() && Artisans::PickProfitable(bot, recipe))
@@ -347,8 +347,8 @@ namespace
     {
         uint32 taken = 0;
         uint32 underpriced = 0;
-        // A bot's auction under half the real house's price goes back too, to be listed again at the right price
-        // (Pilote, 09/11): random bots with BotAuctions.RealHousePrices, the house bot with its own key.
+        // A bot's auction under half the real house's price goes back too, to be listed again at the right price:
+        // random bots with BotAuctions.RealHousePrices, the house bot with its own key.
         bool const houseBotReal = CoaEconomy::Conf::Get<bool>("AuctionHouseBot.CoA.RealHousePrices", false);
         uint32 const houseBotAccount = houseBotReal ? AccountMgr::GetId("AHBOT") : 0;
         RealPrices::Multipliers const houseBotMultipliers =

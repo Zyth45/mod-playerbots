@@ -7,7 +7,7 @@
 #ifndef COA_ECONOMY_RULES_H
 #define COA_ECONOMY_RULES_H
 
-// CoA Economy: the rules of the session's bricks, free of the core, so that tests/coa_economy_*.cpp can check them.
+// CoA Economy: the rules of its features, free of the core, so that tests/coa_economy_*.cpp can check them.
 // The bricks call these; nothing here reads the config or the world.
 
 #include <algorithm>
@@ -221,7 +221,7 @@ inline std::uint64_t ClampToBand(std::uint64_t price, std::uint64_t median, std:
     return std::clamp<std::uint64_t>(price, median * lowTenths / 10, std::max(median * lowTenths / 10, median * highTenths / 10));
 }
 
-// A fair price that looks human (user, 10/11): crafted goods sit between 1.1 and 2 times their reagents (a scan alone
+// A fair price that looks human: crafted goods sit between 1.1 and 2 times their reagents (a scan alone
 // may say anything), nothing sells under what a vendor pays plus a quarter, and what a vendor sells at will never costs
 // more than at the vendor. reagents 0: not crafted; vendorBuy 0: no vendor sells it.
 inline std::uint64_t FairPrice(std::uint64_t value, std::uint64_t reagents, std::uint64_t vendorSell, std::uint64_t vendorBuy)

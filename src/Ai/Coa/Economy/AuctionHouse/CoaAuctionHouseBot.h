@@ -346,7 +346,7 @@ private:
     int ActiveListMultipleItemID;
     int RemainingListMultipleCount;
 
-    // CoA Economy (lot 2): a buyer that acts like people (AiPlayerbot.CoaEconomy.Buyer.*, off by default).
+    // CoA Economy: a buyer that acts like people (AiPlayerbot.CoaEconomy.Buyer.*, off by default).
     struct HumanBuyerSettings
     {
         bool Enabled = false;
@@ -365,7 +365,7 @@ private:
     uint64 GetHouseLowestBuyoutPerItem(ItemTemplate const* itemProto);
     void LoadHumanBuyerSettings();
 
-    // CoA Economy (lot 2): rarity premium from the drop rates (AiPlayerbot.CoaEconomy.Rarity.*, off by default).
+    // CoA Economy: rarity premium from the drop rates (AiPlayerbot.CoaEconomy.Rarity.*, off by default).
     bool RarityEnabled = false;
     double RarityPremium = 1.0;
     double RarityCommonRate = 5.0;

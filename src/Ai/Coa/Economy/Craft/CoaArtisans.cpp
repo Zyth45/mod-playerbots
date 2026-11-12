@@ -10,6 +10,7 @@
 
 #include "CoaAuctionHouseBot.h"
 #include "CoaEconomyData.h"
+#include "CoaLaunchCurve.h"
 #include "CoaEconomyRules.h"
 #include "CoaMarketPrices.h"
 #include "CoaRealPrices.h"
@@ -196,7 +197,7 @@ uint64 FairPrice(ItemTemplate const* proto, RealPrices::Multipliers const& multi
     }
     uint64 own = value(proto);
     // A better quality over the one below at the same item level (scans hold dumped epics).
-    // Also when unseen with no epic band to floor it: else a bot fell back to a learned or vendor price (bench a52:
+    // Also when unseen with no epic band to floor it: else a bot fell back to a learned or vendor price (seen:
     // epics of level 62 at 71 g, under blues at 272 g).
     if (uint64 step = RealPrices::QualityStep(proto, multipliers); own < step)
         own = step;
@@ -262,6 +263,9 @@ std::vector<Recipe> KnownRecipes(Player* bot)
         // Nothing CoA does not have (Netherweave bandages), no ammunition, no vendor good.
         ItemTemplate const* product = sObjectMgr->GetItemTemplate(itemId);
         if (!itemId || !IsTradable(product) || !Sellable::BotMayList(product, true))
+            continue;
+        // A new realm's launch curve holds for artisans too: no epic kit made at Enchanting 1 on its first day.
+        if (!sCoaLaunchCurve->AllowsListing(*product))
             continue;
         uint32 const skillId = ProfessionOf(spellId);
         if (!skillId)

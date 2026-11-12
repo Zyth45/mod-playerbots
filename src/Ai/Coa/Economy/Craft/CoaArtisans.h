@@ -18,7 +18,7 @@ class Player;
 class SpellInfo;
 struct ItemTemplate;
 
-// CoA Economy (lot 4): bots with a profession craft from the recipes they really know (AiPlayerbot.CoaEconomy.
+// CoA Economy: bots with a profession craft from the recipes they really know (AiPlayerbot.CoaEconomy.
 // Artisans.*, off by default). A recipe is any spell the bot knows, of a primary or secondary profession skill
 // line (from the client data, so CoA's own professions count), that creates a tradable item. Its cost is that of
 // its reagents at market price; reagents the bot holds are used, the missing ones are paid in gold at that price

@@ -13,7 +13,7 @@
 #include <string>
 #include <type_traits>
 
-// CoA Economy: options read with the .dist value as their default (Pilote, 11/11). An install updated to 3.0 keeps
+// CoA Economy: options read with the .dist value as their default. An install updated to 3.0 keeps
 // its old .conf, where the 3.0 keys are missing: such a key takes the value of playerbots.conf.dist or
 // mod_ahbot.conf.dist (CoaEconomyConfDefaults.inc, generated), never a code default that could differ from it.
 namespace CoaEconomy::Conf

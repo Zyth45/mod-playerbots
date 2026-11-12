@@ -128,7 +128,7 @@ char const* OriginalWorldSourcesQuery()
     return VanillaSourcesQuery;
 }
 
-// CoA Economy (lot 2): only goods a CoA player could really sell. Off unless
+// CoA Economy: only goods a CoA player could really sell. Off unless
 // AiPlayerbot.CoaEconomy.Filter.Enable = 1; each rule then has its own key (on by default).
 //   Deprecated   ITEM_FLAG_DEPRECATED items (cannot be equipped or used).
 //   Bloodforged  Bloodforged variants (core Bloodforging::IsBloodforged): always out while
@@ -462,7 +462,7 @@ void AuctionHouseBot::CalculateItemValue(ItemTemplate const* itemProto, uint64& 
         }
     }
 
-    // CoA: the real CoA auction house's market value (user, 09/11); an item it never showed gets a floor below.
+    // CoA: the real CoA auction house's market value; an item it never showed gets a floor below.
     if (CoaRealHousePrices)
         if (uint64 const reference = CoaEconomy::Artisans::FairPrice(itemProto, CoaRealPriceMultipliers))
         {
@@ -978,7 +978,7 @@ void AuctionHouseBot::PopulateItemCandidatesAndProportions()
     }
     uint32 laterExpansionItems = 0;
     // CoA: what players sold on the real CoA auction house (scans of the house, incomplete) counts as obtainable too,
-    // with ObtainableItemsOnly (user, 09/11: the scans are a guide, not a whitelist).
+    // with ObtainableItemsOnly (the scans are a guide, not a whitelist).
     bool const coaSeenAdds = CoaEconomy::Conf::Get<bool>("AuctionHouseBot.CoA.SeenOnCoAHouse", false);
     uint32 addedBySeen = 0;
     uint32 obtainableUnseen = 0;
@@ -1001,7 +1001,7 @@ void AuctionHouseBot::PopulateItemCandidatesAndProportions()
             continue;
         }
 
-        // Ammunition is of no use on CoA (user, 08/11): never in the house, whatever the filter keys.
+        // Ammunition is of no use on CoA: never in the house, whatever the filter keys.
         if (CoaEconomyRules::IsAmmo(itr->second.Class))
             continue;
 
@@ -2483,7 +2483,7 @@ bool AuctionHouseBot::EnsureAutoCharacter()
     }
 
     // Level 1: selling needs no level, and a level 80 character on a new realm would count as its first 80 wherever
-    // characters are read by level (Pilote, 12/11). An existing auction character is left as it is.
+    // characters are read by level. An existing auction character is left as it is.
     ObjectGuid::LowType guid = sObjectMgr->GetGenerator<HighGuid::Player>().Generate();
     CharacterDatabase.DirectExecute("INSERT INTO `characters` (`guid`, `account`, `name`, `race`, `class`, `gender`, `level`, `taximask`, "
         "`innTriggerId`, `map`, `zone`, `position_x`, `position_y`, `position_z`, `health`) "

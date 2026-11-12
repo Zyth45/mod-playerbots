@@ -14,7 +14,7 @@
 #include <string>
 
 // CoA Economy: the core aborts the server on a query naming a missing table or column (errors 1146 and 1054), even
-// with the options at 0. Every table of the session is checked here, through information_schema (which never fails),
+// with the options at 0. Every CoA Economy table is checked here, through information_schema (which never fails),
 // before its first read or write; a missing table or column turns the brick off.
 namespace CoaEconomy::Db
 {

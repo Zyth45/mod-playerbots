@@ -4,8 +4,8 @@
  * or (at your option) any later version.
  */
 
-// CoA Economy: the session's settings kept in PlayerbotAIConfig. Called by PlayerbotAIConfig::Initialize();
-// a new setting of the session goes here (its member in the "CoA Economy" block of PlayerbotAIConfig.h).
+// CoA Economy: its settings kept in PlayerbotAIConfig. Called by PlayerbotAIConfig::Initialize();
+// a new CoA Economy setting goes here (its member in the "CoA Economy" block of PlayerbotAIConfig.h).
 // The auction house bot reads its own AiPlayerbot.CoaEconomy.* keys (AuctionHouse/, Market/, Launch/).
 
 #include "Config.h"
@@ -23,7 +23,7 @@ void PlayerbotAIConfig::LoadCoaEconomyConfig()
 
 namespace
 {
-    // ".reload config" reloads the files but not PlayerbotAIConfig: the session's keys are read again here.
+    // ".reload config" reloads the files but not PlayerbotAIConfig: the CoA Economy keys are read again here.
     class CoaEconomyConfigWorld : public WorldScript
     {
     public:
