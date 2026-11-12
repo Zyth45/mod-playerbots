@@ -306,6 +306,9 @@ std::vector<Recipe> KnownRecipes(Player* bot)
         if (!reagentsKnown)
             continue;
         recipe.productValue = MarketPrice(itemId) * count;
+        // Nor anything dearer than the launch curve lets one item cost.
+        if (!sCoaLaunchCurve->AllowsUnitPrice(recipe.productValue / count))
+            continue;
         recipes.push_back(recipe);
     }
     return recipes;

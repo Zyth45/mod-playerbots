@@ -13,6 +13,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <cstdlib>
 #include <map>
 #include <string>
 #include <utility>
@@ -175,6 +176,34 @@ inline bool LaunchAllows(LaunchCaps const& caps, std::uint32_t requiredLevel, st
     if (quality == 4)
         return caps.top >= caps.epicFromLevel && caps.top >= requiredLevel;
     return caps.allowLegendary && caps.top >= caps.epicFromLevel;
+}
+
+// The profession rank a character of this level can have: the trainer tiers (75 until level 10, 150 until 20, 225
+// until 35, 300 until 50, 375 until 65, then 450), and no more than 25 plus 6 a level.
+inline std::uint32_t LaunchSkillCap(std::uint32_t level)
+{
+    std::uint32_t const tier = level < 10 ? 75 : level < 20 ? 150 : level < 35 ? 225 : level < 50 ? 300 : level < 65 ? 375 : 450;
+    return std::min<std::uint32_t>(tier, 25 + 6 * level);
+}
+
+// Beyond level and quality: goods (anything but weapons and armour) stay within 5 item levels of the cap even with a
+// required level (a level 1 wine of item level 60), and nothing needs a profession rank the cap's level cannot have
+// (a level 1 upgrade kit for rank 300 smiths).
+inline bool LaunchAllowsGoods(LaunchCaps const& caps, bool gear, std::uint32_t itemLevel, std::uint32_t requiredSkillRank)
+{
+    std::uint32_t const cap = caps.front + caps.levelMargin;
+    if (!gear && itemLevel > cap + 5)
+        return false;
+    return requiredSkillRank <= LaunchSkillCap(cap);
+}
+
+// The most one item may cost while the front is under untilLevel: goldPerLevelSquared x front^2 gold, at least 1 gold
+// (front 1: 1 g, 10: 25 g, 20: 100 g, 40: 400 g at 0.25). 0 = no cap.
+inline std::uint64_t LaunchUnitPriceCap(std::uint32_t front, float goldPerLevelSquared, std::uint32_t untilLevel)
+{
+    if (goldPerLevelSquared <= 0.0f || front >= untilLevel)
+        return 0;
+    return std::max<std::uint64_t>(10000, std::uint64_t(double(goldPerLevelSquared) * front * front * 10000.0));
 }
 
 inline float LaunchStockFactor(float startStock, float progress)
@@ -386,6 +415,50 @@ inline std::uint32_t ClampPriceScale(std::uint32_t percent)
 inline std::uint64_t ScalePrice(std::uint64_t value, std::uint32_t percent)
 {
     return percent == 100 ? value : value / 100 * percent + value % 100 * percent / 100;
+}
+
+// A random bot's gold at its creation, upkeep and return to town, times BotStartGoldPercent (0 to 100; 0 = none).
+inline std::uint32_t ScaleBotGold(std::uint32_t copper, std::uint32_t percent)
+{
+    percent = std::min<std::uint32_t>(percent, 100);
+    return std::uint32_t(std::uint64_t(copper) * percent / 100);
+}
+
+// Bots' level gold (BotLevelGold): "level:copper,level:copper" -> level -> copper. Bad entries are skipped.
+inline std::map<std::uint32_t, std::uint32_t> ParseLevelGold(std::string const& text)
+{
+    std::map<std::uint32_t, std::uint32_t> table;
+    std::size_t start = 0;
+    while (start < text.size())
+    {
+        std::size_t const comma = text.find(',', start);
+        std::string const entry = text.substr(start, comma == std::string::npos ? std::string::npos : comma - start);
+        std::size_t const colon = entry.find(':');
+        if (colon != std::string::npos)
+        {
+            char* end = nullptr;
+            unsigned long const level = std::strtoul(entry.c_str(), &end, 10);
+            char* end2 = nullptr;
+            unsigned long long const copper = std::strtoull(entry.c_str() + colon + 1, &end2, 10);
+            if (end == entry.c_str() + colon && level > 1 && level <= 255 && copper && copper <= 2000000000ull)
+                table[std::uint32_t(level)] = std::uint32_t(copper);
+        }
+        if (comma == std::string::npos)
+            break;
+        start = comma + 1;
+    }
+    return table;
+}
+
+// What a bot gets on reaching newLevel: the level's gold when it is a real level-up (one level at a time, from play),
+// nothing for a bot set to a level at once (creation, randomisation): never a mass payment at start-up.
+inline std::uint32_t LevelGoldFor(std::map<std::uint32_t, std::uint32_t> const& table, std::uint32_t oldLevel,
+                                  std::uint32_t newLevel)
+{
+    if (newLevel != oldLevel + 1)
+        return 0;
+    auto const found = table.find(newLevel);
+    return found == table.end() ? 0 : found->second;
 }
 
 // Artisans' rare recipes: whether a bot knows a recipe found in the world, drawn once per bot and recipe (the same

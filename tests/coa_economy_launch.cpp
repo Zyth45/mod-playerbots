@@ -47,6 +47,16 @@ int main()
     caps.allowLegendary = true;
     assert(LaunchAllows(caps, 50, 60, 5));
 
+    // Goods within 5 item levels of the cap even with a required level; no profession rank out of reach.
+    caps.front = 1;
+    assert(LaunchAllowsGoods(caps, false, 4, 0) && !LaunchAllowsGoods(caps, false, 60, 0)); // a level 1 wine of item level 60
+    assert(LaunchAllowsGoods(caps, true, 60, 0));                                          // gear: its required level rules
+    assert(LaunchSkillCap(4) == 49 && LaunchSkillCap(15) == 115 && LaunchSkillCap(80) == 450);
+    assert(!LaunchAllowsGoods(caps, false, 0, 300) && LaunchAllowsGoods(caps, false, 4, 1)); // rank 300 kit; rank 1 kit
+    // One item's price: 1 g at front 1, 25 g at 10, none from 60 or when off.
+    assert(LaunchUnitPriceCap(1, 0.25f, 60) == 10000 && LaunchUnitPriceCap(10, 0.25f, 60) == 250000);
+    assert(LaunchUnitPriceCap(60, 0.25f, 60) == 0 && LaunchUnitPriceCap(10, 0.0f, 60) == 0);
+
     // Stock 10 % at the start to 100 % at max level; launch premium x2.5 fading to x1.
     assert(LaunchStockFactor(0.1f, 0.0f) == 0.1f && LaunchStockFactor(0.1f, 1.0f) == 1.0f);
     assert(LaunchPriceFactor(1.5f, 0.0f) == 2.5f && LaunchPriceFactor(1.5f, 1.0f) == 1.0f);

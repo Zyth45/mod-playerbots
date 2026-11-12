@@ -1435,8 +1435,9 @@ void AuctionHouseBot::AddNewAuctions(std::vector<Player*> AHBPlayers, FactionSpe
                     }
                 }
 
-                // CoA Economy: only what the realm's population could have reached (LaunchCurve)
-                if (!sCoaLaunchCurve->AllowsListing(*prototype))
+                // CoA Economy: only what the realm's population could have reached and could pay (LaunchCurve)
+                if (!sCoaLaunchCurve->AllowsListing(*prototype) ||
+                    !sCoaLaunchCurve->AllowsUnitPrice(GetHouseLowestBuyoutPerItem(prototype)))
                 {
                     batchCount++;
                     continue;

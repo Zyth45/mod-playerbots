@@ -100,6 +100,19 @@ int main()
     // Scaled down to half, a value still meets the vendor floor (FairPrice runs after the scale).
     assert(FairPrice(ScalePrice(100, 50), 0, 80, 0) == 100);
 
+    // Bots' starting gold: unchanged at 100, none at 0, never above 100 %.
+    assert(ScaleBotGold(500000, 100) == 500000 && ScaleBotGold(500000, 0) == 0 && ScaleBotGold(500000, 20) == 100000);
+    assert(ScaleBotGold(500000, 400) == 500000 && ScaleBotGold(4000000000u, 50) == 2000000000u);
+
+    // Bots' level gold: parsed, bad entries skipped; paid on a one-level step only.
+    {
+        auto const table = ParseLevelGold("10:10000, 20:50000,x:5,1:9,30:abc,40:300000");
+        assert(table.size() == 3 && table.at(10) == 10000 && table.at(20) == 50000 && table.at(40) == 300000);
+        assert(LevelGoldFor(table, 9, 10) == 10000 && LevelGoldFor(table, 10, 11) == 0);
+        assert(LevelGoldFor(table, 1, 10) == 0);   // set at level 10 at once: nothing
+        assert(ParseLevelGold("").empty());
+    }
+
     // Rare recipes: the same answer for the same bot and recipe, never at 0 %, always at 100 %, near the percent.
     assert(RareRecipeDrawn(42, 16729, 15) == RareRecipeDrawn(42, 16729, 15));
     assert(!RareRecipeDrawn(42, 16729, 0) && RareRecipeDrawn(42, 16729, 100));

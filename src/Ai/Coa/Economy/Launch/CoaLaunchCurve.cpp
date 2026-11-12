@@ -50,6 +50,8 @@ void LaunchCurve::LoadSettings()
     _allowLegendary = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.LaunchCurve.AllowLegendary", false);
     _startStock = std::clamp(CoaEconomy::Conf::Get<float>("AiPlayerbot.CoaEconomy.LaunchCurve.StartStockPercent", 10.0f) / 100.0f, 0.0f, 1.0f);
     _launchPremium = std::max(0.0f, CoaEconomy::Conf::Get<float>("AiPlayerbot.CoaEconomy.LaunchCurve.LaunchPremiumPercent", 150.0f) / 100.0f);
+    _unitPriceCapGold = std::max(0.0f, CoaEconomy::Conf::Get<float>("AiPlayerbot.CoaEconomy.LaunchCurve.UnitPriceCapGold", 0.25f));
+    _unitPriceCapUntilLevel = CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.LaunchCurve.UnitPriceCapUntilLevel", 60);
     // A changed setting is taken into account at the next survey.
     _timer = std::min(_timer, _refreshMs);
 }
@@ -145,7 +147,17 @@ bool LaunchCurve::AllowsListing(ItemTemplate const& proto) const
     caps.rareFromLevel = _rareFromLevel;
     caps.epicFromLevel = _epicFromLevel;
     caps.allowLegendary = _allowLegendary;
-    return CoaEconomyRules::LaunchAllows(caps, proto.RequiredLevel, proto.ItemLevel, proto.Quality);
+    bool const gear = proto.Class == ITEM_CLASS_WEAPON || proto.Class == ITEM_CLASS_ARMOR;
+    return CoaEconomyRules::LaunchAllows(caps, proto.RequiredLevel, proto.ItemLevel, proto.Quality) &&
+           CoaEconomyRules::LaunchAllowsGoods(caps, gear, proto.ItemLevel, proto.RequiredSkillRank);
+}
+
+bool LaunchCurve::AllowsUnitPrice(uint64 copper) const
+{
+    if (!_enabled)
+        return true;
+    uint64 const cap = CoaEconomyRules::LaunchUnitPriceCap(_frontLevel, _unitPriceCapGold, _unitPriceCapUntilLevel);
+    return !cap || copper <= cap;
 }
 
 float LaunchCurve::StockFactor() const
