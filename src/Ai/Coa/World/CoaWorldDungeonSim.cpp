@@ -175,7 +175,7 @@ namespace
     bool IsHumanPlayer(Player* player)
     {
         return player && player->IsInWorld() && !GET_PLAYERBOT_AI(player) && player->GetSession() &&
-               !player->GetSession()->IsBot();
+               !player->GetSession()->IsBot() && !CoaWorld::IsTestDriver(player);
     }
 
     class DungeonSimManager

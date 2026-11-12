@@ -142,7 +142,7 @@ TeamId Attacker(CityDef const& city) { return city.defender == TEAM_ALLIANCE ? T
 bool IsReal(Player* player)
 {
     return player && player->IsInWorld() && player->GetSession() && !player->GetSession()->IsBot() &&
-           !GET_PLAYERBOT_AI(player);
+           !GET_PLAYERBOT_AI(player) && !CoaWorld::IsTestDriver(player);
 }
 
 bool French(Player* player)

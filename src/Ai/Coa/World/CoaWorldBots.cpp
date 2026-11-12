@@ -9,6 +9,7 @@
 #include "CoaLive.h"
 #include "WorldSession.h"
 
+#include "Config.h"
 #include "Map.h"
 #include "MapMgr.h"
 #include "MotionMaster.h"
@@ -21,6 +22,7 @@
 #include "RandomPlayerbotMgr.h"
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <unordered_map>
 #include <unordered_set>
@@ -353,6 +355,19 @@ namespace CoaWorld
     }
 
     bool BotChatOn() { return CoaLive::ChatOn(); }
+
+    bool IsTestDriver(Player* player)
+    {
+        // Read once (the name of a character is enough: unique on the realm, no database query from a map thread).
+        static std::string const driver =
+            sConfigMgr->GetOption<std::string>("DungeonClear.TestRun.DriverCharacter", "Dcdriver", false);
+        if (!player || driver.empty())
+            return false;
+        std::string const& name = player->GetName();
+        return name.size() == driver.size() &&
+               std::equal(name.begin(), name.end(), driver.begin(),
+                          [](char a, char b) { return std::tolower(uint8(a)) == std::tolower(uint8(b)); });
+    }
 
     bool BotsFrench()
     {

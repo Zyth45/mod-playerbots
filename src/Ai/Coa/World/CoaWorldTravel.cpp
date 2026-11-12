@@ -126,7 +126,7 @@ namespace
     bool IsHumanPlayer(Player* player)
     {
         return player && player->IsInWorld() && !GET_PLAYERBOT_AI(player) && player->GetSession() &&
-               !player->GetSession()->IsBot();
+               !player->GetSession()->IsBot() && !CoaWorld::IsTestDriver(player);
     }
 
     bool HumanNear(uint32 mapId, Position const& pos, float range)

@@ -14,6 +14,7 @@
  */
 
 #include "CoaWorldGuildPresence.h"
+#include "CoaWorldBots.h"
 
 #include "Config.h"
 #include "DatabaseEnv.h"
@@ -48,7 +49,7 @@ std::unordered_map<uint32, GuildBots> g_guilds;  // guilds with a real member on
 
 bool IsHuman(Player* player)
 {
-    return player && player->GetSession() && !player->GetSession()->IsBot() && !GET_PLAYERBOT_AI(player);
+    return player && player->GetSession() && !player->GetSession()->IsBot() && !GET_PLAYERBOT_AI(player) && !CoaWorld::IsTestDriver(player);
 }
 
 void Refresh()

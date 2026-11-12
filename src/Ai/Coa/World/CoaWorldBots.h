@@ -122,6 +122,9 @@ namespace CoaWorld
     // The bots' chat is on (AiPlayerbot.CoaLive.Chat.Enable, the launcher's "Bot chat"): the lines CoA World writes
     // itself are said only then; the actions around them (events, mails) go on either way.
     bool BotChatOn();
+    // Dungeon Clear's test-run driver (DungeonClear.TestRun.DriverCharacter, "Dcdriver"): a player session that is
+    // not a person (level 1, always GM, invisible). Never counted as a real player here.
+    bool IsTestDriver(Player* player);
     inline char const* Tr(char const* en, char const* fr) { return BotsFrench() ? fr : en; }
     // The invader of an event in the reader's language (IA MIND's %event, never at the start of a line).
     std::string EventName(Player* reader, std::string const& key);

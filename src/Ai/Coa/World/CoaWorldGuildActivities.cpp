@@ -74,7 +74,7 @@ char const* const KINDS[] = { "gather", "party5", "raid10", "raid15", "raid25" }
 
 bool IsHuman(Player* player)
 {
-    return player && player->GetSession() && !player->GetSession()->IsBot() && !GET_PLAYERBOT_AI(player);
+    return player && player->GetSession() && !player->GetSession()->IsBot() && !GET_PLAYERBOT_AI(player) && !CoaWorld::IsTestDriver(player);
 }
 
 uint32 FreeGuildBots(Player* player)

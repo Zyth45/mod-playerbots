@@ -230,7 +230,7 @@ namespace
     // LAPTOP-mini gave gear to bots, by mail to online bots).
     bool IsHuman(Player* player)
     {
-        return player && player->GetSession() && !player->GetSession()->IsBot() && !GET_PLAYERBOT_AI(player);
+        return player && player->GetSession() && !player->GetSession()->IsBot() && !GET_PLAYERBOT_AI(player) && !CoaWorld::IsTestDriver(player);
     }
 
     bool IsRandomBot(Player* player)
