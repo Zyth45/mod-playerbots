@@ -106,8 +106,8 @@ void ReadCharacters(std::unordered_set<uint32> const& humanAccounts, QueryResult
     }
 }
 
-// Human accounts (CoaFreshStart::HumanAccount): entered through the login server once, no GM rights, not a random bot
-// account, not a service account (AHBOT, DCDRIVER...); then the levels.
+// Human accounts (CoaFreshStart::HumanAccount): entered through the login server once, not a random bot account, not
+// a service account (AHBOT, DCDRIVER...), GM accounts too unless CountGameMasters = 0; then the levels.
 void StartSurvey()
 {
     surveying = true;
@@ -127,7 +127,8 @@ void StartSurvey()
                     uint32 const id = f[0].Get<uint32>();
                     if (!sPlayerbotAIConfig.IsInRandomAccountList(id) &&
                         CoaFreshStart::HumanAccount(f[1].Get<std::string>(), f[2].Get<uint64>() != 0, f[3].Get<uint64>() != 0,
-                                                    prefix, sPlayerbotAIConfig.coaCatchUpServiceAccounts))
+                                                    prefix, sPlayerbotAIConfig.coaCatchUpServiceAccounts,
+                                                    sPlayerbotAIConfig.coaCatchUpCountGameMasters))
                         human.insert(id);
                 } while (accounts->NextRow());
             }

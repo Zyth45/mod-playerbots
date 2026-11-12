@@ -75,8 +75,13 @@ int main()
     assert(!HumanAccount("DCDRIVER", false, false, "rndlv", service));    // never through the login server
     assert(!HumanAccount("DCDRIVER", true, false, "rndlv", service));     // and named a service account anyway
     assert(!HumanAccount("RNDLV154", true, false, "rndlv", service));     // a random bot account
-    assert(!HumanAccount("SQUID", true, true, "rndlv", service));         // a GM
+    assert(!HumanAccount("SQUID", true, true, "rndlv", service, false));  // a GM, CountGameMasters = 0
     assert(HumanAccount("SQUID", true, false, "rndlv", service));
+    // A solo server: the player plays the repack's GM account LOCAL (CountGameMasters = 1, the default), one
+    // character played to level 12: one human, the front at 12.
+    assert(HumanAccount("LOCAL", true, true, "rndlv", service));
+    assert(!HumanAccount("AHBOT", true, true, "rndlv", service) && !HumanAccount("RNDLV1", true, true, "rndlv", service));
+    assert(PlayedCharacter(false, 7200, since + 10, since) && MedianFront({12}, 1) == 12);
     assert(HumanAccount("SQUID", true, false, "", {}));
     // A realm with only the seller: no human, no front, no bonus.
     assert(MedianFront({}, 1) == 0 && CatchUpPercent(1, MedianFront({}, 1), s) == 100);
