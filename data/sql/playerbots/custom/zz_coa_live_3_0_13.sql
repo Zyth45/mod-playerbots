@@ -1,10 +1,10 @@
 -- CoA 3.0 LIVE : phrases et émotes des bots par situation (règles), écrites à la main, aucun LLM.
 -- Version 3_0_13. Fichier publié = jamais modifié ; la version suivante va dans un NOUVEAU fichier zz_coa_live_<version>.sql
 -- qui refait son propre DELETE + INSERT. À placer dans data/sql/playerbots/custom/ (réappliqué par le DBUpdater).
--- Généré par live/banque_live.py (D:\CoA-IALLM) : modifier le script, pas ce fichier. Spéc : BANQUE-LIVE-3.0.md.
+-- Fichier généré : ne pas le modifier à la main.
 -- Base acore_playerbots. Rejouable : crée nos tables si absentes, puis remplace leur seul contenu.
 -- Ne touche à aucune autre table (ni ai_playerbot_texts, ni la banque 2.7/2.8).
--- Règles seules : trade_craft_lfw passe à 100 % (CoA Economie, CraftOrders.AdvertiseMinutes donne le rythme) ; les phrases ne changent pas.
+-- Règles seules : trade_craft_lfw passe à 100 % (CraftOrders.AdvertiseMinutes donne le rythme) ; les phrases ne changent pas.
 
 CREATE TABLE IF NOT EXISTS `playerbots_coa_live_lines` (
   `id`         INT UNSIGNED      NOT NULL AUTO_INCREMENT,
