@@ -243,10 +243,39 @@ private:
                 continue;
             }
             Sign(bot, sign.petition);
-            // A word at every signature, offered or asked aloud: the owner hears who signed, a few seconds apart.
-            Line(bot, "charter_sign", slots, { "signed, good luck {}", "sure, signed", "there you go", "signed! gl with the guild" },
-                 { "sign\u00e9, bonne chance {}", "ok, sign\u00e9", "voil\u00e0", "sign\u00e9 ! bonne chance avec la guilde" });
+            SignedLine(bot, sign.petition, slots);
         }
+    }
+
+    // A word at every signature, offered or asked aloud, never the same twice on one charter. IA MIND's
+    // charter_signed first (its rule paces it; the bank's no-repeat ring keeps its lines apart in one zone), else a
+    // line of this list not said yet on this charter (none of them is in the bank, so no line comes twice).
+    void SignedLine(Player* bot, ObjectGuid petition, Slots const& slots)
+    {
+        PlayerbotAI* botAI = GET_PLAYERBOT_AI(bot);
+        if (!botAI || BotLine(bot, "charter_signed", slots) || !BotChatOn())
+            return;
+        static std::vector<char const*> const en = { "happy to help, signed", "count me in, signed", "signed it for you",
+            "added my name", "there, my name's on it", "one more name for you", "signed, good timing",
+            "sure thing, signed it", "signed, welcome to guild life", "my name's down, gl" };
+        static std::vector<char const*> const fr = { "avec plaisir, sign\u00e9", "compte sur moi, sign\u00e9",
+            "je te l'ai sign\u00e9e", "j'ai mis mon nom", "mon nom est dessus", "un nom de plus pour toi",
+            "sign\u00e9, pile au bon moment", "pas de probl\u00e8me, je signe", "sign\u00e9, bienvenue dans la vie de guilde",
+            "mon nom y est, bonne chance" };
+        auto const& pool = BotsFrench() ? fr : en;
+        if (_saidOn.size() > 64)
+            _saidOn.clear();
+        std::vector<bool>& said = _saidOn[petition];
+        said.resize(pool.size());
+        std::vector<size_t> left;
+        for (size_t i = 0; i < pool.size(); ++i)
+            if (!said[i])
+                left.push_back(i);
+        if (left.empty())
+            return;
+        size_t const pick = left[urand(0, left.size() - 1)];
+        said[pick] = true;
+        botAI->Say(pool[pick]);
     }
 
     // The guild masters' entries (npcflag petitioner), found once.
@@ -416,6 +445,7 @@ private:
     std::vector<PendingSign> _pending;
     std::unordered_map<uint32, time_t> _asked;    // real player -> last ask aloud
     std::unordered_map<uint32, time_t> _offered;  // real player -> last bot offer
+    std::unordered_map<ObjectGuid, std::vector<bool>> _saidOn;  // charter -> fallback lines said on it (world thread)
     BotCharter _charters[2];
     time_t _next[2] = { 0, 0 };
     std::vector<uint32> _petitioners;
