@@ -155,6 +155,36 @@ int main()
     subj = WhereSubjects(NormalizeWhisper("ou est la forge"), ou);
     assert((subj == std::vector<std::string>{"forge"}));
 
+    // A Trade announce of the bot (WTS item 2589): only a clear yes buys it.
+    Bank ob;
+    ob.AddIntent(0, 25, "craft", "can you make,craft,crafter,make me");
+    ob.AddIntent(0, 40, "trade", "wts,wtb,buy,sell,selling,buying,price,how much");
+    ob.AddIntent(0, 50, "where", "where,how do i get");
+    ob.AddIntent(0, 70, "hello", "hi,hey,hello");
+    auto buys = [&ob](std::string const& said)
+    {
+        std::string const n = NormalizeWhisper(said);
+        return AcceptsOffer(Classify(n, ob.IntentsOf(0)), n, said, 2589);
+    };
+    assert(!buys("looking for a guild ?"));
+    assert(!buys("where is stormwind ?"));
+    assert(!buys("what level are you ?"));
+    assert(!buys("lol"));
+    assert(!buys("need help with a quest"));
+    assert(!buys("|cffffffff|hitem:2590:0:0:0:0:0:0:0:0|h[linen cloth]|h|r ?"));  // another item
+    assert(buys("wts? i'll take it"));
+    assert(buys("|cffffffff|hitem:2589:0:0:0:0:0:0:0:0|h[linen cloth]|h|r"));
+    assert(buys("how much ? sure send it"));
+    assert(buys("ok envoie") && buys("oui je prends") && buys("deal"));
+
+    // "looking for a guild?": the answer matches what an invite would do.
+    assert(GuildAnswer(true, true) == "wh_guild_has" && GuildAnswer(true, false) == "wh_guild_has");
+    assert(GuildAnswer(false, true) == "wh_guild_free");
+    assert(GuildAnswer(false, false) == "wh_guild_neutral");
+    ob.AddIntent(0, 15, "guild", "guild,looking for a guild,want to join,recruiting");
+    assert(Classify(NormalizeWhisper("looking for a guild ?"), ob.IntentsOf(0)) == "guild");
+    assert(!buys("looking for a guild ?"));
+
     // Off, no whisper is ever taken: the 2.9.5 path (commands, free chat replies) stays exactly as it was.
     for (int mask = 0; mask < 8; ++mask)
         assert(!TakesWhisper(false, mask & 1, mask & 2, mask & 4));

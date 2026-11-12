@@ -1,6 +1,6 @@
 -- CoA 3.0: French texts of ai_playerbot_texts whose placeholders were translated or broken ("%Quête" for
 -- %quest_link, "%nom_de_l'instance", "%%victim_name"...): the bot said them as written. Each FR text gets back the
--- placeholders of its EN text. Found by a check of every FR text against its EN text (CoA SquidBot, 09/11/2026).
+-- placeholders of its EN text. Found by a check of every FR text against its EN text.
 -- Only these rows' text_loc2 change; nothing else.
 
 UPDATE `ai_playerbot_texts` SET `text_loc2` = 'Quête %quest_link acceptée dans %zone_name. Voyons ce que cela nous réserve !' WHERE `id` = 135;

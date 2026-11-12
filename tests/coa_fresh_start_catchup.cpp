@@ -65,7 +65,7 @@ int main()
     assert(!PlayedCharacter(false, 3600, since - 1, since));  // played, but before the active days
     assert(PlayedCharacter(false, 3600, since, since));
     assert(PlayedCharacter(true, 60, 0, since));              // a first session, saved once
-    // Whose accounts count: Malfurion, a living realm of the launcher with no player (12/11): LOCAL (GM), AHBOT (the
+    // Whose accounts count: Malfurion, a living realm of the launcher with no player: LOCAL (GM), AHBOT (the
     // seller) and DCDRIVER (the Dungeon Clear driver, level 1, played 900 s there) must give no human.
     std::vector<std::string> const service = ServiceAccounts("AHBOT, dcdriver");
     assert(service.size() == 2 && service[1] == "DCDRIVER");

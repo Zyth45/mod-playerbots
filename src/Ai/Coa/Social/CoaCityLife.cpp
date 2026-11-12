@@ -218,7 +218,7 @@ uint32 VisitMs(Player* bot, uint32 cityStayMs)
 
 void Leave(PlayerbotAI* botAI)
 {
-    // Off: no lock on every NPC left (Builder). A station held when it was turned off frees itself after HOLD_MS.
+    // Off: no lock on every NPC left. A station held when it was turned off frees itself after HOLD_MS.
     if (!Enabled() || !botAI)
         return;
     Player* bot = botAI->GetBot();

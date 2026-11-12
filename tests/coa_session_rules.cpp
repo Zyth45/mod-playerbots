@@ -5,7 +5,7 @@
 
 using namespace CoaSessions;
 
-// The bots online stay the bot count set (user, 09/11: "1000 bots = 1000 bots"): no hour curve is left, only the
+// The bots online stay the bot count set: no hour curve is left, only the
 // length of a bot's session and of its break while another one takes its place.
 int main()
 {

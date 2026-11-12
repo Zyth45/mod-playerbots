@@ -3431,7 +3431,7 @@ AiPlayerbot.CityDuels.OrgrimmarSpot = ""
 AiPlayerbot.CityDuels.StormwindSpot = ""
 
 ####################################################################################################
-#  CoA data files — shared by the CoA sessions (one copy only, kept by the Builder)
+#  CoA data files — shared by the CoA modules (one copy only)
 #
 #    AiPlayerbot.CoaDataDir
 #        Description: Folder for the JSON files the CoA Dashboard reads (world.json, economy.json, ...).
@@ -3651,7 +3651,7 @@ AiPlayerbot.CoaLive.TradeMessagesPerMinute = 1
 #                     updates, in the same order: the same talents in the end, without a 200 ms
 #                     pause of the world for each rebuild (each entry makes the core check the
 #                     whole Character Advancement again).
-#        Default:     2 - two entries now, the rest two a second (bench a15: 95 -> 10 ms a rebuild)
+#        Default:     2 - two entries now, the rest two a second (95 -> 10 ms a rebuild)
 #                     0 - all at once, as before
 
 AiPlayerbot.CoaLive.TalentsPerUpdate = 2

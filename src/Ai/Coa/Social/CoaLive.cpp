@@ -2033,7 +2033,8 @@ bool OnWhisper(Player* from, Player* to, std::string const& msg)
         return true;
 
     // An answer to the bot's own Trade announce: the deal is done for real (WTS: the item by mail, cash on
-    // delivery at the price said), or politely turned down (the item is gone; a WTB: "found one already").
+    // delivery at the price said), or politely turned down (the item is gone; a WTB: "found one already"). Only on a
+    // clear yes (AcceptsOffer): any other whisper gets the usual answer and the offer stays open.
     if (intent != "bot" && intent != "hello" && intent != "thanks")
     {
         Offer offer;
@@ -2041,7 +2042,8 @@ bool OnWhisper(Player* from, Player* to, std::string const& msg)
         {
             std::lock_guard<std::mutex> guard(liveLock);
             auto it = offers.find(to->GetGUID().GetRawValue());
-            if (it != offers.end() && it->second.expiresMs > GameTime::GetGameTimeMS().count())
+            if (it != offers.end() && it->second.expiresMs > GameTime::GetGameTimeMS().count() &&
+                AcceptsOffer(intent, normalized, lowered, it->second.itemId))
             {
                 offer = it->second;
                 live = true;
@@ -2077,6 +2079,13 @@ bool OnWhisper(Player* from, Player* to, std::string const& msg)
                           std::abs(int32(to->GetLevel()) - int32(from->GetLevel())) <= 5;
         situation = free ? "wh_group_yes" : "wh_group_no";
         invite = free;
+    }
+    if (intent == "guild")
+    {
+        // The same checks as a guild invite of this player (GuildAcceptAction): a "why not" is never a lie.
+        bool const wouldAccept = from->GetGuildId() &&
+                                 botAI->GetSecurity()->CheckLevelFor(PLAYERBOT_SECURITY_INVITE, true, from, true);
+        situation = GuildAnswer(to->GetGuildId() != 0, wouldAccept);
     }
     std::string place;
     if (intent == "where")

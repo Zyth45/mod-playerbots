@@ -58,7 +58,7 @@ bool AutoMaintenanceOnLevelupAction::Execute(Event /*event*/)
 
     AutoPickTalents();
 
-    // The rest of the maintenance cost 55 to 69 ms in one go (bench a15): spread, it runs a step a second on the bot's
+    // The rest of the maintenance cost 55 to 69 ms in one go: spread, it runs a step a second on the bot's
     // next updates, in the same order.
     if (sPlayerbotAIConfig.coaLiveMaintenanceSpread)
     {

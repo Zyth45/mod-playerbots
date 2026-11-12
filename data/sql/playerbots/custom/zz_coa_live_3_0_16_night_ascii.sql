@@ -1,5 +1,5 @@
 -- CoA Live 3_0_16 : correctif typographique de la banque de nuit (playerbots_coa_night_lines).
--- Rendu inoffensif le 12/11 (avant toute publication) : son UPDATE ... LIKE sur des littéraux binaires échouait
+-- Rendu inoffensif avant toute publication : son UPDATE ... LIKE sur des littéraux binaires échouait
 -- (ERROR 1267, mélange de collations) quand la connexion n'est pas en utf8mb4_0900_ai_ci, comme sur un repack 2.9.5.
 -- La 3_0_17_night, chargée juste après, recharge toute la source 1 déjà convertie en ASCII : ce correctif ne sert
 -- plus. Le fichier garde seulement la création de la table, sans aucune comparaison de texte. Rejouable.
