@@ -10,6 +10,7 @@
 
 #include "CoaAuctionHouseBot.h"
 #include "CoaEconomyData.h"
+#include "CoaLaunchCurve.h"
 #include "CoaEconomyRules.h"
 #include "CoaMarketPrices.h"
 #include "CoaRealPrices.h"
@@ -262,6 +263,9 @@ std::vector<Recipe> KnownRecipes(Player* bot)
         // Nothing CoA does not have (Netherweave bandages), no ammunition, no vendor good.
         ItemTemplate const* product = sObjectMgr->GetItemTemplate(itemId);
         if (!itemId || !IsTradable(product) || !Sellable::BotMayList(product, true))
+            continue;
+        // A new realm's launch curve holds for artisans too: no epic kit made at Enchanting 1 on its first day.
+        if (!sCoaLaunchCurve->AllowsListing(*product))
             continue;
         uint32 const skillId = ProfessionOf(spellId);
         if (!skillId)
