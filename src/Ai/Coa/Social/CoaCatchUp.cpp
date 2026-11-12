@@ -69,7 +69,8 @@ void ReadCharacters(std::unordered_set<uint32> const& humanAccounts, QueryResult
             Field* f = result->Fetch();
             uint32 const account = f[0].Get<uint32>();
             uint32 const level = std::min<uint32>(f[1].Get<uint8>(), MAX_LEVEL_SEEN);
-            bool const active = f[2].Get<uint8>() || int64(f[3].Get<uint32>()) >= since;
+            bool const active =
+                CoaFreshStart::PlayedCharacter(f[2].Get<uint8>(), f[4].Get<uint32>(), int64(f[3].Get<uint32>()), since);
             if (humanAccounts.count(account))
             {
                 if (active)
@@ -105,32 +106,33 @@ void ReadCharacters(std::unordered_set<uint32> const& humanAccounts, QueryResult
     }
 }
 
-// Human accounts: not a bot account (the random bot prefix, the auction house), no GM rights; then the levels.
+// Human accounts (CoaFreshStart::HumanAccount): entered through the login server once, no GM rights, not a random bot
+// account, not a service account (AHBOT, DCDRIVER...); then the levels.
 void StartSurvey()
 {
     surveying = true;
-    std::string prefix = sPlayerbotAIConfig.randomBotAccountPrefix;
-    prefix.erase(std::remove_if(prefix.begin(), prefix.end(), [](char c) { return !std::isalnum(uint8(c)); }),
-                 prefix.end());
-    std::string const query = Acore::StringFormat(
-        "SELECT a.id FROM account a WHERE a.username NOT LIKE '{}%' AND a.username <> 'AHBOT' AND NOT EXISTS "
-        "(SELECT 1 FROM account_access aa WHERE aa.id = a.id AND aa.gmlevel > 0)",
-        prefix.empty() ? std::string("rndbot") : prefix);
-    callbacks.AddCallback(LoginDatabase.AsyncQuery(query).WithCallback(
+    callbacks.AddCallback(LoginDatabase.AsyncQuery(
+        "SELECT a.id, a.username, CAST(a.last_login IS NOT NULL AS UNSIGNED), CAST(EXISTS (SELECT 1 FROM account_access "
+        "aa WHERE aa.id = a.id AND aa.gmlevel > 0) AS UNSIGNED) FROM account a").WithCallback(
         [](QueryResult accounts)
         {
+            std::string const prefix =
+                sPlayerbotAIConfig.randomBotAccountPrefix.empty() ? "rndbot" : sPlayerbotAIConfig.randomBotAccountPrefix;
             std::unordered_set<uint32> human;
             if (accounts)
             {
                 do
                 {
-                    uint32 const id = accounts->Fetch()[0].Get<uint32>();
-                    if (!sPlayerbotAIConfig.IsInRandomAccountList(id))
+                    Field* f = accounts->Fetch();
+                    uint32 const id = f[0].Get<uint32>();
+                    if (!sPlayerbotAIConfig.IsInRandomAccountList(id) &&
+                        CoaFreshStart::HumanAccount(f[1].Get<std::string>(), f[2].Get<uint64>() != 0, f[3].Get<uint64>() != 0,
+                                                    prefix, sPlayerbotAIConfig.coaCatchUpServiceAccounts))
                         human.insert(id);
                 } while (accounts->NextRow());
             }
             callbacks.AddCallback(
-                CharacterDatabase.AsyncQuery("SELECT account, level, online, logout_time FROM characters WHERE deleteDate IS NULL")
+                CharacterDatabase.AsyncQuery("SELECT account, level, online, logout_time, totaltime FROM characters WHERE deleteDate IS NULL")
                     .WithCallback([human = std::move(human)](QueryResult levels) { ReadCharacters(human, std::move(levels)); }));
         }));
 }

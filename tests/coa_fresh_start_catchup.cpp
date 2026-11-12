@@ -56,5 +56,29 @@ int main()
     assert(LevelAtPercentile(h, 10) == 10 && LevelAtPercentile(h, 50) == 10 && LevelAtPercentile(h, 51) == 20);
     assert(LevelAtPercentile(h, 90) == 20 && LevelAtPercentile(h, 100) == 60);
     assert(LevelAtPercentile(std::vector<uint32_t>(61, 0), 50) == 0);
+
+    // Who counts for the front: a character really played within the active days.
+    int64_t const since = 1000000;
+    assert(!PlayedCharacter(false, 0, 0, since));             // never entered (the auction house seller, level 80)
+    assert(!PlayedCharacter(true, 0, 0, since));              // held online by a tool, never played
+    assert(!PlayedCharacter(false, 0, since + 50, since));    // a logout date but no play time
+    assert(!PlayedCharacter(false, 3600, since - 1, since));  // played, but before the active days
+    assert(PlayedCharacter(false, 3600, since, since));
+    assert(PlayedCharacter(true, 60, 0, since));              // a first session, saved once
+    // Whose accounts count: Malfurion, a living realm of the launcher with no player (12/11): LOCAL (GM), AHBOT (the
+    // seller) and DCDRIVER (the Dungeon Clear driver, level 1, played 900 s there) must give no human.
+    std::vector<std::string> const service = ServiceAccounts("AHBOT, dcdriver");
+    assert(service.size() == 2 && service[1] == "DCDRIVER");
+    assert(ServiceAccounts("").empty() && ServiceAccounts(" , ").empty());
+    assert(!HumanAccount("LOCAL", false, true, "rndlv", service));
+    assert(!HumanAccount("AHBOT", false, false, "rndlv", service));
+    assert(!HumanAccount("DCDRIVER", false, false, "rndlv", service));    // never through the login server
+    assert(!HumanAccount("DCDRIVER", true, false, "rndlv", service));     // and named a service account anyway
+    assert(!HumanAccount("RNDLV154", true, false, "rndlv", service));     // a random bot account
+    assert(!HumanAccount("SQUID", true, true, "rndlv", service));         // a GM
+    assert(HumanAccount("SQUID", true, false, "rndlv", service));
+    assert(HumanAccount("SQUID", true, false, "", {}));
+    // A realm with only the seller: no human, no front, no bonus.
+    assert(MedianFront({}, 1) == 0 && CatchUpPercent(1, MedianFront({}, 1), s) == 100);
     return 0;
 }

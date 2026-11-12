@@ -703,6 +703,7 @@ public:
     uint32 coaCatchUpMinHumans;     // AiPlayerbot.CoaFreshStart.CatchUp.MinHumans
     float coaCatchUpMaxTotalRate;   // AiPlayerbot.CoaFreshStart.CatchUp.MaxTotalRate (0: no cap)
     uint32 coaCatchUpActiveDays;    // AiPlayerbot.CoaFreshStart.CatchUp.ActiveDays
+    std::vector<std::string> coaCatchUpServiceAccounts;  // AiPlayerbot.CoaFreshStart.CatchUp.ServiceAccounts (upper case)
     bool coaLiveImmersionEnable;
     uint32 coaLiveImmersionFishingPerThousand;  // AiPlayerbot.CoaLive.Immersion.FishingPerThousand  // AiPlayerbot.CoaLive.Immersion.Enable (L2 fishing)
     bool coaLiveCleanWorldEnable;  // AiPlayerbot.CoaLive.CleanWorld.Enable

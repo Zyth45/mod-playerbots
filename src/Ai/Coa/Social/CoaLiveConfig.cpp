@@ -9,6 +9,7 @@
 
 #include "PlayerbotAIConfig.h"
 
+#include "CoaFreshStartRules.h"
 #include "CoaSurnameRules.h"
 #include "Config.h"
 #include "Log.h"
@@ -74,6 +75,14 @@ void PlayerbotAIConfig::LoadCoaLiveConfig()
         std::clamp(sConfigMgr->GetOption<float>("AiPlayerbot.CoaFreshStart.CatchUp.MaxTotalRate", 6.0f), 0.0f, 20.0f);
     coaCatchUpActiveDays =
         std::clamp<uint32>(sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaFreshStart.CatchUp.ActiveDays", 7), 1, 90);
+    coaCatchUpServiceAccounts = CoaFreshStart::ServiceAccounts(
+        sConfigMgr->GetOption<std::string>("AiPlayerbot.CoaFreshStart.CatchUp.ServiceAccounts", "AHBOT,DCDRIVER"));
+    // The Dungeon Clear driver under another name (mod-dungeon-clear, DungeonClear.TestRun.DriverAccount).
+    for (std::string const& driver : CoaFreshStart::ServiceAccounts(
+             sConfigMgr->GetOption<std::string>("DungeonClear.TestRun.DriverAccount", "dcdriver", false)))
+        if (std::find(coaCatchUpServiceAccounts.begin(), coaCatchUpServiceAccounts.end(), driver) ==
+            coaCatchUpServiceAccounts.end())
+            coaCatchUpServiceAccounts.push_back(driver);
     coaSoulEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaSoul.Enable", true);
     coaPetsAutoBooks = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaPets.AutoBooks", false);
     coaSoulAddon = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaSoul.Addon", true);
