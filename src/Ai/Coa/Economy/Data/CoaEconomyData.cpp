@@ -9,6 +9,9 @@
 #include "CoaEconomyConf.h"
 
 #include "AsyncCallbackProcessor.h"
+#include "CoaArtisans.h"
+#include "CoaBotAuctions.h"
+#include "CoaCraftOrders.h"
 #include "AuctionHouseMgr.h"
 #include "CoaMarketPrices.h"
 #include "Config.h"
@@ -380,6 +383,16 @@ namespace
             out += std::to_string(_lastBuildUs);
             out += ",\"server_start\":";
             out += std::to_string(uint64(GameTime::GetStartTime().count()));
+            // What is on, so that an empty list reads "none yet", not "off".
+            out += ",\"features\":{\"market\":";
+            out += sCoaMarketPrices->IsEnabled() ? "true" : "false";
+            out += ",\"bot_auctions\":";
+            out += BotAuctions::IsEnabled() ? "true" : "false";
+            out += ",\"artisans\":";
+            out += Artisans::IsEnabled() ? "true" : "false";
+            out += ",\"craft_orders\":";
+            out += CraftOrders::IsEnabled() ? "true" : "false";
+            out += "}";
             out += ",\"module\":null,\"data\":{\"auctions\":";
             out += std::to_string(auctions);
             out += ",\"gold_circulating\":";
