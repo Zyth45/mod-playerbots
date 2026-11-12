@@ -2349,7 +2349,7 @@ void RandomPlayerbotMgr::RandomTeleport(Player* bot, std::vector<WorldLocation>&
             continue;
 
         // CoA: the zone, area, water and ground of a location never change, but each lookup loaded the map cell from
-        // disk when no one stood there (up to 128 ms a call, bench a10). Read once per location, then remembered.
+        // disk when no one stood there (up to 128 ms a call). Read once per location, then remembered.
         TeleportSpot const spot = SpotOf(map, bot, x, y, z);
         AreaTableEntry const* zone = sAreaTableStore.LookupEntry(spot.zoneId);
         if (!zone)

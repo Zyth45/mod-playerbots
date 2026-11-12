@@ -14,7 +14,7 @@
 
 // CoA Live sessions (AiPlayerbot.CoaLive.Sessions.Enable): random bots come and go like players. Each bot stays for
 // a session of a believable length (many short ones, some long evenings), then another takes its place: the bots
-// online stay the bot count set (user, 09/11: "1000 bots = 1000 bots"). Pure rules, tested alone.
+// online stay the bot count set. Pure rules, tested alone.
 namespace CoaSessions
 {
 // A session in the world, in seconds: 45 % short (15-60 min), 35 % an evening (1-2.5 h), 15 % long (2.5-5 h), 5 % a

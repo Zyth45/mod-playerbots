@@ -89,7 +89,7 @@ void PlayerbotAIConfig::LoadCoaLiveConfig()
     coaSoulAddon = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaSoul.Addon", true);
     coaSoulWeights = sConfigMgr->GetOption<std::string>("AiPlayerbot.CoaSoul.Weights", "20,40,20,10,10");
     coaLiveDataFileEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaLive.DataFile.Enable", true);
-    // Shared with the other sessions' data files (the Builder adds them to the .dist once).
+    // Shared with the other CoA data files (in the .dist once).
     coaLiveDataDir = sConfigMgr->GetOption<std::string>("AiPlayerbot.CoaDataDir", "", false);
     coaLiveDataFiles = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaDataFiles", true, false);
     {

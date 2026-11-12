@@ -202,7 +202,7 @@ uint32 OpenLootAction::GetOpeningSpell(LootObject& lootObject, GameObject* go)
     }
 
     // CoA: the whole spell store (over 700,000 ids with the CoA spells) was walked on every chest no known spell
-    // opens: up to 96 ms a call (bench a15). CanOpenLock refuses any spell whose first effect opens no lock, so only
+    // opens: up to 96 ms a call. CanOpenLock refuses any spell whose first effect opens no lock, so only
     // those are kept, once, in the same ascending order: the same spell is found.
     static std::vector<uint32> const openers = []()
     {

@@ -2046,7 +2046,7 @@ uint32 PlayerbotFactory::InitTalentsTree(bool increment /*false*/, bool use_temp
 
     // A Warcraft Reborn character takes the Character Advancement build of its tree instead.
     // A player's own character (an alt brought in by "add") keeps the build its owner made: only a random or an
-    // addclass bot takes the guide build (Matias' mage lost his talents at an alt login, 11/11).
+    // addclass bot takes the guide build (an alt's talents were lost at its login).
     if (IsRebornBot(bot))
     {
         if (WcrGuideMayRewrite(sRandomPlayerbotMgr.IsRandomBot(bot), sRandomPlayerbotMgr.IsAddclassBot(bot)))

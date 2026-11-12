@@ -34,8 +34,8 @@ inline bool MayStartFishing(BotView const& b)
            b.idleStatus && b.knowsFishing;
 }
 
-// Room for one more at the water: at most perThousand of the random bots online fish at once (user, 09/11: 45 for
-// 1000 was a lot, 20 to 30 is right). At least one when any bot is online and perThousand is not 0.
+// Room for one more at the water: at most perThousand of the random bots online fish at once (45 for
+// 1000 is a lot, 20 to 30 looks right). At least one when any bot is online and perThousand is not 0.
 inline bool FishingRoom(uint32_t fishing, uint32_t online, uint32_t perThousand)
 {
     if (!perThousand || !online)
