@@ -402,6 +402,26 @@ inline std::string Classify(std::string const& normalized, std::vector<Intent> c
     return "fallback";
 }
 
+// A whisper that says yes to the bot's own Trade announce (WTS: the item goes by mail, cash on delivery): only a
+// clear answer. A trade or craft intent ("wts", "how much"), a link of the offered item, or a word of agreement.
+// Anything else ("looking for a guild?", "lol") is answered as any whisper and the offer stays open.
+// normalized: NormalizeWhisper; lowered: the whisper in lower case, item links kept ("|hitem:<id>:").
+inline bool AcceptsOffer(std::string const& intent, std::string const& normalized, std::string const& lowered,
+                         uint32_t itemId)
+{
+    if (intent == "trade" || intent == "craft")
+        return true;
+    if (itemId && lowered.find("|hitem:" + std::to_string(itemId) + ":") != std::string::npos)
+        return true;
+    static char const* const yes[] = {" yes ", " yep ", " yeah ", " sure ", " ok ", " okay ", " deal ", " take it ",
+                                      " send it ", " cod ", " oui ", " ouais ", " je prends ", " je le prends ",
+                                      " envoie ", " d accord ", " dac "};
+    for (char const* word : yes)
+        if (normalized.find(word) != std::string::npos)
+            return true;
+    return false;
+}
+
 // "where is goldshire?": the words asked about after the "where" keyword that matched (padded " where "), longest
 // first, at most four words, leading little words left out ("is the", "est le"...). Empty when nothing follows.
 inline std::vector<std::string> WhereSubjects(std::string const& normalized, std::vector<std::string> const& keywords)
