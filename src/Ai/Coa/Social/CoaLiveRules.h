@@ -422,6 +422,16 @@ inline bool AcceptsOffer(std::string const& intent, std::string const& normalize
     return false;
 }
 
+// A whisper about guilds ("looking for a guild?", "want to join?"): the answer says what the bot would really do.
+// In a guild: "already in one". Free, and a guild invite from this player would be accepted (the player is in a
+// guild, the bot's invite rules let it): "why not, send an invite". Free but it would decline: a neutral line.
+inline std::string GuildAnswer(bool botInGuild, bool wouldAccept)
+{
+    if (botInGuild)
+        return "wh_guild_has";
+    return wouldAccept ? "wh_guild_free" : "wh_guild_neutral";
+}
+
 // "where is goldshire?": the words asked about after the "where" keyword that matched (padded " where "), longest
 // first, at most four words, leading little words left out ("is the", "est le"...). Empty when nothing follows.
 inline std::vector<std::string> WhereSubjects(std::string const& normalized, std::vector<std::string> const& keywords)

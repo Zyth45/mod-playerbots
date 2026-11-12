@@ -2080,6 +2080,13 @@ bool OnWhisper(Player* from, Player* to, std::string const& msg)
         situation = free ? "wh_group_yes" : "wh_group_no";
         invite = free;
     }
+    if (intent == "guild")
+    {
+        // The same checks as a guild invite of this player (GuildAcceptAction): a "why not" is never a lie.
+        bool const wouldAccept = from->GetGuildId() &&
+                                 botAI->GetSecurity()->CheckLevelFor(PLAYERBOT_SECURITY_INVITE, true, from, true);
+        situation = GuildAnswer(to->GetGuildId() != 0, wouldAccept);
+    }
     std::string place;
     if (intent == "where")
     {

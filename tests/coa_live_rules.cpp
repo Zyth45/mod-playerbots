@@ -177,6 +177,14 @@ int main()
     assert(buys("how much ? sure send it"));
     assert(buys("ok envoie") && buys("oui je prends") && buys("deal"));
 
+    // "looking for a guild?": the answer matches what an invite would do.
+    assert(GuildAnswer(true, true) == "wh_guild_has" && GuildAnswer(true, false) == "wh_guild_has");
+    assert(GuildAnswer(false, true) == "wh_guild_free");
+    assert(GuildAnswer(false, false) == "wh_guild_neutral");
+    ob.AddIntent(0, 15, "guild", "guild,looking for a guild,want to join,recruiting");
+    assert(Classify(NormalizeWhisper("looking for a guild ?"), ob.IntentsOf(0)) == "guild");
+    assert(!buys("looking for a guild ?"));
+
     // Off, no whisper is ever taken: the 2.9.5 path (commands, free chat replies) stays exactly as it was.
     for (int mask = 0; mask < 8; ++mask)
         assert(!TakesWhisper(false, mask & 1, mask & 2, mask & 4));
