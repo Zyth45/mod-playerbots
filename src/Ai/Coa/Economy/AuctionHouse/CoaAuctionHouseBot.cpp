@@ -2482,10 +2482,12 @@ bool AuctionHouseBot::EnsureAutoCharacter()
         return false;
     }
 
+    // Level 1: selling needs no level, and a level 80 character on a new realm would count as its first 80 wherever
+    // characters are read by level (Pilote, 12/11). An existing auction character is left as it is.
     ObjectGuid::LowType guid = sObjectMgr->GetGenerator<HighGuid::Player>().Generate();
     CharacterDatabase.DirectExecute("INSERT INTO `characters` (`guid`, `account`, `name`, `race`, `class`, `gender`, `level`, `taximask`, "
         "`innTriggerId`, `map`, `zone`, `position_x`, `position_y`, `position_z`, `health`) "
-        "VALUES ({}, {}, '{}', 1, 1, 0, 80, '', 0, 0, 12, -8949.95, -132.493, 83.5312, 100)", guid, accountId, name);
+        "VALUES ({}, {}, '{}', 1, 1, 0, 1, '', 0, 0, 12, -8949.95, -132.493, 83.5312, 100)", guid, accountId, name);
     LOG_INFO("module", "AuctionHouseBot: Created auction character '{}' (guid {}) on account '{}'", name, guid, AutoAccountName);
     return true;
 }
