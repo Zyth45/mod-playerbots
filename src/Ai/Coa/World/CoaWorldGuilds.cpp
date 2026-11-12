@@ -7,7 +7,7 @@
 /*
  * CoA World: guilds of bots that live.
  *
- *  - Balance: a new random-bot guild is only made for the side with fewer (idea of Coralis' fork,
+ *  - Balance: a new random-bot guild is only made for the side with fewer (idea of Coralis' mod-playerbots work,
  *    GPL-2.0; one call in PlayerbotGuildMgr::AssignToGuild).
  *  - Message of the day: a bot guild's leader changes it now and then (once a day at most).
  *  - Guild chat: a bot that reaches a round level (every 10, and each level from 55) or loots a rare

@@ -16,7 +16,7 @@
  * run and the real loot of the bosses they killed, rolled from the bosses' own loot tables at the
  * usual chances. One of them says a word about it.
  *
- * The idea of bots creating Dungeon Finder demand comes from Wilhelm8585's mod-playerbots fork
+ * The idea of bots creating Dungeon Finder demand comes from Wilhelm8585's mod-playerbots work
  * (GPL-2.0, autonomy v0.12); this is a different design, decided for CoA (simulated run, no queue,
  * no group object, no instance).
  *

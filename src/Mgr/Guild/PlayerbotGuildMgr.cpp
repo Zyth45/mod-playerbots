@@ -126,7 +126,7 @@ std::string PlayerbotGuildMgr::AssignToGuild(Player* player)
 
     if (count < sPlayerbotAIConfig.randomBotGuildCount)
     {
-        // --- CoA World (CoA Monde session) ---
+        // --- CoA World ---
         // Balanced generation (idea of Coralis, GPL-2.0): a new bot guild only for the side that has fewer.
         uint32 sideGuilds[2] = { 0, 0 };
         for (auto const& [id, cached] : _guildCache)
