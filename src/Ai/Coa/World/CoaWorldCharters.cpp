@@ -10,7 +10,7 @@
  *  1. A real player's charter: a random bot of its own without a guild that is offered the charter signs it after a
  *     few seconds, refuses now and then, with a word (PetitionSignAction asks CoaWorldCharterOffered). A player
  *     holding a charter who asks aloud for signatures ("sign", "charter"...) gets the guildless bots around to sign
- *     it, one after the other, each with a word, up to the count required. Always allowed, whatever the floor.
+ *     it, one after the other, up to the count required. Always allowed, whatever the floor.
  *  2. A bot's charter: now and then a free guildless bot in a capital walks to the guild master, buys a charter, has
  *     the guildless bots passing by sign it (rarely asks a real player near, once an hour per player at most) and
  *     founds its guild, a living bot guild.
@@ -243,39 +243,11 @@ private:
                 continue;
             }
             Sign(bot, sign.petition);
-            SignedLine(bot, sign.petition, slots);
+            // IA MIND's charter_signed: its rule decides who speaks (chance, pacing, a real player near) and the
+            // bank's no-repeat ring keeps one line from coming twice in a zone. Not allowed: the signer stays silent.
+            // The bank's lines follow the bots' language and AiPlayerbot.CoaLive.Chat.Enable.
+            BotLine(bot, "charter_signed", slots);
         }
-    }
-
-    // A word at every signature, offered or asked aloud, never the same twice on one charter. IA MIND's
-    // charter_signed first (its rule paces it; the bank's no-repeat ring keeps its lines apart in one zone), else a
-    // line of this list not said yet on this charter (none of them is in the bank, so no line comes twice).
-    void SignedLine(Player* bot, ObjectGuid petition, Slots const& slots)
-    {
-        PlayerbotAI* botAI = GET_PLAYERBOT_AI(bot);
-        if (!botAI || BotLine(bot, "charter_signed", slots) || !BotChatOn())
-            return;
-        static std::vector<char const*> const en = { "happy to help, signed", "count me in, signed", "signed it for you",
-            "added my name", "there, my name's on it", "one more name for you", "signed, good timing",
-            "sure thing, signed it", "signed, welcome to guild life", "my name's down, gl" };
-        static std::vector<char const*> const fr = { "avec plaisir, sign\u00e9", "compte sur moi, sign\u00e9",
-            "je te l'ai sign\u00e9e", "j'ai mis mon nom", "mon nom est dessus", "un nom de plus pour toi",
-            "sign\u00e9, pile au bon moment", "pas de probl\u00e8me, je signe", "sign\u00e9, bienvenue dans la vie de guilde",
-            "mon nom y est, bonne chance" };
-        auto const& pool = BotsFrench() ? fr : en;
-        if (_saidOn.size() > 64)
-            _saidOn.clear();
-        std::vector<bool>& said = _saidOn[petition];
-        said.resize(pool.size());
-        std::vector<size_t> left;
-        for (size_t i = 0; i < pool.size(); ++i)
-            if (!said[i])
-                left.push_back(i);
-        if (left.empty())
-            return;
-        size_t const pick = left[urand(0, left.size() - 1)];
-        said[pick] = true;
-        botAI->Say(pool[pick]);
     }
 
     // The guild masters' entries (npcflag petitioner), found once.
@@ -445,7 +417,6 @@ private:
     std::vector<PendingSign> _pending;
     std::unordered_map<uint32, time_t> _asked;    // real player -> last ask aloud
     std::unordered_map<uint32, time_t> _offered;  // real player -> last bot offer
-    std::unordered_map<ObjectGuid, std::vector<bool>> _saidOn;  // charter -> fallback lines said on it (world thread)
     BotCharter _charters[2];
     time_t _next[2] = { 0, 0 };
     std::vector<uint32> _petitioners;
