@@ -9,6 +9,7 @@
 #include "Event.h"
 #include "ItemPackets.h"
 #include "ItemUsageValue.h"
+#include "LootObjectStack.h"
 #include "PlayerbotTextMgr.h"
 #include "Playerbots.h"
 
@@ -81,6 +82,47 @@ bool UseItemAction::UseItem(Item* item, ObjectGuid goGuid, Item* itemTarget, Uni
 
     uint8 bagIndex = item->GetBagSlot();
     uint8 slot = item->GetSlot();
+
+    // A bag or a chest is opened, not cast: most have no use spell, and the use packet below went nowhere.
+    // One with its own item script (Adventurer's Satchel) stays on the use path, which runs the script.
+    ItemTemplate const* const container = item->GetTemplate();
+    if (!goGuid && !itemTarget && container->HasFlag(ITEM_FLAG_HAS_LOOT))
+    {
+        // The satchel script refuses to open in combat without a word (OpenCache in the core).
+        if (container->ScriptId && bot->IsInCombat())
+        {
+            if (ordered)
+                botAI->TellError(PlayerbotTextMgr::instance().GetBotTextOrDefault(
+                    "use_item_open_in_combat", "I can't open %item while fighting",
+                    {{"%item", chat->FormatItem(container)}}));
+            return false;
+        }
+
+        if (!container->ScriptId)
+        {
+            if (container->LockID && item->IsLocked())
+            {
+                if (ordered)
+                    botAI->TellError(PlayerbotTextMgr::instance().GetBotTextOrDefault(
+                        "use_item_locked", "%item is locked", {{"%item", chat->FormatItem(container)}}));
+                return false;
+            }
+
+            ObjectGuid const containerGuid = item->GetGUID();
+            if (ordered)
+                botAI->TellMasterNoFacing(PlayerbotTextMgr::instance().GetBotTextOrDefault(
+                    "use_item", "Using %item", {{"%item", chat->FormatItem(container)}}));
+            WorldPacket openPacket(CMSG_OPEN_ITEM);
+            openPacket << bagIndex << slot;
+            bot->GetSession()->HandleOpenItemOpcode(openPacket);
+            // The item may be gone now: only its guid is kept, as the loot to take.
+            LootObject loot;
+            loot.guid = containerGuid;
+            context->GetValue<LootObject>("loot target")->Set(loot);
+            return true;
+        }
+    }
+
     uint8 cast_count = 1;
     ObjectGuid item_guid = item->GetGUID();
     uint32 glyphIndex = 0;
