@@ -110,8 +110,9 @@ namespace CoaAq40
     constexpr uint32 SPELL_DANCE_OF_DEATH = 2116108;
     constexpr float DANCER_BLADE_YARDS = 6.0f;
     constexpr float DANCER_DEATH_YARDS = 26.0f;
-    // The Dancer whose blades reach the bot, or nullptr.
-    Creature* FindDangerousDancer(Unit* bot);
+    // The Dancer whose blades reach the bot, or nullptr. A melee damage dealer heeds Dance of Death (26 yd) only: the
+    // skull sends it onto the Dancers, and a 6 yd push-back would bounce it off its target for good.
+    Creature* FindDangerousDancer(Player* bot);
 
     // SA1: Sartura (15516) gains Frustration (2116135, 4 max) for every interrupted royal cast; the 4th starts
     // Furious Outbreak. Interrupts on her are held from 3 stacks on.

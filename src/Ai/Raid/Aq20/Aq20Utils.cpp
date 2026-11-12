@@ -6,7 +6,11 @@
 
 #include "Aq20Utils.h"
 #include "Creature.h"
+#include "ObjectAccessor.h"
 #include "SpellAuras.h"
+#include "Timer.h"
+
+#include <unordered_map>
 
 uint32 const OSSIRIAN_BUFF = 25176;
 uint32 const OSSIRIAN_DEBUFFS[] = {25177, 25178, 25180, 25181, 25183};
@@ -57,6 +61,26 @@ bool RaidAq20Utils::IsCoaOssirian(Unit* ossirian)
 
 Unit* RaidAq20Utils::GetNearestActiveObelisk(Unit* from)
 {
+    // The trigger and the action both ask, every tick, for the whole fight: the 200 yd grid search is reused for
+    // half a second per bot, as long as the obelisk it found is still active (an overload moves it every 45 s).
+    struct Found
+    {
+        uint32 atMs = 0;
+        ObjectGuid obelisk;
+    };
+    thread_local std::unordered_map<ObjectGuid, Found> cache;
+    constexpr uint32 reuseMs = 500;
+    uint32 const now = getMSTime();
+    auto itr = cache.find(from->GetGUID());
+    if (itr != cache.end() && getMSTimeDiff(itr->second.atMs, now) < reuseMs)
+    {
+        if (itr->second.obelisk.IsEmpty())
+            return nullptr;
+        Creature* kept = ObjectAccessor::GetCreature(*from, itr->second.obelisk);
+        if (kept && kept->IsInWorld() && kept->HasAura(CoaAq20::SPELL_OBELISK_ACTIVE))
+            return kept;
+    }
+
     std::list<Creature*> triggers;
     from->GetCreatureListWithEntryInGrid(triggers, CoaAq20::NPC_WORLD_TRIGGER, 200.0f);
     Unit* best = nullptr;
@@ -67,5 +91,8 @@ Unit* RaidAq20Utils::GetNearestActiveObelisk(Unit* from)
         if (!best || from->GetExactDist2d(trigger) < from->GetExactDist2d(best))
             best = trigger;
     }
+    if (cache.size() > 512)
+        cache.clear();
+    cache[from->GetGUID()] = {now, best ? best->GetGUID() : ObjectGuid::Empty};
     return best;
 }
