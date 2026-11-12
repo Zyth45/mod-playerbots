@@ -4599,7 +4599,8 @@ AiPlayerbot.CoaEconomy.Market.BandMinPercent = 50
 AiPlayerbot.CoaEconomy.Market.BandMaxPercent = 300
 
 # Launch auction house of a new realm: the house bot lists what the realm's characters could really have
-# reached, and its stock and prices follow them (players' alts and bots count, GMs and the house do not).
+# reached, and its stock and prices follow them (players' alts and bots count, GM characters once played too;
+# the house's and Dungeon Clear's service accounts do not).
 # Every RefreshMinutes the levels are read (async): front = FrontPercentile level, top = highest level reached
 # by at least TopCount characters. Nothing listed is ever removed. Settings below Enable are read again on reload.
 #    Enable                1 = on, 0 = off (default). Read at start-up (restart to change it).

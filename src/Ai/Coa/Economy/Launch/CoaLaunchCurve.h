@@ -72,6 +72,7 @@ private:
     uint32 _population = 0;
     float _progress = 0.0f;
     std::unordered_set<uint32> _excludedAccounts;
+    std::unordered_set<uint32> _gmAccounts;
     QueryCallbackProcessor _callbacks;
 };
 
