@@ -29,7 +29,7 @@ namespace CoaArtisansAddonRules
     }
     constexpr uint32_t PriceRisePercent = 10;     // AORDER refuses a price risen more than this
     constexpr std::size_t MaxArtisans = 40;
-    constexpr std::size_t MaxRecipes = 60;
+    constexpr std::size_t MaxRecipes = 150;  // 2 lines each (AR, ARR), sent at once
     constexpr std::size_t MaxMails = 20;
     constexpr uint32_t MailDays = 7;
 
