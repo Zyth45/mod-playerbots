@@ -6,6 +6,7 @@
 
 #include "XpGainAction.h"
 #include "BroadcastHelper.h"
+#include "CoaLive.h"
 #include "Event.h"
 #include "GuildMgr.h"
 #include "PlayerbotAIConfig.h"
@@ -36,7 +37,12 @@ bool XpGainAction::Execute(Event event)
     Creature* creature = botAI->GetCreature(guid);
     if (creature && !creature->GetMap()->IsDungeon())
     {
-        BroadcastHelper::BroadcastKill(botAI, bot, creature);
+        // A rare, a rare elite or a world boss down: the CoA Live bank first ("kill_rare"), the older broadcast
+        // only when the bank said nothing.
+        uint32 const rank = creature->GetCreatureTemplate()->rank;
+        bool const rare = rank == CREATURE_ELITE_RARE || rank == CREATURE_ELITE_RAREELITE || creature->isWorldBoss();
+        if (!rare || !CoaLive::SayLine(bot, "kill_rare", {{"boss", creature->GetName()}}))
+            BroadcastHelper::BroadcastKill(botAI, bot, creature);
     }
 
     // randomBotXPRate is now implemented in OnPlayerGiveXP script
