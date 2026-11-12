@@ -66,9 +66,10 @@
 #
 #    AuctionHouseBot.AutoCharacter
 #        When AuctionHouseBot.GUIDs is 0 and this is true, the module uses the
-#        character of the account AHBOT and creates that account and a character
-#        named Auctioneer the first time the server starts with the module
-#        enabled. The account cannot be used to log in. One character lists in
+#        character of the account AHBOT and creates that account and a level 1
+#        character (Gavelgrin, or the next free name) the first time the server
+#        starts with the module enabled. The account cannot be used to log in,
+#        and an existing auction character is kept as it is. One character lists in
 #        the Alliance, Horde and Neutral auction houses.
 #    Default: true
 #
