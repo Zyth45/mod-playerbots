@@ -169,7 +169,7 @@ public:
     bool IsActive() override;
 };
 
-// CoA Combat (bench a12): standing in a Living Bomb's Burning Ground
+// CoA Combat: standing in a Living Bomb's Burning Ground
 class McGeddonBurningGroundTrigger : public Trigger
 {
 public:
@@ -177,7 +177,7 @@ public:
     bool IsActive() override;
 };
 
-// CoA Combat (bench a12): the group member whose MC debuff this bot removes, and with which spell (0 if none).
+// CoA Combat: the group member whose MC debuff this bot removes, and with which spell (0 if none).
 // A healer only cleans the tanks; the other dispellers clean everyone, the tanks first, then the healers.
 Player* McRaidDispelTarget(Player* bot, uint32& spellId);
 

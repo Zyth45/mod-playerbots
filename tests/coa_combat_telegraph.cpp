@@ -23,7 +23,7 @@ int main()
 
     // A marker with no radius read is never fled.
     assert(!MustLeave(*targorr, 0.0f, 0.0f));
-    // Bench a39: the approach moves wait while the bot is within the safe distance plus HOLD_RANGE of a live marker.
+    // The approach moves wait while the bot is within the safe distance plus HOLD_RANGE of a live marker.
     assert(HoldApproach(*targorr, 4.0f, 0.0f));
     assert(HoldApproach(*targorr, 4.0f, 15.4f));
     assert(!HoldApproach(*targorr, 4.0f, 15.5f));

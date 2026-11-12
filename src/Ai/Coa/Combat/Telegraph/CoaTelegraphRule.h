@@ -50,7 +50,7 @@ namespace CoaTelegraphRule
         return markerRadius > 0.0f && distance < SafeDistance(t, markerRadius);
     }
 
-    // Bench a39 (Targorr, positions): the leap lands on its marker, yet the victims still stood within 2 yd of the
+    // Measured on Targorr (positions): the leap lands on its marker, yet the victims still stood within 2 yd of the
     // centre at the impact, the exit leaving them a second's walk out of 3.5 s. The approach moves (reach, melee,
     // follow, regroup, heal reposition) brought them back once the exit's forced move ended. They now wait while a live
     // marker lies within this much beyond its safe distance.
@@ -63,7 +63,7 @@ namespace CoaTelegraphRule
     }
 
     // Where the bot steps to: straight out from the marker's centre, through its own position, `distance` yards from
-    // the centre (bench a12: the stock flee sends a melee bot left or right of its target, around the circle rather
+    // the centre (measured: the stock flee sends a melee bot left or right of its target, around the circle rather
     // than out of it). A bot on the centre itself leaves along `fallbackAngle`; `turn` rotates the way out (radians)
     // when a wall blocks the straight one.
     inline void ExitPoint(float centreX, float centreY, float botX, float botY, float fallbackAngle, float turn,

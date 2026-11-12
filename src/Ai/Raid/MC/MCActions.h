@@ -140,7 +140,7 @@ public:
     McGarrMoveFromFireswornAction(PlayerbotAI* botAI) : MovementAction(botAI, "mc garr move from firesworn") {}
     bool Execute(Event event) override;
 };
-// CoA Combat (bench a12): removes an MC debuff (McRaidDispelTarget)
+// CoA Combat: removes an MC debuff (McRaidDispelTarget)
 class McRaidDispelAction : public Action
 {
 public:
