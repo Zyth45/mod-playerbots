@@ -184,6 +184,10 @@ bool CoaHardContent(Player* master);
 // A bot tanking with a specialization of AiPlayerbot.CoaTankNormalDungeonOnly (normal dungeons only).
 bool CoaTankNormalDungeonOnly(Player* bot);
 
+// A Bloodmage Eternal tank in its Cursed Form (Eternal Curse, 800157): cast again when it is off (after a death, a
+// mount), with AiPlayerbot.CoaCursedFormUpkeep.
+void CoaKeepCursedForm(PlayerbotAI* botAI, Player* bot);
+
 // Recruits a free random bot for the role, of that class when classId is not 0.
 // onlyGuildId: only a bot of that guild (0: any); noInstance: never a bot standing in a dungeon, raid or battleground.
 bool RecruitCoaBot(Player* master, CoaRole role, std::string& message, uint8 classId = 0, uint32 onlyGuildId = 0,

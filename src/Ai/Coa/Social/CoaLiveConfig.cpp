@@ -110,6 +110,7 @@ void PlayerbotAIConfig::LoadCoaLiveConfig()
     coaLiveLootNeedAskTestPlayer = sConfigMgr->GetOption<std::string>("AiPlayerbot.CoaLive.LootNeedAsk.TestPlayer", "", false);
     coaLiveLootNeedAskTestAnswer = sConfigMgr->GetOption<std::string>("AiPlayerbot.CoaLive.LootNeedAsk.TestAnswer", "none", false);
     coaLiveChannelClassAnswers = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaLive.ChannelQuestions.ClassAnswers", 2);
+    coaCursedFormUpkeep = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaCursedFormUpkeep", true);
     // Shared with the other CoA data files (in the .dist once).
     coaLiveDataDir = sConfigMgr->GetOption<std::string>("AiPlayerbot.CoaDataDir", "", false);
     coaLiveDataFiles = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaDataFiles", true, false);

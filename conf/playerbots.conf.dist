@@ -3944,6 +3944,14 @@ AiPlayerbot.CoaLive.LootNeedAsk.MinUpgradePct = 10
 AiPlayerbot.CoaLive.LootNeedAsk.TestPlayer = ""
 AiPlayerbot.CoaLive.LootNeedAsk.TestAnswer = none
 
+#    AiPlayerbot.CoaCursedFormUpkeep
+#        Description: A Bloodmage Eternal tank (specialization 99) keeps its Cursed Form, Eternal Curse: more
+#                     Stamina and armor while it tanks. Put on again after a death or a mount.
+#        Default:     1 - on
+#                     0 - off
+
+AiPlayerbot.CoaCursedFormUpkeep = 1
+
 # Bots' minimum and maximum level when teleporting in and out of a zone, according to the new RPG strategy
 # Format: AiPlayerbot.ZoneBracket.zoneID = minLevel,maxLevel
 #

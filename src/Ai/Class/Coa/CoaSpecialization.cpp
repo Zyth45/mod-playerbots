@@ -938,6 +938,24 @@ bool CoaTankNormalDungeonOnly(Player* bot)
                                        true);
 }
 
+void CoaKeepCursedForm(PlayerbotAI* botAI, Player* bot)
+{
+    // The tank of the Eternal specialization fights in its Cursed Form: +25% Stamina, and the core adds +400% armor
+    // from items and the tank stance while the form is on. The rotation line "buff missing::Eternal Curse" never put
+    // it on: in six dungeon runs the tank wore it 0% of the fights, and took 1.5 to 2 times the damage of the other
+    // tanks in heroic dungeons. The form is permanent and goes on death or a mount: put on again here.
+    static uint32 constexpr eternalSpecialization = 99;
+    static uint32 constexpr cursedForm = 800157;
+    if (!botAI || !bot || !bot->IsAlive() || bot->IsMounted() || bot->IsInFlight() || bot->GetVehicle() ||
+        !IsAscensionCustomClassId(bot->getClass()) || GetAscensionActiveSpecialization(bot) != eternalSpecialization ||
+        GetCoaRole(bot) != CoaRole::Tank || bot->HasAura(cursedForm))
+        return;
+    if (!bot->HasSpell(cursedForm) || bot->IsNonMeleeSpellCast(false, true, true) ||
+        !botAI->CanCastSpell(cursedForm, bot))
+        return;
+    botAI->CastSpell(cursedForm, bot);
+}
+
 // Self-found, or a live server from 0 (AiPlayerbot.CoaFreshStart.Enable): nothing changes a bot's level, so a recruit
 // is never rebuilt at the master's; one within 2 levels is taken as it is.
 static bool CoaRecruitKeepsLevels(Player* master)
