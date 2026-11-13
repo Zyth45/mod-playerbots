@@ -9,7 +9,11 @@
 
 #include "Define.h"
 
+#include <functional>
+#include <unordered_set>
+
 struct ItemTemplate;
+class SpellInfo;
 
 // What the bots may trade on CoA: the vendor goods and the original-world item sources, read once at start-up
 // when BotAuctions or Artisans is on. The rules themselves are in CoaEconomyRules.h.
@@ -21,6 +25,10 @@ bool IsVendorItem(uint32 itemId);
 bool IsFreeVendorItem(uint32 itemId);
 // No source in the original game's world (Netherweave, Fel Iron...). Before the load, every candidate is out.
 bool IsLaterExpansion(ItemTemplate const* proto);
+// Products of trade skills whose every recipe needs a later expansion reagent (by isLater, on an item id).
+std::unordered_set<uint32> LaterCraftedItems(std::function<bool(uint32)> const& isLater);
+// A trade skill spell that needs a later expansion reagent (IsLaterExpansion).
+bool HasLaterReagent(SpellInfo const* spell);
 // What a bot may list at the auction house (crafted: made by its artisan during this visit).
 bool BotMayList(ItemTemplate const* proto, bool crafted);
 

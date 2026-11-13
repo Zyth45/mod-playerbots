@@ -278,6 +278,9 @@ std::vector<Recipe> KnownRecipes(Player* bot)
         ItemTemplate const* product = sObjectMgr->GetItemTemplate(itemId);
         if (!itemId || !IsTradable(product) || !Sellable::BotMayList(product, true))
             continue;
+        // Nor a recipe that needs a later expansion reagent (a level 1 kit made of Fel Iron Bars).
+        if (Sellable::HasLaterReagent(spell))
+            continue;
         // A new realm's launch curve holds for artisans too: no epic kit made at Enchanting 1 on its first day.
         if (!sCoaLaunchCurve->AllowsListing(*product))
             continue;

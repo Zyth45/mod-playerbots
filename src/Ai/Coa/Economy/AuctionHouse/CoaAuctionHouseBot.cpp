@@ -29,6 +29,7 @@
 #include "CoaMarketPrices.h"
 #include "CoaLaunchCurve.h"
 #include "CoaEconomyRules.h"
+#include "CoaSellable.h"
 #include "AuctionHouseSearcher.h"
 #include "AccountMgr.h"
 #include "Config.h"
@@ -982,6 +983,16 @@ void AuctionHouseBot::PopulateItemCandidatesAndProportions()
             LOG_ERROR("module", "AuctionHouseBot: No original-world item sources loaded; later expansions' goods are not filtered");
     }
     uint32 laterExpansionItems = 0;
+    // CoA: an item made only from later expansion reagents is of a later expansion too (a "level 1" Fel Iron Bar
+    // Upgrade Kit). The launch curve's price cap stays a second net.
+    std::unordered_set<uint32> laterCrafted;
+    if (coaVanillaOnly && !vanillaItems.empty())
+        laterCrafted = CoaEconomy::Sellable::LaterCraftedItems([&vanillaItems](uint32 itemId)
+        {
+            ItemTemplate const* proto = sObjectMgr->GetItemTemplate(itemId);
+            return proto && CoaEconomyRules::IsLaterExpansion(proto->ItemId, proto->RequiredLevel, proto->ItemLevel,
+                                                              vanillaItems.count(itemId) != 0);
+        });
     // CoA: what players sold on the real CoA auction house (scans of the house, incomplete) counts as obtainable too,
     // with ObtainableItemsOnly (the scans are a guide, not a whitelist).
     bool const coaSeenAdds = CoaEconomy::Conf::Get<bool>("AuctionHouseBot.CoA.SeenOnCoAHouse", false);
@@ -1000,7 +1011,8 @@ void AuctionHouseBot::PopulateItemCandidatesAndProportions()
             continue;
 
         if (coaVanillaOnly && !vanillaItems.empty() && itr->second.ItemId >= 21000 && itr->second.ItemId <= 56806 &&
-            (itr->second.RequiredLevel >= 55 || itr->second.ItemLevel >= 58) && !vanillaItems.count(itr->second.ItemId))
+            (((itr->second.RequiredLevel >= 55 || itr->second.ItemLevel >= 58) && !vanillaItems.count(itr->second.ItemId)) ||
+             laterCrafted.count(itr->second.ItemId)))
         {
             ++laterExpansionItems;
             continue;
