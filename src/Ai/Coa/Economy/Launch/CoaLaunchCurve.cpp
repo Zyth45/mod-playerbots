@@ -14,6 +14,7 @@
 #include "DatabaseEnv.h"
 #include "ItemTemplate.h"
 #include "Log.h"
+#include "PlayerbotAIConfig.h"
 #include "ScriptMgr.h"
 #include "SharedDefines.h"
 #include "World.h"
@@ -103,6 +104,7 @@ void LaunchCurve::ReadLevels(QueryResult result)
     // level -> characters at that level, players' alts and bots alike, service accounts and unplayed GM characters left out
     std::map<uint32, uint32> byLevel;
     uint32 population = 0;
+    uint32 playerMax = 0; // the highest level of a real player's character (no random bot account)
     if (result)
     {
         do
@@ -111,8 +113,11 @@ void LaunchCurve::ReadLevels(QueryResult result)
             uint32 const account = fields[0].Get<uint32>();
             if (_excludedAccounts.count(account) || (_gmAccounts.count(account) && !fields[2].Get<uint32>()))
                 continue;
-            ++byLevel[fields[1].Get<uint8>()];
+            uint32 const level = fields[1].Get<uint8>();
+            ++byLevel[level];
             ++population;
+            if (!sPlayerbotAIConfig.IsInRandomAccountList(account))
+                playerMax = std::max(playerMax, level);
         } while (result->NextRow());
     }
 
@@ -121,8 +126,7 @@ void LaunchCurve::ReadLevels(QueryResult result)
     _surveyed = true;
     if (byLevel.empty())
     {
-        _frontLevel = 1;
-        _topLevel = 1;
+        _frontLevel = _topLevel = _levelFront = _levelTop = 1;
         _progress = 0.0f;
         return;
     }
@@ -130,7 +134,7 @@ void LaunchCurve::ReadLevels(QueryResult result)
     // realm at level 80 is not held at a level 1 house.
     if (population < _minPopulation)
     {
-        _frontLevel = _topLevel = CoaEconomyRules::SmallRealmFront(byLevel);
+        _frontLevel = _topLevel = _levelFront = _levelTop = CoaEconomyRules::SmallRealmFront(byLevel);
         _progress = std::clamp(float(_frontLevel) / float(maxLevel), 0.0f, 1.0f);
         return;
     }
@@ -139,6 +143,8 @@ void LaunchCurve::ReadLevels(QueryResult result)
     // TopCount characters have reached.
     _frontLevel = CoaEconomyRules::FrontLevel(byLevel, _frontPercentile);
     _topLevel = CoaEconomyRules::TopLevel(byLevel, _topCount);
+    _levelFront = CoaEconomyRules::LevelBoundFront(_frontLevel, playerMax);
+    _levelTop = CoaEconomyRules::LevelBoundFront(_topLevel, playerMax);
 
     _progress = std::clamp(float(_frontLevel) / float(maxLevel), 0.0f, 1.0f);
 }
@@ -152,8 +158,8 @@ bool LaunchCurve::AllowsListing(ItemTemplate const& proto) const
         return false;
 
     CoaEconomyRules::LaunchCaps caps;
-    caps.front = _frontLevel;
-    caps.top = _topLevel;
+    caps.front = _levelFront;
+    caps.top = _levelTop;
     caps.levelMargin = _levelMargin;
     caps.rareFromLevel = _rareFromLevel;
     caps.epicFromLevel = _epicFromLevel;
@@ -169,7 +175,7 @@ bool LaunchCurve::AllowsUnitPrice(uint64 copper) const
         return true;
     if (!_surveyed)
         return false;
-    uint64 const cap = CoaEconomyRules::LaunchUnitPriceCap(_frontLevel, _unitPriceCapGold, _unitPriceCapUntilLevel);
+    uint64 const cap = CoaEconomyRules::LaunchUnitPriceCap(_levelFront, _unitPriceCapGold, _unitPriceCapUntilLevel);
     return !cap || copper <= cap;
 }
 

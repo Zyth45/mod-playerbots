@@ -140,6 +140,15 @@ inline std::uint32_t FrontLevel(std::map<std::uint32_t, std::uint32_t> const& by
 }
 
 // The highest level that at least `topCount` characters have reached.
+// The front the level bounds use (item and required level, profession rank, unit price cap, rare and epic steps): the
+// percentile front, or the highest level of a real player's character when it is ahead. A level 80 player keeps the
+// whole house on a realm of bots of all levels; a player ahead of the bots on a new realm is not held back. The stock
+// keeps the percentile front.
+inline std::uint32_t LevelBoundFront(std::uint32_t front, std::uint32_t playerMax)
+{
+    return std::max(front, playerMax);
+}
+
 // A realm under MinPopulation characters: its highest level (1 when empty).
 inline std::uint32_t SmallRealmFront(std::map<std::uint32_t, std::uint32_t> const& byLevel)
 {

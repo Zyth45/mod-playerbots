@@ -15,6 +15,19 @@ int main()
     assert(FrontLevel(mid, 80) == 30);
     assert(TopLevel(mid, 3) == 45);
 
+    // The level bounds follow the most advanced real player: bots spread over 1-80 and a player at 80 -> 80 (the
+    // percentile front alone would hold the house near 64); bots at 8 and a player at 8 -> unchanged.
+    {
+        std::map<std::uint32_t, std::uint32_t> spread;
+        for (std::uint32_t l = 1; l <= 80; ++l)
+            spread[l] = 40;
+        std::uint32_t const front = FrontLevel(spread, 80);
+        assert(front == 64 && LevelBoundFront(front, 80) == 80 && LevelBoundFront(TopLevel(spread, 3), 80) == 80);
+        std::map<std::uint32_t, std::uint32_t> early{{1, 200}, {8, 3034}};
+        assert(LevelBoundFront(FrontLevel(early, 80), 8) == 8 && FrontLevel(early, 80) == 8);
+        assert(LevelBoundFront(8, 0) == 8);   // no real player yet
+    }
+
     // A solo realm without bots (under MinPopulation): its highest character stands for the front.
     assert(SmallRealmFront({{1, 2}, {80, 1}, {34, 3}}) == 80 && SmallRealmFront({}) == 1 && SmallRealmFront({{1, 4}}) == 1);
     // An established realm at the cap: nothing held back (full stock, no premium).

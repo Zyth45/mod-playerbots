@@ -5271,7 +5271,9 @@ AiPlayerbot.CoaEconomy.Market.BandMaxPercent = 300
 #                          front is at the level cap, it holds nothing back. Nothing is listed before the first
 #                          reading of the levels, a few seconds after start-up.
 #    RefreshMinutes        How often the levels are read (default 10).
-#    FrontPercentile       Percentile of the levels taken as the front (default 80).
+#    FrontPercentile       Percentile of the levels taken as the front (default 80). The level bounds below use the
+#                          highest level of a real player's character instead when it is higher (a player at 80
+#                          finds the whole house); the stock keeps this front.
 #    TopCount              Characters needed at a level for the top to reach it (default 3).
 #    MinPopulation         Below this many characters, their highest level stands for the front and the top
 #                          (a solo realm without bots; default 20).
