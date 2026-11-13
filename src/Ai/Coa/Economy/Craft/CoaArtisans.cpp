@@ -349,11 +349,11 @@ uint64 MissingCost(Player* bot, Recipe const& recipe, uint32 times)
     return toPay;
 }
 
-bool Consume(Player* bot, Recipe const& recipe, uint32 times)
+bool Consume(Player* bot, Recipe const& recipe, uint32 times, bool payLater)
 {
     if (!enabled || !bot || !recipe.spell || !times)
         return false;
-    uint64 const toPay = MissingCost(bot, recipe, times);
+    uint64 const toPay = payLater ? 0 : MissingCost(bot, recipe, times);
     if (toPay > bot->GetMoney())
         return false;
 

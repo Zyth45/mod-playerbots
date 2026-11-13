@@ -113,6 +113,13 @@ int main()
         assert(ParseLevelGold("").empty());
     }
 
+    // Reagents paid at delivery: only when on, short of gold and covered by the price.
+    assert(MaterialsOnDelivery(true, 5000, 1000, 20000) == 5000);
+    assert(MaterialsOnDelivery(false, 5000, 1000, 20000) == 0);
+    assert(MaterialsOnDelivery(true, 5000, 5000, 20000) == 0);   // it has the gold: paid now
+    assert(MaterialsOnDelivery(true, 20000, 0, 20000) == 0);     // the price does not cover them
+    assert(MaterialsOnDelivery(true, 0, 0, 20000) == 0);
+
     // Rare recipes: the same answer for the same bot and recipe, never at 0 %, always at 100 %, near the percent.
     assert(RareRecipeDrawn(42, 16729, 15) == RareRecipeDrawn(42, 16729, 15));
     assert(!RareRecipeDrawn(42, 16729, 0) && RareRecipeDrawn(42, 16729, 100));

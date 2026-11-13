@@ -6,6 +6,7 @@
 {"AiPlayerbot.CoaEconomy.Artisans.LearnRareRecipes.Enable", R"coa(0)coa"},
 {"AiPlayerbot.CoaEconomy.Artisans.LearnRareRecipes.EpicPercent", R"coa(5)coa"},
 {"AiPlayerbot.CoaEconomy.Artisans.LearnRareRecipes.Percent", R"coa(15)coa"},
+{"AiPlayerbot.CoaEconomy.Artisans.MaterialsOnDelivery", R"coa(0)coa"},
 {"AiPlayerbot.CoaEconomy.Artisans.MinProfitPercent", R"coa(20)coa"},
 {"AiPlayerbot.CoaEconomy.Artisans.RecursiveCost.Depth", R"coa(3)coa"},
 {"AiPlayerbot.CoaEconomy.Artisans.RecursiveCost.Enable", R"coa(1)coa"},

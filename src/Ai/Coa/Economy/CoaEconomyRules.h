@@ -461,6 +461,14 @@ inline std::uint32_t LevelGoldFor(std::map<std::uint32_t, std::uint32_t> const& 
     return found == table.end() ? 0 : found->second;
 }
 
+// An order's missing reagents paid at delivery: an artisan short of gold buys them on credit and the cost comes out of
+// the cash on delivery the player pays. Only when it lacks the gold (otherwise it pays them as before) and only when the
+// price covers them. The copper owed, or 0 (paid now, or not possible).
+inline std::uint64_t MaterialsOnDelivery(bool enabled, std::uint64_t missing, std::uint64_t money, std::uint64_t price)
+{
+    return (enabled && missing > money && missing < price) ? missing : 0;
+}
+
 // Artisans' rare recipes: whether a bot knows a recipe found in the world, drawn once per bot and recipe (the same
 // artisan always keeps the same ones). percent of 100; 0 never, 100 always.
 inline bool RareRecipeDrawn(std::uint64_t botGuid, std::uint32_t spellId, std::uint32_t percent)
