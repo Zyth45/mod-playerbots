@@ -402,21 +402,66 @@ inline std::string Classify(std::string const& normalized, std::vector<Intent> c
     return "fallback";
 }
 
-// A whisper that says yes to the bot's own Trade announce (WTS: the item goes by mail, cash on delivery): only a
-// clear answer. A trade or craft intent ("wts", "how much"), a link of the offered item, or a word of agreement.
-// Anything else ("looking for a guild?", "lol") is answered as any whisper and the offer stays open.
+// A whisper that asks the price ("how much?", "price?", "combien ?"): a question, never a yes.
+// normalized: NormalizeWhisper.
+inline bool AsksPrice(std::string const& normalized)
+{
+    static char const* const price[] = {" how much ", " price ", " pc ", " cost ", " costs ", " how many g ",
+                                        " what do you want for ", " what u want for ", " hm ", " combien ", " prix ",
+                                        " coute ", " coûte ", " tu le vends ", " tu la vends ", " tu en veux "};
+    for (char const* word : price)
+        if (normalized.find(word) != std::string::npos)
+            return true;
+    return false;
+}
+
+// The words that agree to a deal even next to a question: "send it", "deal", "je prends".
+inline bool SaysSendIt(std::string const& normalized)
+{
+    static char const* const strong[] = {" deal ", " take it ", " ill take it ", " send it ", " cod ", " buy it ",
+                                         " je prends ", " je le prends ", " je la prends ", " envoie ",
+                                         " marche conclu ", " marché conclu "};
+    for (char const* word : strong)
+        if (normalized.find(word) != std::string::npos)
+            return true;
+    return false;
+}
+
+// A yes to a deal the bot offered (its WTS, an artisan's quote): only a clear one. SaysSendIt counts even next to a
+// question ("how much? ok send it"); "ok", "sure", "oui" only without a price question ("ok how much?" is a
+// question); a bare link of the item only without a question mark. A trade or craft word alone ("wts", "how much",
+// "do you sell") is never a yes: the bot answers with its price and waits.
 // normalized: NormalizeWhisper; lowered: the whisper in lower case, item links kept ("|hitem:<id>:").
-inline bool AcceptsOffer(std::string const& intent, std::string const& normalized, std::string const& lowered,
+inline bool ConfirmsDeal(std::string const& normalized, std::string const& lowered, uint32_t itemId)
+{
+    if (SaysSendIt(normalized))
+        return true;
+    if (AsksPrice(normalized))
+        return false;
+    static char const* const yes[] = {" yes ", " yep ", " yeah ", " ya ", " sure ", " ok ", " okay ", " k ",
+                                      " oui ", " ouais ", " d accord ", " dac ", " ca marche ", " ça marche "};
+    for (char const* word : yes)
+        if (normalized.find(word) != std::string::npos)
+            return true;
+    return itemId && lowered.find('?') == std::string::npos &&
+           lowered.find("|hitem:" + std::to_string(itemId) + ":") != std::string::npos;
+}
+
+// A whisper that says yes to the bot's own Trade announce (WTS: the item goes by mail, cash on delivery): only a
+// clear yes (ConfirmsDeal). Anything else ("how much?", "looking for a guild?", "lol") is answered as a whisper (a
+// price question: with the price) and the offer stays open. The intent no longer decides.
+inline bool AcceptsOffer(std::string const& /*intent*/, std::string const& normalized, std::string const& lowered,
                          uint32_t itemId)
 {
-    if (intent == "trade" || intent == "craft")
-        return true;
-    if (itemId && lowered.find("|hitem:" + std::to_string(itemId) + ":") != std::string::npos)
-        return true;
-    static char const* const yes[] = {" yes ", " yep ", " yeah ", " sure ", " ok ", " okay ", " deal ", " take it ",
-                                      " send it ", " cod ", " oui ", " ouais ", " je prends ", " je le prends ",
-                                      " envoie ", " d accord ", " dac "};
-    for (char const* word : yes)
+    return ConfirmsDeal(normalized, lowered, itemId);
+}
+
+// A clear no to a deal ("no", "too much", "non", "trop cher"): the bot forgets it.
+inline bool DeclinesDeal(std::string const& normalized)
+{
+    static char const* const no[] = {" no ", " nah ", " nope ", " no thanks ", " too much ", " too expensive ",
+                                     " pass ", " nvm ", " non ", " trop cher ", " laisse tomber ", " tant pis "};
+    for (char const* word : no)
         if (normalized.find(word) != std::string::npos)
             return true;
     return false;

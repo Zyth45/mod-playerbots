@@ -77,7 +77,8 @@ bool SayOffer(Player* bot, std::string const& situation, ObjectGuid item, uint32
               std::unordered_map<std::string, std::string> const& slots);
 
 // A whisper intent another session answers (the bank's intents table holds its keywords). Called before the
-// default answer, on the world thread, with the whisper in lower case; true takes the whisper.
+// default answer, on the world thread, with the whisper in lower case; true takes the whisper. Intent "*": a deal
+// awaiting the player's answer (an artisan's quote); it sees every whisper first.
 using WhisperHandler =
     std::function<bool(Player* from, Player* to, std::string const& lowered, std::string const& intent)>;
 void RegisterWhisperHandler(std::string const& intent, WhisperHandler handler);

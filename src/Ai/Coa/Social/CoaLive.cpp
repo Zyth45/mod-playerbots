@@ -2022,31 +2022,40 @@ bool OnWhisper(Player* from, Player* to, std::string const& msg)
     std::string const intent = Classify(normalized, current->IntentsOf(BotLocale()));
 
     // An intent another session answers itself (CoA Economy: "craft"): it takes the whisper when it says so.
+    // "*": a deal another session is waiting on (an artisan's quote): it sees every whisper first.
+    WhisperHandler pending;
     WhisperHandler handler;
     {
         std::lock_guard<std::mutex> guard(liveLock);
-        auto it = whisperHandlers.find(intent);
+        auto it = whisperHandlers.find("*");
+        if (it != whisperHandlers.end())
+            pending = it->second;
+        it = whisperHandlers.find(intent);
         if (it != whisperHandlers.end())
             handler = it->second;
     }
+    if (pending && pending(from, to, lowered, intent))
+        return true;
     if (handler && handler(from, to, lowered, intent))
         return true;
 
     // An answer to the bot's own Trade announce: the deal is done for real (WTS: the item by mail, cash on
     // delivery at the price said), or politely turned down (the item is gone; a WTB: "found one already"). Only on a
-    // clear yes (AcceptsOffer): any other whisper gets the usual answer and the offer stays open.
+    // clear yes (AcceptsOffer): a price question gets the price (wh_offer_price, nothing is sent), any other whisper
+    // the usual answer, and the offer stays open.
     if (intent != "bot" && intent != "hello" && intent != "thanks")
     {
         Offer offer;
         bool live = false;
+        bool accepted = false;
         {
             std::lock_guard<std::mutex> guard(liveLock);
             auto it = offers.find(to->GetGUID().GetRawValue());
-            if (it != offers.end() && it->second.expiresMs > GameTime::GetGameTimeMS().count() &&
-                AcceptsOffer(intent, normalized, lowered, it->second.itemId))
+            if (it != offers.end() && it->second.expiresMs > GameTime::GetGameTimeMS().count())
             {
                 offer = it->second;
                 live = true;
+                accepted = AcceptsOffer(intent, normalized, lowered, offer.itemId);
             }
         }
         if (live)
@@ -2057,16 +2066,27 @@ bool OnWhisper(Player* from, Player* to, std::string const& msg)
                 opt.extra["item"] = ChatHelper::FormatItem(proto);
             opt.extra["price"] = FormatMoney(offer.price);
             std::string const scope = "w" + std::to_string(to->GetGUID().GetCounter());
-            Item* item = offer.wts ? to->GetItemByGuid(offer.item) : nullptr;
-            if (offer.wts && item && !item->IsSoulBound() && from->GetTeamId() == to->GetTeamId())
+            if (!accepted)
             {
-                opt.codItem = offer.item;
-                opt.cod = offer.price;
-                if (React(to, "wh_offer_cod", from, scope, opt))
+                if (offer.wts && AsksPrice(normalized) && to->GetItemByGuid(offer.item))
+                {
+                    if (React(to, "wh_offer_price", from, scope, opt))
+                        return true;
+                }
+            }
+            else
+            {
+                Item* item = offer.wts ? to->GetItemByGuid(offer.item) : nullptr;
+                if (offer.wts && item && !item->IsSoulBound() && from->GetTeamId() == to->GetTeamId())
+                {
+                    opt.codItem = offer.item;
+                    opt.cod = offer.price;
+                    if (React(to, "wh_offer_cod", from, scope, opt))
+                        return ForgetOffer(to), true;
+                }
+                else if (React(to, "wh_offer_gone", from, scope, opt))
                     return ForgetOffer(to), true;
             }
-            else if (React(to, "wh_offer_gone", from, scope, opt))
-                return ForgetOffer(to), true;
         }
     }
 
