@@ -111,12 +111,24 @@ inline Topic Classify(std::string const& text)
     return Topic::Question;
 }
 
-// One answer per player in this many seconds, whatever the channel and the bot.
-constexpr uint32_t PLAYER_CD_S = 300;
+// One answer per player in this many seconds, whatever the channel and the bot. 5 minutes left a player's second
+// question unanswered: a player asks again a minute later, and silence reads as "it does not work".
+constexpr uint32_t PLAYER_CD_S = 45;
+
+// One answer per channel in this many seconds, whatever the player: two players asking at once get one answer.
+constexpr uint32_t CHANNEL_GAP_S = 10;
+
+// Bots tried for one question: the first one free to talk (out of its own cooldown) answers.
+constexpr uint32_t BOTS_TRIED = 5;
 
 inline bool PlayerMayAsk(uint64_t lastS, uint64_t nowS)
 {
     return !lastS || nowS >= lastS + PLAYER_CD_S;
+}
+
+inline bool ChannelMayAnswer(uint64_t lastS, uint64_t nowS)
+{
+    return !lastS || nowS >= lastS + CHANNEL_GAP_S;
 }
 }  // namespace CoaChanAsk
 
