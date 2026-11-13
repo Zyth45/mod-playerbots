@@ -201,11 +201,13 @@ bool Aq40TwinEmperorsApartAction::Execute(Event /*event*/)
     if (!heldCreature || !brotherCreature)
         return false;
 
-    // The Emperor's Passage swaps them, so the dais is the spawn point nearest to the held emperor now.
+    // The Emperor's Passage swaps them, so either spawn point can be the held one's dais now: take the one farther
+    // from the brother. The nearest to the held emperor would be the brother's own once the tank has pulled past the
+    // middle of the room, and the two would never part.
     Position dais = heldCreature->GetHomePosition();
     Position const other = brotherCreature->GetHomePosition();
-    if (held->GetExactDist2d(other.GetPositionX(), other.GetPositionY()) <
-        held->GetExactDist2d(dais.GetPositionX(), dais.GetPositionY()))
+    if (brother->GetExactDist2d(other.GetPositionX(), other.GetPositionY()) >
+        brother->GetExactDist2d(dais.GetPositionX(), dais.GetPositionY()))
         dais = other;
 
     // A little past the dais, away from the brother.

@@ -10,6 +10,7 @@
 #include "GenericSpellActions.h"
 #include "Playerbots.h"
 #include "TotemsShamanStrategy.h"
+#include "SpellMgr.h"
 #include "UseItemAction.h"
 #include "ZGHelpers.h"
 #include <string>
@@ -51,6 +52,24 @@ float HakkarKeepPoisonousBloodMultiplier::GetValueInEncounter(Action* action)
 
 float BloodlordMandokirCauseNoThreatUnderGazeMultiplier::GetValueInEncounter(Action* action)
 {
+    // CoA Combat (MD1): CoA's gazes (2118422, 2118423) punish only "active hostile actions", spells and abilities
+    // that cost power and trigger the global cooldown. Heals, the white swing and items stay allowed: a gazed healer
+    // keeps healing.
+    if (ZgCoaFixesOn() && !bot->HasAura(static_cast<uint32>(ZulGurubSpells::SPELL_THREATENING_GAZE)) &&
+        (bot->HasAura(SPELL_COA_THREATENING_GAZE) || bot->HasAura(SPELL_COA_MENACING_GAZE)))
+    {
+        CastSpellAction* cast = dynamic_cast<CastSpellAction*>(action);
+        if (!cast)
+            return 1.0f;
+        uint32 const spellId = botAI->GetAiObjectContext()->GetValue<uint32>("spell id", cast->getSpell())->Get();
+        SpellInfo const* info = spellId ? sSpellMgr->GetSpellInfo(spellId) : nullptr;
+        if (!info)
+            return 0.0f;  // unknown: the safe side
+        bool const costsPower = info->ManaCost || info->ManaCostPercentage || info->ManaCostPerlevel;
+        bool const onGcd = info->StartRecoveryTime > 0 || info->StartRecoveryCategory > 0;
+        return !info->IsPositive() && costsPower && onGcd ? 0.0f : 1.0f;
+    }
+
     // Heals, potions and trinkets cause threat too.
     bool const causesThreat = dynamic_cast<CastSpellAction*>(action) || dynamic_cast<AttackAction*>(action) ||
                               dynamic_cast<UseItemAction*>(action) || dynamic_cast<UseTrinketAction*>(action);

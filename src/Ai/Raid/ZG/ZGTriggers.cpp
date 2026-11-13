@@ -37,18 +37,24 @@ bool VenoxisVenomSpitTrigger::IsActiveInEncounter()
 
 bool HakkarBloodPoolTrigger::IsActiveInEncounter()
 {
-    // CoA Combat (HK2): during Blood Siphon the poison pool is the counter, not a danger.
-    if (ZgCoaFixesOn() && CoaHakkarSiphon(bot))
-        return bot->HasAura(static_cast<uint32>(ZulGurubSpells::SPELL_POOL_OF_CORRUPTED_BLOOD));
-    return bot->HasAura(static_cast<uint32>(ZulGurubSpells::SPELL_POOL_OF_CORRUPTED_BLOOD)) ||
-           bot->HasAura(static_cast<uint32>(ZulGurubSpells::SPELL_POOL_OF_POISONED_BLOOD));
+    bool const corrupted = bot->HasAura(static_cast<uint32>(ZulGurubSpells::SPELL_POOL_OF_CORRUPTED_BLOOD));
+    bool const poisoned = bot->HasAura(static_cast<uint32>(ZulGurubSpells::SPELL_POOL_OF_POISONED_BLOOD));
+    if (!poisoned)
+        return corrupted;
+    // CoA Combat (HK2): during Blood Siphon the poison pool is the counter, not a danger. The auras first: the siphon
+    // test searches for the heart, and only a bot standing in a poison pool needs it.
+    if (ZgCoaFixesOn() && AI_VALUE2(Unit*, "find target", "hakkar") && CoaHakkarSiphon(bot))
+        return corrupted;
+    return true;
 }
 
 // ---- CoA Combat (lot 7, docs/ZG-ETAT-3.0.md) ----
 
 bool HakkarSiphonPoolTrigger::IsActiveInEncounter()
 {
-    return ZgCoaFixesOn() && CoaHakkarSiphon(bot) && LacksPoisonousBlood(bot) && FindPoisonPool(bot, 60.0f);
+    // Cheapest first: the auras, then Hakkar himself (any other boss of the raid stops here), then the heart search.
+    return ZgCoaFixesOn() && LacksPoisonousBlood(bot) && AI_VALUE2(Unit*, "find target", "hakkar") &&
+           CoaHakkarSiphon(bot) && FindPoisonPool(bot, 60.0f);
 }
 
 bool GrilekPursuitTrigger::IsActiveInEncounter()

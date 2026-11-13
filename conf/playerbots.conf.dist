@@ -5557,7 +5557,7 @@ AiPlayerbot.CoaCombat.LootNeedWaitSeconds = 20
 #     Description: The CoA Combat fixes to the bots' Molten Core strategy, encounter by encounter (kill orders for
 #                  Lucifron's and Sulfuron's adds, the raid's curse and magic dispels, Burning Ground, and the next
 #                  ones as they land). The stock strategy is unchanged when this is 0. On by default since 3.0
-#                  (Molten Core bench, a33: 12 and 10 deaths on the two cleared runs, 21 on average before).
+#                  (Molten Core bench: 12 and 10 deaths on the two cleared runs, 21 on average before).
 #     Default:     1 - (Enabled)
 #                  0 - (Disabled)
 
