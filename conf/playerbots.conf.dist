@@ -3228,6 +3228,38 @@ AiPlayerbot.CoaWorld.Guilds.Greetings = 1
 AiPlayerbot.CoaWorld.Guilds.AnswerAsk = 1
 AiPlayerbot.CoaWorld.Guilds.AnswerAskMinutes = 30
 
+#    AiPlayerbot.CoaWorld.Chatter.BgEnd
+#    AiPlayerbot.CoaWorld.Chatter.WorldBoss
+#    AiPlayerbot.CoaWorld.Chatter.RareSeen
+#    AiPlayerbot.CoaWorld.Chatter.Season
+#    AiPlayerbot.CoaWorld.Chatter.Night
+#    AiPlayerbot.CoaWorld.Chatter.Weather
+#    AiPlayerbot.CoaWorld.Chatter.Fishing
+#        Description: The bots remark on the world around a real player, with lines of the phrase bank only (without
+#                     a line nothing is said):
+#                     BgEnd     - a battleground ends: 2 or 3 bots of the player's side say gg (bg_end_win/loss).
+#                     WorldBoss - a real player fights a world boss: 2 or 3 bots of the zone near its level call for
+#                                 it in the zone channel (world_boss_call), once per boss and half hour.
+#                     RareSeen  - a bot near a real player sees a rare creature and says so in the zone channel
+#                                 (rare_seen), once per zone and 20 minutes.
+#                     Season    - Hallow's End, Winter Veil, Brewfest, Darkmoon Faire: a word in General
+#                                 (season_event), once per zone and hour.
+#                     Night     - midnight to six, server time: a late word in the guild chat of a real player
+#                                 (night_chat), once per guild and 45 minutes.
+#                     Weather   - rain, snow or a storm in the zone: a bot near a real player remarks on it aloud
+#                                 (weather_rain/snow/storm), once per zone and half hour.
+#                     Fishing   - a real player fishes: a bot within 20 yards says a word (fishing_idle), once per
+#                                 player and 20 minutes.
+#        Default:     1 - on (3.0.1)
+
+AiPlayerbot.CoaWorld.Chatter.BgEnd = 1
+AiPlayerbot.CoaWorld.Chatter.WorldBoss = 1
+AiPlayerbot.CoaWorld.Chatter.RareSeen = 1
+AiPlayerbot.CoaWorld.Chatter.Season = 1
+AiPlayerbot.CoaWorld.Chatter.Night = 1
+AiPlayerbot.CoaWorld.Chatter.Weather = 1
+AiPlayerbot.CoaWorld.Chatter.Fishing = 1
+
 #    AiPlayerbot.CoaWorld.Guilds.GearAsk
 #        Description: With Guilds.Gear: the guild's gift of gear is offered first (a whisper from the bot, and the
 #                     SquidBots Lite addon's Gifts view with Guilds.Addon); it is mailed only if the player accepts
