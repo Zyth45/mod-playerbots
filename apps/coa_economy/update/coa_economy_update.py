@@ -20,6 +20,8 @@ Entry point for coa_update.py: run_steps(repack, backup, journal, emit, save_jou
 import json
 import re
 import subprocess
+import time
+import uuid
 from pathlib import Path
 
 HIDDEN = getattr(subprocess, "CREATE_NO_WINDOW", 0)
@@ -138,20 +140,61 @@ def rows(text):
     return [line.split("\t") for line in text.splitlines() if line.strip()]
 
 
+# mysql.exe 8.4 sometimes gives back no output at all (exit 0, nothing on stderr; about 1 or 2 calls in 100 on the
+# Builder's test copy): an empty answer would read as "nothing". Every script ends with this witness line; a read
+# without it is run again, up to TRIES times, then the step fails (no mark, the update undoes itself).
+WITNESS = "COA_FIN"
+TRIES = 5
+
+
+def read(run, sql, what):
+    """The rows of a read-only script, the witness checked (and removed)."""
+    for attempt in range(TRIES):
+        lines = rows(run(sql + f"SELECT '{WITNESS}';\n"))
+        if lines and lines[-1] == [WITNESS]:
+            return lines[:-1]
+        time.sleep(0.2 * (attempt + 1))
+    raise RuntimeError(f"MySQL gave no complete answer to: {what} ({TRIES} tries); nothing was changed by this step")
+
+
+def write(run, sql):
+    """A writing script is never run twice: its answer may be lost, so its result is always read back afterwards."""
+    run(sql + f"SELECT '{WITNESS}';\n")
+
+
 def marks_sql(realm):
     return (f"CREATE TABLE IF NOT EXISTS `{realm['bots']}`.`coa_update_marks` (`name` VARCHAR(64) NOT NULL, "
             "`done_at` DATETIME NOT NULL, `detail` VARCHAR(255) NOT NULL DEFAULT '', PRIMARY KEY (`name`)) "
             "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='CoA Bots update: one-time steps done on this realm';\n")
 
 
-def is_marked(run, realm, name):
-    run(marks_sql(realm))
-    return bool(rows(run(f"SELECT 1 FROM `{realm['bots']}`.`coa_update_marks` WHERE `name` = '{name}';\n")))
+def mark_of(run, realm, name):
+    """The detail of this realm's mark (e.g. 'removed=2 refunds=1 copper=5000'), None when the step was not done."""
+    found = read(run, marks_sql(realm) + f"SELECT `detail` FROM `{realm['bots']}`.`coa_update_marks` "
+                 f"WHERE `name` = '{name}';\n", f"the mark {name} of {realm['key']}")
+    return found[0][0] if found else None
 
 
-def mark_sql(realm, name, detail):
-    detail = re.sub(r"[^A-Za-z0-9 :,.=>-]", "", detail)[:255]
-    return f"INSERT INTO `{realm['bots']}`.`coa_update_marks` VALUES ('{name}', NOW(), '{detail}');\n"
+def detail_values(detail):
+    return dict(part.split("=", 1) for part in detail.split() if "=" in part)
+
+
+def run_token():
+    """Written in the mark's detail by the run that did the step: a mark without it was there before."""
+    return uuid.uuid4().hex[:12]
+
+
+# The mark is the first write of the step's transaction, INSERT IGNORE: @fresh = 1 only when this run put it, and
+# every other write of the step is gated on @fresh. A step already marked (a second run, a mark read wrong) changes
+# nothing, and the mark exists only once the step's writes are committed with it (one transaction).
+def mark_first_sql(realm, name):
+    return [f"INSERT IGNORE INTO `{realm['bots']}`.`coa_update_marks` VALUES ('{name}', NOW(), 'pending');",
+            "SET @fresh = ROW_COUNT();"]
+
+
+def mark_detail_sql(realm, name, detail_expr):
+    return (f"UPDATE `{realm['bots']}`.`coa_update_marks` SET `detail` = {detail_expr} "
+            f"WHERE `name` = '{name}' AND @fresh = 1;")
 
 
 def save_rows(backup, realm, what, header, data):
@@ -163,53 +206,64 @@ def save_rows(backup, realm, what, header, data):
     return path
 
 
+def phantom_sql(c):
+    return (f"SELECT ah.id, ah.houseid, ah.itemguid, ah.itemowner, ah.buyoutprice, ah.time, ah.buyguid, ah.lastbid, "
+            f"ah.startbid, ah.deposit FROM `{c}`.auctionhouse ah LEFT JOIN `{c}`.item_instance ii "
+            f"ON ii.guid = ah.itemguid WHERE ii.guid IS NULL;\n")
+
+
 def phantom_auctions(run, realm, backup):
-    """Removes this realm's auctions without an item; bids refunded by mail first. Returns (removed, refunds, copper)."""
-    c = realm["chars"]
-    if is_marked(run, realm, "phantomAuctions"):
+    """Removes this realm's auctions without an item; bids refunded by mail first. Returns (removed, refunds, copper),
+    None when already done."""
+    c, name = realm["chars"], "phantomAuctions"
+    if mark_of(run, realm, name) is not None:
         return None
     cols = ["id", "houseid", "itemguid", "itemowner", "buyoutprice", "time", "buyguid", "lastbid", "startbid", "deposit"]
-    found = rows(run(f"SELECT {', '.join('ah.' + x for x in cols)} FROM `{c}`.auctionhouse ah "
-                     f"LEFT JOIN `{c}`.item_instance ii ON ii.guid = ah.itemguid WHERE ii.guid IS NULL;\n"))
+    found = read(run, phantom_sql(c), f"the auctions without an item of {realm['key']}")
     save_rows(backup, realm, "phantom-auctions", cols, found)
-    sql = [f"USE `{c}`;", "START TRANSACTION;",
-           "DROP TEMPORARY TABLE IF EXISTS coa_phantom;",
-           "CREATE TEMPORARY TABLE coa_phantom AS SELECT ah.id, ah.houseid, ah.itemowner, ah.buyguid, ah.lastbid, "
-           "ah.buyoutprice, ah.deposit FROM auctionhouse ah LEFT JOIN item_instance ii ON ii.guid = ah.itemguid "
-           "WHERE ii.guid IS NULL;",
-           "DROP TEMPORARY TABLE IF EXISTS coa_refund;",
-           "CREATE TEMPORARY TABLE coa_refund (n INT UNSIGNED AUTO_INCREMENT PRIMARY KEY) AS SELECT p.* "
-           "FROM coa_phantom p JOIN characters b ON b.guid = p.buyguid WHERE p.buyguid <> 0 AND p.lastbid > 0 "
-           "ORDER BY p.id;",
-           "SET @base = (SELECT COALESCE(MAX(id), 0) FROM mail);",
-           "INSERT INTO mail (id, messageType, stationery, mailTemplateId, sender, receiver, subject, body, has_items, "
-           "expire_time, deliver_time, money, cod, checked) SELECT @base + n, 2, 62, 0, "
-           "houseid, buyguid, CONCAT('0:0:4:', id, ':1'), CONCAT(LPAD(HEX(itemowner), 16, '0'), ':', lastbid, ':', "
-           "buyoutprice, ':', deposit, ':0'), 0, UNIX_TIMESTAMP() + 2592000, UNIX_TIMESTAMP(), lastbid, 0, 4 "
-           "FROM coa_refund;",
-           "DELETE ah FROM auctionhouse ah JOIN coa_phantom p ON p.id = ah.id;",
-           "SET @removed = (SELECT COUNT(*) FROM coa_phantom);",
-           "SELECT COUNT(*), COALESCE(SUM(lastbid), 0) INTO @refunds, @copper FROM coa_refund;",
-           f"SET @detail = CONCAT('removed=', @removed, ' refunds=', @refunds, ' copper=', @copper);",
-           f"INSERT INTO `{realm['bots']}`.`coa_update_marks` VALUES ('phantomAuctions', NOW(), @detail);",
-           "COMMIT;", "SELECT @removed, @refunds, @copper;"]
-    removed, refunds, copper = (int(x) for x in rows(run("\n".join(sql) + "\n"))[-1])
-    return removed, refunds, copper
+    token = run_token()
+    sql = [f"USE `{c}`;", "START TRANSACTION;"] + mark_first_sql(realm, name) + [
+        "DROP TEMPORARY TABLE IF EXISTS coa_phantom;",
+        "CREATE TEMPORARY TABLE coa_phantom AS SELECT ah.id, ah.houseid, ah.itemowner, ah.buyguid, ah.lastbid, "
+        "ah.buyoutprice, ah.deposit FROM auctionhouse ah LEFT JOIN item_instance ii ON ii.guid = ah.itemguid "
+        "WHERE ii.guid IS NULL AND @fresh = 1;",
+        "DROP TEMPORARY TABLE IF EXISTS coa_refund;",
+        "CREATE TEMPORARY TABLE coa_refund (n INT UNSIGNED AUTO_INCREMENT PRIMARY KEY) AS SELECT p.* "
+        "FROM coa_phantom p JOIN characters b ON b.guid = p.buyguid WHERE p.buyguid <> 0 AND p.lastbid > 0 "
+        "ORDER BY p.id;",
+        "SET @base = (SELECT COALESCE(MAX(id), 0) FROM mail);",
+        "INSERT INTO mail (id, messageType, stationery, mailTemplateId, sender, receiver, subject, body, has_items, "
+        "expire_time, deliver_time, money, cod, checked) SELECT @base + n, 2, 62, 0, "
+        "houseid, buyguid, CONCAT('0:0:4:', id, ':1'), CONCAT(LPAD(HEX(itemowner), 16, '0'), ':', lastbid, ':', "
+        "buyoutprice, ':', deposit, ':0'), 0, UNIX_TIMESTAMP() + 2592000, UNIX_TIMESTAMP(), lastbid, 0, 4 "
+        "FROM coa_refund WHERE @fresh = 1;",
+        "DELETE ah FROM auctionhouse ah JOIN coa_phantom p ON p.id = ah.id WHERE @fresh = 1;",
+        "SET @removed = (SELECT COUNT(*) FROM coa_phantom);",
+        "SELECT COUNT(*), COALESCE(SUM(lastbid), 0) INTO @refunds, @copper FROM coa_refund;",
+        mark_detail_sql(realm, name, f"CONCAT('removed=', @removed, ' refunds=', @refunds, ' copper=', @copper, "
+                                     f"' run={token}')"),
+        "COMMIT;"]
+    write(run, "\n".join(sql) + "\n")
+    # Read back: the mark committed with its numbers, and no auction without an item left.
+    detail = mark_of(run, realm, name)
+    if detail is None or detail == "pending":
+        raise RuntimeError(f"{realm['key']}: the auctions without an item were not removed (no mark after the step)")
+    values = detail_values(detail)
+    if values.get("run") != token:
+        return None                                     # done by an earlier run: nothing changed now
+    left = read(run, phantom_sql(c), f"the auctions without an item of {realm['key']}, after the step")
+    if left:
+        raise RuntimeError(f"{realm['key']}: {len(left)} auction(s) without an item still there after the step")
+    return int(values["removed"]), int(values["refunds"]), int(values["copper"])
 
 
-def bots_gold(run, realm, backup):
-    """Brings each random bot's gold down to the scale. Returns (bots, lowered, copper before, copper after) or None
-    when already done or nothing to apply."""
-    if is_marked(run, realm, "botsGold"):
-        return None
-    table = parse_level_gold(realm["levelGold"]) if realm["levelGold"] else {}
-    if not table:
-        return "no-scale"
+def bots_gold_plan(run, realm, table):
+    """(bots, changes [(guid, account, level, before, after)], copper before, copper after) of the random bots now."""
     c, a, b, prefix = realm["chars"], realm["auth"], realm["bots"], realm["prefix"]
-    found = rows(run(f"SELECT c.guid, c.account, c.level, c.money, acc.username, IFNULL(t.account_type, -1) "
-                     f"FROM `{c}`.characters c JOIN `{a}`.account acc ON acc.id = c.account "
-                     f"LEFT JOIN `{b}`.playerbots_account_type t ON t.account_id = c.account "
-                     f"WHERE acc.username LIKE '{prefix}%';\n"))
+    found = read(run, f"SELECT c.guid, c.account, c.level, c.money, acc.username, IFNULL(t.account_type, -1) "
+                      f"FROM `{c}`.characters c JOIN `{a}`.account acc ON acc.id = c.account "
+                      f"LEFT JOIN `{b}`.playerbots_account_type t ON t.account_id = c.account "
+                      f"WHERE acc.username LIKE '{prefix}%';\n", f"the random bots' gold of {realm['key']}")
     bots, changes, before, after = 0, [], 0, 0
     for guid, account, level, money, username, account_type in found:
         if not is_random_bot(username, int(account_type), prefix):
@@ -221,20 +275,47 @@ def bots_gold(run, realm, backup):
         after += target
         if target < money:
             changes.append((int(guid), int(account), level, money, target))
+    return bots, changes, before, after
+
+
+def bots_gold(run, realm, backup):
+    """Brings each random bot's gold down to the scale. Returns (bots, lowered, copper before, copper after), None
+    when already done, "no-scale" when the realm's scale is empty."""
+    name = "botsGold"
+    if mark_of(run, realm, name) is not None:
+        return None
+    table = parse_level_gold(realm["levelGold"]) if realm["levelGold"] else {}
+    if not table:
+        return "no-scale"
+    bots, changes, before, after = bots_gold_plan(run, realm, table)
     save_rows(backup, realm, "bots-gold", ["guid", "account", "level", "before", "after"], changes)
-    sql = [f"USE `{c}`;", "START TRANSACTION;", "DROP TEMPORARY TABLE IF EXISTS coa_gold;",
-           "CREATE TEMPORARY TABLE coa_gold (guid INT UNSIGNED PRIMARY KEY, was INT UNSIGNED NOT NULL, "
-           "now INT UNSIGNED NOT NULL);"]
+    token = run_token()
+    sql = [f"USE `{realm['chars']}`;", "START TRANSACTION;"] + mark_first_sql(realm, name) + [
+        "DROP TEMPORARY TABLE IF EXISTS coa_gold;",
+        "CREATE TEMPORARY TABLE coa_gold (guid INT UNSIGNED PRIMARY KEY, was INT UNSIGNED NOT NULL, "
+        "now INT UNSIGNED NOT NULL);"]
     for i in range(0, len(changes), BATCH):
         sql.append("INSERT INTO coa_gold VALUES " + ",".join(f"({g},{m},{t})" for g, _, _, m, t in changes[i:i + BATCH])
                    + ";")
     # Only where the gold is still what was read: a character changed since is left as it is.
-    sql += ["UPDATE characters ch JOIN coa_gold g ON g.guid = ch.guid AND ch.money = g.was SET ch.money = g.now;",
+    sql += ["UPDATE characters ch JOIN coa_gold g ON g.guid = ch.guid AND ch.money = g.was SET ch.money = g.now "
+            "WHERE @fresh = 1;",
             "SET @done = ROW_COUNT();",
-            mark_sql(realm, "botsGold", f"bots={bots} lowered={len(changes)} before={before} after={after}").strip(),
-            "COMMIT;", "SELECT @done;"]
-    done = int(rows(run("\n".join(sql) + "\n"))[-1][0])
-    return bots, done, before, after
+            mark_detail_sql(realm, name, f"CONCAT('bots={bots} lowered=', @done, ' before={before} after={after} "
+                                         f"run={token}')"),
+            "COMMIT;"]
+    write(run, "\n".join(sql) + "\n")
+    detail = mark_of(run, realm, name)
+    if detail is None or detail == "pending":
+        raise RuntimeError(f"{realm['key']}: the bots' gold was not changed (no mark after the step)")
+    values = detail_values(detail)
+    if values.get("run") != token:
+        return None                                     # done by an earlier run: nothing changed now
+    # Read back: no random bot above the scale any more.
+    _, still, _, _ = bots_gold_plan(run, realm, table)
+    if still:
+        raise RuntimeError(f"{realm['key']}: {len(still)} random bot(s) still above the scale after the step")
+    return int(values["bots"]), int(values["lowered"]), int(values["before"]), int(values["after"])
 
 
 def run_steps(repack, backup, journal, emit, save_journal, run=None):

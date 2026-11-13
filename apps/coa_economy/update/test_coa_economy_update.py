@@ -38,6 +38,20 @@ def test_rules():
     assert not eco.is_random_bot("RNDLV1", 1, "rndbot")               # another realm's bot
     assert not eco.is_random_bot("RNDBOT1", 1, "")
     assert eco.db_name("127.0.0.1;3307;acore;secret;acore_characters") == "acore_characters"
+    # mysql.exe sometimes answers nothing (exit 0): a read retries until the witness comes, else fails clearly.
+    eco.TRIES, calls = 3, []
+    def silent(sql):
+        calls.append(sql)
+        return ""
+    try:
+        eco.read(silent, "SELECT 1;\n", "a test read")
+        raise AssertionError("an answer without its witness was taken")
+    except RuntimeError as error:
+        assert "no complete answer" in str(error) and len(calls) == 3
+    answers = iter(["", "1\nCOA_FIN\n"])
+    assert eco.read(lambda sql: next(answers), "SELECT 1;\n", "a test read") == [["1"]]
+    assert eco.read(lambda sql: "COA_FIN\n", "SELECT 1;\n", "a test read") == []
+    eco.TRIES = 5
     print("rules: OK")
 
 
@@ -130,8 +144,8 @@ def write_repack(root):
         'AiPlayerbot.RandomBotAccountPrefix = "rndwc"\nAiPlayerbot.CoaEconomy.BotLevelGold = ""\n')
 
 
-def money(run, db):
-    return {int(g): int(m) for g, m in eco.rows(run(f"SELECT guid, money FROM {db}.characters;\n"))}
+def money(real, db):
+    return {int(g): int(m) for g, m in eco.rows(real(f"SELECT guid, money FROM {db}.characters;\n"))}
 
 
 def test_mysql(base):
@@ -139,16 +153,24 @@ def test_mysql(base):
     tmp = Path(tempfile.mkdtemp(prefix="coa_eco_", dir=str(base)))
     proc = start_mysql(base, tmp / "data")
     try:
-        run = runner(base)
+        real = runner(base)
+        count = [0]
+
+        def flaky(sql):
+            """The script runs, but one answer in two is lost (exit 0, no output), as mysql.exe 8.4 sometimes does."""
+            out = real(sql)
+            count[0] += 1
+            return "" if count[0] % 2 else out
+        run = flaky
         for _ in range(60):
             try:
-                run("SELECT 1;\n")
+                real("SELECT 1;\n")
                 break
             except RuntimeError:
                 time.sleep(1)
-        seed(run, "acore_characters", "acore_playerbots", "rndbot")
-        seed(run, "acore_characters_living", "acore_playerbots_living", "rndlv")
-        run("CREATE DATABASE acore_playerbots_wildcard; CREATE DATABASE acore_characters_wildcard;\n"
+        seed(real, "acore_characters", "acore_playerbots", "rndbot")
+        seed(real, "acore_characters_living", "acore_playerbots_living", "rndlv")
+        real("CREATE DATABASE acore_playerbots_wildcard; CREATE DATABASE acore_characters_wildcard;\n"
             "CREATE TABLE acore_characters_wildcard.auctionhouse LIKE acore_characters.auctionhouse;\n"
             "CREATE TABLE acore_characters_wildcard.item_instance LIKE acore_characters.item_instance;\n"
             "CREATE TABLE acore_characters_wildcard.mail LIKE acore_characters.mail;\n"
@@ -162,20 +184,20 @@ def test_mysql(base):
         journal, lines = {}, []
         eco.run_steps(repack, backup, journal, lambda kind, text: lines.append(text), lambda *_: None, run=run)
 
-        coa = money(run, "acore_characters")
+        coa = money(real, "acore_characters")
         assert coa[10] == 50000000 and coa[11] == 30000000          # the player's main and alt
         assert coa[20] == 1005000 and coa[22] == 1005000            # random bots, the mixed guild's one too
         assert coa[21] == 1000                                      # poorer than the scale: kept
         assert coa[30] == 9000000 and coa[40] == 9000000            # type 2, type 0
         assert coa[50] == 9000000                                   # another realm's bot account (RNDLV1)
-        living = money(run, "acore_characters_living")
+        living = money(real, "acore_characters_living")
         assert living[20] == 300000 and living[22] == 300000 and living[21] == 1000   # its own scale: 10 g + 20 g
         assert living[50] == 9000000 and living[10] == 50000000 and living[30] == 9000000
-        assert money(run, "acore_characters_wildcard")[20] == 20000000  # scale emptied: nothing
+        assert money(real, "acore_characters_wildcard")[20] == 20000000  # scale emptied: nothing
         for db in ("acore_characters", "acore_characters_living"):
-            assert eco.rows(run(f"SELECT BankMoney FROM {db}.guild;\n")) == [["70000000"]]
-            assert eco.rows(run(f"SELECT id FROM {db}.auctionhouse ORDER BY id;\n")) == [["102"]]
-            mails = eco.rows(run(f"SELECT id, receiver, money, subject, messageType, checked FROM {db}.mail ORDER BY id;\n"))
+            assert eco.rows(real(f"SELECT BankMoney FROM {db}.guild;\n")) == [["70000000"]]
+            assert eco.rows(real(f"SELECT id FROM {db}.auctionhouse ORDER BY id;\n")) == [["102"]]
+            mails = eco.rows(real(f"SELECT id, receiver, money, subject, messageType, checked FROM {db}.mail ORDER BY id;\n"))
             assert mails == [["7", "10", "0", "hi", "0", "0"], ["8", "10", "5000", "0:0:4:101:1", "2", "4"]], mails
         assert journal["economy"]["coa"]["phantomAuctions"] == [2, 1, 5000]
         assert journal["economy"]["coa"]["botsGold"] == [3, 2, 30001000, 2011000]
@@ -185,18 +207,35 @@ def test_mysql(base):
         assert len(json.loads((backup / "economy/living-phantom-auctions.json").read_text())["rows"]) == 2
 
         # Once: a new update (new journal) finds the marks and changes nothing.
-        run("UPDATE acore_characters.characters SET money = 5000000 WHERE guid = 20;\n"
+        real("UPDATE acore_characters.characters SET money = 5000000 WHERE guid = 20;\n"
             "INSERT INTO acore_characters.auctionhouse (id,itemguid,itemowner) VALUES (103,903,999);\n")
         again = {}
         eco.run_steps(repack, backup, again, lambda *_: None, lambda *_: None, run=run)
-        assert money(run, "acore_characters")[20] == 5000000
-        assert eco.rows(run("SELECT COUNT(*) FROM acore_characters.auctionhouse;\n")) == [["2"]]
+        assert money(real, "acore_characters")[20] == 5000000
+        assert eco.rows(real("SELECT COUNT(*) FROM acore_characters.auctionhouse;\n")) == [["2"]]
         assert again["economy"]["coa"] == {"phantomAuctions": "done before", "botsGold": "done before"}
         # A cut journal: the step already marked is not run twice either.
         again["economy"]["coa"].pop("botsGold")
         eco.run_steps(repack, backup, again, lambda *_: None, lambda *_: None, run=run)
-        assert money(run, "acore_characters")[20] == 5000000
-        print("mysql: OK")
+        assert money(real, "acore_characters")[20] == 5000000
+        # A mark read wrong (its answer lost every time but not the witness): the step's writes are gated on its
+        # INSERT IGNORE and change nothing.
+        real("UPDATE acore_characters_living.characters SET money = 7000000 WHERE guid = 20;\n"
+             "DELETE FROM acore_playerbots_living.coa_update_marks WHERE name = 'botsGold';\n"
+             "INSERT INTO acore_playerbots_living.coa_update_marks VALUES ('botsGold', NOW(), "
+             "'bots=0 lowered=0 before=0 after=0');\n")
+        hidden = [True]
+
+        def hide_mark(sql):
+            if hidden[0] and "coa_update_marks` WHERE `name` = 'botsGold'" in sql:
+                hidden[0] = False
+                real(sql)
+                return "COA_FIN\n"
+            return real(sql)
+        living_realm = [r for r in found if r["key"] == "living"][0]
+        assert eco.bots_gold(hide_mark, living_realm, backup) is None
+        assert money(real, "acore_characters_living")[20] == 7000000
+        print(f"mysql: OK ({count[0]} calls, one answer in two lost)")
         for line in lines:
             print("  " + line)
     finally:
