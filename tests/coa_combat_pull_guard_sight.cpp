@@ -7,7 +7,7 @@ using namespace CoaPullGuardSightRule;
 
 int main()
 {
-    Pack p;
+    Pack p;  // the server's default: AiPlayerbot.CoaCombat.PullGuardSight.Enable = 1
     p.aggro = 20.0f;
     p.margin = 0.0f;
     p.fighting = true;
