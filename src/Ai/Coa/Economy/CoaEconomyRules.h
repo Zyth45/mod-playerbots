@@ -424,6 +424,15 @@ inline std::uint32_t ScaleBotGold(std::uint32_t copper, std::uint32_t percent)
     return std::uint32_t(std::uint64_t(copper) * percent / 100);
 }
 
+// A random bot's gold when it is rebuilt (created, or randomized again every few hours or days): the rolled amount
+// scaled. At 100 % the roll replaces its gold, as before; below, it never loses what it holds (the gold it earned
+// selling and questing stays, and a bot at 0 % keeps living on it).
+inline std::uint32_t RebuiltBotGold(std::uint32_t held, std::uint32_t rolled, std::uint32_t percent)
+{
+    std::uint32_t const scaled = ScaleBotGold(rolled, percent);
+    return percent >= 100 ? scaled : std::max(held, scaled);
+}
+
 // Bots' level gold (BotLevelGold): "level:copper,level:copper" -> level -> copper. Bad entries are skipped.
 inline std::map<std::uint32_t, std::uint32_t> ParseLevelGold(std::string const& text)
 {

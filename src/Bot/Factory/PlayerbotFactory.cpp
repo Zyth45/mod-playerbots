@@ -1124,8 +1124,10 @@ void PlayerbotFactory::Randomize(bool incremental)
     pmo = sPerfMonitor.start(PERF_MON_RNDBOT, "PlayerbotFactory_Save");
     LOG_DEBUG("playerbots", "Saving to DB...");
     // --- CoA Economy ---
-    // A random bot's starting gold, scaled by AiPlayerbot.CoaEconomy.BotStartGoldPercent (100: unchanged).
-    bot->SetMoney(CoaEconomyRules::ScaleBotGold(urand(level * 100000, level * 5 * 100000), CoaBotStartGoldPercent()));
+    // A random bot's starting gold, scaled by AiPlayerbot.CoaEconomy.BotStartGoldPercent (100: unchanged; below, a
+    // rebuilt bot keeps the gold it holds).
+    bot->SetMoney(CoaEconomyRules::RebuiltBotGold(bot->GetMoney(), urand(level * 100000, level * 5 * 100000),
+                                                  CoaBotStartGoldPercent()));
     // --- end CoA Economy ---
     bot->SetHealth(bot->GetMaxHealth());
     bot->SetPower(POWER_MANA, bot->GetMaxPower(POWER_MANA));

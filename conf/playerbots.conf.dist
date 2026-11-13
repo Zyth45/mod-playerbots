@@ -5317,7 +5317,7 @@ AiPlayerbot.CoaEconomy.Market.BandMaxPercent = 300
 #    EpicFromLevel         Epic items once the top reaches this level and the item's own (default 50).
 #    AllowLegendary        1 = legendary items too, under the epic rule (default 0).
 #    StartStockPercent     Share of the house's MinItems/MaxItems at the start, up to 100 % at max level (default 10).
-#    LaunchPremiumPercent  Price premium at the start, fading to none with the front's progress (default 150).
+#    LaunchPremiumPercent  Price premium at the start, fading to none with the front's progress (default 0).
 #    UnitPriceCapGold      The most one item may cost: this x front x front gold, at least 1 gold (0.25: 1 g at
 #                          front 1, 25 g at 10, 100 g at 20, 400 g at 40). 0 = no cap (default 0.25).
 #    UnitPriceCapUntilLevel  No price cap once the front reaches this level (default 60).
@@ -5331,7 +5331,7 @@ AiPlayerbot.CoaEconomy.LaunchCurve.RareFromLevel = 20
 AiPlayerbot.CoaEconomy.LaunchCurve.EpicFromLevel = 50
 AiPlayerbot.CoaEconomy.LaunchCurve.AllowLegendary = 0
 AiPlayerbot.CoaEconomy.LaunchCurve.StartStockPercent = 10
-AiPlayerbot.CoaEconomy.LaunchCurve.LaunchPremiumPercent = 150
+AiPlayerbot.CoaEconomy.LaunchCurve.LaunchPremiumPercent = 0
 AiPlayerbot.CoaEconomy.LaunchCurve.UnitPriceCapGold = 0.25
 AiPlayerbot.CoaEconomy.LaunchCurve.UnitPriceCapUntilLevel = 60
 
@@ -5369,24 +5369,25 @@ AiPlayerbot.CoaEconomy.BotAuctions.DurationHours = 24
 AiPlayerbot.CoaEconomy.BotAuctions.MaxScan = 300
 
 # Random bots' gold, in percent of their usual gold: what a bot gets when it is created (10 to 50 gold per level),
-# the floor its upkeep keeps (10 to 50 silver per level) and its pocket money on returning to town. 100 = unchanged;
-# 0 = none, the bots then live on what they sell and earn. Spells, trainer recipes and repairs cost a random bot
-# nothing either way. Applies to bots created or kept up from then on; read again on reload.
-AiPlayerbot.CoaEconomy.BotStartGoldPercent = 100
+# the floor its upkeep keeps (10 to 50 silver per level) and its pocket money on returning to town. 100 = the usual
+# gold, which a bot's periodic rebuild sets anew; below 100, a rebuilt bot keeps the gold it holds. 0 (default) = none:
+# the bots live on what they sell and earn, plus BotLevelGold. Spells, trainer recipes and repairs cost a random bot
+# nothing either way. Bots already made keep their gold. Read again on reload.
+AiPlayerbot.CoaEconomy.BotStartGoldPercent = 0
 
 # Random bots' gold on reaching some levels, in copper: "level:copper,level:copper" (e.g. "10:10000" = 1 gold at level
 # 10). Paid once, on a real level-up from play; a bot created or set at a level gets nothing for the levels it skipped.
-# Empty = nothing (default). With BotStartGoldPercent = 0 the bots start poor and get a little as they rise, as a
-# player does from quests and loot. Read again on reload.
-AiPlayerbot.CoaEconomy.BotLevelGold = ""
+# Empty = nothing. The default pays 0.5 gold at 10 up to 50 gold at 80 (about 100 gold in all by 60, 255 by 80): with
+# BotStartGoldPercent = 0 the bots start poor and get a little as they rise, as a player does. Read again on reload.
+AiPlayerbot.CoaEconomy.BotLevelGold = "10:5000,15:10000,20:20000,25:30000,30:50000,35:70000,40:100000,45:120000,50:150000,55:200000,60:250000,65:300000,70:350000,75:400000,80:500000"
 
 # House-wide price scale, in percent: every price the bots ask and pay at the auction house (the house's seller and
 # buyer, the bots' own auctions, the artisans' crafts and quotes) is the market value times this. 100 = no change;
-# 50 = half price, 150 = half again as dear (kept between 50 and 150). What the bots pay follows what they ask, so
+# 50 = half price, 150 = half again as dear (kept between 50 and 150). Default 60: scarce gold, as on a fresh server. What the bots pay follows what they ask, so
 # buying from them to sell back never pays, and no price goes under a vendor's buying price plus a quarter. Read again
 # on reload (.reload config): new auctions and purchases follow at once, auctions already up keep their price until
 # they end (12 to 48 hours).
-AiPlayerbot.CoaEconomy.PriceScalePercent = 100
+AiPlayerbot.CoaEconomy.PriceScalePercent = 60
 
 # Bots' auction prices from the real CoA auction house: the market value of scans of the real house (17,121 items),
 # else the median of the scanned items of the same quality and item level (uncommon and better). Our own sales, made

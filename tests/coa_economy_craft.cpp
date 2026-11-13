@@ -104,6 +104,24 @@ int main()
     assert(ScaleBotGold(500000, 100) == 500000 && ScaleBotGold(500000, 0) == 0 && ScaleBotGold(500000, 20) == 100000);
     assert(ScaleBotGold(500000, 400) == 500000 && ScaleBotGold(4000000000u, 50) == 2000000000u);
 
+    // A rebuilt bot: at 100 % the roll replaces its gold; below, it keeps what it earned.
+    assert(RebuiltBotGold(9000000, 500000, 100) == 500000 && RebuiltBotGold(0, 500000, 100) == 500000);
+    assert(RebuiltBotGold(9000000, 500000, 0) == 9000000 && RebuiltBotGold(0, 500000, 0) == 0);
+    assert(RebuiltBotGold(50000, 500000, 20) == 100000 && RebuiltBotGold(300000, 500000, 20) == 300000);
+    {
+        // The 3.0.1 default: about 100 gold in all by level 60, 255 by 80.
+        auto const table = ParseLevelGold("10:5000,15:10000,20:20000,25:30000,30:50000,35:70000,40:100000,45:120000,"
+                                          "50:150000,55:200000,60:250000,65:300000,70:350000,75:400000,80:500000");
+        uint64_t by60 = 0, by80 = 0;
+        for (uint32_t l = 1; l < 80; ++l)
+        {
+            by80 += LevelGoldFor(table, l, l + 1);
+            if (l < 60)
+                by60 += LevelGoldFor(table, l, l + 1);
+        }
+        assert(table.size() == 15 && by60 == 1005000 && by80 == 2555000);
+    }
+
     // Bots' level gold: parsed, bad entries skipped; paid on a one-level step only.
     {
         auto const table = ParseLevelGold("10:10000, 20:50000,x:5,1:9,30:abc,40:300000");

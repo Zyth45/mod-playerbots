@@ -4,8 +4,8 @@
  * or (at your option) any later version.
  */
 
-// CoA Economy: a random bot's gold on reaching some levels (AiPlayerbot.CoaEconomy.BotLevelGold, empty by default:
-// nothing). With BotStartGoldPercent = 0 on a new realm, bots start with nothing and get a little at these levels,
+// CoA Economy: a random bot's gold on reaching some levels (AiPlayerbot.CoaEconomy.BotLevelGold, by default
+// 0.5 gold at 10 up to 50 gold at 80). With BotStartGoldPercent = 0 (the default), bots start with nothing and get a little at these levels,
 // as a player gains from quests and loot. Paid on a real level-up only (one level at a time), never to a bot set to a
 // level at once, so a realm's start pays nobody in bulk.
 
@@ -27,8 +27,11 @@ namespace
 
     void LoadLevelGold()
     {
-        std::map<uint32, uint32> table =
-            CoaEconomyRules::ParseLevelGold(CoaEconomy::Conf::Get<std::string>("AiPlayerbot.CoaEconomy.BotLevelGold", "", false));
+        static char const* const defaultLevelGold = "10:5000,15:10000,20:20000,25:30000,30:50000,35:70000,"
+                                                    "40:100000,45:120000,50:150000,55:200000,60:250000,65:300000,"
+                                                    "70:350000,75:400000,80:500000";
+        std::map<uint32, uint32> table = CoaEconomyRules::ParseLevelGold(
+            CoaEconomy::Conf::Get<std::string>("AiPlayerbot.CoaEconomy.BotLevelGold", defaultLevelGold, false));
         std::lock_guard<std::mutex> lock(levelGoldLock);
         levelGold = std::move(table);
     }

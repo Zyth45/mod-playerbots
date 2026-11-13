@@ -61,10 +61,10 @@ namespace CoaEconomy::Conf
 }
 
 // AiPlayerbot.CoaEconomy.BotStartGoldPercent: the share of their usual gold random bots get at creation, upkeep and
-// return to town (100: unchanged; 0: none). Read each time, so a reload applies at once.
+// return to town (100: the usual gold; 0, the default: none). Read each time, so a reload applies at once.
 inline uint32_t CoaBotStartGoldPercent()
 {
-    return CoaEconomy::Conf::Get<uint32_t>("AiPlayerbot.CoaEconomy.BotStartGoldPercent", 100, false);
+    return CoaEconomy::Conf::Get<uint32_t>("AiPlayerbot.CoaEconomy.BotStartGoldPercent", 0, false);
 }
 
 #endif
