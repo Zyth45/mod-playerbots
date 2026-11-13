@@ -5716,7 +5716,7 @@ AiPlayerbot.CoaCombat.BenchKeyOnly = 0
 #                  could see the destination and the move brings the bot closer to it, so ranged bots stuck behind a
 #                  wall near another room's pack come back into line of sight and keep casting. Out of combat nothing
 #                  changes.
-#     Default:     0 - (Disabled)
-#                  1 - (Enabled)
+#     Default:     1 - (Enabled)
+#                  0 - (Disabled: every pack within reach counts, seen or not)
 
-AiPlayerbot.CoaCombat.PullGuardSight.Enable = 0
+AiPlayerbot.CoaCombat.PullGuardSight.Enable = 1

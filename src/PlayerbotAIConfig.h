@@ -790,8 +790,9 @@ public:
     // inside a Dungeon Clear run, so that a Dungeon Clear series compares key 0 with key 1.
     bool coaCombatBenchKeyOnly = false;
     // Body pull guard in a fight: an idle pack counts only if it would see the destination and the move brings the
-    // bot closer to it (CoaPullGuardSightRule), so ranged bots come out from behind walls.
-    bool coaCombatPullGuardSightEnable = false;
+    // bot closer to it (CoaPullGuardSightRule), so ranged bots come out from behind walls. On by default: dungeon series
+    // SFK, BRD, Scholomance, 6 runs per arm, deaths 1 -> 0, ranged time out of sight 16.4 % -> 11.5 % of combat.
+    bool coaCombatPullGuardSightEnable = true;
     // ---- end of CoA Combat ----
 
 private:
