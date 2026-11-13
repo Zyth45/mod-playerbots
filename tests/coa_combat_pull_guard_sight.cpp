@@ -24,6 +24,9 @@ int main()
 
     p.botDist = 12.0f;  // already closer than the destination: the move pulls nothing new
     assert(!NeedsSight(p) && !IsRisk(p, true));
+    Pack strict = p;
+    strict.strict = true;  // Strict: no closer, but the pack would see it there: refused
+    assert(NeedsSight(strict) && IsRisk(strict, true) && !IsRisk(strict, false));
     p.botDist = 30.0f;
 
     Pack off = p;

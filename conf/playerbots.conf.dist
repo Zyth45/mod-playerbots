@@ -5604,3 +5604,13 @@ AiPlayerbot.CoaCombat.BenchKeyOnly = 0
 #                  0 - (Disabled: every pack within reach counts, seen or not)
 
 AiPlayerbot.CoaCombat.PullGuardSight.Enable = 1
+
+#
+# AiPlayerbot.CoaCombat.PullGuardSight.Strict
+#     Description: With PullGuardSight on, a move that does not bring the bot closer to an idle pack is let through
+#                  even when the pack would see the destination. With this on, such a move counts too: a sideways step
+#                  into a pack's sight is refused like an approach.
+#     Default:     0 - (Disabled)
+#                  1 - (Enabled)
+
+AiPlayerbot.CoaCombat.PullGuardSight.Strict = 0
