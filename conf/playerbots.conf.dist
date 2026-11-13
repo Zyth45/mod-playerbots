@@ -5463,10 +5463,10 @@ AiPlayerbot.CoaEconomy.Artisans.Stock.BuyBelowPercent = 90
 # that a recipe item in the world teaches (dropped or sold by a vendor), up to its rank and level, and that make a
 # tradable item of its era. Each recipe is drawn once per bot, so the same artisan keeps the same recipes; it learns
 # more as its rank rises (checked when it trades or is asked for its recipes). Needs Artisans.
-#    Enable       1 = on, 0 = off (default). Read at start-up (restart to change it).
+#    Enable       1 = on (default), 0 = off. Read at start-up (restart to change it).
 #    Percent      Chance, in percent, that an artisan knows a given rare recipe (default 15).
 #    EpicPercent  The same for a recipe that makes an epic (default 5).
-AiPlayerbot.CoaEconomy.Artisans.LearnRareRecipes.Enable = 0
+AiPlayerbot.CoaEconomy.Artisans.LearnRareRecipes.Enable = 1
 AiPlayerbot.CoaEconomy.Artisans.LearnRareRecipes.Percent = 15
 AiPlayerbot.CoaEconomy.Artisans.LearnRareRecipes.EpicPercent = 5
 
@@ -5479,9 +5479,10 @@ AiPlayerbot.CoaEconomy.Artisans.Addon = 1
 
 # An artisan short of gold for the reagents it lacks may still take an addon order: it buys them on credit and their
 # market cost is taken out of the cash on delivery when the player pays it (the player pays the same price). Only when
-# the price covers the reagents. Meant for a new realm where bots start with no gold. Needs Artisans.Addon.
-#    MaterialsOnDelivery  1 = on, 0 = off (default). Read at start-up (restart to change it).
-AiPlayerbot.CoaEconomy.Artisans.MaterialsOnDelivery = 0
+# the price covers the reagents. Useful on a new realm where bots start with no gold; a rich artisan pays them at once,
+# as before. Needs Artisans.Addon.
+#    MaterialsOnDelivery  1 = on (default), 0 = off. Read at start-up (restart to change it).
+AiPlayerbot.CoaEconomy.Artisans.MaterialsOnDelivery = 1
 
 # Auctions on game time: the core ends an auction at a real date, so a server off for a night found every auction
 # over at start-up. With this on, the world writes a sign of life every minute (table coa_economy_clock of the

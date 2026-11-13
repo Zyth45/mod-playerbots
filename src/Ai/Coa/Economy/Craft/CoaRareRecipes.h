@@ -9,7 +9,7 @@
 
 class Player;
 
-// CoA Economy: artisans' rare recipes (AiPlayerbot.CoaEconomy.Artisans.LearnRareRecipes.*, off by default). Bots
+// CoA Economy: artisans' rare recipes (AiPlayerbot.CoaEconomy.Artisans.LearnRareRecipes.*, on by default). Bots
 // learn only what profession trainers teach; with this on, a random bot artisan also knows a few of the recipes a
 // recipe item in the world teaches (dropped or sold by a vendor), up to its rank and level, that make a tradable item
 // of its era. Each recipe is drawn once per bot, so an artisan keeps the same recipes and learns more as it rises.

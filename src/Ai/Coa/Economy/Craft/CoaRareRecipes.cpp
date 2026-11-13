@@ -188,8 +188,8 @@ namespace
 
 void AddSC_coa_economy_rare_recipes()
 {
-    // Off by default; read at start-up (restart to change it). The chances are read again on reload.
-    if (!CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.Artisans.LearnRareRecipes.Enable", false, false) ||
+    // On by default; read at start-up (restart to change it). The chances are read again on reload.
+    if (!CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.Artisans.LearnRareRecipes.Enable", true, false) ||
         !CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.Artisans.Enable", true, false))
         return;
     CoaEconomy::RareRecipes::enabled = true;
