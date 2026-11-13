@@ -44,6 +44,7 @@ public:
 
     uint32 GetFrontLevel() const { return _frontLevel; }
     uint32 GetTopLevel() const { return _topLevel; }
+    uint32 GetLevelFront() const { return _levelFront; }
     float GetProgress() const { return _progress; }
     uint32 GetPopulation() const { return _population; }
 
@@ -73,6 +74,8 @@ private:
     bool _surveyed = false;
     uint32 _frontLevel = 1;
     uint32 _topLevel = 1;
+    uint32 _levelFront = 1; // the level bounds' front and top: at least the highest real player (LevelBoundFront)
+    uint32 _levelTop = 1;
     uint32 _population = 0;
     float _progress = 0.0f;
     std::unordered_set<uint32> _excludedAccounts;
