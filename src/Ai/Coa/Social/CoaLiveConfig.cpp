@@ -102,6 +102,7 @@ void PlayerbotAIConfig::LoadCoaLiveConfig()
                 coaTankNormalDungeonOnly.insert(specializationId);
     }
     coaLiveChannelQuestions = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaLive.ChannelQuestions.Enable", true);
+    coaLiveGreetReplies = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaLive.GreetReplies.Enable", true);
     coaLiveLootNeedAsk = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaLive.LootNeedAsk.Enable", true);
     coaLiveLootNeedAskPerDungeon = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaLive.LootNeedAsk.PerDungeon", 2);
     coaLiveLootNeedAskMinPct = sConfigMgr->GetOption<float>("AiPlayerbot.CoaLive.LootNeedAsk.MinUpgradePct", 10.0f);

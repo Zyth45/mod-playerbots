@@ -3895,6 +3895,16 @@ AiPlayerbot.CoaLive.ChannelQuestions.Enable = 1
 
 AiPlayerbot.CoaLive.ChannelQuestions.ClassAnswers = 2
 
+#    AiPlayerbot.CoaLive.GreetReplies.Enable
+#        Description: A real player's hello in /say or in the Zone channel ("hi", "hey", "o/", "salut"...) gets one
+#                     or two bots' hello back, by the player's name, 3 to 10 seconds later: in /say the bots of its
+#                     faction within 25 yards, in Zone those of its zone. Not again for that player there within a
+#                     minute. Nothing when no bot is around.
+#        Default:     1 - on
+#                     0 - off
+
+AiPlayerbot.CoaLive.GreetReplies.Enable = 1
+
 #    AiPlayerbot.CoaLive.LootNeedAsk.Enable
 #        Description: In a dungeon (not a raid), a bot grouped with a real player asks in party chat before it rolls
 #                     Need on gear that is a real upgrade for it ("can i need on that? its bis for me"). It rolls
