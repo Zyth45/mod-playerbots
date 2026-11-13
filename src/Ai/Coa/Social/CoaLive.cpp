@@ -269,6 +269,9 @@ struct ReactOptions
     ObjectGuid codItem;                            // mail this item to the subject, cash on delivery
     uint32 cod = 0;
     std::string sayChannel;                        // the public channel to answer in (its name), not the line's
+    uint64 dueAtMs = 0;                            // said at this time (game ms) instead of after its typing
+    std::string avoidLead;                         // draw again a line naming this first (a second class answer)
+    struct Said { uint64 dueMs = 0; std::string lead; } * said = nullptr;  // filled when the line is queued
 };
 
 bool React(Player* bot, std::string const& situation, Player* subject, std::string const& scope,
@@ -337,8 +340,14 @@ bool React(Player* bot, std::string const& situation, Player* subject, std::stri
     Ring& channelRing = channelRings.try_emplace(channelScope, ringSize).first->second;
     bool const rareRoll = rng.Roll(sPlayerbotAIConfig.coaLiveRareChance);
     Who const who{bot->getRace(), bot->getClass(), bot->GetZoneId()};
-    Pick const pick = Draw(*current, situation, locale, LevelBand(bot->GetLevel()), soulArch, rareRoll, &botRing,
-                           &channelRing, values, rng, who);
+    Pick pick = Draw(*current, situation, locale, LevelBand(bot->GetLevel()), soulArch, rareRoll, &botRing,
+                     &channelRing, values, rng, who);
+    for (uint32 again = 0; again < 6 && pick.line && !opt.avoidLead.empty() &&
+                           CoaChanAsk::Lead(pick.line->text) == opt.avoidLead; ++again)
+        pick = Draw(*current, situation, locale, LevelBand(bot->GetLevel()), soulArch, rareRoll, &botRing,
+                    &channelRing, values, rng, who);
+    if (pick.line && !opt.avoidLead.empty() && CoaChanAsk::Lead(pick.line->text) == opt.avoidLead)
+        return false;
     if (!pick.line)
         return false;
 
@@ -362,6 +371,13 @@ bool React(Player* bot, std::string const& situation, Player* subject, std::stri
         return false;
     Pending p;
     p.dueMs = opt.now ? 0 : nowMs + TypingMs(*rule, text.size(), text.empty() ? 0 : MsPerChar(bot), rng);
+    if (opt.dueAtMs)
+        p.dueMs = opt.dueAtMs;
+    if (opt.said)
+    {
+        opt.said->dueMs = p.dueMs;
+        opt.said->lead = CoaChanAsk::Lead(pick.line->text);
+    }
     p.bot = bot->GetGUID();
     p.subject = subject ? subject->GetGUID() : ObjectGuid::Empty;
     p.channel = channel;
@@ -1446,16 +1462,40 @@ void AnswerChannelQuestions()
         opt.sayChannel = ask.channelName;
         opt.force = true;
         char const* situation = ask.topic == CoaChanAsk::Topic::Class ? "chan_class" : "chan_question";
-        for (uint32 tried = 0; tried < CoaChanAsk::BOTS_TRIED && !hearers.empty(); ++tried)
+        // The class question gets up to two answers (ClassAnswers), each from another bot: the second names another
+        // class, 4 to 12 seconds after the first. A bank with "chan_class_2" lines gives the second its own lines,
+        // which may name the first answer's class (%class1); without them it is a second opinion of "chan_class".
+        uint32 const wanted = CoaChanAsk::AnswersWanted(ask.topic, sPlayerbotAIConfig.coaLiveChannelClassAnswers,
+                                                        hearers.size());
+        uint32 answered = 0;
+        ReactOptions::Said first;
+        for (uint32 tried = 0; tried < CoaChanAsk::BOTS_TRIED * wanted && answered < wanted && !hearers.empty();
+             ++tried)
         {
             uint32 const i = urand(0, hearers.size() - 1);
-            if (React(hearers[i], situation, player, scope, opt))
-            {
-                channelAnswerLast[scope] = nowS;
-                break;
-            }
+            Player* const bot = hearers[i];
             hearers[i] = hearers.back();
             hearers.pop_back();
+            bool said = false;
+            if (!answered)
+            {
+                opt.said = &first;
+                said = React(bot, situation, player, scope, opt);
+            }
+            else
+            {
+                ReactOptions second = opt;
+                second.said = nullptr;
+                second.avoidLead = first.lead;
+                second.dueAtMs = CoaChanAsk::SecondDueMs(first.dueMs, urand(0, 0x7fffffff));
+                second.extra["%class1"] = first.lead;
+                said = React(bot, "chan_class_2", player, scope, second) || React(bot, situation, player, scope, second);
+            }
+            if (said)
+            {
+                channelAnswerLast[scope] = nowS;
+                ++answered;
+            }
         }
     }
 }
