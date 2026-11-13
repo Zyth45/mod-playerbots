@@ -354,6 +354,9 @@ private:
     // Lowest and highest level of the real players of a team waiting for a dungeon. Written by CheckLfgQueue,
     // read by the bots from the map update threads.
     std::map<TeamId, std::map<uint32, std::pair<uint8, uint8>>> lfgPlayerLevels;
+    // CoA World: the longest wait of those players (seconds), and since when each one waits (CheckLfgQueue only).
+    std::map<TeamId, std::map<uint32, time_t>> lfgPlayerWaited;
+    std::unordered_map<ObjectGuid, time_t> lfgQueuedSince;
     std::mutex lfgPlayerLevelsLock;
     // Map and zone of the real players, for RandomBotConcentrateInPlayerZone. Written on the world thread, read
     // from the map update threads.

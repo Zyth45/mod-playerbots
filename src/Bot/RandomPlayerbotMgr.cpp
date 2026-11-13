@@ -14,6 +14,7 @@
 
 #include "CoaRulesetPvpRules.h"  // CoA World: High Risk / War Mode bots keep PvP on
 #include "CoaWorldBots.h"  // CoA World: CoaWorldIsBotHeld, CoaWorldHearthInstead, CoaWorldDensityOrderAccounts
+#include "CoaWorldLfgLevelRules.h"  // CoA World: bots near the player's level first
 #include "AscensionRulesets.h"
 #include "BattlegroundUtils.h"
 #include "AiFactory.h"
@@ -1710,6 +1711,9 @@ void RandomPlayerbotMgr::CheckLfgQueue()
     LfgDungeons[TEAM_ALLIANCE].clear();
     LfgDungeons[TEAM_HORDE].clear();
     std::map<TeamId, std::map<uint32, std::pair<uint8, uint8>>> playerLevels;
+    std::map<TeamId, std::map<uint32, time_t>> playerWaited;
+    std::unordered_map<ObjectGuid, time_t> queuedSince;
+    time_t const lfgNow = time(nullptr);
     bool needTankOrHeal[2] = {false, false};
     uint32 partiesWithoutTank[2] = {0, 0};
     uint32 partiesWithoutHeal[2] = {0, 0};
@@ -1727,6 +1731,9 @@ void RandomPlayerbotMgr::CheckLfgQueue()
         lfg::LfgState gState = sLFGMgr->GetState(guid);
         if (gState != lfg::LFG_STATE_NONE && gState < lfg::LFG_STATE_DUNGEON)
         {
+            auto const since = lfgQueuedSince.find(player->GetGUID());
+            time_t const queuedAt = since != lfgQueuedSince.end() ? since->second : lfgNow;
+            queuedSince[player->GetGUID()] = queuedAt;
             lfg::LfgDungeonSet const& dList = sLFGMgr->GetSelectedDungeons(player->GetGUID());
             for (lfg::LfgDungeonSet::const_iterator itr = dList.begin(); itr != dList.end(); ++itr)
             {
@@ -1742,6 +1749,8 @@ void RandomPlayerbotMgr::CheckLfgQueue()
                     levels->second.first = std::min(levels->second.first, level);
                     levels->second.second = std::max(levels->second.second, level);
                 }
+                time_t& waited = playerWaited[player->GetTeamId()][dungeon->id];
+                waited = std::max(waited, lfgNow - queuedAt);
             }
 
             if (!sPlayerbotAIConfig.coaLfgMissingRoles)
@@ -1803,7 +1812,9 @@ void RandomPlayerbotMgr::CheckLfgQueue()
     {
         std::lock_guard<std::mutex> lock(lfgPlayerLevelsLock);
         lfgPlayerLevels.swap(playerLevels);
+        lfgPlayerWaited.swap(playerWaited);
     }
+    lfgQueuedSince.swap(queuedSince);
 
     LOG_DEBUG("playerbots", "LFG Queue check finished");
 }
@@ -1811,8 +1822,7 @@ void RandomPlayerbotMgr::CheckLfgQueue()
 bool RandomPlayerbotMgr::IsNearLfgPlayerLevels(TeamId team, uint32 dungeonId, uint32 level)
 {
     // Seen: bots of level 18-19 joined a player of 13 in Ragefire Chasm through the random dungeon.
-    constexpr uint32 LFG_PLAYER_LEVEL_SPREAD = 5;
-
+    // CoA World: within 2 levels of the players for their first two minutes of waiting, then within 5.
     std::lock_guard<std::mutex> lock(lfgPlayerLevelsLock);
     auto const teamLevels = lfgPlayerLevels.find(team);
     if (teamLevels == lfgPlayerLevels.end())
@@ -1822,8 +1832,11 @@ bool RandomPlayerbotMgr::IsNearLfgPlayerLevels(TeamId team, uint32 dungeonId, ui
     if (levels == teamLevels->second.end())
         return true;
 
-    return level + LFG_PLAYER_LEVEL_SPREAD >= levels->second.first &&
-           level <= levels->second.second + LFG_PLAYER_LEVEL_SPREAD;
+    time_t waited = CoaWorldLfgLevelRules::WIDE_AFTER_SECONDS;
+    if (auto const teamWaited = lfgPlayerWaited.find(team); teamWaited != lfgPlayerWaited.end())
+        if (auto const w = teamWaited->second.find(dungeonId); w != teamWaited->second.end())
+            waited = w->second;
+    return CoaWorldLfgLevelRules::NearPlayers(level, levels->second.first, levels->second.second, waited);
 }
 
 void RandomPlayerbotMgr::CheckPlayers()
