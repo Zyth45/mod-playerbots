@@ -5,6 +5,7 @@
  */
 
 #include "MovementActions.h"
+#include "Ai/Coa/Combat/PullGuard/CoaPullGuardSightRule.h"
 #include <algorithm>
 #include "SpellMgr.h"
 #include "GridNotifiersImpl.h"
@@ -284,7 +285,19 @@ bool MovementAction::IsBodyPullRisk(float x, float y, float z)
             creature->HasReactState(REACT_PASSIVE) || !creature->IsHostileTo(bot))
             continue;
 
-        if (creature->GetExactDist(x, y, z) < creature->GetAttackDistance(bot) + margin)
+        // CoA Combat (PullGuardSight): in a fight, only a pack that would see the destination, and only a move that
+        // brings the bot closer to it (CoaPullGuardSightRule).
+        CoaPullGuardSightRule::Pack pack;
+        pack.destDist = creature->GetExactDist(x, y, z);
+        pack.aggro = creature->GetAttackDistance(bot);
+        pack.margin = margin;
+        pack.fighting = fighting;
+        pack.sightRuleOn = sPlayerbotAIConfig.coaCombatPullGuardSightEnable;
+        if (pack.destDist >= pack.aggro + pack.margin)
+            continue;
+        pack.botDist = creature->GetExactDist(bot);
+        bool const sees = CoaPullGuardSightRule::NeedsSight(pack) && creature->IsWithinLOS(x, y, z);
+        if (CoaPullGuardSightRule::IsRisk(pack, sees))
             return true;
     }
 
