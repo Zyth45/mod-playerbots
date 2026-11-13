@@ -137,13 +137,14 @@ constexpr uint32_t MAX_ANSWERS = 2;
 
 inline uint32_t AnswersWanted(Topic topic, uint32_t configured, size_t bots)
 {
-    uint32_t const wanted = topic == Topic::Class ? std::min<uint32_t>(std::max<uint32_t>(configured, 1), MAX_ANSWERS) : 1;
+    // "toujours 2 bots" (3.0.1): any open question gets two answers too.
+    uint32_t const wanted = topic == Topic::None ? 0 : std::min<uint32_t>(std::max<uint32_t>(configured, 1), MAX_ANSWERS);
     return static_cast<uint32_t>(std::min<size_t>(wanted, bots));
 }
 
 // The second answer comes 4 to 12 seconds after the first is said.
-constexpr uint32_t SECOND_MIN_MS = 4000;
-constexpr uint32_t SECOND_MAX_MS = 12000;
+constexpr uint32_t SECOND_MIN_MS = 3000;
+constexpr uint32_t SECOND_MAX_MS = 10000;
 
 inline uint64_t SecondDueMs(uint64_t firstDueMs, uint32_t roll)
 {

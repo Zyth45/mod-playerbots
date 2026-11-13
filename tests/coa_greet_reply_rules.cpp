@@ -20,23 +20,28 @@ int main()
     assert(!PlayerMayGreet(100, 100 + PLAYER_CD_S - 1));
     assert(PlayerMayGreet(100, 100 + PLAYER_CD_S));
 
-    // One or two bots, never more than there are, never more than two.
-    for (uint32_t roll = 0; roll < 100; ++roll)
-    {
-        uint32_t const n = Answers(roll, 10);
-        assert(n >= 1 && n <= MAX_ANSWERS);
-        assert(Answers(roll, 1) == 1);
-        assert(Answers(roll, 0) == 0);
-    }
-    assert(Answers(0, 10) == 1 && Answers(1, 10) == 2);
+    // The world channel: ten players saying hello in the same second get one answered hello, not ten.
+    uint64_t channelLast = 0;
+    uint32_t answered = 0;
+    for (int player = 0; player < 10; ++player)
+        if (ChannelMayGreet(channelLast, 1000))
+        {
+            channelLast = 1000;
+            ++answered;
+        }
+    assert(answered == 1);
+    assert(!ChannelMayGreet(1000, 1000 + CHANNEL_GAP_S - 1) && ChannelMayGreet(1000, 1000 + CHANNEL_GAP_S));
 
-    // Within 3 to 10 seconds.
-    for (uint32_t roll : {0u, 1u, 3000u, 3001u, 4294967295u})
+    // Always two bots, fewer only when fewer are there.
+    assert(Answers(10) == 2 && Answers(2) == 2 && Answers(1) == 1 && Answers(0) == 0);
+
+    // The first within 3 to 6 s, the next 3 to 10 s after it.
+    for (uint32_t roll : {0u, 1u, 3000u, 3001u, 7000u, 7001u, 4294967295u})
     {
         uint64_t const first = FirstDueMs(1000000, roll);
         assert(first >= 1003000 && first <= 1006000);
-        uint64_t const second = SecondDueMs(first, roll);
-        assert(second >= first + 2000 && second <= first + 4000 && second <= 1010000);
+        uint64_t const second = NextDueMs(first, roll);
+        assert(second >= first + 3000 && second <= first + 10000);
     }
     return 0;
 }

@@ -22,6 +22,7 @@
 #include "CoaGroupEmoteRules.h"
 #include "CoaChanAskRules.h"
 #include "CoaGreetReplyRules.h"
+#include "CoaDungeonChatRules.h"
 #include "CoaWorldGuildRules.h"
 #include "CoaGearScore.h"
 #include "CoaChatRules.h"
@@ -274,6 +275,7 @@ struct ReactOptions
     std::string sayChannel;                        // the public channel to answer in (its name), not the line's
     uint64 dueAtMs = 0;                            // said at this time (game ms) instead of after its typing
     bool sayNear = false;                          // said aloud (/say), whatever the line's channel
+    bool sayParty = false;                         // said in party chat, whatever the line's channel
     std::string avoidLead;                         // draw again a line naming this first (a second class answer)
     struct Said { uint64 dueMs = 0; std::string lead; } * said = nullptr;  // filled when the line is queued
 };
@@ -379,6 +381,8 @@ bool React(Player* bot, std::string const& situation, Player* subject, std::stri
         p.dueMs = opt.dueAtMs;
     if (opt.sayNear)
         p.channel = CH_NEAR;
+    if (opt.sayParty)
+        p.channel = CH_PARTY;
     if (opt.said)
     {
         opt.said->dueMs = p.dueMs;
@@ -1450,34 +1454,49 @@ void HearLootAnswer(Player* player, std::string const& msg, Player* receiver)
 
 // AiPlayerbot.CoaLive.GreetReplies.Enable: a real player's hello in /say or in the Zone channel, heard by the chat
 // hooks (any thread) and answered by the world thread (CoaGreetReplyRules.h). Under liveLock.
+// Where a hello was said: /say, party chat, or a public channel (its id and name).
+constexpr uint32 GREET_SAY = 0;
+constexpr uint32 GREET_PARTY = 100;
 struct GreetHeard
 {
     ObjectGuid player;
-    std::string channelName;  // empty: /say
+    uint32 place = GREET_SAY;  // GREET_SAY, GREET_PARTY, or the channel id (1 Ascension, 3 Zone)
+    std::string channelName;
 };
 std::vector<GreetHeard> greetsHeard;
-std::unordered_map<std::string, uint64> greetLast;  // "<player>|<place>" -> its last hello answered (s)
+std::unordered_map<std::string, uint64> greetLast;  // "<player>|<place>" and "#<channel>" -> last hello answered (s)
 
 // true when the line was a hello (heard or not): the channel question path leaves it alone.
-bool HearGreeting(Player* player, std::string const& msg, std::string const& channelName)
+bool HearGreeting(Player* player, std::string const& msg, uint32 place, std::string const& channelName)
 {
     if (!CoaWorldGuildRules::IsGreeting(msg))
         return false;
     uint64 const nowS = uint64(GameTime::GetGameTime().count());
-    std::string const key = std::to_string(player->GetGUID().GetCounter()) + "|" + channelName;
+    std::string const key = std::to_string(player->GetGUID().GetCounter()) + "|" + std::to_string(place);
+    std::string const channelKey = "#" + std::to_string(player->GetTeamId()) + "|" + channelName;
+    bool const channel = place != GREET_SAY && place != GREET_PARTY;
     std::lock_guard<std::mutex> guard(liveLock);
     auto const last = greetLast.find(key);
     if (!CoaGreetReply::PlayerMayGreet(last == greetLast.end() ? 0 : last->second, nowS) || greetsHeard.size() >= 64)
         return true;
+    // A public channel answers one hello in CHANNEL_GAP_S: many players saying hello at once make no burst.
+    if (channel)
+    {
+        auto const chan = greetLast.find(channelKey);
+        if (!CoaGreetReply::ChannelMayGreet(chan == greetLast.end() ? 0 : chan->second, nowS))
+            return true;
+        greetLast[channelKey] = nowS;
+    }
     greetLast[key] = nowS;
     if (greetLast.size() > 20000)
         greetLast.clear();
-    greetsHeard.push_back({player->GetGUID(), channelName});
+    greetsHeard.push_back({player->GetGUID(), place, channelName});
     return true;
 }
 
-// One or two free bots of the player's faction answer: in /say those within SAY_RANGE yards, in Zone those of its
-// zone. The lines of "say_greet_reply" or "zone_greet_reply" when the bank has them, else the guild's hello back.
+// Two bots answer (one when only one is there): in /say the free bots of the player's faction within SAY_RANGE yards,
+// in party chat the bots of its group, in Zone the free bots of its zone, in Ascension those of its faction. The
+// lines of say_greet_reply, party_greet_reply or zone_greet_reply when the bank has them, else the guild's hello back.
 void AnswerGreetings()
 {
     std::vector<GreetHeard> heard;
@@ -1491,21 +1510,38 @@ void AnswerGreetings()
         Player* player = ObjectAccessor::FindConnectedPlayer(g.player);
         if (!player || !player->IsInWorld())
             continue;
-        bool const say = g.channelName.empty();
         std::vector<Player*> hearers;
+        if (g.place == GREET_PARTY)
+        {
+            if (Group* group = player->GetGroup())
+                for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+                    if (Player* member = ref->GetSource(); member && member != player && member->IsInWorld() &&
+                                                           member->IsAlive() && GET_PLAYERBOT_AI(member) &&
+                                                           !IsRealPlayer(member))
+                        hearers.push_back(member);
+        }
+        else
         {
             std::shared_lock<std::shared_mutex> playersLock(*HashMapHolder<Player>::GetLock());
             for (auto const& [guid, bot] : ObjectAccessor::GetPlayers())
-                if (bot && FreeRandomBot(bot) && bot->GetTeamId() == player->GetTeamId() &&
-                    bot->GetZoneId() == player->GetZoneId() &&
-                    (!say || (bot->GetMap() == player->GetMap() &&
-                              bot->IsWithinDist(player, CoaGreetReply::SAY_RANGE))))
-                    hearers.push_back(bot);
+            {
+                if (!bot || !FreeRandomBot(bot) || bot->GetTeamId() != player->GetTeamId())
+                    continue;
+                if (g.place == GREET_SAY && (bot->GetMap() != player->GetMap() ||
+                                             !bot->IsWithinDist(player, CoaGreetReply::SAY_RANGE)))
+                    continue;
+                if (g.place == 3 && bot->GetZoneId() != player->GetZoneId())
+                    continue;
+                hearers.push_back(bot);
+            }
         }
-        uint32 const wanted = CoaGreetReply::Answers(urand(0, 0x7fffffff), hearers.size());
-        std::string const scope = say ? "g" + std::to_string(player->GetGUID().GetCounter())
+        uint32 const wanted = CoaGreetReply::Answers(hearers.size());
+        std::string const scope = g.place == GREET_SAY || g.place == GREET_PARTY
+                                      ? "g" + std::to_string(player->GetGUID().GetCounter())
                                       : "g" + std::to_string(player->GetTeamId()) + "|" + g.channelName;
-        char const* const own = say ? "say_greet_reply" : "zone_greet_reply";
+        char const* const own = g.place == GREET_SAY     ? "say_greet_reply"
+                                : g.place == GREET_PARTY ? "party_greet_reply"
+                                                         : "zone_greet_reply";
         uint64 due = CoaGreetReply::FirstDueMs(nowMs, urand(0, 0x7fffffff));
         uint32 answered = 0;
         for (uint32 tried = 0; tried < 5 * wanted && answered < wanted && !hearers.empty(); ++tried)
@@ -1517,16 +1553,147 @@ void AnswerGreetings()
             ReactOptions opt;
             opt.force = true;
             opt.dueAtMs = due;
-            if (say)
+            if (g.place == GREET_SAY)
                 opt.sayNear = true;
+            else if (g.place == GREET_PARTY)
+                opt.sayParty = true;
             else
                 opt.sayChannel = g.channelName;
             if (React(bot, own, player, scope, opt) || React(bot, "guild_greet_reply", player, scope, opt))
             {
                 ++answered;
-                due = CoaGreetReply::SecondDueMs(due, urand(0, 0x7fffffff));
+                due = CoaGreetReply::NextDueMs(due, urand(0, 0x7fffffff));
             }
         }
+    }
+}
+
+// AiPlayerbot.CoaLive.DungeonChat.Enable: the bots of a real player's dungeon group talk in party chat now and then
+// (CoaDungeonChatRules.h). The runs, by real player, under liveLock.
+struct DunRun
+{
+    uint32 instance = 0;
+    uint64 enterMs = 0;
+    uint64 nextIdleMs = 0;
+    bool inside = false;
+};
+std::unordered_map<uint64, DunRun> dunRuns;
+
+// The bots of the player's group (random bots and alts alike), alive and in the world.
+std::vector<Player*> GroupBots(Player* player, bool sameMap)
+{
+    std::vector<Player*> bots;
+    if (Group* group = player->GetGroup())
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+            if (Player* member = ref->GetSource(); member && member != player && member->IsInWorld() &&
+                                                   member->IsAlive() && GET_PLAYERBOT_AI(member) &&
+                                                   !IsRealPlayer(member) &&
+                                                   (!sameMap || member->GetMap() == player->GetMap()))
+                bots.push_back(member);
+    return bots;
+}
+
+// `count` bots of the group say a line of `situation` in party chat, 3 to 6 s on, then 3 to 10 s apart.
+void SayInParty(Player* player, std::vector<Player*> bots, char const* situation, uint32 count)
+{
+    std::string const scope = "d" + std::to_string(player->GetGUID().GetCounter());
+    uint64 due = CoaDungeonChat::FirstDueMs(GameTime::GetGameTimeMS().count(), urand(0, 0x7fffffff));
+    uint32 said = 0;
+    while (said < count && !bots.empty())
+    {
+        uint32 const i = urand(0, bots.size() - 1);
+        Player* const bot = bots[i];
+        bots[i] = bots.back();
+        bots.pop_back();
+        ReactOptions opt;
+        opt.force = true;
+        opt.sayParty = true;
+        opt.dueAtMs = due;
+        if (React(bot, situation, player, scope, opt))
+        {
+            ++said;
+            due = CoaDungeonChat::NextDueMs(due, urand(0, 0x7fffffff));
+        }
+    }
+}
+
+// A real player changed map: into a dungeon (not a raid), two bots of its group say hello; out of it after a run, two
+// say thanks. A ghost on its way back (a death, released) is still in the run.
+void DungeonChatMapChanged(Player* player)
+{
+    Map* map = player->GetMap();
+    uint64 const key = player->GetGUID().GetRawValue();
+    uint64 const nowMs = GameTime::GetGameTimeMS().count();
+    char const* say = nullptr;
+    if (map && map->IsNonRaidDungeon())
+    {
+        std::lock_guard<std::mutex> guard(liveLock);
+        DunRun& run = dunRuns[key];
+        if (CoaDungeonChat::NewEntrance(run.instance, run.enterMs, map->GetInstanceId(), nowMs))
+        {
+            run.instance = map->GetInstanceId();
+            run.enterMs = nowMs;
+            run.nextIdleMs = CoaDungeonChat::FirstIdleMs(nowMs, urand(0, 0x7fffffff));
+            say = "dun_enter";
+        }
+        run.inside = true;
+        if (dunRuns.size() > 20000)
+            dunRuns.clear();
+    }
+    else if (player->IsAlive())
+    {
+        std::lock_guard<std::mutex> guard(liveLock);
+        auto it = dunRuns.find(key);
+        if (it != dunRuns.end() && it->second.inside)
+        {
+            it->second.inside = false;
+            if (CoaDungeonChat::EndDue(it->second.enterMs, nowMs))
+            {
+                say = "dun_end";
+                it->second.enterMs = 0;  // the next entrance, even into the same instance, is a new run
+            }
+        }
+    }
+    if (!say)
+        return;
+    std::vector<Player*> const bots = GroupBots(player, false);
+    SayInParty(player, bots, say, CoaDungeonChat::Speakers(bots.size()));
+}
+
+// World thread, every 30 s: in each run, a line now and then (one bot), never while a member of the group fights.
+void DungeonChatTick(uint64 nowMs)
+{
+    static uint64 nextTick = 0;
+    if (nowMs < nextTick)
+        return;
+    nextTick = nowMs + 30000;
+    std::vector<std::pair<uint64, DunRun>> runs;
+    {
+        std::lock_guard<std::mutex> guard(liveLock);
+        for (auto const& [key, run] : dunRuns)
+            if (run.inside)
+                runs.push_back({key, run});
+    }
+    for (auto const& [key, run] : runs)
+    {
+        Player* player = ObjectAccessor::FindConnectedPlayer(ObjectGuid(key));
+        if (!player || !player->IsInWorld() || !player->GetMap() || player->GetMap()->GetInstanceId() != run.instance ||
+            !player->GetGroup())
+            continue;
+        bool fighting = player->IsInCombat();
+        std::vector<Player*> const bots = GroupBots(player, true);
+        for (Player* bot : bots)
+            fighting = fighting || bot->IsInCombat();
+        if (bots.empty() || !CoaDungeonChat::IdleDue(run.nextIdleMs, nowMs, fighting))
+            continue;
+        {
+            std::lock_guard<std::mutex> guard(liveLock);
+            auto it = dunRuns.find(key);
+            if (it == dunRuns.end())
+                continue;
+            it->second.nextIdleMs = CoaDungeonChat::NextIdleMs(nowMs, urand(0, 0x7fffffff));
+        }
+        SayInParty(player, bots, "dun_idle", 1);
     }
 }
 
@@ -1611,7 +1778,8 @@ void AnswerChannelQuestions()
                 second.avoidLead = first.lead;
                 second.dueAtMs = CoaChanAsk::SecondDueMs(first.dueMs, urand(0, 0x7fffffff));
                 second.extra["class1"] = first.lead;
-                said = React(bot, "chan_class_2", player, scope, second) || React(bot, situation, player, scope, second);
+                said = (ask.topic == CoaChanAsk::Topic::Class && React(bot, "chan_class_2", player, scope, second)) ||
+                       React(bot, situation, player, scope, second);
             }
             if (said)
             {
@@ -2073,11 +2241,11 @@ public:
     {
         if (Enabled() && player && channel && channel->GetChannelId() == COA_TRADE_CHANNEL_ID && IsRealPlayer(player))
             NoteTrade(player);
-        // A hello in the Zone channel (id 3) gets a hello back (AiPlayerbot.CoaLive.GreetReplies.Enable).
+        // A hello in the Zone (id 3) or Ascension (id 1) channel gets a hello back (AiPlayerbot.CoaLive.GreetReplies).
         bool greeted = false;
-        if (Enabled() && sPlayerbotAIConfig.coaLiveGreetReplies && player && channel && channel->GetChannelId() == 3 &&
-            IsRealPlayer(player))
-            greeted = HearGreeting(player, msg, channel->GetName());
+        if (Enabled() && sPlayerbotAIConfig.coaLiveGreetReplies && player && channel &&
+            (channel->GetChannelId() == 3 || channel->GetChannelId() == 1) && IsRealPlayer(player))
+            greeted = HearGreeting(player, msg, channel->GetChannelId(), channel->GetName());
         if (!greeted && Enabled() && sPlayerbotAIConfig.coaLiveChannelQuestions && player && channel &&
             IsRealPlayer(player))
             HearChannelQuestion(player, msg, channel);
@@ -2089,7 +2257,7 @@ public:
     {
         if (Enabled() && sPlayerbotAIConfig.coaLiveGreetReplies && player && type == CHAT_MSG_SAY &&
             IsRealPlayer(player))
-            HearGreeting(player, msg, std::string());
+            HearGreeting(player, msg, GREET_SAY, std::string());
         return true;
     }
 
@@ -2098,6 +2266,8 @@ public:
     {
         if (Enabled() && sPlayerbotAIConfig.coaLiveLootNeedAsk && player && group && IsRealPlayer(player))
             HearLootAnswer(player, msg, nullptr);
+        if (Enabled() && sPlayerbotAIConfig.coaLiveGreetReplies && player && group && IsRealPlayer(player))
+            HearGreeting(player, msg, GREET_PARTY, std::string());
         return true;
     }
 
@@ -2156,6 +2326,9 @@ public:
     // goodbye). One line per group, the pace of the scope keeps the others quiet.
     void OnPlayerMapChanged(Player* player) override
     {
+        // AiPlayerbot.CoaLive.DungeonChat.Enable: a real player in or out of a dungeon with its group's bots.
+        if (Enabled() && sPlayerbotAIConfig.coaLiveDungeonChat && player && IsRealPlayer(player))
+            DungeonChatMapChanged(player);
         if (!Enabled() || !NightOn() || !player || !IsRandom(player))
             return;
         uint64 const key = player->GetGUID().GetRawValue();
@@ -2176,6 +2349,9 @@ public:
         if (!group || !GroupHasRealPlayer(player))
             return;
         std::string const scope = "g" + std::to_string(group->GetGUID().GetCounter());
+        // The dungeon chat has its own hello and thanks, by two bots: the night bank's are not said on top of them.
+        if (sPlayerbotAIConfig.coaLiveDungeonChat)
+            return;
         if (inDungeon)
         {
             DungeonGroup g;
@@ -2244,6 +2420,8 @@ public:
                 AnswerChannelQuestions();
             if (sPlayerbotAIConfig.coaLiveGreetReplies)
                 AnswerGreetings();
+            if (sPlayerbotAIConfig.coaLiveDungeonChat)
+                DungeonChatTick(nowMs);
             ChannelTimers(nowMs);
             TradePace(nowMs);
         }

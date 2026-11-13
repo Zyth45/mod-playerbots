@@ -56,11 +56,13 @@ int main()
     assert(AnswersWanted(Topic::Class, 0, 10) == 1);
     assert(AnswersWanted(Topic::Class, 2, 1) == 1);
     assert(AnswersWanted(Topic::Class, 2, 0) == 0);
-    assert(AnswersWanted(Topic::Question, 2, 10) == 1);
+    assert(AnswersWanted(Topic::Question, 2, 10) == 2);
+    assert(AnswersWanted(Topic::Question, 2, 1) == 1);
+    assert(AnswersWanted(Topic::None, 2, 10) == 0);
     for (uint32_t roll : {0u, 1u, 7999u, 8000u, 4294967295u})
     {
         uint64_t const due = SecondDueMs(1000000, roll);
-        assert(due >= 1000000 + 4000 && due <= 1000000 + 12000);
+        assert(due >= 1000000 + 3000 && due <= 1000000 + 10000);
     }
     assert(Lead("bloodmage, paying with your own health is a lifestyle") == "bloodmage");
     assert(Lead("Knight of Xoroth, the name alone wins arguments") == "knight of xoroth");
