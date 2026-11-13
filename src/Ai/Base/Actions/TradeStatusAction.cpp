@@ -5,6 +5,7 @@
  */
 
 #include "TradeStatusAction.h"
+#include "CoaEconomyChatter.h"
 #include "CraftValue.h"
 #include "Event.h"
 #include "GuildTaskMgr.h"
@@ -37,9 +38,11 @@ bool TradeStatusAction::Execute(Event event)
     if (trader != master && traderIsGameClientPlayer &&
         (!bot->GetGroup() || !bot->GetGroup()->IsMember(trader->GetGUID())))
     {
-        bot->Whisper(PlayerbotTextMgr::instance().GetBotTextOrDefault(
-                         "trade_busy_now", "I'm kind of busy now", {}),
-                     LANG_UNIVERSAL, trader);
+        // CoA Economy: a random bot answers with a polite whisper of the living chat (trade_window), paced per player.
+        if (!CoaEconomy::Chatter::OnTradeRefused(bot, trader))
+            bot->Whisper(PlayerbotTextMgr::instance().GetBotTextOrDefault(
+                             "trade_busy_now", "I'm kind of busy now", {}),
+                         LANG_UNIVERSAL, trader);
         CancelTrade();
         return false;
     }

@@ -53,5 +53,10 @@ int main()
     assert(UnderItemCap(0, 3) && UnderItemCap(2, 3) && !UnderItemCap(3, 3) && !UnderItemCap(50, 3));
     assert(UnderItemCap(9, 10) && !UnderItemCap(10, 10));
     assert(UnderItemCap(5000, 0));                       // 0 = no cap
+    // ah_sold (one per server per 30 min) and trade_window (one per player per 5 min): a paced line.
+    assert(PaceAllows(0, 100, 1800));                    // never said yet
+    assert(!PaceAllows(1000, 1000, 1800) && !PaceAllows(1000, 2799, 1800) && PaceAllows(1000, 2800, 1800));
+    assert(!PaceAllows(5000, 5299, 300) && PaceAllows(5000, 5300, 300));
+    assert(PaceAllows(5000, 5000, 0));                   // no gap
     return 0;
 }

@@ -5482,6 +5482,19 @@ AiPlayerbot.CoaEconomy.BotStartGoldPercent = 0
 # BotStartGoldPercent = 0 the bots start poor and get a little as they rise, as a player does. Read again on reload.
 AiPlayerbot.CoaEconomy.BotLevelGold = "10:5000,15:10000,20:20000,25:30000,30:50000,35:70000,40:100000,45:120000,50:150000,55:200000,60:250000,65:300000,70:350000,75:400000,80:500000"
 
+# Bots' words about their trade, said the CoA Live way (its banks; nothing when AiPlayerbot.CoaLive.Chat.Enable is 0).
+#    AhSold.Enable              Now and then, a bot whose auction just sold says so in Trade ("sold my stack, finally";
+#                               1 = on, default).
+#    AhSold.MinutesBetween      At most one such line per server in this time (default 30).
+#    TradeWindow.Enable         A real player opens a trade window with a random bot that does not trade with them: the
+#                               bot whispers a polite word ("hi, what do you need?") instead of "I'm kind of busy now"
+#                               (1 = on, default). It still trades nothing.
+#    TradeWindow.MinutesPerPlayer  At most one such whisper per player in this time; in between, nothing (default 5).
+AiPlayerbot.CoaEconomy.Chatter.AhSold.Enable = 1
+AiPlayerbot.CoaEconomy.Chatter.AhSold.MinutesBetween = 30
+AiPlayerbot.CoaEconomy.Chatter.TradeWindow.Enable = 1
+AiPlayerbot.CoaEconomy.Chatter.TradeWindow.MinutesPerPlayer = 5
+
 # House-wide price scale, in percent: every price the bots ask and pay at the auction house (the house's seller and
 # buyer, the bots' own auctions, the artisans' crafts and quotes) is the market value times this. 100 = no change;
 # 50 = half price, 150 = half again as dear (kept between 50 and 150). Default 60: scarce gold, as on a fresh server. What the bots pay follows what they ask, so

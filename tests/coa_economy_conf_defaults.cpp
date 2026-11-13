@@ -50,6 +50,10 @@ int main()
     assert(table.at("AiPlayerbot.CoaEconomy.BotStartGoldPercent") == "0");
     assert(table.at("AiPlayerbot.CoaEconomy.BotAuctions.MaxPerItem") == "10");
     assert(table.at("AiPlayerbot.CoaEconomy.BotAuctions.MaxPerUpgradeKit") == "3");
+    assert(table.at("AiPlayerbot.CoaEconomy.Chatter.AhSold.Enable") == "1");
+    assert(table.at("AiPlayerbot.CoaEconomy.Chatter.AhSold.MinutesBetween") == "30");
+    assert(table.at("AiPlayerbot.CoaEconomy.Chatter.TradeWindow.Enable") == "1");
+    assert(table.at("AiPlayerbot.CoaEconomy.Chatter.TradeWindow.MinutesPerPlayer") == "5");
     assert(table.at("AiPlayerbot.CoaEconomy.PriceScalePercent") == "60");
     assert(table.at("AiPlayerbot.CoaEconomy.LaunchCurve.LaunchPremiumPercent") == "0");
     assert(table.at("AiPlayerbot.CoaEconomy.LaunchCurve.Enable") == "1");

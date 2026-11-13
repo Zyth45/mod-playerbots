@@ -352,6 +352,13 @@ std::uint32_t HouseSellerCount(Owners const& owners, Sellers const& sellers)
     return count;
 }
 
+// A line paced by a gap (seconds): allowed when never said yet, or when the gap since the last one is over. Used for
+// ah_sold (one per server per AhSold.MinutesBetween) and trade_window (one per player per TradeWindow.MinutesPerPlayer).
+inline bool PaceAllows(std::uint32_t lastS, std::uint32_t nowS, std::uint32_t gapS)
+{
+    return lastS == 0 || nowS >= lastS + gapS;
+}
+
 // Chat links the 3.3.5 client makes clickable: a spell (blue) and a trade skill recipe (gold, the shift-click link).
 inline std::string SpellChatLink(std::uint32_t spellId, std::string const& name, bool recipe)
 {
