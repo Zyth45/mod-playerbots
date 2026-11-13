@@ -1412,13 +1412,22 @@ std::unordered_map<std::string, uint64> channelAnswerLast;  // "c<team>|<channel
 // AiPlayerbot.CoaLive.LootNeedAsk: the open asks of the bots on loot rolls (CoaLootAskRules.h). Under liveLock.
 CoaLootAsk::Book lootAsks;
 
-// A real player for the asks, or the bench's stand-in (AiPlayerbot.CoaLive.LootNeedAsk.TestPlayer).
-bool LootAskPlayer(Player* player)
+// The bench's stand-in (AiPlayerbot.CoaLive.LootNeedAsk.TestPlayer): a character by its name, or "@leader", the leader
+// of the group (the bench's groups are drawn at random, led by their tank).
+bool LootAskStandIn(Player* player, Group* group)
 {
-    if (IsRealPlayer(player))
-        return true;
     std::string const& test = sPlayerbotAIConfig.coaLiveLootNeedAskTestPlayer;
-    return !test.empty() && player->GetName() == test;
+    if (test.empty())
+        return false;
+    if (test == "@leader")
+        return group && group->GetLeaderGUID() == player->GetGUID();
+    return player->GetName() == test;
+}
+
+// A real player for the asks, or the bench's stand-in.
+bool LootAskPlayer(Player* player, Group* group)
+{
+    return IsRealPlayer(player) || LootAskStandIn(player, group);
 }
 
 // A real player's party or raid line (receiver null), or whisper to a bot: an answer to the asks it is part of.
@@ -2206,7 +2215,7 @@ CoaLootAsk::Outcome LootNeedAsk(Player* bot, ObjectGuid itemGuid, uint8 itemSlot
     for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
         Player* member = ref->GetSource();
-        if (!member || !member->IsInWorld() || !LootAskPlayer(member))
+        if (!member || member == bot || !member->IsInWorld() || !LootAskPlayer(member, group))
             continue;
         // Never on an item a real player of the group would wear better than what it wears.
         if (member->CanUseItem(proto) == EQUIP_ERR_OK &&
@@ -2241,7 +2250,7 @@ CoaLootAsk::Outcome LootNeedAsk(Player* bot, ObjectGuid itemGuid, uint8 itemSlot
     std::string const& testAnswer = sPlayerbotAIConfig.coaLiveLootNeedAskTestAnswer;
     if (!testName.empty() && (testAnswer == "yes" || testAnswer == "no"))
         for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
-            if (Player* member = ref->GetSource(); member && member->GetName() == testName)
+            if (Player* member = ref->GetSource(); member && member != bot && LootAskStandIn(member, group))
                 HearLootAnswer(member, testAnswer, nullptr);
     return Outcome::Wait;
 }

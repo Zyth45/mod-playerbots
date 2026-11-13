@@ -3913,7 +3913,8 @@ AiPlayerbot.CoaLive.LootNeedAsk.MinUpgradePct = 10
 
 #    AiPlayerbot.CoaLive.LootNeedAsk.TestPlayer / .TestAnswer
 #        Description: Bench tool, no effect while TestPlayer is empty (the default). The character of that name, a
-#                     bot of the bench, counts as a real player for these asks only, and gives TestAnswer to each
+#                     bot of the bench, or "@leader" (the leader of each group), counts as a real player for these
+#                     asks only (never the bot that asks), and gives TestAnswer to each
 #                     ask through the same path as a real player's party line: yes, no, or none (no answer). Each
 #                     ask writes one line to the log: "coa loot ask: instance ... bot ... item ... answer ... vote ...".
 #        Default:     "" and none
