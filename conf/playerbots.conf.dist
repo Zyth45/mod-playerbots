@@ -3891,6 +3891,17 @@ AiPlayerbot.CoaLive.GroupEmotes.PerGroup = 3
 
 AiPlayerbot.CoaTankNormalDungeonOnly = 99
 
+#    AiPlayerbot.CoaLive.ChannelQuestions.Enable
+#        Description: A real player's open question in a public channel (Ascension, Newcomers, Zone, LookingForGroup)
+#                     gets one bot's answer in that channel, 5 to 20 seconds later: "what class is the best?"
+#                     (chan_class) or any other open question (chan_question). Never two bots on one question, one
+#                     answer per player in 5 minutes, a pace per channel. Not the guild asks (CoA World answers
+#                     them), groups, trade, nor questions about bots. Needs the lines of bank 3_0_25 or later.
+#        Default:     1 - on
+#                     0 - off
+
+AiPlayerbot.CoaLive.ChannelQuestions.Enable = 1
+
 # Bots' minimum and maximum level when teleporting in and out of a zone, according to the new RPG strategy
 # Format: AiPlayerbot.ZoneBracket.zoneID = minLevel,maxLevel
 #
