@@ -2419,6 +2419,8 @@ bool PlayerbotAI::PlaySound(uint32 emote)
 
 bool PlayerbotAI::PlayEmote(uint32 emote)
 {
+    if (!CoaLive::GroupEmoteAllowed(bot))
+        return false;
     WorldPacket data(SMSG_TEXT_EMOTE);
     data << (TextEmotes)emote;
     data << EmoteAction::GetNumberOfEmoteVariants((TextEmotes)emote, bot->getRace(), bot->getGender());

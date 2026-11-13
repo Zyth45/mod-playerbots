@@ -3849,6 +3849,18 @@ AiPlayerbot.CoaAltBags.Enable = 0
 
 AiPlayerbot.CoaLive.DataFile.Enable = 1
 
+#    AiPlayerbot.CoaLive.GroupEmotes.PerBot
+#    AiPlayerbot.CoaLive.GroupEmotes.PerGroup
+#        Description: In a group with a real player, the bots' text emotes ("Kegarink cheers.") in 10 minutes: at
+#                     most PerBot for each bot and PerGroup for the whole group. Every text emote counts: CoA Live's,
+#                     and the playerbots ones when AiPlayerbot.RandomBotEmote or EnableGreet are on.
+#                     Players found them too many in groups. Away from a real player's group nothing changes.
+#                     0: no cap (as before 3.0.1).
+#        Default:     1 (PerBot), 3 (PerGroup)
+
+AiPlayerbot.CoaLive.GroupEmotes.PerBot = 1
+AiPlayerbot.CoaLive.GroupEmotes.PerGroup = 3
+
 # Bots' minimum and maximum level when teleporting in and out of a zone, according to the new RPG strategy
 # Format: AiPlayerbot.ZoneBracket.zoneID = minLevel,maxLevel
 #

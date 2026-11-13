@@ -5,6 +5,8 @@
  */
 
 #include "EmoteAction.h"
+
+#include "CoaLive.h"
 #include "Event.h"
 #include "Playerbots.h"
 #include "ServerFacade.h"
@@ -108,6 +110,8 @@ bool EmoteActionBase::Emote(Unit* target, uint32 type, bool textEmote)
 
     if (textEmote)
     {
+        if (!CoaLive::GroupEmoteAllowed(bot))
+            return false;
         WorldPacket data(SMSG_TEXT_EMOTE);
         data << type;
         data << GetNumberOfEmoteVariants((TextEmotes)type, bot->getRace(), bot->getGender());
@@ -631,6 +635,8 @@ bool EmoteActionBase::ReceiveEmote(Player* source, uint32 emote, bool verbal)
 
     if (textEmote)
     {
+        if (!CoaLive::GroupEmoteAllowed(bot))
+            return false;
         WorldPacket data(SMSG_TEXT_EMOTE);
         data << textEmote;
         data << GetNumberOfEmoteVariants((TextEmotes)textEmote, bot->getRace(), bot->getGender());
@@ -755,6 +761,8 @@ bool EmoteAction::Execute(Event event)
 
     if (!param.empty() && textEmotes.find(param) != textEmotes.end())
     {
+        if (!CoaLive::GroupEmoteAllowed(bot))
+            return false;
         WorldPacket data(SMSG_TEXT_EMOTE);
         data << textEmotes[param];
         data << GetNumberOfEmoteVariants((TextEmotes)textEmotes[param], bot->getRace(), bot->getGender());
