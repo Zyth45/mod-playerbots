@@ -98,7 +98,7 @@ namespace
         uint32 owed = 0;                  // reagents bought on credit, taken from the CoD when paid (memory only)
     };
     std::map<uint32, OrderRec> orders;    // by id
-    bool materialsOnDelivery = false;     // Artisans.MaterialsOnDelivery
+    bool materialsOnDelivery = true;      // Artisans.MaterialsOnDelivery
     constexpr char const* OrdersTable = "coa_economy_orders";
     bool ordersTable = false;
     uint32 trackTimer = 0;
@@ -684,7 +684,7 @@ void AddSC_coa_economy_artisans_addon()
         !CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.Artisans.Addon", true, false))
         return;
     CoaEconomy::ArtisansAddon::materialsOnDelivery =
-        CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.Artisans.MaterialsOnDelivery", false, false);
+        CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.Artisans.MaterialsOnDelivery", true, false);
     new CoaEconomy::ArtisansAddon::CoaArtisansAddonPlayer();
     new CoaEconomy::ArtisansAddon::CoaArtisansAddonMail();
     new CoaEconomy::ArtisansAddon::CoaArtisansAddonWorld();
