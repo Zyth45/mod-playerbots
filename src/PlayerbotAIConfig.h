@@ -732,6 +732,8 @@ public:
     bool coaLiveLootNeedAsk;              // AiPlayerbot.CoaLive.LootNeedAsk.Enable: a bot asks before it Needs
     uint32 coaLiveLootNeedAskPerDungeon;  // AiPlayerbot.CoaLive.LootNeedAsk.PerDungeon
     float coaLiveLootNeedAskMinPct;       // AiPlayerbot.CoaLive.LootNeedAsk.MinUpgradePct
+    std::string coaLiveLootNeedAskTestPlayer;  // .TestPlayer: bench only, this character counts as a real player
+    std::string coaLiveLootNeedAskTestAnswer;  // .TestAnswer: bench only, its answer (yes, no, none)
     uint32 coaLiveChannelClassAnswers;  // AiPlayerbot.CoaLive.ChannelQuestions.ClassAnswers: bots answering the class question
     // ---- end of CoA Live ----
 

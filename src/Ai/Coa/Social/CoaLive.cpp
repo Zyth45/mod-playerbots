@@ -1412,6 +1412,15 @@ std::unordered_map<std::string, uint64> channelAnswerLast;  // "c<team>|<channel
 // AiPlayerbot.CoaLive.LootNeedAsk: the open asks of the bots on loot rolls (CoaLootAskRules.h). Under liveLock.
 CoaLootAsk::Book lootAsks;
 
+// A real player for the asks, or the bench's stand-in (AiPlayerbot.CoaLive.LootNeedAsk.TestPlayer).
+bool LootAskPlayer(Player* player)
+{
+    if (IsRealPlayer(player))
+        return true;
+    std::string const& test = sPlayerbotAIConfig.coaLiveLootNeedAskTestPlayer;
+    return !test.empty() && player->GetName() == test;
+}
+
 // A real player's party or raid line (receiver null), or whisper to a bot: an answer to the asks it is part of.
 void HearLootAnswer(Player* player, std::string const& msg, Player* receiver)
 {
@@ -2155,6 +2164,9 @@ CoaLootAsk::Outcome LootNeedAsk(Player* bot, ObjectGuid itemGuid, uint8 itemSlot
             if (outcome != Outcome::Wait && !ask->decided)
             {
                 ask->decided = true;
+                LOG_INFO("playerbots", "coa loot ask: instance {} map {} bot {} item {} answer {} vote {}",
+                         uint32(ask->instance & 0xFFFFFFFF), uint32(ask->instance >> 32), bot->GetName(), ask->itemId,
+                         CoaLootAsk::AnswerName(*ask), outcome == Outcome::Need ? "need" : "greed");
                 if (outcome == Outcome::Need)
                     say = "loot_need_thanks";
                 else if (ask->no)
@@ -2189,11 +2201,12 @@ CoaLootAsk::Outcome LootNeedAsk(Player* bot, ObjectGuid itemGuid, uint8 itemSlot
     CoaLootAsk::Ask ask;
     ask.bot = botKey;
     ask.deadlineMs = nowMs - seenMs + CoaLootAsk::WINDOW_MS;
+    ask.itemId = proto->ItemId;
     Player* first = nullptr;
     for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
     {
         Player* member = ref->GetSource();
-        if (!member || !member->IsInWorld() || !IsRealPlayer(member))
+        if (!member || !member->IsInWorld() || !LootAskPlayer(member))
             continue;
         // Never on an item a real player of the group would wear better than what it wears.
         if (member->CanUseItem(proto) == EQUIP_ERR_OK &&
@@ -2217,8 +2230,20 @@ CoaLootAsk::Outcome LootNeedAsk(Player* bot, ObjectGuid itemGuid, uint8 itemSlot
     opt.extra["item"] = ChatHelper::FormatItem(proto);
     if (!React(bot, "loot_need_ask", first, "lna", opt))
         return Outcome::NotAsked;  // no line in the bank: the usual vote
-    std::lock_guard<std::mutex> guard(liveLock);
-    return lootAsks.Open(instance, roll, ask, perDungeon) ? Outcome::Wait : Outcome::NotAsked;
+    ask.instance = instance;
+    {
+        std::lock_guard<std::mutex> guard(liveLock);
+        if (!lootAsks.Open(instance, roll, ask, perDungeon))
+            return Outcome::NotAsked;
+    }
+    // Bench: the stand-in answers through the path of a real player's party line.
+    std::string const& testName = sPlayerbotAIConfig.coaLiveLootNeedAskTestPlayer;
+    std::string const& testAnswer = sPlayerbotAIConfig.coaLiveLootNeedAskTestAnswer;
+    if (!testName.empty() && (testAnswer == "yes" || testAnswer == "no"))
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+            if (Player* member = ref->GetSource(); member && member->GetName() == testName)
+                HearLootAnswer(member, testAnswer, nullptr);
+    return Outcome::Wait;
 }
 
 bool GroupEmoteAllowed(Player* bot)

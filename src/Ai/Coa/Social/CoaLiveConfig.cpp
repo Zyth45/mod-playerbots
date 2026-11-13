@@ -105,6 +105,8 @@ void PlayerbotAIConfig::LoadCoaLiveConfig()
     coaLiveLootNeedAsk = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaLive.LootNeedAsk.Enable", true);
     coaLiveLootNeedAskPerDungeon = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaLive.LootNeedAsk.PerDungeon", 2);
     coaLiveLootNeedAskMinPct = sConfigMgr->GetOption<float>("AiPlayerbot.CoaLive.LootNeedAsk.MinUpgradePct", 10.0f);
+    coaLiveLootNeedAskTestPlayer = sConfigMgr->GetOption<std::string>("AiPlayerbot.CoaLive.LootNeedAsk.TestPlayer", "", false);
+    coaLiveLootNeedAskTestAnswer = sConfigMgr->GetOption<std::string>("AiPlayerbot.CoaLive.LootNeedAsk.TestAnswer", "none", false);
     coaLiveChannelClassAnswers = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaLive.ChannelQuestions.ClassAnswers", 2);
     // Shared with the other CoA data files (in the .dist once).
     coaLiveDataDir = sConfigMgr->GetOption<std::string>("AiPlayerbot.CoaDataDir", "", false);

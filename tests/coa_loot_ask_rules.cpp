@@ -38,6 +38,10 @@ int main()
     refused.yes.clear();
     Hear(refused, 100, Classify("non"), 2000);
     assert(Decide(refused, 2000) == Outcome::Greed);
+    assert(std::string(AnswerName(refused)) == "no");
+    assert(std::string(AnswerName(one)) == "yes");
+    Ask silent;
+    assert(std::string(AnswerName(silent)) == "none");
 
     // Several players: one no wins over a yes, whatever the order.
     Ask two;

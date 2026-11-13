@@ -104,7 +104,15 @@ struct Ask
     std::set<uint64_t> yes;
     bool no = false;
     bool decided = false;
+    uint64_t instance = 0;  // for the bench log
+    uint32_t itemId = 0;
 };
+
+// The answer the ask got, for the bench log: "no", "yes" or "none".
+inline char const* AnswerName(Ask const& ask)
+{
+    return ask.no ? "no" : !ask.yes.empty() ? "yes" : "none";
+}
 
 inline Outcome Decide(Ask const& ask, uint64_t nowMs)
 {
