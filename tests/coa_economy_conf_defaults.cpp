@@ -48,6 +48,8 @@ int main()
     assert(table.at("AiPlayerbot.CoaEconomy.Artisans.LearnRareRecipes.Enable") == "1");
     assert(table.at("AiPlayerbot.CoaEconomy.Artisans.MaterialsOnDelivery") == "1");
     assert(table.at("AiPlayerbot.CoaEconomy.BotStartGoldPercent") == "0");
+    assert(table.at("AiPlayerbot.CoaEconomy.BotAuctions.MaxPerItem") == "10");
+    assert(table.at("AiPlayerbot.CoaEconomy.BotAuctions.MaxPerUpgradeKit") == "3");
     assert(table.at("AiPlayerbot.CoaEconomy.PriceScalePercent") == "60");
     assert(table.at("AiPlayerbot.CoaEconomy.LaunchCurve.LaunchPremiumPercent") == "0");
     assert(table.at("AiPlayerbot.CoaEconomy.LaunchCurve.Enable") == "1");
