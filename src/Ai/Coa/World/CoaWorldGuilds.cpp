@@ -33,6 +33,7 @@
  */
 
 #include "CoaWorldGuilds.h"
+#include "CoaWorldGuildAsk.h"
 #include "CoaWorldGuildRules.h"
 #include "CoaWorldAddonRules.h"
 #include "CoaWorldState.h"
@@ -1101,18 +1102,15 @@ namespace
             }
         }
 
-        // A member of a bot guild that is not full calls for members in General.
+        // An officer of a bot guild that may invite calls for members in General ("/w me": the whisper is heard by
+        // CoaWorldGuildAsk). AiPlayerbot.RandomBotGuildSizeMax is only the bots' own fill: a guild full of bots still
+        // takes real players, up to the game's limit.
         void Recruit()
         {
             std::vector<Player*> callers;
             for (auto const& [guid, bot] : RandomBots())
-            {
-                if (!bot || !bot->IsInWorld() || !bot->GetGuildId() || bot->IsInCombat() || !IsRandomBot(bot))
-                    continue;
-                Guild* guild = sGuildMgr->GetGuildById(bot->GetGuildId());
-                if (guild && guild->GetMemberSize() < sPlayerbotAIConfig.randomBotGuildSizeMax)
+                if (bot && IsRandomBot(bot) && CoaWorldGuildAsk::InvitingGuild(bot))
                     callers.push_back(bot);
-            }
             if (callers.empty())
                 return;
 
@@ -1130,8 +1128,14 @@ namespace
                 "guilde sympa <{}> recrute, on aide pour les qu\u00eates et l'artisanat",
                 "<{}> recrute ! raids plus tard, donjons maintenant. /w pour une invit",
             };
-            if (BotLine(bot, "guild_recruit", { { "guild", guild->GetName() } }) || !CoaWorld::BotChatOn())
+            if (BotLine(bot, "guild_recruit", { { "guild", guild->GetName() } }))
+            {
+                CoaWorldGuildAsk::RecruitCall(bot);
                 return;
+            }
+            if (!CoaWorld::BotChatOn())
+                return;
+            CoaWorldGuildAsk::RecruitCall(bot);
             if (PlayerbotAI* botAI = GET_PLAYERBOT_AI(bot))
                 botAI->SayToChannel(Acore::StringFormat(BotsFrench() ? Pick(callsFr) : Pick(calls), guild->GetName()), GENERAL);
         }

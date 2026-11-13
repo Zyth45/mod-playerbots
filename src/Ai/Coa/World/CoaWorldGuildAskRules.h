@@ -132,6 +132,22 @@ inline bool PublicChannelName(std::string const& name, std::string const& worldN
            n == "lookingforgroup";
 }
 
+// A real player has a place in a bot guild up to the game's limit (worldserver Guild.MemberLimit), or up to
+// GUILD_HARD_CAP when the game has none. AiPlayerbot.RandomBotGuildSizeMax is only the bots' own fill.
+constexpr uint32_t GUILD_HARD_CAP = 1000;
+inline bool GuildHasPlace(uint32_t members, uint32_t gameLimit)
+{
+    return members < (gameLimit ? gameLimit : GUILD_HARD_CAP);
+}
+
+// A whisper to a bot asks for its guild: any whisper soon after it called for members in General ("/w me"), else a
+// whisper that asks for a guild in words.
+constexpr uint32_t RECRUIT_WHISPER_SECONDS = 15 * 60;
+inline bool WhisperAsks(time_t calledAt, time_t now, bool asksInWords)
+{
+    return asksInWords || (calledAt && now >= calledAt && now - calledAt <= time_t(RECRUIT_WHISPER_SECONDS));
+}
+
 // One ask per player at a time: a new one is heard when none is pending and the last one is older than the rest.
 inline bool MayAnswer(bool pending, bool inGuild, bool invited, time_t last, time_t now, uint32_t restSeconds)
 {

@@ -16,8 +16,14 @@
  * (Guild::HandleInviteMember: ignore list, side, rights).
  * Lines from IA MIND's bank (guild_ask_reply aloud, guild_ask_reply_w whispered), no text of our own: without a
  * line (no bank, or the situation has none) the officer says nothing and sends no invitation.
+ * A whisper is an ask too: any whisper to the bot that called for members in General ("/w me") in the last 15
+ * minutes, or a whisper asking for a guild in words to an officer bot; that bot answers, by whisper.
+ * A bot guild takes a real player up to the game's limit (Guild.MemberLimit, else 1000): RandomBotGuildSizeMax is
+ * only the bots' own fill.
  * Chat hooks queue the ask; the world thread picks the officer and acts.
  */
+
+#include "CoaWorldGuildAsk.h"
 
 #include "CoaWorldBots.h"
 #include "CoaWorldGuildAskRules.h"
@@ -36,6 +42,7 @@
 #include "ScriptMgr.h"
 #include "SharedDefines.h"
 #include "StringFormat.h"
+#include "World.h"
 #include "WorldSession.h"
 
 #include <algorithm>
@@ -75,8 +82,8 @@ bool OwnRandomBot(Player* bot)
     return !(master && IsHuman(master));
 }
 
-// An officer of a bot guild (its leader a random bot) that may invite. AiPlayerbot.RandomBotGuildSizeMax is the bots'
-// own fill (every bot guild reaches it): a real player still has a place, as in a real guild.
+// An officer of a bot guild (its leader a random bot) that may invite, with a place under the game's own limit.
+// AiPlayerbot.RandomBotGuildSizeMax is the bots' own fill (every bot guild reaches it): a real player still has one.
 Guild* OfficerGuild(Player* bot)
 {
     if (!bot || !bot->IsInWorld() || !bot->IsAlive() || bot->IsInCombat() || !bot->GetGuildId() || !OwnRandomBot(bot) ||
@@ -84,15 +91,22 @@ Guild* OfficerGuild(Player* bot)
         return nullptr;
     Guild* guild = sGuildMgr->GetGuildById(bot->GetGuildId());
     if (!guild || !sRandomPlayerbotMgr.IsRandomBot(guild->GetLeaderGUID().GetCounter()) ||
-        !guild->HasRankRight(bot, GR_RIGHT_INVITE))
+        !guild->HasRankRight(bot, GR_RIGHT_INVITE) ||
+        !GuildHasPlace(guild->GetMemberSize(), sWorld->getIntConfig(CONFIG_GUILD_MEMBER_LIMIT)))
         return nullptr;
     return guild;
 }
+
+struct Ask
+{
+    ObjectGuid player, officer;  // officer: the bot the player whispered, else empty
+};
 
 struct Answer
 {
     ObjectGuid player, officer;
     time_t speakAt = 0, inviteAt = 0;
+    bool whisper = false;  // the player whispered: the answer is a whisper
     bool spoke = false;
 };
 
@@ -106,10 +120,28 @@ public:
     }
 
     // Any thread (chat hooks): the world thread looks at it.
-    void Asked(Player* player)
+    void Asked(Player* player, ObjectGuid officer = ObjectGuid::Empty)
     {
         std::lock_guard<std::mutex> guard(_lock);
-        _asks.push_back(player->GetGUID());
+        _asks.push_back({ player->GetGUID(), officer });
+    }
+
+    // The world thread (the call in General).
+    void Called(Player* bot)
+    {
+        std::lock_guard<std::mutex> guard(_lock);
+        time_t const now = time(nullptr);
+        for (auto it = _calls.begin(); it != _calls.end();)
+            it = now - it->second > time_t(RECRUIT_WHISPER_SECONDS) ? _calls.erase(it) : std::next(it);
+        _calls[bot->GetGUID().GetCounter()] = now;
+    }
+
+    // Any thread (whisper hook).
+    time_t CalledAt(Player* bot)
+    {
+        std::lock_guard<std::mutex> guard(_lock);
+        auto it = _calls.find(bot->GetGUID().GetCounter());
+        return it == _calls.end() ? 0 : it->second;
     }
 
     void Update(uint32 diff)
@@ -120,13 +152,13 @@ public:
         _timer = 0;
         time_t const now = time(nullptr);
 
-        std::vector<ObjectGuid> asks;
+        std::vector<Ask> asks;
         {
             std::lock_guard<std::mutex> guard(_lock);
             asks.swap(_asks);
         }
-        for (ObjectGuid const& guid : asks)
-            Hear(guid, now);
+        for (Ask const& ask : asks)
+            Hear(ask, now);
 
         for (auto it = _answers.begin(); it != _answers.end();)
             it = Play(*it, now) ? _answers.erase(it) : std::next(it);
@@ -138,8 +170,9 @@ private:
         return std::any_of(_answers.begin(), _answers.end(), [&player](Answer const& a) { return a.player == player; });
     }
 
-    void Hear(ObjectGuid guid, time_t now)
+    void Hear(Ask const& ask, time_t now)
     {
+        ObjectGuid const guid = ask.player;
         Player* player = ObjectAccessor::FindConnectedPlayer(guid);
         if (!IsHuman(player) || !player->IsInWorld())
             return;
@@ -148,11 +181,17 @@ private:
                        settings.restSeconds))
             return;
 
-        // The nearest officer of the player's side: near (aloud), else in the same zone, else anywhere.
+        // The bot the player whispered when it may invite; else the nearest officer of the player's side: near
+        // (aloud), else in the same zone, else anywhere.
         std::vector<Player*> best;
         int bestRank = 3;
+        Player* whispered = ask.officer ? ObjectAccessor::FindConnectedPlayer(ask.officer) : nullptr;
+        if (whispered && whispered->GetTeamId() == player->GetTeamId() && OfficerGuild(whispered))
+            best.push_back(whispered);
         for (auto const& [botGuid, bot] : RandomBots())
         {
+            if (!best.empty() && best.front() == whispered)
+                break;
             if (!bot || bot->GetTeamId() != player->GetTeamId() || !OfficerGuild(bot))
                 continue;
             int rank = 2;
@@ -176,6 +215,7 @@ private:
         answer.officer = officer->GetGUID();
         answer.speakAt = now + urand(4, 12);  // reads, thinks, types
         answer.inviteAt = answer.speakAt + urand(3, 8);
+        answer.whisper = !ask.officer.IsEmpty();
         _answers.push_back(answer);
     }
 
@@ -196,7 +236,8 @@ private:
         {
             answer.spoke = true;
             Slots const slots = { { "player", player->GetName() }, { "guild", guild->GetName() } };
-            bool const nearby = officer->GetMap() == player->GetMap() && officer->IsWithinDistInMap(player, NEAR_YARDS);
+            bool const nearby = !answer.whisper && officer->GetMap() == player->GetMap() &&
+                                officer->IsWithinDistInMap(player, NEAR_YARDS);
             bool const said = nearby ? BotLine(officer, "guild_ask_reply", slots)
                                      : CoaLive::SayLine(officer, "guild_ask_reply_w", slots, player->GetGUID());
             if (!said)
@@ -214,7 +255,8 @@ private:
     }
 
     std::mutex _lock;
-    std::vector<ObjectGuid> _asks;
+    std::vector<Ask> _asks;
+    std::unordered_map<uint32, time_t> _calls;  // bot -> its last call for members in General
     std::vector<Answer> _answers;
     std::unordered_map<uint32, time_t> _last;  // real player -> last ask answered
     uint32 _timer = 0;
@@ -246,6 +288,16 @@ void Heard(Player* player, uint32 lang, std::string const& msg)
         GuildAsk::Instance().Asked(player);
 }
 
+// A whisper to a bot: an ask when it called for members a moment ago ("/w me"), or when the words ask for a guild.
+void Whispered(Player* player, uint32 lang, std::string const& msg, Player* receiver)
+{
+    if (!settings.enabled || lang == LANG_ADDON || !receiver || IsHuman(receiver) || !GET_PLAYERBOT_AI(receiver) ||
+        !IsHuman(player) || player->GetGuildId() || player->GetGuildIdInvited())
+        return;
+    if (WhisperAsks(GuildAsk::Instance().CalledAt(receiver), time(nullptr), AsksForGuild(msg)))
+        GuildAsk::Instance().Asked(player, receiver->GetGUID());
+}
+
 class CoaWorldGuildAskWorldScript : public WorldScript
 {
 public:
@@ -270,7 +322,9 @@ class CoaWorldGuildAskPlayerScript : public PlayerScript
 {
 public:
     CoaWorldGuildAskPlayerScript()
-        : PlayerScript("CoaWorldGuildAskPlayerScript", { PLAYERHOOK_CAN_PLAYER_USE_CHAT, PLAYERHOOK_CAN_PLAYER_USE_CHANNEL_CHAT })
+        : PlayerScript("CoaWorldGuildAskPlayerScript",
+                       { PLAYERHOOK_CAN_PLAYER_USE_CHAT, PLAYERHOOK_CAN_PLAYER_USE_CHANNEL_CHAT,
+                         PLAYERHOOK_CAN_PLAYER_USE_PRIVATE_CHAT })
     {
     }
 
@@ -278,6 +332,12 @@ public:
     {
         if (type == CHAT_MSG_SAY || type == CHAT_MSG_YELL)
             Heard(player, lang, msg);
+        return true;
+    }
+
+    bool OnPlayerCanUseChat(Player* player, uint32 /*type*/, uint32 lang, std::string& msg, Player* receiver) override
+    {
+        Whispered(player, lang, msg, receiver);
         return true;
     }
 
@@ -289,6 +349,14 @@ public:
     }
 };
 }  // namespace
+
+Guild* CoaWorldGuildAsk::InvitingGuild(Player* bot) { return OfficerGuild(bot); }
+
+void CoaWorldGuildAsk::RecruitCall(Player* bot)
+{
+    if (bot)
+        GuildAsk::Instance().Called(bot);
+}
 
 void AddSC_coa_world_guild_ask()
 {

@@ -75,6 +75,20 @@ int main()
 
     static_assert(ANSWER_ASK_DEFAULT, "AnswerAsk is on by default");
 
+    // A bot guild full of bots (RandomBotGuildSizeMax 15) still takes a player, up to the game's limit.
+    assert(GuildHasPlace(15, 0));
+    assert(GuildHasPlace(999, 0));
+    assert(!GuildHasPlace(1000, 0));
+    assert(GuildHasPlace(49, 50));
+    assert(!GuildHasPlace(50, 50));
+
+    // The "/w me" of the call in General: any whisper within 15 minutes, else words that ask.
+    assert(WhisperAsks(1000, 1000 + 60, false));
+    assert(WhisperAsks(1000, 1000 + 15 * 60, false));
+    assert(!WhisperAsks(1000, 1000 + 15 * 60 + 1, false));
+    assert(!WhisperAsks(0, 5000, false));
+    assert(WhisperAsks(0, 5000, true));
+
     // One at a time, a rest per player.
     assert(MayAnswer(false, false, false, 0, 1000, 1800));
     assert(!MayAnswer(true, false, false, 0, 1000, 1800));
