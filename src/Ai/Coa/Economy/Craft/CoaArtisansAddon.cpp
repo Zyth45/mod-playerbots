@@ -15,6 +15,7 @@
 #include "CoaArtisans.h"
 
 #include "CoaEconomyConf.h"
+#include "CoaEconomyRules.h"
 #include "CoaArtisansAddonRules.h"
 #include "ChatHelper.h"
 #include "CoaLive.h"
@@ -94,8 +95,10 @@ namespace
         uint32 eta = 0;                   // when the mail is (or was) in the mailbox
         uint32 sentAt = 0;
         uint64 sendAtMs = 0;              // preparing: when the mail goes
+        uint32 owed = 0;                  // reagents bought on credit, taken from the CoD when paid (memory only)
     };
     std::map<uint32, OrderRec> orders;    // by id
+    bool materialsOnDelivery = false;     // Artisans.MaterialsOnDelivery
     constexpr char const* OrdersTable = "coa_economy_orders";
     bool ordersTable = false;
     uint32 trackTimer = 0;
@@ -285,10 +288,11 @@ namespace
         if (ItemTemplate const* product = sObjectMgr->GetItemTemplate(recipe.itemId);
             !product || Rules::Stacks(qty * recipe.count, product->GetMaxStackSize()) > Rules::MaxMailItems)
             return answer(0, "qty", 0);
-        if (Artisans::MissingCost(bot, recipe, qty) > bot->GetMoney())
-            return answer(0, "mats", 0);
-
         uint64 const price = std::min<uint64>(uint64(CraftOrders::QuoteFor(bot, recipe)) * qty, MAX_MONEY_AMOUNT);
+        uint64 const missing = Artisans::MissingCost(bot, recipe, qty);
+        if (missing > bot->GetMoney() &&
+            !CoaEconomyRules::MaterialsOnDelivery(materialsOnDelivery, missing, bot->GetMoney(), price))
+            return answer(0, "mats", 0);
         // Old quotes go (10 min); then this one.
         uint32 const now = Now();
         for (auto it = quotes.begin(); it != quotes.end();)
@@ -413,7 +417,10 @@ namespace
             return answer("busy");
         if (Rules::PriceRose(quote.copper, uint64(CraftOrders::QuoteFor(bot, recipe)) * quote.qty))
             return answer("price");
-        if (!Artisans::Consume(bot, recipe, quote.qty))
+        // Short of gold: the missing reagents on credit, paid out of the CoD (Artisans.MaterialsOnDelivery).
+        uint64 const owed = CoaEconomyRules::MaterialsOnDelivery(
+            materialsOnDelivery, Artisans::MissingCost(bot, recipe, quote.qty), bot->GetMoney(), quote.copper);
+        if (!Artisans::Consume(bot, recipe, quote.qty, owed != 0))
             return answer("mats");
 
         quotes.erase(found);
@@ -429,6 +436,7 @@ namespace
         order.qty = quote.qty;
         order.perPiece = recipe.count;
         order.copper = quote.copper;
+        order.owed = uint32(owed);
         order.sendAtMs = NowMs() + Rules::SendDelayMs;
         order.eta = Now() + Rules::SendDelayMs / IN_MILLISECONDS;
         order.state = "preparing";
@@ -649,6 +657,9 @@ namespace
                 if ((order.state == "sent" || order.state == "awaiting") && order.player == sender.GetSenderId() &&
                     order.bot == receiver.GetPlayerGUIDLow() && order.copper == draft->GetMoney())
                 {
+                    // The reagents bought on credit are paid now: the artisan gets the rest.
+                    if (order.owed)
+                        draft->AddMoney(order.copper > order.owed ? order.copper - order.owed : 0);
                     SetState(order, "paid");
                     return;
                 }
@@ -672,6 +683,8 @@ void AddSC_coa_economy_artisans_addon()
     if (!CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.Artisans.Enable", true, false) ||
         !CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.Artisans.Addon", true, false))
         return;
+    CoaEconomy::ArtisansAddon::materialsOnDelivery =
+        CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.Artisans.MaterialsOnDelivery", false, false);
     new CoaEconomy::ArtisansAddon::CoaArtisansAddonPlayer();
     new CoaEconomy::ArtisansAddon::CoaArtisansAddonMail();
     new CoaEconomy::ArtisansAddon::CoaArtisansAddonWorld();

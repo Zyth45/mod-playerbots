@@ -5450,6 +5450,12 @@ AiPlayerbot.CoaEconomy.Artisans.LearnRareRecipes.EpicPercent = 5
 #    Addon  1 = on (default), 0 = off. Read at start-up (restart to change it).
 AiPlayerbot.CoaEconomy.Artisans.Addon = 1
 
+# An artisan short of gold for the reagents it lacks may still take an addon order: it buys them on credit and their
+# market cost is taken out of the cash on delivery when the player pays it (the player pays the same price). Only when
+# the price covers the reagents. Meant for a new realm where bots start with no gold. Needs Artisans.Addon.
+#    MaterialsOnDelivery  1 = on, 0 = off (default). Read at start-up (restart to change it).
+AiPlayerbot.CoaEconomy.Artisans.MaterialsOnDelivery = 0
+
 # Auctions on game time: the core ends an auction at a real date, so a server off for a night found every auction
 # over at start-up. With this on, the world writes a sign of life every minute (table coa_economy_clock of the
 # playerbots database) and at start-up adds the time the server was off to the end of every auction, players'

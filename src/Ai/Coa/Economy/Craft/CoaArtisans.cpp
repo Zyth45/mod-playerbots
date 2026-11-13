@@ -278,6 +278,9 @@ std::vector<Recipe> KnownRecipes(Player* bot)
         ItemTemplate const* product = sObjectMgr->GetItemTemplate(itemId);
         if (!itemId || !IsTradable(product) || !Sellable::BotMayList(product, true))
             continue;
+        // Nor a recipe that needs a later expansion reagent (a level 1 kit made of Fel Iron Bars).
+        if (Sellable::HasLaterReagent(spell))
+            continue;
         // A new realm's launch curve holds for artisans too: no epic kit made at Enchanting 1 on its first day.
         if (!sCoaLaunchCurve->AllowsListing(*product))
             continue;
@@ -349,11 +352,11 @@ uint64 MissingCost(Player* bot, Recipe const& recipe, uint32 times)
     return toPay;
 }
 
-bool Consume(Player* bot, Recipe const& recipe, uint32 times)
+bool Consume(Player* bot, Recipe const& recipe, uint32 times, bool payLater)
 {
     if (!enabled || !bot || !recipe.spell || !times)
         return false;
-    uint64 const toPay = MissingCost(bot, recipe, times);
+    uint64 const toPay = payLater ? 0 : MissingCost(bot, recipe, times);
     if (toPay > bot->GetMoney())
         return false;
 

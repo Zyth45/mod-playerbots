@@ -113,6 +113,27 @@ int main()
         assert(ParseLevelGold("").empty());
     }
 
+    // Engineering upgrade kits (CoA data): "level 1, item level 4" products made of Outland and Northrend bars are of
+    // a later expansion through their reagent; a Copper Bar recipe stays of the era.
+    {
+        auto later = [](std::uint32_t id, std::uint32_t req, std::uint32_t ilvl) { return IsLaterExpansion(id, req, ilvl, false); };
+        bool const khoriumKit = later(135127, 1, 4), felIronKit = later(135130, 1, 4), saroniteKit = later(135131, 1, 4);
+        assert(!khoriumKit && !felIronKit && !saroniteKit);                       // the products alone pass
+        assert(RecipeIsLaterExpansion(khoriumKit, {later(23449, 58, 70)}));      // 9 Khorium Bar (spell 94381)
+        assert(RecipeIsLaterExpansion(felIronKit, {later(23445, 58, 60)}));      // 5 Fel Iron Bar (spell 94387)
+        assert(RecipeIsLaterExpansion(saroniteKit, {later(36913, 58, 80)}));     // 9 Saronite Bar (spell 94389)
+        assert(!RecipeIsLaterExpansion(false, {later(2840, 1, 4)}));             // Copper Bar
+        assert(!RecipeIsLaterExpansion(false, {}));
+        assert(OnlyFromLaterRecipes({true, true}) && !OnlyFromLaterRecipes({true, false}) && !OnlyFromLaterRecipes({}));
+    }
+
+    // Reagents paid at delivery: only when on, short of gold and covered by the price.
+    assert(MaterialsOnDelivery(true, 5000, 1000, 20000) == 5000);
+    assert(MaterialsOnDelivery(false, 5000, 1000, 20000) == 0);
+    assert(MaterialsOnDelivery(true, 5000, 5000, 20000) == 0);   // it has the gold: paid now
+    assert(MaterialsOnDelivery(true, 20000, 0, 20000) == 0);     // the price does not cover them
+    assert(MaterialsOnDelivery(true, 0, 0, 20000) == 0);
+
     // Rare recipes: the same answer for the same bot and recipe, never at 0 %, always at 100 %, near the percent.
     assert(RareRecipeDrawn(42, 16729, 15) == RareRecipeDrawn(42, 16729, 15));
     assert(!RareRecipeDrawn(42, 16729, 0) && RareRecipeDrawn(42, 16729, 100));

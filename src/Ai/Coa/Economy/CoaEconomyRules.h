@@ -461,6 +461,37 @@ inline std::uint32_t LevelGoldFor(std::map<std::uint32_t, std::uint32_t> const& 
     return found == table.end() ? 0 : found->second;
 }
 
+// A recipe belongs to a later expansion when its product does or any of its reagents does (a classic-looking "Fel
+// Iron Bar Upgrade Kit" at level 1 still needs Fel Iron Bars).
+inline bool RecipeIsLaterExpansion(bool productLater, std::vector<bool> const& reagentsLater)
+{
+    if (productLater)
+        return true;
+    for (bool later : reagentsLater)
+        if (later)
+            return true;
+    return false;
+}
+
+// An item only made by later expansion recipes is a later expansion item (none of its recipes is of the era).
+inline bool OnlyFromLaterRecipes(std::vector<bool> const& recipesLater)
+{
+    if (recipesLater.empty())
+        return false;
+    for (bool later : recipesLater)
+        if (!later)
+            return false;
+    return true;
+}
+
+// An order's missing reagents paid at delivery: an artisan short of gold buys them on credit and the cost comes out of
+// the cash on delivery the player pays. Only when it lacks the gold (otherwise it pays them as before) and only when the
+// price covers them. The copper owed, or 0 (paid now, or not possible).
+inline std::uint64_t MaterialsOnDelivery(bool enabled, std::uint64_t missing, std::uint64_t money, std::uint64_t price)
+{
+    return (enabled && missing > money && missing < price) ? missing : 0;
+}
+
 // Artisans' rare recipes: whether a bot knows a recipe found in the world, drawn once per bot and recipe (the same
 // artisan always keeps the same ones). percent of 100; 0 never, 100 always.
 inline bool RareRecipeDrawn(std::uint64_t botGuid, std::uint32_t spellId, std::uint32_t percent)
