@@ -173,7 +173,7 @@ int main()
     assert(!buys("need help with a quest"));
     assert(!buys("|cffffffff|hitem:2590:0:0:0:0:0:0:0:0|h[linen cloth]|h|r ?"));  // another item
     assert(buys("wts? i'll take it"));
-    assert(buys("|cffffffff|hitem:2589:0:0:0:0:0:0:0:0|h[linen cloth]|h|r"));
+    assert(!buys("|cffffffff|hitem:2589:0:0:0:0:0:0:0:0|h[linen cloth]|h|r"));  // names the item, no yes
     assert(buys("how much ? sure send it"));
     assert(buys("ok envoie") && buys("oui je prends") && buys("deal"));
     // A price question is a question (a player's report: "how much was the wand?" got the wand COD).
@@ -186,6 +186,18 @@ int main()
     assert(!buys("wts?") && !buys("do you sell it") && !buys("wtb"));        // a trade word alone
     assert(buys("ok") && buys("yes please") && buys("d'accord") && buys("ça marche"));
     assert(buys("combien ? ok je prends") && buys("how much? ok send it COD"));
+    // A player's report (a61): "WTS [Linen Cloth]x7, 1s" -> "how much ?" -> "[Linen Cloth]" got the cloth COD. Now
+    // the question and the link each get the price, and only a yes sends it.
+    auto answer = [](std::string const& said)
+    { return AnswerToOffer(NormalizeWhisper(said), said, 2589); };
+    assert(answer("how much ?") == OfferAnswer::Quote);
+    assert(answer("|cffffffff|hitem:2589:0:0:0:0:0:0:0:0|h[linen cloth]|h|r") == OfferAnswer::Quote);
+    assert(answer("yes") == OfferAnswer::Yes);
+    assert(answer("|cffffffff|hitem:2589:0:0:0:0:0:0:0:0|h[linen cloth]|h|r ?") == OfferAnswer::Quote);
+    assert(answer("|cffffffff|hitem:2589:0:0:0:0:0:0:0:0|h[linen cloth]|h|r send it") == OfferAnswer::Yes);
+    assert(answer("combien ?") == OfferAnswer::Quote && answer("oui") == OfferAnswer::Yes);
+    assert(answer("|cffffffff|hitem:2590:0:0:0:0:0:0:0:0|h[wool cloth]|h|r") == OfferAnswer::Other);
+    assert(answer("lol") == OfferAnswer::Other && answer("looking for a guild ?") == OfferAnswer::Other);
     assert(AsksPrice(NormalizeWhisper("how much")) && AsksPrice(NormalizeWhisper("combien")) &&
            !AsksPrice(NormalizeWhisper("send it")));
     assert(DeclinesDeal(NormalizeWhisper("no thanks")) && DeclinesDeal(NormalizeWhisper("trop cher")) &&

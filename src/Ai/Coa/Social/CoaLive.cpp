@@ -2157,13 +2157,15 @@ bool OnWhisper(Player* from, Player* to, std::string const& msg)
 
     // An answer to the bot's own Trade announce: the deal is done for real (WTS: the item by mail, cash on
     // delivery at the price said), or politely turned down (the item is gone; a WTB: "found one already"). Only on a
-    // clear yes (AcceptsOffer): a price question gets the price (wh_offer_price, nothing is sent), any other whisper
-    // the usual answer, and the offer stays open.
+    // clear yes (AnswerToOffer): a price question or the item named ("which item?" -> "[Linen Cloth]") gets the price
+    // of the stack (wh_offer_price, nothing is sent) and the offer waits for a yes; any other whisper gets the usual
+    // answer. These answers are forced: a deal never stays unanswered because of a chance roll (the soul's
+    // sociability scales the rule's chance).
     if (intent != "bot" && intent != "hello" && intent != "thanks")
     {
         Offer offer;
         bool live = false;
-        bool accepted = false;
+        OfferAnswer answer = OfferAnswer::Other;
         {
             std::lock_guard<std::mutex> guard(liveLock);
             auto it = offers.find(to->GetGUID().GetRawValue());
@@ -2171,28 +2173,26 @@ bool OnWhisper(Player* from, Player* to, std::string const& msg)
             {
                 offer = it->second;
                 live = true;
-                accepted = AcceptsOffer(intent, normalized, lowered, offer.itemId);
+                answer = AnswerToOffer(normalized, lowered, offer.itemId);
             }
         }
         if (live)
         {
             ReactOptions opt;
+            opt.force = true;
+            Item* item = offer.wts ? to->GetItemByGuid(offer.item) : nullptr;
             ItemTemplate const* proto = sObjectMgr->GetItemTemplate(offer.itemId);
             if (proto)
-                opt.extra["item"] = ChatHelper::FormatItem(proto);
+                opt.extra["item"] = ChatHelper::FormatItem(proto, item && item->GetCount() > 1 ? item->GetCount() : 0);
             opt.extra["price"] = FormatMoney(offer.price);
             std::string const scope = "w" + std::to_string(to->GetGUID().GetCounter());
-            if (!accepted)
+            if (answer == OfferAnswer::Quote)
             {
-                if (offer.wts && AsksPrice(normalized) && to->GetItemByGuid(offer.item))
-                {
-                    if (React(to, "wh_offer_price", from, scope, opt))
-                        return true;
-                }
+                if (item && React(to, "wh_offer_price", from, scope, opt))
+                    return true;
             }
-            else
+            else if (answer == OfferAnswer::Yes)
             {
-                Item* item = offer.wts ? to->GetItemByGuid(offer.item) : nullptr;
                 if (offer.wts && item && !item->IsSoulBound() && from->GetTeamId() == to->GetTeamId())
                 {
                     opt.codItem = offer.item;
