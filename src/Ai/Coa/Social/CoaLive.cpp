@@ -1488,7 +1488,7 @@ void AnswerChannelQuestions()
                 second.said = nullptr;
                 second.avoidLead = first.lead;
                 second.dueAtMs = CoaChanAsk::SecondDueMs(first.dueMs, urand(0, 0x7fffffff));
-                second.extra["%class1"] = first.lead;
+                second.extra["class1"] = first.lead;
                 said = React(bot, "chan_class_2", player, scope, second) || React(bot, situation, player, scope, second);
             }
             if (said)
