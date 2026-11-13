@@ -183,6 +183,16 @@ struct Candidate
     bool noPrice = false;        // a vendor gives nothing for it
 };
 
+// A profession tool or material, never listed: trade goods, reagents, keys and gems (ore, leather, herbs, cloth, runed
+// rods), a fishing pole (a weapon, subclass 20) and any item that serves as a tool (TotemCategory: picks, knives,
+// hammers, spanners, rods). A white Fishing Pole was offered to "destroy" (3.0.1 in game).
+inline bool IsProfessionItem(uint32_t itemClass, uint32_t subClass, uint32_t totemCategory)
+{
+    constexpr uint32_t WEAPON = 2, REAGENT = 5, TRADE_GOODS = 7, GEM = 3, KEY = 13, FISHING_POLE = 20;
+    return itemClass == TRADE_GOODS || itemClass == REAGENT || itemClass == KEY || itemClass == GEM ||
+           (itemClass == WEAPON && subClass == FISHING_POLE) || totemCategory != 0;
+}
+
 inline bool Eligible(Candidate const& c, uint32_t maxQuality, bool forSale)
 {
     if (maxQuality > MAX_QUALITY || c.quality > maxQuality)

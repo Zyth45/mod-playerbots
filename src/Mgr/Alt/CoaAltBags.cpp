@@ -182,8 +182,7 @@ std::vector<BagItem> Candidates(PlayerbotAI* botAI, uint32 maxQuality, bool forS
         c.outfit = outfit.count(proto->ItemId) != 0;
         c.container = proto->Class == ITEM_CLASS_CONTAINER || proto->Class == ITEM_CLASS_QUIVER;
         c.ammo = proto->Class == ITEM_CLASS_PROJECTILE;
-        c.tool = proto->Class == ITEM_CLASS_TRADE_GOODS || proto->Class == ITEM_CLASS_REAGENT ||
-                 proto->Class == ITEM_CLASS_KEY || proto->Class == ITEM_CLASS_GEM;
+        c.tool = CoaAltBags::IsProfessionItem(proto->Class, proto->SubClass, proto->TotemCategory);
         c.conjured = proto->HasFlag(ITEM_FLAG_CONJURED);
         c.noPrice = proto->SellPrice == 0;
         if (!CoaAltBags::Eligible(c, maxQuality, forSale))

@@ -63,5 +63,19 @@ int main()
     Candidate worthless;
     worthless.noPrice = true;
     assert(!Eligible(worthless, 2, true) && Eligible(worthless, 2, false));
+
+    // Profession tools and materials: never in a list, for sale or to destroy.
+    assert(IsProfessionItem(2, 20, 0));    // Fishing Pole (weapon, fishing pole)
+    assert(IsProfessionItem(2, 14, 165));  // Mining Pick (weapon, misc, a tool category)
+    assert(IsProfessionItem(2, 15, 166));  // Skinning Knife (dagger, a tool category)
+    assert(IsProfessionItem(7, 12, 0));    // Runed Copper Rod, ore, leather, herbs (trade goods)
+    assert(IsProfessionItem(5, 0, 0) && IsProfessionItem(13, 0, 0) && IsProfessionItem(3, 0, 0));
+    assert(!IsProfessionItem(2, 7, 0));    // a plain one-handed sword
+    assert(!IsProfessionItem(4, 1, 0));    // cloth armor
+    Candidate pole;
+    pole.quality = 1;
+    pole.noPrice = true;
+    pole.tool = IsProfessionItem(2, 20, 0);
+    assert(!Eligible(pole, 1, false) && !Eligible(pole, 1, true));
     return 0;
 }
