@@ -1981,6 +1981,12 @@ bool LegacyChatOn()
                                        sPlayerbotAIConfig.coaLiveLegacyChat);
 }
 
+bool LegacySellOn()
+{
+    return CoaChat::LegacySellAllowed(sPlayerbotAIConfig.coaLiveEnable, sPlayerbotAIConfig.coaLiveChatEnable,
+                                      sPlayerbotAIConfig.coaLiveLegacyChat);
+}
+
 bool AnswersWhispers(PlayerbotAI* botAI, ObjectGuid from)
 {
     // Off: decided before anything is looked up, so the old path is untouched.

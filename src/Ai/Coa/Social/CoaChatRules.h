@@ -35,6 +35,14 @@ inline bool ChatReplyAllowed(bool chatOn, bool fromMaster) { return chatOn || fr
 // stay silent, unless AiPlayerbot.CoaLive.LegacyChat = 1. With CoA Live off, they speak as before; with the chat
 // off, never. EnableBroadcasts and RandomBotTalk keep the player's value.
 inline bool LegacyLinesAllowed(bool liveOn, bool chatOn, bool legacyChat) { return chatOn && (!liveOn || legacyChat); }
+
+// CoA Economy: the module's older "WTS [item] for <vendor price>" (SuggestTradeAction, suggest_sell) keeps no offer,
+// so a player who whispers about it gets small talk, never a quote. While the living chat speaks, its own Trade WTS
+// (with an offer, a quote and the COD) are the only ones, even with LegacyChat on; with CoA Live off, as before.
+inline bool LegacySellAllowed(bool liveOn, bool chatOn, bool legacyChat)
+{
+    return LegacyLinesAllowed(liveOn, chatOn, legacyChat) && !(liveOn && chatOn);
+}
 }  // namespace CoaChat
 
 #endif

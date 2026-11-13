@@ -41,6 +41,8 @@ bool ChatOn();
 // The module's older unsolicited lines (broadcasts, RandomBotTalk): false while the living chat speaks, unless
 // AiPlayerbot.CoaLive.LegacyChat (CoaChatRules.h).
 bool LegacyChatOn();
+// The older "WTS [item] for <vendor price>" (suggest_sell): false while the living chat speaks (CoaChatRules.h).
+bool LegacySellOn();
 
 // The bot accepted a resurrection cast by "by".
 void OnResurrectAccepted(Player* bot, ObjectGuid by);
