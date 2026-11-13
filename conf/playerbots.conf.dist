@@ -3895,6 +3895,22 @@ AiPlayerbot.CoaLive.ChannelQuestions.Enable = 1
 
 AiPlayerbot.CoaLive.ChannelQuestions.ClassAnswers = 2
 
+#    AiPlayerbot.CoaLive.LootNeedAsk.Enable
+#        Description: In a dungeon (not a raid), a bot grouped with a real player asks in party chat before it rolls
+#                     Need on gear that is a real upgrade for it ("can i need on that? its bis for me"). It rolls
+#                     Need only on a clear yes (yes, ok, sure, oui, vas-y...) of every real player of the group;
+#                     on a no, a doubtful answer or none within 40 seconds it rolls Greed, as without the ask.
+#                     Never on an item that would be an upgrade for a real player of the group, never two bots on
+#                     one item. Needs the lines of bank 3_0_27 or later (loot_need_ask, _thanks, _ok_pass).
+#        Default:     1 - on
+#                     0 - off
+#    AiPlayerbot.CoaLive.LootNeedAsk.PerDungeon    - asks in one dungeon run, all the bots together (2)
+#    AiPlayerbot.CoaLive.LootNeedAsk.MinUpgradePct - the upgrade over the piece worn, in percent (10)
+
+AiPlayerbot.CoaLive.LootNeedAsk.Enable = 1
+AiPlayerbot.CoaLive.LootNeedAsk.PerDungeon = 2
+AiPlayerbot.CoaLive.LootNeedAsk.MinUpgradePct = 10
+
 # Bots' minimum and maximum level when teleporting in and out of a zone, according to the new RPG strategy
 # Format: AiPlayerbot.ZoneBracket.zoneID = minLevel,maxLevel
 #

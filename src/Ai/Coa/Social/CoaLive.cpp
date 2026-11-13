@@ -21,6 +21,7 @@
 #include "CoaLiveRules.h"
 #include "CoaGroupEmoteRules.h"
 #include "CoaChanAskRules.h"
+#include "CoaGearScore.h"
 #include "CoaChatRules.h"
 #include "GameObject.h"
 #include "LootObjectStack.h"
@@ -1408,6 +1409,22 @@ std::vector<ChannelAsk> channelAsks;
 std::unordered_map<uint64, uint64> channelAskLast;  // player -> when a bot last took one of their questions (s)
 std::unordered_map<std::string, uint64> channelAnswerLast;  // "c<team>|<channel>" -> last answer (s), world thread
 
+// AiPlayerbot.CoaLive.LootNeedAsk: the open asks of the bots on loot rolls (CoaLootAskRules.h). Under liveLock.
+CoaLootAsk::Book lootAsks;
+
+// A real player's party or raid line (receiver null), or whisper to a bot: an answer to the asks it is part of.
+void HearLootAnswer(Player* player, std::string const& msg, Player* receiver)
+{
+    CoaLootAsk::Answer const answer = CoaLootAsk::Classify(msg);
+    if (answer == CoaLootAsk::Answer::None)
+        return;
+    uint64 const nowMs = GameTime::GetGameTimeMS().count();
+    std::lock_guard<std::mutex> guard(liveLock);
+    for (auto& [roll, ask] : lootAsks.All())
+        if (!receiver || ask.bot == receiver->GetGUID().GetRawValue())
+            CoaLootAsk::Hear(ask, player->GetGUID().GetRawValue(), answer, nowMs);
+}
+
 void HearChannelQuestion(Player* player, std::string const& msg, ::Channel* channel)
 {
     uint32 const id = channel->GetChannelId();
@@ -1807,7 +1824,8 @@ public:
                        {PLAYERHOOK_ON_LEVEL_CHANGED, PLAYERHOOK_ON_DUEL_END, PLAYERHOOK_ON_PLAYER_ENTER_COMBAT,
                         PLAYERHOOK_ON_LOGIN, PLAYERHOOK_ON_LOGOUT, PLAYERHOOK_ON_LOOT_ITEM, PLAYERHOOK_ON_GIVE_EXP,
                         PLAYERHOOK_ON_CREATURE_KILL, PLAYERHOOK_ON_PLAYER_KILLED_BY_CREATURE,
-                        PLAYERHOOK_ON_MAP_CHANGED, PLAYERHOOK_CAN_PLAYER_USE_CHANNEL_CHAT})
+                        PLAYERHOOK_ON_MAP_CHANGED, PLAYERHOOK_CAN_PLAYER_USE_CHANNEL_CHAT,
+                        PLAYERHOOK_CAN_PLAYER_USE_GROUP_CHAT, PLAYERHOOK_CAN_PLAYER_USE_PRIVATE_CHAT})
     {
     }
 
@@ -1954,6 +1972,22 @@ public:
         return true;
     }
 
+    // A real player answers a bot's loot ask (AiPlayerbot.CoaLive.LootNeedAsk) in party or raid chat, or by whisper.
+    bool OnPlayerCanUseChat(Player* player, uint32 /*type*/, uint32 /*lang*/, std::string& msg, Group* group) override
+    {
+        if (Enabled() && sPlayerbotAIConfig.coaLiveLootNeedAsk && player && group && IsRealPlayer(player))
+            HearLootAnswer(player, msg, nullptr);
+        return true;
+    }
+
+    bool OnPlayerCanUseChat(Player* player, uint32 /*type*/, uint32 /*lang*/, std::string& msg, Player* receiver) override
+    {
+        if (Enabled() && sPlayerbotAIConfig.coaLiveLootNeedAsk && player && receiver && IsRealPlayer(player) &&
+            GET_PLAYERBOT_AI(receiver))
+            HearLootAnswer(player, msg, receiver);
+        return true;
+    }
+
     using PlayerScript::OnPlayerCanUseChat;
 
     // Night bank: a boss down in a group with a real player: a bot says it, another may praise the player's role,
@@ -2096,6 +2130,97 @@ public:
 
 namespace CoaLive
 {
+CoaLootAsk::Outcome LootNeedAsk(Player* bot, ObjectGuid itemGuid, uint8 itemSlot, ItemTemplate const* proto,
+                                int32 randomProperty, uint32 seenMs)
+{
+    using CoaLootAsk::Outcome;
+    if (!Enabled() || !sPlayerbotAIConfig.coaLiveLootNeedAsk || !bot || !proto || !bot->IsInWorld())
+        return Outcome::NotAsked;
+    uint64 const roll = itemGuid.GetRawValue() * 31 + itemSlot;
+    uint64 const botKey = bot->GetGUID().GetRawValue();
+    uint64 const nowMs = GameTime::GetGameTimeMS().count();
+
+    // An ask already open on this roll: its answer, for the bot that asked; the other bots vote as usual.
+    std::string say;
+    ObjectGuid sayTo;
+    Outcome outcome = Outcome::NotAsked;
+    {
+        std::lock_guard<std::mutex> guard(liveLock);
+        lootAsks.Forget(nowMs);
+        if (CoaLootAsk::Ask* ask = lootAsks.Find(roll))
+        {
+            if (ask->bot != botKey)
+                return Outcome::NotAsked;
+            outcome = CoaLootAsk::Decide(*ask, nowMs);
+            if (outcome != Outcome::Wait && !ask->decided)
+            {
+                ask->decided = true;
+                if (outcome == Outcome::Need)
+                    say = "loot_need_thanks";
+                else if (ask->no)
+                    say = "loot_need_ok_pass";
+                sayTo = ObjectGuid(*ask->players.begin());
+            }
+        }
+    }
+    if (outcome != Outcome::NotAsked)
+    {
+        if (!say.empty())
+        {
+            ReactOptions opt;
+            opt.force = true;
+            React(bot, say, ObjectAccessor::FindConnectedPlayer(sayTo), "lna", opt);
+        }
+        return outcome;
+    }
+
+    // A new ask: at the opening of the roll, in a dungeon (no raid yet), with a real player in the group, on gear
+    // that is a real upgrade for the bot and none for any real player of the group.
+    Group* group = bot->GetGroup();
+    Map* map = bot->GetMap();
+    if (seenMs > CoaLootAsk::ASK_WITHIN_MS || !group || !map || !map->IsNonRaidDungeon() ||
+        proto->Quality < ITEM_QUALITY_UNCOMMON ||
+        (proto->Class != ITEM_CLASS_WEAPON && proto->Class != ITEM_CLASS_ARMOR))
+        return Outcome::NotAsked;
+    bool emptySlot = false;
+    float const pct = CoaGearScore::UpgradePct(bot, proto->ItemId, randomProperty, emptySlot);
+    if (!emptySlot && pct < sPlayerbotAIConfig.coaLiveLootNeedAskMinPct)
+        return Outcome::NotAsked;
+    CoaLootAsk::Ask ask;
+    ask.bot = botKey;
+    ask.deadlineMs = nowMs - seenMs + CoaLootAsk::WINDOW_MS;
+    Player* first = nullptr;
+    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+    {
+        Player* member = ref->GetSource();
+        if (!member || !member->IsInWorld() || !IsRealPlayer(member))
+            continue;
+        // Never on an item a real player of the group would wear better than what it wears.
+        if (member->CanUseItem(proto) == EQUIP_ERR_OK &&
+            CoaGearScore::UpgradeGain(member, proto->ItemId, randomProperty) > 0.0f)
+            return Outcome::NotAsked;
+        ask.players.insert(member->GetGUID().GetRawValue());
+        if (!first)
+            first = member;
+    }
+    if (!first)
+        return Outcome::NotAsked;
+    uint64 const instance = (uint64(map->GetId()) << 32) | map->GetInstanceId();
+    uint32 const perDungeon = sPlayerbotAIConfig.coaLiveLootNeedAskPerDungeon;
+    {
+        std::lock_guard<std::mutex> guard(liveLock);
+        if (!lootAsks.CanOpen(instance, roll, perDungeon))
+            return Outcome::NotAsked;
+    }
+    ReactOptions opt;
+    opt.force = true;
+    opt.extra["item"] = ChatHelper::FormatItem(proto);
+    if (!React(bot, "loot_need_ask", first, "lna", opt))
+        return Outcome::NotAsked;  // no line in the bank: the usual vote
+    std::lock_guard<std::mutex> guard(liveLock);
+    return lootAsks.Open(instance, roll, ask, perDungeon) ? Outcome::Wait : Outcome::NotAsked;
+}
+
 bool GroupEmoteAllowed(Player* bot)
 {
     uint32 const perBot = sPlayerbotAIConfig.coaLiveGroupEmotesPerBot;

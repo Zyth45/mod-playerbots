@@ -729,6 +729,9 @@ public:
     // Tank specializations bots play in normal dungeons only (AiPlayerbot.CoaTankNormalDungeonOnly).
     std::set<uint32> coaTankNormalDungeonOnly;
     bool coaLiveChannelQuestions;  // AiPlayerbot.CoaLive.ChannelQuestions.Enable: a bot answers open questions in channels
+    bool coaLiveLootNeedAsk;              // AiPlayerbot.CoaLive.LootNeedAsk.Enable: a bot asks before it Needs
+    uint32 coaLiveLootNeedAskPerDungeon;  // AiPlayerbot.CoaLive.LootNeedAsk.PerDungeon
+    float coaLiveLootNeedAskMinPct;       // AiPlayerbot.CoaLive.LootNeedAsk.MinUpgradePct
     uint32 coaLiveChannelClassAnswers;  // AiPlayerbot.CoaLive.ChannelQuestions.ClassAnswers: bots answering the class question
     // ---- end of CoA Live ----
 
