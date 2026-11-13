@@ -58,6 +58,7 @@
 #include <algorithm>
 #include <cmath>
 #include <mutex>
+#include <unordered_set>
 
 using namespace Acore::ChatCommands;
 
@@ -200,6 +201,7 @@ namespace CoaWorld
             bool won = false;
             uint32 botBudget = 0;
             int64 holdTimer = 0;  // the next look at the army and the bots (HoldArmy, Engage)
+            std::unordered_set<ObjectGuid> fighting;  // borrowed bots in combat at the last look (inv_fight)
             uint32 Owner() const { return BOT_OWNER_INVASION_BASE + index; }
 
             InvasionSite const& Site() const { return plan->sites[site]; }
@@ -442,6 +444,7 @@ namespace CoaWorld
                         HoldArmy(slot);
                         _runMap = nullptr;
                         Engage(slot);
+                        FightLines(slot);
                     }
                     if (slot.won)
                     {
@@ -763,8 +766,26 @@ namespace CoaWorld
                 _runMap = nullptr;
             }
 
+            // A borrowed bot that goes into a fight of the invasion may call out (IA MIND's inv_fight: the bank's rule
+            // decides, chance and pacing, and AiPlayerbot.CoaLive.Chat.Enable silences it).
+            void FightLines(Slot& slot)
+            {
+                std::unordered_set<ObjectGuid> now;
+                for (ObjectGuid const& guid : BorrowedBots(slot.Owner()))
+                {
+                    Player* bot = ObjectAccessor::FindPlayer(guid);
+                    if (!bot || !bot->IsInWorld() || !bot->IsAlive() || !bot->IsInCombat() || bot->GetMap() != slot.map)
+                        continue;
+                    now.insert(guid);
+                    if (!slot.fighting.count(guid))
+                        BotLine(bot, "inv_fight", { { "city", slot.Site().name } });
+                }
+                slot.fighting.swap(now);
+            }
+
             void Finish(Slot& slot, bool won)
             {
+                slot.fighting.clear();
                 if (slot.state == State::Running)
                 {
                     if (won)
