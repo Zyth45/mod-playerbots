@@ -18,6 +18,7 @@
 class Player;
 class PlayerbotAI;
 struct ItemTemplate;
+class Group;
 
 // CoA Live (3.0, AiPlayerbot.CoaLive.Enable): random bots react like people around real players, with the lines and
 // emotes of the bank of CoA IA MIND (playerbots_coa_live_*, CoaLiveRules.h). Every reaction is drawn, paced and
@@ -30,6 +31,12 @@ void LoadBank();
 // A text emote of this bot now, under AiPlayerbot.CoaLive.GroupEmotes.* (a group with a real player): true, and counted,
 // when it may go. Any thread.
 bool GroupEmoteAllowed(Player* bot);
+
+// AiPlayerbot.CoaLive.PlayerReplies.Enable: a real player declined `bot`'s group invite (by its name); a real player
+// shared a quest `bot` took; a real player joined a group of bots.
+void InviteDeclined(Player* bot, std::string const& name);
+void QuestShared(Player* bot, Player* sharer);
+void MemberJoined(Group* group, ObjectGuid guid);
 
 // AiPlayerbot.CoaLive.LootNeedAsk: a bot about to roll Need on `proto` in a dungeon with a real player may ask it
 // first in party chat ("can i need on that? its bis for me"). NotAsked: vote as usual; Wait: hold the vote; Need: the

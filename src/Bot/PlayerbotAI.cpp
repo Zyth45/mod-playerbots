@@ -1625,6 +1625,16 @@ void PlayerbotAI::HandleBotOutgoingPacket(WorldPacket const& packet)
     if (packet.GetOpcode() == SMSG_GROUP_INVITE)
         SetNextCheckDelay(0);
 
+    // A real player turned down the bot's invite: a word back (AiPlayerbot.CoaLive.PlayerReplies.Enable).
+    if (packet.GetOpcode() == SMSG_GROUP_DECLINE)
+    {
+        WorldPacket p(packet);
+        p.rpos(0);
+        std::string name;
+        p >> name;
+        CoaLive::InviteDeclined(bot, name);
+    }
+
     switch (packet.GetOpcode())
     {
         case SMSG_SPELL_FAILURE:

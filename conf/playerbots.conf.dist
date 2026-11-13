@@ -3964,6 +3964,19 @@ AiPlayerbot.CoaLive.GreetReplies.Enable = 1
 
 AiPlayerbot.CoaLive.DungeonChat.Enable = 1
 
+#    AiPlayerbot.CoaLive.PlayerReplies.Enable
+#        Description: The bots answer what a real player does next to them or in their group, two bots (one when only
+#                     one is there): an emote at them (a wave, a bow, a thank-you, a cheer, a hug: given back, with a
+#                     line), a death near them (a deadly fall has its own lines), a fine drop of the player in a group
+#                     (epic, or rare below level 60), a wipe in a dungeon, a real player joining a group of bots, a quest
+#                     shared with the group. One bot for the rest: an insult (one calm whisper in 30 minutes, then
+#                     nothing), a declined group invite, a player away 3 minutes in a group, a fine mount passing by.
+#                     Each with its own cooldown per player. Lines of bank 3_0_28 or later.
+#        Default:     1 - on
+#                     0 - off
+
+AiPlayerbot.CoaLive.PlayerReplies.Enable = 1
+
 #    AiPlayerbot.CoaLive.LootNeedAsk.Enable
 #        Description: In a dungeon (not a raid), a bot grouped with a real player asks in party chat before it rolls
 #                     Need on gear that is a real upgrade for it ("can i need on that? its bis for me"). It rolls
