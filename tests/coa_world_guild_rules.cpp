@@ -57,6 +57,18 @@ int main()
                                  "the boss is down", "a+b", "nightmare" })
         assert(!IsGoodbye(not_bye));
 
+    // 2 or 3 answers, fewer only when fewer mates are online; stand-ins split among the speakers, nobody twice.
+    assert(AnswerCount(10, 0) == 2 && AnswerCount(10, 1) == 3 && AnswerCount(10, 7) == 3);
+    assert(AnswerCount(1, 1) == 1 && AnswerCount(0, 0) == 0 && AnswerCount(2, 1) == 2);
+    assert((StandIns(0, 3, 10) == std::vector<size_t>{ 3, 6, 9 }));
+    assert((StandIns(1, 3, 10) == std::vector<size_t>{ 4, 7 }));
+    assert((StandIns(2, 3, 10) == std::vector<size_t>{ 5, 8 }));
+    assert(StandIns(0, 2, 2).empty() && StandIns(0, 0, 5).empty());
+    {
+        std::vector<time_t> const t = AnswerTimes({ 105, 103, 104 });
+        assert(t[0] == 103 && t[1] == 105 && t[2] == 107);
+    }
+
     // The answer to a hello: its own clock, a minute.
     assert(GreetReplyDue(0, 1000));
     assert(!GreetReplyDue(1000, 1059));
