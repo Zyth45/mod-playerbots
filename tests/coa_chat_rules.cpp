@@ -17,5 +17,10 @@ int main()
     assert(CoaChat::LegacyLinesAllowed(true, true, true));
     assert(CoaChat::LegacyLinesAllowed(false, true, false));
     assert(!CoaChat::LegacyLinesAllowed(false, false, true) && !CoaChat::LegacyLinesAllowed(true, false, true));
+    // The older WTS (no offer behind it): never while the living chat speaks, LegacyChat or not (a player's report:
+    // "how much?" to such a seller got "i'd check the AH first", never a quote); as before with CoA Live off.
+    assert(!CoaChat::LegacySellAllowed(true, true, true) && !CoaChat::LegacySellAllowed(true, true, false));
+    assert(CoaChat::LegacySellAllowed(false, true, false) && CoaChat::LegacySellAllowed(false, true, true));
+    assert(!CoaChat::LegacySellAllowed(false, false, true) && !CoaChat::LegacySellAllowed(true, false, true));
     return 0;
 }

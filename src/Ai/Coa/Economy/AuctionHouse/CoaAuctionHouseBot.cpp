@@ -1353,7 +1353,17 @@ void AuctionHouseBot::AddNewAuctions(std::vector<Player*> AHBPlayers, FactionSpe
         return;
     }
 
-    uint32 currentAuctionItemListCount = auctionHouse->Getcount();
+    // CoA Economy: its own auctions only (CoaEconomyRules::HouseSellerCount): the bots' auctions no longer fill its
+    // quota, which kept it from ever listing on a realm with many bots (and with it, the house's epic gear).
+    std::unordered_set<uint32> sellers;
+    for (AuctionHouseBotCharacter const& seller : AHCharacters)
+        sellers.insert(seller.CharacterGUID);
+    std::vector<uint32> owners;
+    owners.reserve(auctionHouse->Getcount());
+    for (auto const& [id, auction] : auctionHouse->GetAuctions())
+        if (auction)
+            owners.push_back(auction->owner.GetCounter());
+    uint32 currentAuctionItemListCount = CoaEconomyRules::HouseSellerCount(owners, sellers);
     if (currentAuctionItemListCount >= minItems)
     {
         if (debug_Out)

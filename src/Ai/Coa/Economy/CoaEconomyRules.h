@@ -319,6 +319,39 @@ inline bool BotMayList(std::uint32_t itemClass, bool crafted, bool soldByVendor,
     return itemClass != 0 || crafted;
 }
 
+// An upgrade kit (consumable, item enhancement: "Essence of Fire Upgrade Kit"). Every enchanter made it for the
+// house (1,530 in bots' bags, 50 at a time at the top of it): "2-3 OK, not 50" (user).
+inline bool IsUpgradeKit(std::uint32_t itemClass, std::uint32_t subClass)
+{
+    return itemClass == 0 && subClass == 6;
+}
+
+// The most auctions of one item the bots keep in one house: BotAuctions.MaxPerUpgradeKit for a kit,
+// BotAuctions.MaxPerItem for anything else (0 = no cap).
+inline std::uint32_t ItemCap(std::uint32_t itemClass, std::uint32_t subClass, std::uint32_t capItem,
+                             std::uint32_t capKit)
+{
+    return IsUpgradeKit(itemClass, subClass) ? capKit : capItem;
+}
+
+// A new auction of an item only under its cap, so that one craft or one loot does not fill the house.
+inline bool UnderItemCap(std::uint32_t listed, std::uint32_t cap)
+{
+    return cap == 0 || listed < cap;
+}
+
+// The house seller (AHBot) fills its house up to MinItems/MaxItems counting ITS auctions only: the bots' own auctions
+// (about 10,000 per faction on CoA) kept it from ever listing, and with it the house's epic weapons and armour.
+template <typename Owners, typename Sellers>
+std::uint32_t HouseSellerCount(Owners const& owners, Sellers const& sellers)
+{
+    std::uint32_t count = 0;
+    for (auto const owner : owners)
+        if (sellers.count(owner))
+            ++count;
+    return count;
+}
+
 // Chat links the 3.3.5 client makes clickable: a spell (blue) and a trade skill recipe (gold, the shift-click link).
 inline std::string SpellChatLink(std::uint32_t spellId, std::string const& name, bool recipe)
 {
@@ -527,6 +560,14 @@ inline bool RareRecipeDrawn(std::uint64_t botGuid, std::uint32_t spellId, std::u
     x *= 0x94D049BB133111EBull;
     x ^= x >> 31;
     return x % 100 < percent;
+}
+
+// A profession whose recipes the bots may learn as rare ones (LearnRareRecipes): not cooking (185) nor first aid
+// (129). Their recipes are bought or questbooks, and learning them in bulk set off cooking feats in town ("[X Bot]
+// has earned the achievement [Lunch Lady]!", 25 cooking recipes, one after another).
+inline bool RareRecipeProfession(std::uint32_t skillId)
+{
+    return skillId != 0 && skillId != 185 && skillId != 129;
 }
 
 // Within the bot's reach: its rank in the profession and its level are at least the recipe's and the product's.

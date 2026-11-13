@@ -164,5 +164,9 @@ int main()
     }
     assert(RareRecipeReachable(300, 300, 60, 55) && !RareRecipeReachable(299, 300, 60, 55));
     assert(!RareRecipeReachable(300, 300, 54, 55) && !RareRecipeReachable(0, 0, 60, 0));
+    // Never cooking (185) nor first aid (129): "[X Bot] has earned the achievement [Lunch Lady]!" in bursts.
+    assert(!RareRecipeProfession(185) && !RareRecipeProfession(129) && !RareRecipeProfession(0));
+    assert(RareRecipeProfession(164) && RareRecipeProfession(333) && RareRecipeProfession(171) &&
+           RareRecipeProfession(197) && RareRecipeProfession(165) && RareRecipeProfession(202));
     return 0;
 }

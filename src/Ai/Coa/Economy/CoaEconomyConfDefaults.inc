@@ -19,6 +19,8 @@
 {"AiPlayerbot.CoaEconomy.BotAuctions.Enable", R"coa(1)coa"},
 {"AiPlayerbot.CoaEconomy.BotAuctions.ListPerVisit", R"coa(3)coa"},
 {"AiPlayerbot.CoaEconomy.BotAuctions.MaxBudgetPercent", R"coa(30)coa"},
+{"AiPlayerbot.CoaEconomy.BotAuctions.MaxPerItem", R"coa(10)coa"},
+{"AiPlayerbot.CoaEconomy.BotAuctions.MaxPerUpgradeKit", R"coa(3)coa"},
 {"AiPlayerbot.CoaEconomy.BotAuctions.MaxScan", R"coa(300)coa"},
 {"AiPlayerbot.CoaEconomy.BotAuctions.RealHousePrices", R"coa(1)coa"},
 {"AiPlayerbot.CoaEconomy.BotAuctions.RealPriceMultiplier.Common", R"coa(1)coa"},

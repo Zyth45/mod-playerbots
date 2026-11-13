@@ -2155,6 +2155,12 @@ bool LegacyChatOn()
                                        sPlayerbotAIConfig.coaLiveLegacyChat);
 }
 
+bool LegacySellOn()
+{
+    return CoaChat::LegacySellAllowed(sPlayerbotAIConfig.coaLiveEnable, sPlayerbotAIConfig.coaLiveChatEnable,
+                                      sPlayerbotAIConfig.coaLiveLegacyChat);
+}
+
 bool AnswersWhispers(PlayerbotAI* botAI, ObjectGuid from)
 {
     // Off: decided before anything is looked up, so the old path is untouched.
@@ -2334,7 +2340,7 @@ bool SayLine(Player* bot, std::string const& situation, std::unordered_map<std::
 }
 
 bool SayLine(Player* bot, std::string const& situation, std::unordered_map<std::string, std::string> const& slots,
-             ObjectGuid to)
+             ObjectGuid to, bool force)
 {
     if (!Enabled() || !bot)
         return false;
@@ -2342,6 +2348,7 @@ bool SayLine(Player* bot, std::string const& situation, std::unordered_map<std::
     if (to && !subject)
         return false;
     ReactOptions opt;
+    opt.force = force;
     opt.extra.insert(slots.begin(), slots.end());
     return React(bot, situation, subject, situation + "@w" + std::to_string(bot->GetGUID().GetCounter()), opt);
 }

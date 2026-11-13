@@ -348,6 +348,22 @@ namespace
         }
     }
 
+    // The artisan whispers the player about its order (CoA Live, forced: a deal waits on it): "sent, COD 12g" when the
+    // mail goes (craft_order_sent), thanks when the CoD is paid (craft_order_paid). %item, %qty and %price (the CoD).
+    // Nothing when either is offline.
+    void Whisper(OrderRec const& order, char const* situation)
+    {
+        Player* bot = ObjectAccessor::FindConnectedPlayer(ObjectGuid::Create<HighGuid::Player>(order.bot));
+        if (!bot)
+            return;
+        std::unordered_map<std::string, std::string> slots;
+        if (ItemTemplate const* proto = sObjectMgr->GetItemTemplate(order.itemId))
+            slots["item"] = ChatHelper::FormatItem(proto);
+        slots["qty"] = std::to_string(order.qty);
+        slots["price"] = ChatHelper::formatMoney(order.copper);
+        CoaLive::SayLine(bot, situation, slots, ObjectGuid::Create<HighGuid::Player>(order.player), true);
+    }
+
     // The artisan has "crafted" it: the pieces go in one CoD mail, no delivery delay (the core's MailDeliveryDelay is
     // for mail between players; the whispers play the time it takes).
     void SendOrder(OrderRec& order)
@@ -387,6 +403,7 @@ namespace
         order.sentAt = Now();
         order.eta = order.sentAt;
         SetState(order, "sent");
+        Whisper(order, "craft_order_sent");
     }
 
     void Order(Player* player, std::vector<std::string> const& fields, std::vector<std::string>& lines)
@@ -452,8 +469,8 @@ namespace
         slots["qty"] = std::to_string(quote.qty);
         slots["profession"] = Artisans::ProfessionLink(bot, recipe.skillId);
         slots["recipe"] = Artisans::RecipeLink(bot, recipe);
-        CoaLive::SayLine(bot, "craft_order_ack", slots, player->GetGUID());
-        CoaLive::SayLine(bot, "craft_order_sent", slots, player->GetGUID());
+        CoaLive::SayLine(bot, "craft_order_ack", slots, player->GetGUID(), true);
+        // "Sent, COD ..." is said when the mail goes (SendOrder), the thanks when the CoD is paid.
 
         Data::RecordOrder(player->GetName(), bot->GetName(), quote.itemId, quote.copper, "mailed", recipe.skillId, "player");
         answer("preparing");
@@ -661,6 +678,7 @@ namespace
                     if (order.owed)
                         draft->AddMoney(order.copper > order.owed ? order.copper - order.owed : 0);
                     SetState(order, "paid");
+                    Whisper(order, "craft_order_paid");
                     return;
                 }
         }

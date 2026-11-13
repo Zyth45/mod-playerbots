@@ -1,6 +1,8 @@
 #include "CoaEconomyRules.h"
 
 #include <cassert>
+#include <set>
+#include <vector>
 
 using namespace CoaEconomyRules;
 
@@ -36,5 +38,20 @@ int main()
     assert(LeavesOutBloodforged(true, true, false));
     assert(!LeavesOutBloodforged(true, true, true));
     assert(!LeavesOutBloodforged(false, false, false));
+
+    // The house seller counts its own auctions only (CoA: ~10,000 bots' auctions per faction kept it from listing).
+    {
+        std::vector<std::uint32_t> const owners = {3235, 5000, 5001, 3235, 7000, 3235};
+        std::set<std::uint32_t> const sellers = {3235};
+        assert(HouseSellerCount(owners, sellers) == 3);
+        assert(HouseSellerCount(owners, std::set<std::uint32_t>{}) == 0);
+        assert(HouseSellerCount(std::vector<std::uint32_t>{}, sellers) == 0);
+    }
+    // Bots' auctions per item and house: an upgrade kit at most 3 ("2-3 OK, not 50"), anything else at most 10.
+    assert(IsUpgradeKit(0, 6) && !IsUpgradeKit(0, 5) && !IsUpgradeKit(7, 6) && !IsUpgradeKit(4, 6));
+    assert(ItemCap(0, 6, 10, 3) == 3 && ItemCap(7, 5, 10, 3) == 10 && ItemCap(2, 7, 10, 3) == 10);
+    assert(UnderItemCap(0, 3) && UnderItemCap(2, 3) && !UnderItemCap(3, 3) && !UnderItemCap(50, 3));
+    assert(UnderItemCap(9, 10) && !UnderItemCap(10, 10));
+    assert(UnderItemCap(5000, 0));                       // 0 = no cap
     return 0;
 }

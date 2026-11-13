@@ -57,6 +57,8 @@ namespace
         uint32 visitsPerTick = 2;
         uint32 durationMinutes = 24 * 60;
         uint32 maxScan = 300;
+        uint32 maxPerItem = 10;
+        uint32 maxPerUpgradeKit = 3;
         bool realHousePrices = false;
         RealPrices::Multipliers multipliers;
     };
@@ -94,6 +96,8 @@ namespace
         uint32 const hours = CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.BotAuctions.DurationHours", 24);
         settings.durationMinutes = (hours <= 12 ? 12 : hours <= 24 ? 24 : 48) * 60;
         settings.maxScan = std::max<uint32>(10, CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.BotAuctions.MaxScan", 300));
+        settings.maxPerItem = CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.BotAuctions.MaxPerItem", 10);
+        settings.maxPerUpgradeKit = CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.BotAuctions.MaxPerUpgradeKit", 3);
         settings.realHousePrices = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.BotAuctions.RealHousePrices", true);
         settings.multipliers = RealPrices::LoadMultipliers("AiPlayerbot.CoaEconomy.BotAuctions.RealPriceMultiplier");
     }
@@ -180,11 +184,31 @@ namespace
 
     // Lists up to ListPerVisit items the bot's item usage marks for the auction house, through the core's packet.
     // crafted: a piece the artisan just made, listed first; held: a piece offered in Trade, kept for its buyer.
-    uint32 ListLoot(Player* bot, PlayerbotAI* botAI, ObjectGuid auctioneer, Traits const& traits, Item* crafted, Item* held)
+    uint32 ListLoot(Player* bot, PlayerbotAI* botAI, ObjectGuid auctioneer, Creature* npc, Traits const& traits,
+                    Item* crafted, Item* held)
     {
         std::vector<Item*> loot;
         std::unordered_set<uint32> const stock = Materials::StockReagents(bot);
-        if (crafted)
+
+        // Auctions per item already in this house: a bot adds one only while there are fewer than MaxPerItem of it
+        // (MaxPerUpgradeKit for an upgrade kit).
+        std::unordered_map<uint32, uint32> listed;
+        if (AuctionHouseObject* house = npc ? sAuctionMgr->GetAuctionsMap(npc->GetFaction()) : nullptr)
+            for (auto const& [id, auction] : house->GetAuctions())
+                if (auction)
+                    ++listed[auction->item_template];
+        auto underCap = [&](Item* item)
+        {
+            ItemTemplate const* proto = item->GetTemplate();
+            uint32 const cap = CoaEconomyRules::ItemCap(proto->Class, proto->SubClass, settings.maxPerItem,
+                                                        settings.maxPerUpgradeKit);
+            if (!CoaEconomyRules::UnderItemCap(listed[proto->ItemId], cap))
+                return false;
+            ++listed[proto->ItemId];
+            return true;
+        };
+
+        if (crafted && underCap(crafted))
             loot.push_back(crafted);
         ForEachBagItem(bot, [&](Item* item)
         {
@@ -198,10 +222,11 @@ namespace
             // An artisan keeps the reagents of its recipes (Artisans.Stock).
             if (Materials::KeepsInStock(bot, item, stock))
                 return;
-            if (botAI->GetAiObjectContext()->GetValue<ItemUsage>("item usage", item->GetEntry())->Get() == ITEM_USAGE_AH)
+            if (botAI->GetAiObjectContext()->GetValue<ItemUsage>("item usage", item->GetEntry())->Get() == ITEM_USAGE_AH &&
+                underCap(item))
                 loot.push_back(item);
         });
-        if (crafted && !Sellable::BotMayList(crafted->GetTemplate(), true))
+        if (crafted && !loot.empty() && loot.front() == crafted && !Sellable::BotMayList(crafted->GetTemplate(), true))
             loot.erase(loot.begin());
 
         // An impatient bot undercuts more: 85 % to 105 % of the reference price.
@@ -317,7 +342,7 @@ namespace
         if (crafted && CraftOrders::OfferInTrade(bot, crafted, recipe.productValue))
             std::swap(crafted, held);
 
-        ListLoot(bot, botAI, visit.auctioneer, traits, crafted, held);
+        ListLoot(bot, botAI, visit.auctioneer, npc, traits, crafted, held);
         // One purchase per visit: an upgrade or a bag, else a cheap lot for the artisan's stock.
         if (!BuyOne(bot, visit.auctioneer, npc, traits))
             Materials::BuyStock(bot, visit.auctioneer, npc,

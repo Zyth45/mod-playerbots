@@ -5399,6 +5399,9 @@ AiPlayerbot.CoaEconomy.RpgSell.BagPercent = 70
 #    VisitsPerTick         Visits run per world update, to spread the cost (default 2).
 #    DurationHours         Auction duration: 12, 24 or 48 (default 24).
 #    MaxScan               Gear auctions looked at per visit for an upgrade (default 300).
+#    MaxPerItem            A bot lists an item only while its house holds fewer auctions of it (default 10; 0 = no
+#                          cap): one craft or one loot no longer fills the house (700 of one cloth seen).
+#    MaxPerUpgradeKit      The same for an upgrade kit ("Essence of Fire Upgrade Kit": 50 at a time seen; default 3).
 AiPlayerbot.CoaEconomy.BotAuctions.Enable = 1
 AiPlayerbot.CoaEconomy.BotAuctions.VisitCooldownMinutes = 45
 AiPlayerbot.CoaEconomy.BotAuctions.ListPerVisit = 3
@@ -5406,6 +5409,8 @@ AiPlayerbot.CoaEconomy.BotAuctions.MaxBudgetPercent = 30
 AiPlayerbot.CoaEconomy.BotAuctions.VisitsPerTick = 2
 AiPlayerbot.CoaEconomy.BotAuctions.DurationHours = 24
 AiPlayerbot.CoaEconomy.BotAuctions.MaxScan = 300
+AiPlayerbot.CoaEconomy.BotAuctions.MaxPerItem = 10
+AiPlayerbot.CoaEconomy.BotAuctions.MaxPerUpgradeKit = 3
 
 # Random bots' gold, in percent of their usual gold: what a bot gets when it is created (10 to 50 gold per level),
 # the floor its upkeep keeps (10 to 50 silver per level) and its pocket money on returning to town. 100 = the usual

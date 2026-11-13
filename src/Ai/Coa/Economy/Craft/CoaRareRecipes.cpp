@@ -117,8 +117,10 @@ namespace
                 continue;
             uint32 const skillId = ProfessionOf(spellId);
             ItemTemplate const* product = ProductOf(spell);
-            // What the artisans may sell: tradable, of its era, no vendor good, no ammunition.
-            if (!skillId || !Artisans::IsTradableProduct(product) || !Sellable::BotMayList(product, true))
+            // What the artisans may sell: tradable, of its era, no vendor good, no ammunition; never cooking nor
+            // first aid (their feats announced in town, one after another).
+            if (!CoaEconomyRules::RareRecipeProfession(skillId) || !Artisans::IsTradableProduct(product) ||
+                !Sellable::BotMayList(product, true))
                 continue;
             pool.push_back({spellId, skillId, recipe.RequiredSkillRank, product->RequiredLevel,
                             product->Quality >= ITEM_QUALITY_EPIC});
