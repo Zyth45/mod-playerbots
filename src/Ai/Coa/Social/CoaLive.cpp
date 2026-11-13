@@ -20,6 +20,7 @@
 #include "CoaCleanWorld.h"
 #include "CoaLiveRules.h"
 #include "CoaGroupEmoteRules.h"
+#include "CoaChanAskRules.h"
 #include "CoaChatRules.h"
 #include "GameObject.h"
 #include "LootObjectStack.h"
@@ -139,6 +140,7 @@ struct Pending
     bool invite = false;
     ObjectGuid codItem;  // an item of the bot's bags mailed to the subject, cash on delivery
     uint32 cod = 0;
+    std::string sayChannel;  // said in this public channel (its name) instead of the line's channel
 };
 
 // A Trade announce that a real player may answer (spec: never an announce that leads nowhere).
@@ -266,6 +268,7 @@ struct ReactOptions
     bool force = false;                            // the Trade pace: no roll, no scope limit (bot cooldown kept)
     ObjectGuid codItem;                            // mail this item to the subject, cash on delivery
     uint32 cod = 0;
+    std::string sayChannel;                        // the public channel to answer in (its name), not the line's
 };
 
 bool React(Player* bot, std::string const& situation, Player* subject, std::string const& scope,
@@ -367,6 +370,7 @@ bool React(Player* bot, std::string const& situation, Player* subject, std::stri
     p.invite = invite;
     p.codItem = opt.codItem;
     p.cod = opt.cod;
+    p.sayChannel = opt.sayChannel;
     liveQueue.push_back(std::move(p));
     return true;
 }
@@ -437,6 +441,32 @@ bool SayInChannel(Player* bot, uint32 channelId, std::unordered_set<uint64>& joi
     return false;  // no player has the channel open: nobody would read it
 }
 
+// Into the public channel of that name (the one a player asked in), joined first when the bot is not in it.
+bool SayInNamedChannel(Player* bot, std::string const& name, std::string const& text)
+{
+    if (!sPlayerbotAIConfig.coaLiveChatEnable)
+        return false;
+    ChannelMgr* cMgr = ChannelMgr::forTeam(bot->GetTeamId());
+    if (!cMgr)
+        return false;
+    for (auto const& [key, channel] : cMgr->GetChannels())
+    {
+        if (!channel || channel->GetName() != name)
+            continue;
+        static std::unordered_set<std::string> joined;  // world thread
+        std::string const k = std::to_string(bot->GetGUID().GetRawValue()) + "|" + name;
+        if (joined.insert(k).second)
+            channel->JoinChannel(bot, "");
+        if (joined.size() > 20000)
+            joined.clear();
+        channel->Say(bot->GetGUID(), text, LANG_UNIVERSAL);
+        if (PlayerbotAI* botAI = GET_PLAYERBOT_AI(bot))
+            botAI->LogChat("tells channel " + channel->GetName(), text);
+        return true;
+    }
+    return false;
+}
+
 // The Trade pace (AiPlayerbot.CoaLive.TradeMessagesPerMinute): when each faction's Trade last heard a line, who
 // said the last ones. World thread.
 std::unordered_map<uint32, uint64> tradeLastMs;
@@ -498,7 +528,9 @@ void Play(Due isDue)
         if (parts.emote && p.emote && p.channel == CH_NEAR)
             PlayEmote(bot, p.emote, emoteTarget);
 
-        if (parts.text && !p.text.empty())
+        if (parts.text && !p.text.empty() && !p.sayChannel.empty())
+            SayInNamedChannel(bot, p.sayChannel, p.text);
+        else if (parts.text && !p.text.empty())
         {
             switch (p.channel)
             {
@@ -1347,6 +1379,69 @@ void TradePace(uint64 nowMs)
     }
 }
 
+// AiPlayerbot.CoaLive.ChannelQuestions.Enable: the open questions real players asked in a public channel, heard by the
+// chat hook (any thread) and answered by the world thread (one bot each). Under liveLock.
+struct ChannelAsk
+{
+    ObjectGuid player;
+    uint32 channelId = 0;
+    std::string channelName;
+    CoaChanAsk::Topic topic = CoaChanAsk::Topic::None;
+};
+std::vector<ChannelAsk> channelAsks;
+std::unordered_map<uint64, uint64> channelAskLast;  // player -> when a bot last took one of their questions (s)
+
+void HearChannelQuestion(Player* player, std::string const& msg, ::Channel* channel)
+{
+    uint32 const id = channel->GetChannelId();
+    if (id != 1 && id != 2 && id != 3 && id != 26)  // Ascension, Newcomers, Zone, LookingForGroup
+        return;
+    CoaChanAsk::Topic const topic = CoaChanAsk::Classify(msg);
+    if (topic == CoaChanAsk::Topic::None)
+        return;
+    uint64 const nowS = uint64(GameTime::GetGameTime().count());
+    uint64 const key = player->GetGUID().GetRawValue();
+    std::lock_guard<std::mutex> guard(liveLock);
+    auto const last = channelAskLast.find(key);
+    if (!CoaChanAsk::PlayerMayAsk(last == channelAskLast.end() ? 0 : last->second, nowS) || channelAsks.size() >= 64)
+        return;
+    channelAskLast[key] = nowS;
+    if (channelAskLast.size() > 20000)
+        channelAskLast.clear();
+    channelAsks.push_back({player->GetGUID(), id, channel->GetName(), topic});
+}
+
+// One bot of the player's faction that hears that channel (for Zone, one in the player's zone) answers.
+void AnswerChannelQuestions()
+{
+    std::vector<ChannelAsk> asks;
+    {
+        std::lock_guard<std::mutex> guard(liveLock);
+        asks.swap(channelAsks);
+    }
+    for (ChannelAsk const& ask : asks)
+    {
+        Player* player = ObjectAccessor::FindConnectedPlayer(ask.player);
+        if (!player || !player->IsInWorld())
+            continue;
+        std::vector<Player*> hearers;
+        {
+            std::shared_lock<std::shared_mutex> playersLock(*HashMapHolder<Player>::GetLock());
+            for (auto const& [guid, bot] : ObjectAccessor::GetPlayers())
+                if (bot && FreeRandomBot(bot) && bot->GetTeamId() == player->GetTeamId() &&
+                    (ask.channelId != 3 || bot->GetZoneId() == player->GetZoneId()))
+                    hearers.push_back(bot);
+        }
+        if (hearers.empty())
+            continue;
+        ReactOptions opt;
+        opt.sayChannel = ask.channelName;
+        char const* situation = ask.topic == CoaChanAsk::Topic::Class ? "chan_class" : "chan_question";
+        React(hearers[urand(0, hearers.size() - 1)], situation, player,
+              "c" + std::to_string(player->GetTeamId()) + "|" + ask.channelName, opt);
+    }
+}
+
 void ChannelTimers(uint64 nowMs)
 {
     if (nowMs < nextChannelTick)
@@ -1791,10 +1886,13 @@ public:
     }
 
     // The Trade pace counts the players' own Trade lines too (they are let through as before).
-    bool OnPlayerCanUseChat(Player* player, uint32 /*type*/, uint32 /*lang*/, std::string& /*msg*/, ::Channel* channel) override
+    // An open question of a real player in a public channel (AiPlayerbot.CoaLive.ChannelQuestions.Enable).
+    bool OnPlayerCanUseChat(Player* player, uint32 /*type*/, uint32 /*lang*/, std::string& msg, ::Channel* channel) override
     {
         if (Enabled() && player && channel && channel->GetChannelId() == COA_TRADE_CHANNEL_ID && IsRealPlayer(player))
             NoteTrade(player);
+        if (Enabled() && sPlayerbotAIConfig.coaLiveChannelQuestions && player && channel && IsRealPlayer(player))
+            HearChannelQuestion(player, msg, channel);
         return true;
     }
 
@@ -1929,6 +2027,8 @@ public:
             RefreshPeopledZones(nowMs);
             Play([nowMs](Pending const& p) { return p.dueMs <= nowMs; });
             PlayGuildEvents();
+            if (sPlayerbotAIConfig.coaLiveChannelQuestions)
+                AnswerChannelQuestions();
             ChannelTimers(nowMs);
             TradePace(nowMs);
         }

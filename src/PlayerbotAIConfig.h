@@ -728,6 +728,7 @@ public:
     uint32 coaLiveGroupEmotesPerGroup;
     // Tank specializations bots play in normal dungeons only (AiPlayerbot.CoaTankNormalDungeonOnly).
     std::set<uint32> coaTankNormalDungeonOnly;
+    bool coaLiveChannelQuestions;  // AiPlayerbot.CoaLive.ChannelQuestions.Enable: a bot answers open questions in channels
     // ---- end of CoA Live ----
 
     // ---- CoA World (LoadCoaWorldConfig, CoaWorldConfig.cpp) ----
