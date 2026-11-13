@@ -9,6 +9,8 @@
 
 #include <cstdint>
 #include <functional>
+#include <algorithm>
+#include <cmath>
 #include <string>
 #include <vector>
 
@@ -139,6 +141,30 @@ inline Pose PoseOf(Station s)
         default: return {};
     }
 }
+// The auction house: after a word with its auctioneer, the bot steps into the room, toward the middle of the
+// auctioneers around it, with a little to the side, and stays there: they all stood at the counters along the
+// walls, and nobody in the middle (3.0.1 in game). The middle: the mean of the auctioneers' positions.
+constexpr float ROOM_STEP_MIN = 4.0f;
+constexpr float ROOM_STEP_MAX = 10.0f;
+constexpr float ROOM_SIDE = 3.0f;        // up to this far to either side
+constexpr float ROOM_MIN_CENTER = 5.0f;  // a middle closer than this to the auctioneer: no room to step into
+constexpr float ROOM_KEEP = 20.0f;       // a bot this close to its auctioneer still stays at its station
+
+// The point `step` yards from the auctioneer (ox, oy) toward the middle (cx, cy), `side` yards to its left (negative:
+// right), never past the middle. False when the middle is too close to the auctioneer.
+inline bool IntoRoom(float ox, float oy, float cx, float cy, float step, float side, float& x, float& y)
+{
+    float const dx = cx - ox, dy = cy - oy;
+    float const d = std::sqrt(dx * dx + dy * dy);
+    if (d < ROOM_MIN_CENTER)
+        return false;
+    float const ux = dx / d, uy = dy / d;
+    step = std::min(step, d);
+    x = ox + ux * step - uy * side;
+    y = oy + uy * step + ux * side;
+    return true;
+}
+
 // The residents: a tenth of the random bots, always the same ones (by guid), stay three times as long on each
 // city visit, so a capital keeps faces one sees again.
 inline bool IsResident(uint64_t guid)

@@ -36,6 +36,7 @@ struct Holding
     uint32 stayMs = 0;
     uint64 lastEmoteMs = 0;
     uint64 sinceMs = 0;  // a bot that never got there (another activity, a fight) frees it after HOLD_MS
+    bool inRoom = false;  // stepped from its auctioneer into the room (IntoRoom)
 };
 constexpr uint64 HOLD_MS = 15 * MINUTE * IN_MILLISECONDS;
 
@@ -45,6 +46,45 @@ std::unordered_map<uint64, Holding> holding;  // bot -> its station (map threads
 std::function<uint32_t(uint32_t, uint32_t)> const between = [](uint32_t lo, uint32_t hi) { return urand(lo, hi); };
 
 bool Enabled() { return sPlayerbotAIConfig.coaLiveCityEnable; }
+
+struct AuctioneerCheck
+{
+    WorldObject const* from;
+    bool operator()(Creature* c) const
+    {
+        return c->IsAlive() && c->HasNpcFlag(UNIT_NPC_FLAG_AUCTIONEER) && from->IsWithinDist(c, 40.0f);
+    }
+};
+
+// After a word with its auctioneer, a step into the room (IntoRoom): true when the bot moves.
+bool StepIntoRoom(Player* bot, WorldObject* auctioneer)
+{
+    std::list<Creature*> auctioneers;
+    AuctioneerCheck check{auctioneer};
+    Acore::CreatureListSearcher<AuctioneerCheck> searcher(auctioneer, auctioneers, check);
+    Cell::VisitObjects(auctioneer, searcher, 40.0f);
+    if (auctioneers.size() < 2)
+        return false;
+    float cx = 0.0f, cy = 0.0f;
+    for (Creature* c : auctioneers)
+    {
+        cx += c->GetPositionX();
+        cy += c->GetPositionY();
+    }
+    cx /= auctioneers.size();
+    cy /= auctioneers.size();
+    float const step = ROOM_STEP_MIN + float(urand(0, 100)) / 100.0f * (ROOM_STEP_MAX - ROOM_STEP_MIN);
+    float const side = (float(urand(0, 200)) / 100.0f - 1.0f) * ROOM_SIDE;
+    float x = 0.0f, y = 0.0f;
+    if (!IntoRoom(auctioneer->GetPositionX(), auctioneer->GetPositionY(), cx, cy, step, side, x, y))
+        return false;
+    float const z = bot->GetMap()->GetHeight(bot->GetPhaseMask(), x, y, auctioneer->GetPositionZ() + 2.0f);
+    if (z <= INVALID_HEIGHT || std::fabs(z - auctioneer->GetPositionZ()) > 3.0f ||
+        !auctioneer->IsWithinLOS(x, y, z + 1.5f))
+        return false;
+    bot->GetMotionMaster()->MovePoint(0, x, y, z);
+    return true;
+}
 
 bool InCapital(Player* bot)
 {
@@ -179,6 +219,13 @@ void OnReach(PlayerbotAI* botAI, WorldObject* object)
         it->second.lastEmoteMs = GameTime::GetGameTimeMS().count();
     }
     bot->SetFacingToObject(object);
+    if (kind == Station::Auction && StepIntoRoom(bot, object))
+    {
+        std::lock_guard<std::mutex> guard(cityLock);
+        auto it = holding.find(bot->GetGUID().GetRawValue());
+        if (it != holding.end())
+            it->second.inRoom = true;
+    }
     if (PoseOf(kind).sit)
         bot->SetStandState(UNIT_STAND_STATE_SIT);
     else if (kind == Station::Beg)
@@ -214,6 +261,20 @@ uint32 VisitMs(Player* bot, uint32 cityStayMs)
 {
     return Enabled() && bot && sRandomPlayerbotMgr.IsRandomBot(bot) ? StayMs(bot->GetGUID().GetCounter(), cityStayMs)
                                                                       : cityStayMs;
+}
+
+bool InRoom(PlayerbotAI* botAI, WorldObject* object)
+{
+    if (!Enabled() || !botAI || !object)
+        return false;
+    Player* bot = botAI->GetBot();
+    {
+        std::lock_guard<std::mutex> guard(cityLock);
+        auto it = holding.find(bot->GetGUID().GetRawValue());
+        if (it == holding.end() || it->second.station != object->GetGUID() || !it->second.inRoom)
+            return false;
+    }
+    return bot->IsWithinDist(object, ROOM_KEEP);
 }
 
 void Leave(PlayerbotAI* botAI)
