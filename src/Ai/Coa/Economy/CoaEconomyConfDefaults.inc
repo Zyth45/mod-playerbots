@@ -48,7 +48,7 @@
 {"AiPlayerbot.CoaEconomy.Filter.ScaledEntries", R"coa(1)coa"},
 {"AiPlayerbot.CoaEconomy.Filter.Worldforged", R"coa(1)coa"},
 {"AiPlayerbot.CoaEconomy.LaunchCurve.AllowLegendary", R"coa(0)coa"},
-{"AiPlayerbot.CoaEconomy.LaunchCurve.Enable", R"coa(0)coa"},
+{"AiPlayerbot.CoaEconomy.LaunchCurve.Enable", R"coa(1)coa"},
 {"AiPlayerbot.CoaEconomy.LaunchCurve.EpicFromLevel", R"coa(50)coa"},
 {"AiPlayerbot.CoaEconomy.LaunchCurve.FrontPercentile", R"coa(80)coa"},
 {"AiPlayerbot.CoaEconomy.LaunchCurve.LaunchPremiumPercent", R"coa(0)coa"},

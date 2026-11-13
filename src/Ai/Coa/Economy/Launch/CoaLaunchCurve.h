@@ -18,7 +18,7 @@ struct ItemTemplate;
 namespace CoaEconomy
 {
 
-// Launch auction house of a new realm (AiPlayerbot.CoaEconomy.LaunchCurve.*, off by default; design in
+// Launch auction house of a new realm (AiPlayerbot.CoaEconomy.LaunchCurve.*, on by default; design in
 // docs/LAUNCHCURVE-3.0.md). The house bot lists what the population could really have reached: a level
 // and quality cap that follows the realm's characters, a stock that grows, and a launch price premium
 // that fades. The signal is the population, not the calendar: a realm that is off does not progress.
@@ -33,7 +33,7 @@ public:
     // World thread: runs the ready query callbacks and starts a new survey when it is due.
     void Update(uint32 diff);
 
-    // Whether the house may list this item now.
+    // Whether the house may list this item now (never before the first survey of the levels).
     bool AllowsListing(ItemTemplate const& proto) const;
     // Whether one item may cost this much now (copper): UnitPriceCapGold x front^2 gold until UnitPriceCapUntilLevel.
     bool AllowsUnitPrice(uint64 copper) const;
@@ -63,7 +63,7 @@ private:
     uint32 _epicFromLevel = 50;
     bool _allowLegendary = false;
     float _startStock = 0.10f;
-    float _launchPremium = 1.50f;
+    float _launchPremium = 0.0f;
     float _unitPriceCapGold = 0.25f;
     uint32 _unitPriceCapUntilLevel = 60;
 

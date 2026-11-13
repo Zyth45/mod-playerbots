@@ -15,6 +15,11 @@ int main()
     assert(FrontLevel(mid, 80) == 30);
     assert(TopLevel(mid, 3) == 45);
 
+    // A solo realm without bots (under MinPopulation): its highest character stands for the front.
+    assert(SmallRealmFront({{1, 2}, {80, 1}, {34, 3}}) == 80 && SmallRealmFront({}) == 1 && SmallRealmFront({{1, 4}}) == 1);
+    // An established realm at the cap: nothing held back (full stock, no premium).
+    assert(LaunchStockFactor(0.10f, 1.0f) == 1.0f && LaunchPriceFactor(0.0f, 0.2f) == 1.0f);
+
     // Late: three characters at 60.
     std::map<std::uint32_t, std::uint32_t> late{{40, 100}, {55, 300}, {60, 3}};
     assert(TopLevel(late, 3) == 60);
