@@ -63,5 +63,34 @@ int main()
     Candidate worthless;
     worthless.noPrice = true;
     assert(!Eligible(worthless, 2, true) && Eligible(worthless, 2, false));
+
+    // Profession tools and materials: never in a list, for sale or to destroy.
+    assert(IsProfessionItem(2, 20, 0));    // Fishing Pole (weapon, fishing pole)
+    assert(IsProfessionItem(2, 14, 165));  // Mining Pick (weapon, misc, a tool category)
+    assert(IsProfessionItem(2, 15, 166));  // Skinning Knife (dagger, a tool category)
+    assert(IsProfessionItem(7, 12, 0));    // Runed Copper Rod, ore, leather, herbs (trade goods)
+    assert(IsProfessionItem(5, 0, 0) && IsProfessionItem(13, 0, 0) && IsProfessionItem(3, 0, 0));
+    assert(!IsProfessionItem(2, 7, 0));    // a plain one-handed sword
+    assert(!IsProfessionItem(4, 1, 0));    // cloth armor
+    Candidate pole;
+    pole.quality = 1;
+    pole.noPrice = true;
+    pole.tool = IsProfessionItem(2, 20, 0);
+    assert(!Eligible(pole, 1, false) && !Eligible(pole, 1, true));
+
+    // Bag slots: the slot asked for, else the first empty one, else the smallest when the new bag is bigger.
+    assert(PickBagSlot({6, 0, 10, 0}, 8, 0) == 1);
+    assert(PickBagSlot({6, 10, 8, 12}, 14, 0) == 0);
+    assert(PickBagSlot({10, 12, 14, 16}, 10, 0) == -1);  // no bigger: nothing replaced
+    assert(PickBagSlot({10, 12, 14, 16}, 6, 3) == 2);    // the player's choice, whatever the size
+    assert(PickBagSlot({10, 12, 14, 16}, 6, 5) == -1);
+    // Emptying the old bag: every item somewhere, never two in one slot; nothing when one does not fit.
+    std::vector<size_t> const to = AssignSlots(3, 4, [](size_t, size_t) { return true; });
+    assert(to.size() == 3 && to[0] == 0 && to[1] == 1 && to[2] == 2);
+    assert(AssignSlots(3, 2, [](size_t, size_t) { return true; }).empty());
+    // A herb bag (slot 0) takes item 1 only: item 0 goes to slot 1.
+    std::vector<size_t> const herb = AssignSlots(2, 2, [](size_t i, size_t s) { return s == 1 || i == 1; });
+    assert(herb.size() == 2 && herb[0] == 1 && herb[1] == 0);
+    assert(AssignSlots(0, 0, [](size_t, size_t) { return true; }).empty());
     return 0;
 }

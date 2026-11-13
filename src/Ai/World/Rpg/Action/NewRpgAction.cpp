@@ -486,7 +486,8 @@ bool NewRpgWanderNpcAction::Execute(Event /*event*/)
     }
 
     WorldObject* object = ObjectAccessor::GetWorldObject(*bot, data.npcOrGo);
-    if (object && IsWithinInteractionDist(object))
+    // CoA Live City Life: a bot that stepped from its auctioneer into the room still stays there.
+    if (object && (IsWithinInteractionDist(object) || (data.lastReach && CoaCityLife::InRoom(botAI, object))))
     {
         if (!data.lastReach)
         {

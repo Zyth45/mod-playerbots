@@ -709,6 +709,7 @@ protected:
     uint32 nextTransportCheck = 0;
     bool spellInterruptRequested = false;
     uint32 coaAncestralCombatCheckedAt = 0;
+    uint32 coaCursedFormCheckedAt = 0;
     uint32 coaGearCheckedAt = 0;
     uint32 coaTeamTimer = 0;
 public:

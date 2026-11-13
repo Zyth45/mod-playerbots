@@ -6,6 +6,7 @@
 
 #include "LootRollAction.h"
 #include "CoaGearScore.h"
+#include "CoaLive.h"
 #include "CoaRollRule.h"
 #include "ObjectAccessor.h"
 #include "Event.h"
@@ -156,6 +157,23 @@ bool LootRollAction::Execute(Event /*event*/)
             if (!CoaRollRule::KeepNeed(proto->Quality >= ITEM_QUALITY_EPIC, isGear, pct, emptySlot,
                                        sPlayerbotAIConfig.coaCombatLootNeedEpicOnly,
                                        sPlayerbotAIConfig.coaCombatLootNeedMinUpgradePct))
+                vote = GREED;
+        }
+        // AiPlayerbot.CoaLive.LootNeedAsk: in a dungeon, the bot may first ask the real players whether it may Need
+        // (CoaLive::LootNeedAsk). On their yes it rolls Need; on a no or no answer in time, Greed as without the ask.
+        if (vote == NEED && group->GetLootMethod() != MASTER_LOOT && group->GetLootMethod() != FREE_FOR_ALL)
+        {
+            CoaLootAsk::Outcome const asked = CoaLive::LootNeedAsk(bot, guid, roll->itemSlot, proto, randomProperty,
+                                                                    RollSeenForMs(bot, guid));
+            if (asked == CoaLootAsk::Outcome::Wait)
+                continue;
+            if (asked == CoaLootAsk::Outcome::Need)
+            {
+                QueueLootRoll(bot, guid, NEED);
+                voted = true;
+                continue;
+            }
+            if (asked == CoaLootAsk::Outcome::Greed)
                 vote = GREED;
         }
         // The bots' manners (CoaRollRule): Need only when the realm allows it, never against a real player's Need.

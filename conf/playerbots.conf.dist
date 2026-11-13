@@ -3904,11 +3904,68 @@ AiPlayerbot.CoaLive.ChannelQuestions.Enable = 1
 
 #    AiPlayerbot.CoaLive.ChannelQuestions.ClassAnswers
 #        Description: How many bots answer "what class is the best?" (an opinion question): 2, a second bot gives
-#                     another class 4 to 12 seconds after the first; 1, one answer as any other question. Never more
+#                     another class 3 to 10 seconds after the first; 1, one answer. Any other open question gets two answers too. Never more
 #                     than 2, and one when only one bot is free.
 #        Default:     2
 
 AiPlayerbot.CoaLive.ChannelQuestions.ClassAnswers = 2
+
+#    AiPlayerbot.CoaLive.GreetReplies.Enable
+#        Description: A real player's hello ("hi", "hey", "o/", "salut"...) gets two bots' hello back (one when only
+#                     one is there), by the player's name, the first 3 to 6 seconds later and the second 3 to 10
+#                     seconds after it: in /say the bots of its faction within 25 yards, in party chat the bots of its
+#                     group, in the Zone channel those of its zone, in the Ascension channel those of its faction. Not
+#                     again for that player there within a minute; a public channel answers one hello in 10 seconds.
+#        Default:     1 - on
+#                     0 - off
+
+AiPlayerbot.CoaLive.GreetReplies.Enable = 1
+
+#    AiPlayerbot.CoaLive.DungeonChat.Enable
+#        Description: In a dungeon (not a raid) with a real player, the bots of its group talk in party chat: two say
+#                     hello when it enters, one says a line now and then out of a fight (every 4 to 6 minutes), two
+#                     say thanks or "another one?" when it leaves after a run of 5 minutes or more. The night bank's
+#                     own dungeon hello and thanks are not said on top of them. Lines dun_enter, dun_idle, dun_end
+#                     (bank 3_0_27 or later).
+#        Default:     1 - on
+#                     0 - off
+
+AiPlayerbot.CoaLive.DungeonChat.Enable = 1
+
+#    AiPlayerbot.CoaLive.LootNeedAsk.Enable
+#        Description: In a dungeon (not a raid), a bot grouped with a real player asks in party chat before it rolls
+#                     Need on gear that is a real upgrade for it ("can i need on that? its bis for me"). It rolls
+#                     Need only on a clear yes (yes, ok, sure, oui, vas-y...) of every real player of the group;
+#                     on a no, a doubtful answer or none within 40 seconds it rolls Greed, as without the ask.
+#                     Never on an item that would be an upgrade for a real player of the group, never two bots on
+#                     one item. Needs the lines of bank 3_0_27 or later (loot_need_ask, _thanks, _ok_pass).
+#        Default:     1 - on
+#                     0 - off
+#    AiPlayerbot.CoaLive.LootNeedAsk.PerDungeon    - asks in one dungeon run, all the bots together (2)
+#    AiPlayerbot.CoaLive.LootNeedAsk.MinUpgradePct - the upgrade over the piece worn, in percent (10)
+
+AiPlayerbot.CoaLive.LootNeedAsk.Enable = 1
+AiPlayerbot.CoaLive.LootNeedAsk.PerDungeon = 2
+AiPlayerbot.CoaLive.LootNeedAsk.MinUpgradePct = 10
+
+#    AiPlayerbot.CoaLive.LootNeedAsk.TestPlayer / .TestAnswer
+#        Description: Bench tool, no effect while TestPlayer is empty (the default). The character of that name, a
+#                     bot of the bench, or "@leader" (the leader of each group), counts as a real player for these
+#                     asks only (never the bot that asks), and gives TestAnswer to each
+#                     ask through the same path as a real player's party line: yes, no, or none (no answer). Each
+#                     ask writes one line to the log: "coa loot ask: instance ... bot ... item ... answer ... vote ...".
+#        Default:     "" and none
+
+AiPlayerbot.CoaLive.LootNeedAsk.TestPlayer = ""
+AiPlayerbot.CoaLive.LootNeedAsk.TestAnswer = none
+
+#    AiPlayerbot.CoaCursedFormUpkeep
+#        Description: A Bloodmage Eternal tank (specialization 99) keeps its Cursed Form, Eternal Curse: more
+#                     Stamina and armor while it tanks. Put on again after a death or a mount.
+#        Default:     1 - on
+#                     0 - off
+
+AiPlayerbot.CoaCursedFormUpkeep = 1
 
 # Bots' minimum and maximum level when teleporting in and out of a zone, according to the new RPG strategy
 # Format: AiPlayerbot.ZoneBracket.zoneID = minLevel,maxLevel

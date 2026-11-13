@@ -1,6 +1,7 @@
 #include "CoaCityLifeRules.h"
 
 #include <cassert>
+#include <cmath>
 #include <map>
 #include <random>
 
@@ -58,5 +59,14 @@ int main()
     while (!IsResident(r))
         ++r;
     assert(StayMs(r, 600000) == 1800000 && IsResident(r) == IsResident(r));
+
+    // Into the auction house's room: toward the middle, never past it, nothing when the middle is too close.
+    float x = 0.0f, y = 0.0f;
+    assert(IntoRoom(0.0f, 0.0f, 20.0f, 0.0f, 6.0f, 0.0f, x, y) && std::fabs(x - 6.0f) < 0.01f && std::fabs(y) < 0.01f);
+    assert(IntoRoom(0.0f, 0.0f, 20.0f, 0.0f, 6.0f, 2.0f, x, y) && std::fabs(x - 6.0f) < 0.01f && std::fabs(y - 2.0f) < 0.01f);
+    assert(IntoRoom(0.0f, 0.0f, 7.0f, 0.0f, ROOM_STEP_MAX, 0.0f, x, y) && x <= 7.0f + 0.01f);
+    assert(!IntoRoom(0.0f, 0.0f, 3.0f, 0.0f, 6.0f, 0.0f, x, y));
+    // Closer to the middle than the auctioneer, from any side.
+    assert(IntoRoom(10.0f, 10.0f, 0.0f, 0.0f, 5.0f, -3.0f, x, y) && x * x + y * y < 200.0f);
     return 0;
 }

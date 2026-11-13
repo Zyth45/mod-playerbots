@@ -1977,6 +1977,13 @@ void PlayerbotAI::DoNextAction(bool min)
         CoaRestoreAncestralCombat(bot);
     }
 
+    // AiPlayerbot.CoaCursedFormUpkeep: a Bloodmage Eternal tank keeps its Cursed Form, looked at every 2 seconds.
+    if (sPlayerbotAIConfig.coaCursedFormUpkeep && GetMSTimeDiffToNow(coaCursedFormCheckedAt) >= 2000)
+    {
+        coaCursedFormCheckedAt = getMSTime();
+        CoaKeepCursedForm(this, bot);
+    }
+
     if (!bot->IsInCombat() && GetMSTimeDiffToNow(coaGearCheckedAt) >= 10000)
     {
         coaGearCheckedAt = getMSTime();

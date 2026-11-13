@@ -5110,6 +5110,20 @@ void TravelMgr::PrepareGatherNodeCache()
         Map* map = sMapMgr->FindMap(cell.mapId, 0);
         if (!map)
             continue;
+        // The spot's anchor, where a mission teleports and walks to: the first point outdoors. The first point of
+        // all could be in a cave the bot has no path out of (Redridge Mountains, 3.0.1).
+        for (GatherPoint const& p : cell.points)
+        {
+            PositionFullTerrainStatus status;
+            map->GetFullTerrainStatusForPosition(PHASEMASK_NORMAL, p.x, p.y, p.z, 2.0f, status);
+            if (status.outdoors)
+            {
+                cell.x = p.x;
+                cell.y = p.y;
+                cell.z = p.z;
+                break;
+            }
+        }
         AreaTableEntry const* area = sAreaTableStore.LookupEntry(map->GetAreaId(PHASEMASK_NORMAL, cell.x, cell.y, cell.z));
         if (!area)
             continue;

@@ -8,6 +8,7 @@
 #define PLAYERBOTS_COAMISSIONMGR_H
 
 #include "Common.h"
+#include "CoaMissionPointRules.h"
 #include "ObjectGuid.h"
 #include "TravelMgr.h"
 
@@ -71,6 +72,7 @@ struct CoaMission
     ObjectGuid node;
     uint32 nodeSinceMs = 0;
     uint32 emptyPoints = 0;
+    CoaMissionPoint::Progress pointWalk;  // the walk to the current spawn point (CoaMissionPointRules.h)
     uint32 travelFails = 0;         // trips to a spot that made no progress
     uint32 lastMailMs = 0;
     uint32 lootClockMs = 0;         // start (or resume) of the mission: "nothing gathered for long" counts from it

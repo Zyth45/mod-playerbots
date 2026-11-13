@@ -9,6 +9,7 @@
 
 #include "Common.h"
 #include "ObjectGuid.h"
+#include "CoaLootAskRules.h"
 
 #include <functional>
 #include <string>
@@ -16,6 +17,7 @@
 
 class Player;
 class PlayerbotAI;
+struct ItemTemplate;
 
 // CoA Live (3.0, AiPlayerbot.CoaLive.Enable): random bots react like people around real players, with the lines and
 // emotes of the bank of CoA IA MIND (playerbots_coa_live_*, CoaLiveRules.h). Every reaction is drawn, paced and
@@ -28,6 +30,12 @@ void LoadBank();
 // A text emote of this bot now, under AiPlayerbot.CoaLive.GroupEmotes.* (a group with a real player): true, and counted,
 // when it may go. Any thread.
 bool GroupEmoteAllowed(Player* bot);
+
+// AiPlayerbot.CoaLive.LootNeedAsk: a bot about to roll Need on `proto` in a dungeon with a real player may ask it
+// first in party chat ("can i need on that? its bis for me"). NotAsked: vote as usual; Wait: hold the vote; Need: the
+// players said yes; Greed: a no, or no answer in time. The bot's map thread.
+CoaLootAsk::Outcome LootNeedAsk(Player* bot, ObjectGuid itemGuid, uint8 itemSlot, ItemTemplate const* proto,
+                                int32 randomProperty, uint32 seenMs);
 
 // Every bot's update (map thread): about every 5 s, a random bot looks for a real player to greet, or idles at the
 // inn or in a capital in front of one.

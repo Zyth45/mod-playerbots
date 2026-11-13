@@ -9,7 +9,9 @@
 
 #include <cstdint>
 #include <cstdio>
+#include <array>
 #include <cstdlib>
+#include <functional>
 #include <set>
 #include <string>
 #include <utility>
@@ -182,6 +184,56 @@ struct Candidate
     bool conjured = false;
     bool noPrice = false;        // a vendor gives nothing for it
 };
+
+// The bag slots (bagslots, bagequip, and the bag a bot puts on by itself): sizes of the four bag slots, 0 = empty.
+// The slot (0..3) a new bag of `newSize` goes to: the one asked for (1..4, the player's choice, whatever its size), else
+// the first empty one, else the smallest bag when the new one is bigger. -1: none.
+inline int PickBagSlot(std::array<uint32_t, 4> const& sizes, uint32_t newSize, uint32_t requested)
+{
+    if (requested >= 1 && requested <= 4)
+        return int(requested - 1);
+    if (requested)
+        return -1;
+    int smallest = -1;
+    for (int i = 0; i < 4; ++i)
+    {
+        if (!sizes[i])
+            return i;
+        if (smallest < 0 || sizes[i] < sizes[smallest])
+            smallest = i;
+    }
+    return smallest >= 0 && sizes[smallest] < newSize ? smallest : -1;
+}
+
+// Where the items of the bag being replaced go: for each item, the first free slot (backpack and the other bags) that
+// takes it (a herb bag takes herbs only) and is not taken yet. Empty when one of them has nowhere to go: then nothing
+// moves, and the bag stays.
+inline std::vector<size_t> AssignSlots(size_t items, size_t slots, std::function<bool(size_t, size_t)> const& accepts)
+{
+    std::vector<size_t> to;
+    std::vector<bool> taken(slots, false);
+    for (size_t i = 0; i < items; ++i)
+    {
+        size_t s = 0;
+        while (s < slots && (taken[s] || !accepts(i, s)))
+            ++s;
+        if (s == slots)
+            return {};
+        taken[s] = true;
+        to.push_back(s);
+    }
+    return to;
+}
+
+// A profession tool or material, never listed: trade goods, reagents, keys and gems (ore, leather, herbs, cloth, runed
+// rods), a fishing pole (a weapon, subclass 20) and any item that serves as a tool (TotemCategory: picks, knives,
+// hammers, spanners, rods). A white Fishing Pole was offered to "destroy" (3.0.1 in game).
+inline bool IsProfessionItem(uint32_t itemClass, uint32_t subClass, uint32_t totemCategory)
+{
+    constexpr uint32_t WEAPON = 2, REAGENT = 5, TRADE_GOODS = 7, GEM = 3, KEY = 13, FISHING_POLE = 20;
+    return itemClass == TRADE_GOODS || itemClass == REAGENT || itemClass == KEY || itemClass == GEM ||
+           (itemClass == WEAPON && subClass == FISHING_POLE) || totemCategory != 0;
+}
 
 inline bool Eligible(Candidate const& c, uint32_t maxQuality, bool forSale)
 {

@@ -729,6 +729,7 @@ bool CoaMissionUpdateAction::DoWork(CoaMission& mission, uint32 now)
     }
     if (busy)
     {
+        mission.pointWalk = CoaMissionPoint::Progress();  // the walk to the point starts again after the node
         if (busy != mission.node)
         {
             mission.node = busy;
@@ -795,6 +796,7 @@ bool CoaMissionUpdateAction::DoWork(CoaMission& mission, uint32 now)
         if (best)
         {
             mission.emptyPoints = 0;
+            mission.pointWalk = CoaMissionPoint::Progress();
             // A node it cannot reach in a minute (under water, up a cliff) is left for good.
             if (best->GetGUID() != mission.node)
             {
@@ -825,10 +827,14 @@ bool CoaMissionUpdateAction::DoWork(CoaMission& mission, uint32 now)
     if (mission.point >= cell->points.size())
         mission.point = 0;
     TravelMgr::GatherPoint const& point = cell->points[mission.point];
-    if (bot->GetExactDist(point.x, point.y, point.z) < 8.0f)
+    float const pointDist = bot->GetExactDist(point.x, point.y, point.z);
+    // Reached, or out of reach: a point it gets no closer to in a minute (in a cave with no path, up a ledge) is
+    // skipped as an empty one; it stood still there until the spot was given up 10 minutes later (Redridge).
+    if (pointDist < 8.0f || CoaMissionPoint::Stuck(mission.pointWalk, pointDist, now))
     {
         mission.point = (mission.point + 1) % cell->points.size();
         ++mission.emptyPoints;
+        mission.pointWalk = CoaMissionPoint::Progress();
         return false;
     }
     return MoveFarTo(WorldPosition(cell->mapId, point.x, point.y, point.z));
@@ -874,6 +880,7 @@ bool CoaMissionUpdateAction::LeaveSpot(CoaMission& mission, uint32 now)
     LOG_INFO("playerbots.coa", "Mission {}: next spot ({}, {} empty points, fails {})", bot->GetName(),
              roundDone ? "spot gathered out" : "nothing gathered for 10 min", mission.emptyPoints, mission.fails);
     mission.cell = next;
+    mission.pointWalk = CoaMissionPoint::Progress();
     mission.mapId = next->mapId;
     mission.x = next->x;
     mission.y = next->y;

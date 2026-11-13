@@ -28,6 +28,8 @@ void OnReach(PlayerbotAI* botAI, WorldObject* object);
 uint32 WhileStaying(PlayerbotAI* botAI, WorldObject* object, uint32 defaultMs);
 // The stay is over: the bot stands up and frees the station.
 void Leave(PlayerbotAI* botAI);
+// A bot that stepped from its auctioneer into the room still stays at its station (within ROOM_KEEP yards).
+bool InRoom(PlayerbotAI* botAI, WorldObject* object);
 // The length of a city visit: the residents (a tenth of the random bots) stay three times as long.
 uint32 VisitMs(Player* bot, uint32 cityStayMs);
 }  // namespace CoaCityLife
