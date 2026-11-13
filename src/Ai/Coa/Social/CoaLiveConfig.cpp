@@ -87,7 +87,7 @@ void PlayerbotAIConfig::LoadCoaLiveConfig()
             coaCatchUpServiceAccounts.end())
             coaCatchUpServiceAccounts.push_back(driver);
     coaSoulEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaSoul.Enable", true);
-    coaAltBags = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaAltBags.Enable", false);
+    coaAltBags = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaAltBags.Enable", true);
     coaPetsAutoBooks = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaPets.AutoBooks", false);
     coaSoulAddon = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaSoul.Addon", true);
     coaSoulWeights = sConfigMgr->GetOption<std::string>("AiPlayerbot.CoaSoul.Weights", "20,40,20,10,10");

@@ -691,7 +691,7 @@ public:
     bool coaLiveDataFileEnable;      // AiPlayerbot.CoaLive.DataFile.Enable: world.json for the dashboard
     std::string coaLiveDataDir;      // AiPlayerbot.CoaDataDir (shared with the other sessions)
     bool coaLiveDataFiles;           // AiPlayerbot.CoaDataFiles (shared: 0 stops every data file)
-    bool coaAltBags;  // AiPlayerbot.CoaAltBags.Enable: alt cmp|bags|sell|destroy for the addon (default 0)
+    bool coaAltBags;  // AiPlayerbot.CoaAltBags.Enable: alt cmp|bags|sell|destroy for the addon (default 1)
     bool coaPetsAutoBooks;        // AiPlayerbot.CoaPets.AutoBooks: alts use their class and craft books by themselves
     bool coaSoulEnable;           // AiPlayerbot.CoaSoul.Enable (souls of the bots)
     bool coaSoulAddon;            // AiPlayerbot.CoaSoul.Addon: SquidBots Lite asks a bot's soul (SQBW SOUL?)
