@@ -11,6 +11,7 @@
 #include <cctype>
 #include <cstdint>
 #include <cstdlib>
+#include <ctime>
 #include <string>
 
 // The rules of the guild orders and the guild's gear gifts (CoaWorldGuilds), apart from the game objects so that
@@ -88,6 +89,14 @@ namespace CoaWorldGuildRules
         if (caster)
             return !(physicalStats > 0 && casterStats == 0);
         return !(casterStats > 0 && physicalStats == 0);
+    }
+
+    // A real player's hello in guild chat is answered again GREET_REPLY_SECONDS after the last answer. Its own clock:
+    // being greeted at login does not silence the answer to its hello, and a new login starts it over.
+    constexpr time_t GREET_REPLY_SECONDS = 60;
+    inline bool GreetReplyDue(time_t lastReply, time_t now)
+    {
+        return !lastReply || now - lastReply >= GREET_REPLY_SECONDS;
     }
 
     // A hello in guild chat: a short line (4 words at most) with a greeting word ("hi", "hey", "bonjour", "re"...).

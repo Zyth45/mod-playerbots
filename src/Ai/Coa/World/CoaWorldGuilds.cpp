@@ -560,14 +560,22 @@ namespace
         }
 
         // A real player of a guild with bots logs in: a guildmate says hello, and now and then sends a gift.
-        // Guildmates answer a real player's hello in guild chat (1 to 3, not again within 10 minutes), or greet it at
-        // login (1 or 2; 0 or 1 more when CoaLive already has one say it). Each after a human delay, never all at once.
+        // Guildmates answer a real player's hello in guild chat (1 or 2 of those online, 3 to 10 seconds later, one
+        // after the other with different lines; again a minute after), or greet it at login (1 or 2; 0 or 1 more when
+        // CoaLive already has one say it). The login greeting has no hold on the answer to a hello: a new login starts
+        // that clock over.
         void Greet(Player* player, time_t now, bool login)
         {
-            time_t& last = _greeted[player->GetGUID().GetCounter()];
-            if (!login && last && now - last < 10 * MINUTE)
-                return;
-            last = now;
+            uint32 const lowGuid = player->GetGUID().GetCounter();
+            if (login)
+                _greeted.erase(lowGuid);
+            else
+            {
+                time_t& last = _greeted[lowGuid];
+                if (!CoaWorldGuildRules::GreetReplyDue(last, now))
+                    return;
+                last = now;
+            }
             std::vector<Player*> mates;
             for (auto const& [guid, bot] : RandomBots())
                 if (bot && bot->IsInWorld() && bot->GetGuildId() == player->GetGuildId())
@@ -575,7 +583,7 @@ namespace
             if (mates.empty())
                 return;
             std::shuffle(mates.begin(), mates.end(), std::mt19937(urand(0, 0x7FFFFFFF)));
-            uint32 const count = login ? (settings.coaLive ? urand(0, 1) : urand(1, 2)) : urand(1, 3);
+            uint32 const count = login ? (settings.coaLive ? urand(0, 1) : urand(1, 2)) : urand(1, 2);
             bool const fr = BotsFrench();
             static char const* const replyEn[] = { "hey {}", "hi {}!", "o/", "yo {}", "hey hey", "hello {}" };
             static char const* const replyFr[] = { "salut {}", "coucou {}", "yo", "slt", "bonjour {} !", "o/" };
@@ -583,13 +591,17 @@ namespace
             static char const* const welcomeFr[] = { "salut {}", "re", "wb {}", "coucou {} !" };
             std::vector<time_t> delays;
             for (uint32 i = 0; i < count && i < mates.size(); ++i)
-                delays.push_back(now + urand(2, 20));
+                delays.push_back(now + (login ? urand(2, 20) : urand(3, 10)));
             std::sort(delays.begin(), delays.end());
+            char const* const* pool = login ? (fr ? welcomeFr : welcomeEn) : (fr ? replyFr : replyEn);
+            size_t const size = login ? 4 : 6;
+            std::vector<size_t> lines(size);
+            for (size_t i = 0; i < size; ++i)
+                lines[i] = i;
+            std::shuffle(lines.begin(), lines.end(), std::mt19937(urand(0, 0x7FFFFFFF)));  // two mates, two lines
             for (size_t i = 0; i < delays.size(); ++i)
             {
-                char const* const* pool = login ? (fr ? welcomeFr : welcomeEn) : (fr ? replyFr : replyEn);
-                size_t const size = login ? 4 : 6;
-                std::string text = Acore::StringFormat(pool[urand(0, size - 1)], player->GetName());
+                std::string text = Acore::StringFormat(pool[lines[i % size]], player->GetName());
                 Speech speech{ mates[i]->GetGUID(), mates[i]->GetGuildId(), text, delays[i] + time_t(i) };
                 speech.situation = login ? "guild_welcome" : "guild_greet_reply";
                 speech.player = player->GetName();

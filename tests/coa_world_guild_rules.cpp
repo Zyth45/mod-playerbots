@@ -46,5 +46,12 @@ int main()
     assert(IsGreeting("cc tout le monde") && IsGreeting("o/") && IsGreeting("hey guys :)"));
     assert(!IsGreeting("hi can someone help me with this quest please"));
     assert(!IsGreeting("this is high level")  && !IsGreeting("reroll time") && !IsGreeting(""));
+    // The user's hellos in /g (3.0.1): every one is heard.
+    for (char const* hello : { "yo", "hey", "hi", "o/", "salut", "bonjour", "coucou", "re", "Yo!", "hey all", "hi guys" })
+        assert(IsGreeting(hello));
+    // The answer to a hello: its own clock, a minute.
+    assert(GreetReplyDue(0, 1000));
+    assert(!GreetReplyDue(1000, 1059));
+    assert(GreetReplyDue(1000, 1060));
     return 0;
 }
