@@ -5614,3 +5614,14 @@ AiPlayerbot.CoaCombat.PullGuardSight.Enable = 1
 #                  1 - (Enabled)
 
 AiPlayerbot.CoaCombat.PullGuardSight.Strict = 0
+
+#
+# AiPlayerbot.CoaCombat.GearPvpSoldOnly
+#     Description: The gear bots are given holds no PvP piece a player cannot get: a piece with resilience or an
+#                  honor rank required is kept only if a vendor sells it, a quest rewards it or a loot table drops it.
+#                  The Grand Marshal's and High Warlord's sets are sold by nobody on CoA. Applies to gear given from
+#                  now on; what a bot already wears stays until its next gear update.
+#     Default:     0 - (Disabled)
+#                  1 - (Enabled)
+
+AiPlayerbot.CoaCombat.GearPvpSoldOnly = 0
