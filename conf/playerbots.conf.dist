@@ -3827,6 +3827,17 @@ AiPlayerbot.CoaSoul.Addon = 1
 
 AiPlayerbot.CoaPets.AutoBooks = 0
 
+#    AiPlayerbot.CoaAltBags.Enable
+#        Description: The SquidBots addon can ask your alts how an item compares with what they
+#                     wear (their own score and verdict), and sell or destroy their grey, white or
+#                     green bag items in one go, after a preview you can untick. Never in the list:
+#                     quest items, upgrades, items kept with "ll +", outfits, items with a use,
+#                     bags, ammo, trade goods, reagents, keys and gems.
+#        Default:     0 - off
+#                     1 - on
+
+AiPlayerbot.CoaAltBags.Enable = 0
+
 #    AiPlayerbot.CoaLive.DataFile.Enable
 #        Description: world.json for the CoA Dashboard (Population and Health pages): bots online by
 #                     zone, what they do, surnames, server tick. Written every 10 s, and only while the

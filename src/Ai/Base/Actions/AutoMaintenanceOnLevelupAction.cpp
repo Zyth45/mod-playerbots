@@ -49,7 +49,7 @@ bool AutoMaintenanceOnLevelupAction::Execute(Event /*event*/)
     }
 
     // One Character Advancement point per level from 10. Capped as the rebuild is (TalentsPerUpdate): left
-    // uncapped, this action took over the whole cost the cap had spread (20 -> 105 ms a call, a15 bench).
+    // uncapped, this action took over the whole cost the cap had spread (20 -> 105 ms a call, measured).
     ApplyCoaTalents(bot, CoaTalentsPerUpdate());
     SpendAltBotTalentPoints(bot);
     // A random Warcraft Reborn bot takes the talents of its tree's build due at its new level.
