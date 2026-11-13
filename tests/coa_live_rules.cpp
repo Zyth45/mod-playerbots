@@ -176,6 +176,23 @@ int main()
     assert(buys("|cffffffff|hitem:2589:0:0:0:0:0:0:0:0|h[linen cloth]|h|r"));
     assert(buys("how much ? sure send it"));
     assert(buys("ok envoie") && buys("oui je prends") && buys("deal"));
+    // A price question is a question (a player's report: "how much was the wand?" got the wand COD).
+    assert(!buys("how much ?") && !buys("how much for the wand?") && !buys("price?") && !buys("whats the price"));
+    assert(!buys("ok how much?") && !buys("sure, how much is it?") && !buys("how much does it cost"));
+    assert(!buys("|cffffffff|hitem:2589:0:0:0:0:0:0:0:0|h[linen cloth]|h|r ?"));
+    assert(!buys("|cffffffff|hitem:2589:0:0:0:0:0:0:0:0|h[linen cloth]|h|r how much"));
+    assert(!buys("combien ?") && !buys("c'est combien ?") && !buys("quel prix ?") && !buys("ça coûte combien ?"));
+    assert(!buys("ok combien ?") && !buys("tu le vends combien ?"));
+    assert(!buys("wts?") && !buys("do you sell it") && !buys("wtb"));        // a trade word alone
+    assert(buys("ok") && buys("yes please") && buys("d'accord") && buys("ça marche"));
+    assert(buys("combien ? ok je prends") && buys("how much? ok send it COD"));
+    assert(AsksPrice(NormalizeWhisper("how much")) && AsksPrice(NormalizeWhisper("combien")) &&
+           !AsksPrice(NormalizeWhisper("send it")));
+    assert(DeclinesDeal(NormalizeWhisper("no thanks")) && DeclinesDeal(NormalizeWhisper("trop cher")) &&
+           !DeclinesDeal(NormalizeWhisper("ok")));
+    // An artisan's quote: "can you make it?" is not a yes; only the strong words ship at once.
+    assert(!SaysSendIt(NormalizeWhisper("can you make a wand?")) && !SaysSendIt(NormalizeWhisper("ok how much")));
+    assert(SaysSendIt(NormalizeWhisper("make me one, send it cod")) && SaysSendIt(NormalizeWhisper("fais-m'en une, envoie")));
 
     // "looking for a guild?": the answer matches what an invite would do.
     assert(GuildAnswer(true, true) == "wh_guild_has" && GuildAnswer(true, false) == "wh_guild_has");

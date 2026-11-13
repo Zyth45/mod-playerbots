@@ -16,8 +16,9 @@ class Player;
 // engine (lines from CoA IA MIND, bank 3_0_05) and CoA Live's COD mail (AiPlayerbot.CoaEconomy.CraftOrders.*, off by
 // default; does nothing either while AiPlayerbot.CoaLive.Enable is 0).
 // - "can you make [item]?" whispered to a bot that knows the recipe: it quotes a price (materials at market price
-//   plus its fee), crafts the piece and mails it cash on delivery (wh_craft_quote, wh_craft_cod); otherwise it says
-//   it cannot (wh_craft_cannot) or that it is busy with another order (wh_craft_busy).
+//   plus its fee, craft_quote_addon) and waits 5 minutes for a clear yes ("ok", "deal", "send it"); then it crafts
+//   the piece and mails it cash on delivery (wh_craft_cod). "make me [item], send it COD" is a yes at once
+//   (wh_craft_quote, wh_craft_cod). Otherwise it says it cannot (wh_craft_cannot) or that it is busy (wh_craft_busy).
 // - In a capital, an artisan back from the auction house may offer the piece it just made in Trade (trade_craft,
 //   an offer a player can answer: COD at the price said) or say it takes orders (trade_craft_lfw).
 // World thread only.
