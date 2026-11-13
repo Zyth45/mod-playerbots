@@ -121,7 +121,7 @@ namespace
     // From map threads: what happened, to be told by the world thread.
     struct GuildEvent
     {
-        enum Kind : uint8 { LEVEL, LOOT, LOGIN, ORDER, HUMAN_LEVEL, GREET } kind;
+        enum Kind : uint8 { LEVEL, LOOT, LOGIN, ORDER, HUMAN_LEVEL, GREET, BYE } kind;
         ObjectGuid guid;
         uint32 value;  // level, or item entry
     };
@@ -525,6 +525,10 @@ namespace
                         if (IsHuman(player))
                             Greet(player, now, false);
                         break;
+                    case GuildEvent::BYE:
+                        if (IsHuman(player))
+                            Bye(player, now);
+                        break;
                     case GuildEvent::ORDER:
                         if (IsHuman(player))
                             Order(player, e.value, 0, now);
@@ -553,7 +557,7 @@ namespace
                     continue;
                 if (!s.situation.empty() && BotLine(speaker, s.situation.c_str(), { { "player", s.player } }))
                     continue;
-                if (PlayerbotAI* botAI = GET_PLAYERBOT_AI(speaker); botAI && CoaWorld::BotChatOn())
+                if (PlayerbotAI* botAI = GET_PLAYERBOT_AI(speaker); botAI && !s.text.empty() && CoaWorld::BotChatOn())
                     botAI->SayToGuild(s.text);
             }
             _speeches.swap(later);
@@ -604,6 +608,33 @@ namespace
                 std::string text = Acore::StringFormat(pool[lines[i % size]], player->GetName());
                 Speech speech{ mates[i]->GetGUID(), mates[i]->GetGuildId(), text, delays[i] + time_t(i) };
                 speech.situation = login ? "guild_welcome" : "guild_greet_reply";
+                speech.player = player->GetName();
+                _speeches.push_back(std::move(speech));
+            }
+        }
+
+        // A real player says goodbye in guild chat ("gn", "bye", "cya", "bonne nuit"): 1 or 2 guildmates online answer
+        // 3 to 10 seconds later, one after the other, again a minute after. Lines from IA MIND's bank only
+        // (guild_bye_reply): without one, nothing is said.
+        void Bye(Player* player, time_t now)
+        {
+            time_t& last = _byed[player->GetGUID().GetCounter()];
+            if (!CoaWorldGuildRules::GreetReplyDue(last, now))
+                return;
+            last = now;
+            std::vector<Player*> mates;
+            for (auto const& [guid, bot] : RandomBots())
+                if (bot && bot->IsInWorld() && bot->GetGuildId() == player->GetGuildId())
+                    mates.push_back(bot);
+            std::shuffle(mates.begin(), mates.end(), std::mt19937(urand(0, 0x7FFFFFFF)));
+            std::vector<time_t> delays;
+            for (uint32 i = 0, count = urand(1, 2); i < count && i < mates.size(); ++i)
+                delays.push_back(now + urand(3, 10));
+            std::sort(delays.begin(), delays.end());
+            for (size_t i = 0; i < delays.size(); ++i)
+            {
+                Speech speech{ mates[i]->GetGUID(), mates[i]->GetGuildId(), std::string(), delays[i] + time_t(i) };
+                speech.situation = "guild_bye_reply";
                 speech.player = player->GetName();
                 _speeches.push_back(std::move(speech));
             }
@@ -1158,7 +1189,8 @@ namespace
         std::unordered_map<uint32, time_t> _lastMotd;
         std::unordered_map<uint32, time_t> _lastGift;
         std::unordered_map<uint32, std::pair<uint32, uint32>> _orders;  // player -> (day, orders that day)
-        std::unordered_map<uint32, time_t> _greeted;  // real player -> last greeting by the guild
+        std::unordered_map<uint32, time_t> _greeted;  // real player -> last answer to its hello
+        std::unordered_map<uint32, time_t> _byed;     // real player -> last answer to its goodbye
         uint32 _timer = 0;
         uint32 _slow = 0;
         uint32 _recruit = 0;
@@ -1486,6 +1518,11 @@ public:
         if (settings.greetings && CoaWorldGuildRules::IsGreeting(msg))
         {
             Push({ GuildEvent::GREET, player->GetGUID(), 0 });
+            return true;
+        }
+        if (settings.greetings && CoaWorldGuildRules::IsGoodbye(msg))
+        {
+            Push({ GuildEvent::BYE, player->GetGUID(), 0 });
             return true;
         }
         if (!settings.orders)

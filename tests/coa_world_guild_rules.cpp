@@ -49,6 +49,14 @@ int main()
     // The user's hellos in /g (3.0.1): every one is heard.
     for (char const* hello : { "yo", "hey", "hi", "o/", "salut", "bonjour", "coucou", "re", "Yo!", "hey all", "hi guys" })
         assert(IsGreeting(hello));
+    // Goodbyes in /g.
+    for (char const* bye : { "gn", "gn all", "bye", "bye guys", "cya", "cya tomorrow", "night all", "gtg, cya",
+                             "bonne nuit", "bonne nuit tout le monde", "a+", "++", "A+ !", "a demain", "je deco" })
+        assert(IsGoodbye(bye));
+    for (char const* not_bye : { "hi", "re", "", "c++ is hard", "bye the way can someone help me with this quest",
+                                 "the boss is down", "a+b", "nightmare" })
+        assert(!IsGoodbye(not_bye));
+
     // The answer to a hello: its own clock, a minute.
     assert(GreetReplyDue(0, 1000));
     assert(!GreetReplyDue(1000, 1059));
