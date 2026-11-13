@@ -179,6 +179,11 @@ char const* CoaClassName(uint8 classId);
 // beginning shared by no other class is enough ("sun" is Sun Cleric). 0 when none, or several, match.
 uint8 FindCoaClass(std::string const& name);
 
+// A raid, or a heroic or mythic dungeon: where the master is, or what its group and dungeon difficulty set it up for.
+bool CoaHardContent(Player* master);
+// A bot tanking with a specialization of AiPlayerbot.CoaTankNormalDungeonOnly (normal dungeons only).
+bool CoaTankNormalDungeonOnly(Player* bot);
+
 // Recruits a free random bot for the role, of that class when classId is not 0.
 // onlyGuildId: only a bot of that guild (0: any); noInstance: never a bot standing in a dungeon, raid or battleground.
 bool RecruitCoaBot(Player* master, CoaRole role, std::string& message, uint8 classId = 0, uint32 onlyGuildId = 0,

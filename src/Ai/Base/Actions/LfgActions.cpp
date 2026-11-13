@@ -133,11 +133,17 @@ bool LfgJoinAction::JoinLFG()
     if (!dungeons.size())
         return false;
 
+    // A tank kept to normal dungeons (AiPlayerbot.CoaTankNormalDungeonOnly) queues for no heroic and no raid.
+    bool const normalOnly = IsCoaBot(bot) && CoaTankNormalDungeonOnly(bot);
+
     for (std::vector<uint32>::iterator i = dungeons.begin(); i != dungeons.end(); ++i)
     {
         LFGDungeonEntry const* dungeon = sLFGDungeonStore.LookupEntry(*i);
         if (!dungeon || (dungeon->TypeID != LFG_TYPE_RANDOM && dungeon->TypeID != LFG_TYPE_DUNGEON &&
                          dungeon->TypeID != LFG_TYPE_HEROIC && dungeon->TypeID != LFG_TYPE_RAID))
+            continue;
+        if (normalOnly && (dungeon->TypeID == LFG_TYPE_RAID || dungeon->TypeID == LFG_TYPE_HEROIC ||
+                           dungeon->Difficulty != DUNGEON_DIFFICULTY_NORMAL))
             continue;
 
         auto const& botLevel = bot->GetLevel();

@@ -2371,9 +2371,11 @@ AiPlayerbot.CoaDungeonPriorities = 1
 #       side can repair it. Take it out again once the form is granted.
 #       10/10: tried again (the core grants the form since jealous-sound#5655): still broken on the tank
 #       bench, 12 to 53% of the fight held, Scarlet Delirium cast 80 times in 3 minutes and almost nothing else.
+#       3.0.1: back in play, its dungeon runs now hold up. An installation that still has 99 here keeps it
+#       left out; empty the value to let bots play it.
 # Read again by ".reload config".
-# Default: 99
-AiPlayerbot.CoaExcludedSpecializations = 99
+# Default: (empty, every specialization is played)
+AiPlayerbot.CoaExcludedSpecializations =
 
 #    AiPlayerbot.CoaOffensiveHealerSpecs
 #        Description: Healer specializations whose damage is their healing: they keep dealing damage
@@ -3860,6 +3862,19 @@ AiPlayerbot.CoaLive.DataFile.Enable = 1
 
 AiPlayerbot.CoaLive.GroupEmotes.PerBot = 1
 AiPlayerbot.CoaLive.GroupEmotes.PerGroup = 3
+
+#    AiPlayerbot.CoaTankNormalDungeonOnly
+#        Description: Conquest of Azeroth tank specializations, comma separated, that bots play in normal
+#                     dungeons only: never recruited, offered or queued as tank for a heroic or mythic
+#                     dungeon or for a raid, where another tank specialization of the class is taken instead.
+#                     99 Bloodmage Eternal (3.0.1 dungeon bench): it holds normal dungeons (17 of 18), but takes
+#                     1.5 to 2 times the damage of the other tanks and dies in three boss hits in heroic and
+#                     mythic (2 of 4 and 1 of 4 against 3 and 2, 41 deaths against 25).
+#                     Only matters for a specialization bots play (see AiPlayerbot.CoaExcludedSpecializations).
+#                     Empty: every tank specialization goes everywhere.
+#        Default:     99
+
+AiPlayerbot.CoaTankNormalDungeonOnly = 99
 
 # Bots' minimum and maximum level when teleporting in and out of a zone, according to the new RPG strategy
 # Format: AiPlayerbot.ZoneBracket.zoneID = minLevel,maxLevel

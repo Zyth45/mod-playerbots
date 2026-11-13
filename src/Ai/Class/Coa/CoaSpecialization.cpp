@@ -15,6 +15,7 @@
 #include "CoaWildcard.h"
 #include "CoaRaidRoles.h"
 #include "CoaReborn.h"
+#include "CoaTankDifficultyRules.h"
 #include "Channel.h"
 #include "Chat.h"
 #include "Config.h"
@@ -126,8 +127,9 @@ bool IsExcludedSpecialization(uint32 specializationId)
     return sPlayerbotAIConfig.coaExcludedSpecializations.count(specializationId) != 0;
 }
 
-// Specializations of a class grouped by role, without those bots never play.
-std::array<std::vector<uint32>, 3> SpecializationsByRole(uint8 classId)
+// Specializations of a class grouped by role, without those bots never play. For a heroic or mythic dungeon or a
+// raid (hardContent), without the tanks of AiPlayerbot.CoaTankNormalDungeonOnly either.
+std::array<std::vector<uint32>, 3> SpecializationsByRole(uint8 classId, bool hardContent = false)
 {
     std::set<uint32> specializations;
     for (AscensionClassAbility const& learnable : GetAscensionClassAbilities(classId))
@@ -136,7 +138,13 @@ std::array<std::vector<uint32>, 3> SpecializationsByRole(uint8 classId)
 
     std::array<std::vector<uint32>, 3> byRole;
     for (uint32 specializationId : specializations)
-        byRole[uint8(RoleOf(specializationId))].push_back(specializationId);
+    {
+        CoaRole const role = RoleOf(specializationId);
+        if (role == CoaRole::Tank &&
+            !CoaTankDifficulty::MayTank(sPlayerbotAIConfig.coaTankNormalDungeonOnly, specializationId, hardContent))
+            continue;
+        byRole[uint8(role)].push_back(specializationId);
+    }
 
     return byRole;
 }
@@ -859,17 +867,17 @@ CoaRole RoleOfMember(Player* player)
     return IsStockClass(player->getClass()) ? StockRole(player) : GetCoaRole(player);
 }
 
-bool ClassCanPlay(uint8 classId, CoaRole role)
+bool ClassCanPlay(uint8 classId, CoaRole role, bool hardContent = false)
 {
     if (IsRebornRealm())
         return WcrClassCanPlay(classId, role);
     // A Wildcard Hero plays any role: a random one drafts a build of the role it is recruited for.
     if (classId == CLASS_HERO && IsWildcardRealm())
         return true;
-    return IsAscensionCustomClassId(classId) && !SpecializationsByRole(classId)[uint8(role)].empty();
+    return IsAscensionCustomClassId(classId) && !SpecializationsByRole(classId, hardContent)[uint8(role)].empty();
 }
 
-bool FitsRole(Player* bot, CoaRole role)
+bool FitsRole(Player* bot, CoaRole role, bool hardContent = false)
 {
     // A Wildcard Hero plays the role of its stat path and has no specialization to switch to.
     if (IsWildcardHeroBot(bot))
@@ -877,7 +885,9 @@ bool FitsRole(Player* bot, CoaRole role)
     if (IsStockClass(bot->getClass()))
         return StockRole(bot) == role;
     uint32 const specialization = GetAscensionActiveSpecialization(bot);
-    return specialization && !IsExcludedSpecialization(specialization) && GetCoaRole(bot) == role;
+    return specialization && !IsExcludedSpecialization(specialization) && GetCoaRole(bot) == role &&
+           (role != CoaRole::Tank ||
+            CoaTankDifficulty::MayTank(sPlayerbotAIConfig.coaTankNormalDungeonOnly, specialization, hardContent));
 }
 
 std::string ClassName(uint8 classId)
@@ -907,6 +917,26 @@ bool SwitchStockSpec(Player* bot, CoaRole role)
     return SwitchWcrRole(bot, role);
 }
 }  // namespace
+
+// Where the master plays: inside an instance, its raid or difficulty; outside, the dungeon difficulty it set and whether
+// its group is a raid.
+bool CoaHardContent(Player* master)
+{
+    if (!master)
+        return false;
+    Map* map = master->GetMap();
+    if (map && map->Instanceable() && !map->IsBattlegroundOrArena())
+        return CoaTankDifficulty::HardContent(map->IsRaid(), uint8(map->GetDifficulty()));
+    Group* group = master->GetGroup();
+    return CoaTankDifficulty::HardContent(group && group->isRaidGroup(), uint8(master->GetDungeonDifficulty()));
+}
+
+bool CoaTankNormalDungeonOnly(Player* bot)
+{
+    return bot && IsAscensionCustomClassId(bot->getClass()) && GetCoaRole(bot) == CoaRole::Tank &&
+           !CoaTankDifficulty::MayTank(sPlayerbotAIConfig.coaTankNormalDungeonOnly, GetAscensionActiveSpecialization(bot),
+                                       true);
+}
 
 // Self-found, or a live server from 0 (AiPlayerbot.CoaFreshStart.Enable): nothing changes a bot's level, so a recruit
 // is never rebuilt at the master's; one within 2 levels is taken as it is.
@@ -943,6 +973,8 @@ Player* FindCoaRecruit(Player* master, CoaRole role, uint8 classId, std::set<Obj
     Player* chosen = nullptr;
     bool chosenSameMap = false;
     chosenFits = false;
+    // A tank for a heroic or mythic dungeon or a raid: not of a specialization kept to normal dungeons.
+    bool const hard = role == CoaRole::Tank && CoaHardContent(master);
     uint32 chosenLevelGap = 0;
     float chosenDistance = 0.0f;
     for (auto const& [guid, bot] : sRandomPlayerbotMgr.GetAllBotsRef())  // read only: picks one, acts after the loop
@@ -988,8 +1020,8 @@ Player* FindCoaRecruit(Player* master, CoaRole role, uint8 classId, std::set<Obj
         if (!botAI || botAI->GetMaster())
             continue;
 
-        bool const fits = FitsRole(bot, role);
-        if (!fits && !ClassCanPlay(bot->getClass(), role))
+        bool const fits = FitsRole(bot, role, hard);
+        if (!fits && !ClassCanPlay(bot->getClass(), role, hard))
             continue;
         bool const sameMap = bot->GetMap() == master->GetMap();
         float const distance = sameMap ? master->GetDistance(bot) : 0.0f;
@@ -1062,6 +1094,7 @@ bool PrepareCoaRecruit(Player* master, Player* chosen, CoaRole role, bool chosen
     // dungeons the finder only opens to everyone at the cap.
     // A Warcraft Reborn bot changes tree first: a rebuild below then gears it for that tree, and one not rebuilt only
     // takes what suits its new role better.
+    bool const hard = role == CoaRole::Tank && CoaHardContent(master);
     bool const switchedTree = !chosenFits && IsStockClass(chosen->getClass());
     if (switchedTree)
     {
@@ -1100,7 +1133,7 @@ bool PrepareCoaRecruit(Player* master, Player* chosen, CoaRole role, bool chosen
         rebuilt = true;
         // The rebuild picks a specialization of its own: whether it still plays the role is
         // decided below, on what it holds now.
-        chosenFits = FitsRole(chosen, role);
+        chosenFits = FitsRole(chosen, role, hard);
     }
     // Rebuilt or not, no spell rank above the level it plays at.
     PlayerbotFactory::DropCoaRanksAbove(chosen, chosen->GetLevel());
@@ -1132,7 +1165,7 @@ bool PrepareCoaRecruit(Player* master, Player* chosen, CoaRole role, bool chosen
     else if (!chosenFits)
     {
         // Keep the array alive: a reference into the temporary would dangle.
-        std::array<std::vector<uint32>, 3> const byRole = SpecializationsByRole(chosen->getClass());
+        std::array<std::vector<uint32>, 3> const byRole = SpecializationsByRole(chosen->getClass(), hard);
         std::vector<uint32> const& candidates = byRole[uint8(role)];
         uint32 const specialization = candidates.empty() ? 0 : candidates[urand(0, candidates.size() - 1)];
         if (!specialization || !SwitchAscensionSpecialization(chosen, specialization))
@@ -1267,6 +1300,11 @@ bool RecruitCoaBot(Player* master, CoaRole role, std::string& message, uint8 cla
     if (classId && !ClassCanPlay(classId, role))
     {
         message = "A " + ClassName(classId) + " cannot play " + RoleName(role) + ".";
+        return false;
+    }
+    if (classId && role == CoaRole::Tank && CoaHardContent(master) && !ClassCanPlay(classId, role, true))
+    {
+        message = "A " + ClassName(classId) + " tanks in normal dungeons only.";
         return false;
     }
 

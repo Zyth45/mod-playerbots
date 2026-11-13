@@ -691,7 +691,7 @@ public:
         sPlayerbotAIConfig.coaKeepChannels = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaKeepChannels", true);
         sPlayerbotAIConfig.coaExclusiveFamilies = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaExclusiveFamilies", true);
         sPlayerbotAIConfig.coaExcludedSpecializations.clear();
-        std::string const excluded = sConfigMgr->GetOption<std::string>("AiPlayerbot.CoaExcludedSpecializations", "99");
+        std::string const excluded = sConfigMgr->GetOption<std::string>("AiPlayerbot.CoaExcludedSpecializations", "");
         std::istringstream ids(excluded);
         for (std::string id; std::getline(ids, id, ',');)
             if (!id.empty())
