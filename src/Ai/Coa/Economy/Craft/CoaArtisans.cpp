@@ -13,6 +13,7 @@
 #include "CoaLaunchCurve.h"
 #include "CoaEconomyRules.h"
 #include "CoaMarketPrices.h"
+#include "CoaRareRecipes.h"
 #include "CoaRealPrices.h"
 #include "CoaSellable.h"
 #include "Config.h"
@@ -102,6 +103,11 @@ bool IsEnabled()
     return enabled;
 }
 
+bool IsTradableProduct(ItemTemplate const* proto)
+{
+    return IsTradable(proto);
+}
+
 void LoadSettings()
 {
     enabled = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.Artisans.Enable", true, false);
@@ -175,7 +181,12 @@ uint64 FairPrice(ItemTemplate const* proto, RealPrices::Multipliers const& multi
     if (!proto)
         return 0;
     std::call_once(craftPathsBuilt, BuildCraftPaths);
-    auto value = [&](ItemTemplate const* item) { return RealPrices::Scaled(RealPrices::Reference(item), item, multipliers); };
+    // Market values at the house-wide scale (PriceScalePercent); the vendor floor and cap come after it.
+    uint32 const scale = RealPrices::PriceScalePercent();
+    auto value = [&](ItemTemplate const* item)
+    {
+        return CoaEconomyRules::ScalePrice(RealPrices::Scaled(RealPrices::Reference(item), item, multipliers), scale);
+    };
     // Its reagents at the same prices, per item made (one level).
     uint64 reagents = 0;
     if (auto path = craftPaths.find(proto->ItemId); path != craftPaths.end())
@@ -199,7 +210,7 @@ uint64 FairPrice(ItemTemplate const* proto, RealPrices::Multipliers const& multi
     // A better quality over the one below at the same item level (scans hold dumped epics).
     // Also when unseen with no epic band to floor it: else a bot fell back to a learned or vendor price (seen:
     // epics of level 62 at 71 g, under blues at 272 g).
-    if (uint64 step = RealPrices::QualityStep(proto, multipliers); own < step)
+    if (uint64 step = CoaEconomyRules::ScalePrice(RealPrices::QualityStep(proto, multipliers), scale); own < step)
         own = step;
     return CoaEconomyRules::FairPrice(own, reagents, proto->SellPrice,
                                       Sellable::IsFreeVendorItem(proto->ItemId) ? proto->BuyPrice : 0);
@@ -221,7 +232,8 @@ uint64 MarketPrice(uint32 itemId)
     // A vendor sells it: what it costs there; otherwise four times what a vendor pays for it.
     if (proto->BuyPrice)
         return proto->BuyPrice;
-    return std::max<uint64>(1, uint64(proto->SellPrice) * 4);
+    return std::max<uint64>(1, CoaEconomyRules::FairPrice(CoaEconomyRules::ScalePrice(uint64(proto->SellPrice) * 4,
+        RealPrices::PriceScalePercent()), 0, proto->SellPrice, 0));
 }
 
 uint64 ReagentCost(uint32 itemId)
@@ -242,6 +254,8 @@ std::vector<Recipe> KnownRecipes(Player* bot)
     std::vector<Recipe> recipes;
     if (!enabled || !bot)
         return recipes;
+    // The rare recipes it has come to know since it was last asked (RareRecipes; nothing when off).
+    RareRecipes::Maintain(bot);
 
     for (auto const& [spellId, playerSpell] : bot->GetSpellMap())
     {
@@ -292,6 +306,9 @@ std::vector<Recipe> KnownRecipes(Player* bot)
         if (!reagentsKnown)
             continue;
         recipe.productValue = MarketPrice(itemId) * count;
+        // Nor anything dearer than the launch curve lets one item cost.
+        if (!sCoaLaunchCurve->AllowsUnitPrice(recipe.productValue / count))
+            continue;
         recipes.push_back(recipe);
     }
     return recipes;

@@ -38,6 +38,9 @@ namespace CoaEconomy::Artisans
         uint64 productValue = 0; // the product at market price, whole count, copper
     };
 
+    // A product worth selling to someone else: exists, not bound on pickup, not a quest item, has a value.
+    bool IsTradableProduct(ItemTemplate const* proto);
+
     // The bot's tradable recipes (empty when off or when it has no profession).
     std::vector<Recipe> KnownRecipes(Player* bot);
 

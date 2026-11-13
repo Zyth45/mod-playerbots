@@ -603,6 +603,10 @@ void AuctionHouseBot::CalculateItemValue(ItemTemplate const* itemProto, uint64& 
     // scale the formula, never the learned market price, and both grow with it (no-arbitrage cap holds).
     outBuyoutPrice = uint64(double(outBuyoutPrice) * GetRarityPriceFactor(itemProto->ItemId) * sCoaLaunchCurve->PriceFactor());
 
+    // CoA Economy: the house-wide price scale (PriceScalePercent), before the real sales and the vendor floor below;
+    // the buyer reads the same value, so what the house pays follows what it asks.
+    outBuyoutPrice = CoaEconomyRules::ScalePrice(outBuyoutPrice, CoaEconomy::RealPrices::PriceScalePercent());
+
     // CoA Economy: move toward what real sales paid for this item (AiPlayerbot.CoaEconomy.Market.*)
     outBuyoutPrice = sCoaMarketPrices->Blend(itemProto->ItemId, outBuyoutPrice);
 
@@ -619,8 +623,9 @@ void AuctionHouseBot::CalculateItemValue(ItemTemplate const* itemProto, uint64& 
 
     // CoA: never under the real house's floor for the item's quality and level (median of its scanned items).
     if (CoaRealHousePrices)
-        if (uint64 const floor = CoaEconomy::RealPrices::Scaled(CoaEconomy::RealPrices::Floor(itemProto), itemProto,
-                                                                CoaRealPriceMultipliers); outBuyoutPrice < floor)
+        if (uint64 const floor = CoaEconomyRules::ScalePrice(CoaEconomy::RealPrices::Scaled(
+                CoaEconomy::RealPrices::Floor(itemProto), itemProto, CoaRealPriceMultipliers),
+                CoaEconomy::RealPrices::PriceScalePercent()); outBuyoutPrice < floor)
             outBuyoutPrice = PriceRoll(floor, uint64(floor * (1.0f + BuyoutVariationAddPercent)));
 
     // Calculate a bid price based on a variance against buyout price
@@ -1430,8 +1435,9 @@ void AuctionHouseBot::AddNewAuctions(std::vector<Player*> AHBPlayers, FactionSpe
                     }
                 }
 
-                // CoA Economy: only what the realm's population could have reached (LaunchCurve)
-                if (!sCoaLaunchCurve->AllowsListing(*prototype))
+                // CoA Economy: only what the realm's population could have reached and could pay (LaunchCurve)
+                if (!sCoaLaunchCurve->AllowsListing(*prototype) ||
+                    !sCoaLaunchCurve->AllowsUnitPrice(GetHouseLowestBuyoutPerItem(prototype)))
                 {
                     batchCount++;
                     continue;

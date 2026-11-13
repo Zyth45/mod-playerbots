@@ -29,7 +29,7 @@ namespace CoaArtisansAddonRules
     }
     constexpr uint32_t PriceRisePercent = 10;     // AORDER refuses a price risen more than this
     constexpr std::size_t MaxArtisans = 40;
-    constexpr std::size_t MaxRecipes = 60;
+    constexpr std::size_t MaxRecipes = 150;  // 2 lines each (AR, ARR), sent at once
     constexpr std::size_t MaxMails = 20;
     constexpr uint32_t MailDays = 7;
 
@@ -60,6 +60,18 @@ namespace CoaArtisansAddonRules
             value = value * 10 + uint32_t(c - '0');
         }
         return value;
+    }
+
+    // The order of an artisan's recipe list before the cap: the best quality first, then the highest rank, then the
+    // item id (a stable order between two asks). A bot's spells come in no order, so the cap once cut its epics.
+    inline bool RecipeBefore(uint32_t qualityA, uint32_t rankA, uint32_t itemA, uint32_t qualityB, uint32_t rankB,
+                             uint32_t itemB)
+    {
+        if (qualityA != qualityB)
+            return qualityA > qualityB;
+        if (rankA != rankB)
+            return rankA > rankB;
+        return itemA < itemB;
     }
 
     inline bool QtyOk(uint32_t qty) { return qty >= 1 && qty <= MaxQty; }

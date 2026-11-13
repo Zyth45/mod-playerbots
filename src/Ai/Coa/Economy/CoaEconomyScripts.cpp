@@ -20,6 +20,8 @@ void AddSC_coa_economy_ah_migration(); // AuctionHouse/CoaAhMigration.cpp
 void AddSC_coa_economy_auction_clock(); // Market/CoaAuctionClock.cpp
 void AddSC_coa_economy_materials(); // Craft/CoaMaterials.cpp
 void AddSC_coa_economy_artisans_addon(); // Craft/CoaArtisansAddon.cpp
+void AddSC_coa_economy_rare_recipes(); // Craft/CoaRareRecipes.cpp
+void AddSC_coa_economy_bot_level_gold(); // Rpg/CoaBotLevelGold.cpp
 
 void AddCoaEconomyScripts()
 {
@@ -36,4 +38,6 @@ void AddCoaEconomyScripts()
     AddSC_coa_economy_auction_clock();
     AddSC_coa_economy_materials();
     AddSC_coa_economy_artisans_addon();
+    AddSC_coa_economy_rare_recipes();
+    AddSC_coa_economy_bot_level_gold();
 }

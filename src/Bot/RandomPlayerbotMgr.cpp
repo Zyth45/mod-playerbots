@@ -5,6 +5,8 @@
  */
 
 #include "CoaWorldGuildPresence.h"
+#include "CoaEconomyConf.h"
+#include "CoaEconomyRules.h"
 #include "CoaWorldBgSim.h"
 #include "RandomPlayerbotMgr.h"
 #include "GameTime.h"
@@ -2994,7 +2996,10 @@ void RandomPlayerbotMgr::Refresh(Player* bot)
         bot->SetPower(POWER_ENERGY, bot->GetMaxPower(POWER_ENERGY));
 
     uint32 money = bot->GetMoney();
-    bot->SetMoney(money + 500 * sqrt(urand(1, bot->GetLevel() * 5)));
+    // --- CoA Economy --- (the return-to-town pocket money, scaled as the starting gold)
+    bot->SetMoney(money + CoaEconomyRules::ScaleBotGold(uint32(500 * sqrt(urand(1, bot->GetLevel() * 5))),
+                                                        CoaBotStartGoldPercent()));
+    // --- end CoA Economy ---
 
     if (bot->GetGroup())
         botAI->LeaveOrDisbandGroup();

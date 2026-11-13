@@ -9,6 +9,7 @@
 
 #include "Config.h"
 
+#include <cstdint>
 #include <cstdlib>
 #include <string>
 #include <type_traits>
@@ -57,6 +58,13 @@ namespace CoaEconomy::Conf
             return Parse<T>(dist, codeDefault);
         return sConfigMgr->GetOption<T>(key, codeDefault, showLogs);
     }
+}
+
+// AiPlayerbot.CoaEconomy.BotStartGoldPercent: the share of their usual gold random bots get at creation, upkeep and
+// return to town (100: unchanged; 0: none). Read each time, so a reload applies at once.
+inline uint32_t CoaBotStartGoldPercent()
+{
+    return CoaEconomy::Conf::Get<uint32_t>("AiPlayerbot.CoaEconomy.BotStartGoldPercent", 100, false);
 }
 
 #endif

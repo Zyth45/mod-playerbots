@@ -35,6 +35,8 @@ public:
 
     // Whether the house may list this item now.
     bool AllowsListing(ItemTemplate const& proto) const;
+    // Whether one item may cost this much now (copper): UnitPriceCapGold x front^2 gold until UnitPriceCapUntilLevel.
+    bool AllowsUnitPrice(uint64 copper) const;
     // Share of the house's MinItems/MaxItems to use now (StartStockPercent .. 1).
     float StockFactor() const;
     // Launch price premium (1 .. 1 + LaunchPremiumPercent/100), growing with nothing but time-to-progress.
@@ -62,6 +64,8 @@ private:
     bool _allowLegendary = false;
     float _startStock = 0.10f;
     float _launchPremium = 1.50f;
+    float _unitPriceCapGold = 0.25f;
+    uint32 _unitPriceCapUntilLevel = 60;
 
     // Survey state: starts at the very beginning of a realm until the first survey answers.
     uint32 _timer = 0;

@@ -40,6 +40,11 @@ int main()
     assert(NextState("paid", false, false, false, 50) == "paid");
     assert(IsFinal("cancelled") && !IsFinal("awaiting"));
 
+    // Quality first (an epic of rank 1 before a green of rank 300), then rank, then the item id.
+    assert(RecipeBefore(4, 1, 900, 2, 300, 100) && !RecipeBefore(2, 300, 100, 4, 1, 900));
+    assert(RecipeBefore(3, 300, 900, 3, 250, 100));
+    assert(RecipeBefore(3, 300, 100, 3, 300, 900) && !RecipeBefore(3, 300, 100, 3, 300, 100));
+
     std::puts("coa_economy_addon PASS");
     return 0;
 }
