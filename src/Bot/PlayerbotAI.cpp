@@ -15,6 +15,7 @@
 #include <functional>
 #include "RaceMgr.h"
 #include "CoaSpecialization.h"
+#include "CoaAltBags.h"
 #include "AutoMaintenanceOnLevelupAction.h"
 #include "CoaWildcard.h"
 #include "CoaReborn.h"
@@ -791,6 +792,7 @@ void PlayerbotAI::UpdateAIInternal([[maybe_unused]] uint32 elapsed, bool minimal
     }
 
     HandleCommands();
+    CoaAltBags::Drain(this);
 
     // logout if logout timer is ready or if instant logout is possible
     if (bot->GetSession()->isLogingOut())

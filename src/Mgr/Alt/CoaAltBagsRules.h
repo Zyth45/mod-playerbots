@@ -117,6 +117,9 @@ inline bool ParseItem(std::string const& text, uint32_t& itemId, int32_t& random
 
 // The equipment slots (server numbering, 0 = head) an inventory type goes to. Rings, trinkets and one-hand
 // weapons give both slots; a two-hander also gives the off hand (what it would take off).
+// Requests waiting for the bot's update; beyond, a compare is answered "busy" at once.
+constexpr size_t QUEUE_MAX = 16;
+
 inline std::vector<uint8_t> SlotsFor(uint32_t inventoryType)
 {
     switch (inventoryType)
