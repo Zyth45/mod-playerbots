@@ -5728,3 +5728,24 @@ AiPlayerbot.CoaCombat.BenchKeyOnly = 0
 #                  0 - (Disabled: every pack within reach counts, seen or not)
 
 AiPlayerbot.CoaCombat.PullGuardSight.Enable = 1
+
+#
+# AiPlayerbot.CoaCombat.PullGuardSight.Strict
+#     Description: With PullGuardSight on, a move that does not bring the bot closer to an idle pack is let through
+#                  even when the pack would see the destination. With this on, such a move counts too: a sideways step
+#                  into a pack's sight is refused like an approach.
+#     Default:     0 - (Disabled)
+#                  1 - (Enabled)
+
+AiPlayerbot.CoaCombat.PullGuardSight.Strict = 0
+
+#
+# AiPlayerbot.CoaCombat.GearPvpSoldOnly
+#     Description: The gear bots are given holds no PvP piece a player cannot get: a piece with resilience or an
+#                  honor rank required is kept only if a vendor sells it, a quest rewards it or a loot table drops it.
+#                  The Grand Marshal's and High Warlord's sets are sold by nobody on CoA. Applies to gear given from
+#                  now on; what a bot already wears stays until its next gear update.
+#     Default:     0 - (Disabled)
+#                  1 - (Enabled)
+
+AiPlayerbot.CoaCombat.GearPvpSoldOnly = 0

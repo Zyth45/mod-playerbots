@@ -5,6 +5,7 @@
  */
 
 #include "PlayerbotFactory.h"
+#include "Ai/Coa/Combat/Gear/CoaGearPvp.h"
 #include "CoaQuietAchievements.h"
 #include "AccountMgr.h"
 #include "AiFactory.h"
@@ -3050,6 +3051,10 @@ void PlayerbotFactory::InitEquipment(bool incremental, bool second_chance, int32
                             continue;
                         }
                         if (proto->Class != ITEM_CLASS_WEAPON && proto->Class != ITEM_CLASS_ARMOR)
+                            continue;
+
+                        // CoA Combat (GearPvpSoldOnly): no PvP piece a player cannot get (CoaGearPvp).
+                        if (sPlayerbotAIConfig.coaCombatGearPvpSoldOnly && CoaGearPvp::IsUnobtainablePvpItem(itemId))
                             continue;
 
                         if (maxItemLevel && proto->ItemLevel > maxItemLevel)

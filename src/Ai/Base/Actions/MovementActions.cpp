@@ -293,6 +293,7 @@ bool MovementAction::IsBodyPullRisk(float x, float y, float z)
         pack.margin = margin;
         pack.fighting = fighting;
         pack.sightRuleOn = sPlayerbotAIConfig.coaCombatPullGuardSightEnable;
+        pack.strict = sPlayerbotAIConfig.coaCombatPullGuardSightStrict;
         if (pack.destDist >= pack.aggro + pack.margin)
             continue;
         pack.botDist = creature->GetExactDist(bot);

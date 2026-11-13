@@ -794,6 +794,10 @@ public:
     // bot closer to it (CoaPullGuardSightRule), so ranged bots come out from behind walls. On by default: dungeon series
     // SFK, BRD, Scholomance, 6 runs per arm, deaths 1 -> 0, ranged time out of sight 16.4 % -> 11.5 % of combat.
     bool coaCombatPullGuardSightEnable = true;
+    // Its strict form: a step that stays as far from a pack but comes into its sight counts too.
+    bool coaCombatPullGuardSightStrict = false;
+    // Bot gear holds no PvP piece that no vendor, quest or loot gives (Grand Marshal's, High Warlord's; CoaGearPvp).
+    bool coaCombatGearPvpSoldOnly = false;
     // ---- end of CoA Combat ----
 
 private:

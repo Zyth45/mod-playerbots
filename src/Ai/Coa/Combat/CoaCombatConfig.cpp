@@ -42,4 +42,6 @@ void PlayerbotAIConfig::LoadCoaCombatConfig()
     coaCombatPlayerLedEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaCombat.PlayerLed.Enable", false);
     coaCombatBenchKeyOnly = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaCombat.BenchKeyOnly", false);
     coaCombatPullGuardSightEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaCombat.PullGuardSight.Enable", true);
+    coaCombatPullGuardSightStrict = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaCombat.PullGuardSight.Strict", false);
+    coaCombatGearPvpSoldOnly = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaCombat.GearPvpSoldOnly", false);
 }
