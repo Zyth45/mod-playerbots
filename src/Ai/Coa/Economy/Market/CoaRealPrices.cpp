@@ -153,7 +153,7 @@ namespace
 void LoadPriceScale()
 {
     priceScale = CoaEconomyRules::ClampPriceScale(
-        CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.PriceScalePercent", 100));
+        CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.PriceScalePercent", 60));
 }
 
 uint32 PriceScalePercent()

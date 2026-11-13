@@ -49,7 +49,7 @@ void LaunchCurve::LoadSettings()
     _epicFromLevel = CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.LaunchCurve.EpicFromLevel", 50);
     _allowLegendary = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.LaunchCurve.AllowLegendary", false);
     _startStock = std::clamp(CoaEconomy::Conf::Get<float>("AiPlayerbot.CoaEconomy.LaunchCurve.StartStockPercent", 10.0f) / 100.0f, 0.0f, 1.0f);
-    _launchPremium = std::max(0.0f, CoaEconomy::Conf::Get<float>("AiPlayerbot.CoaEconomy.LaunchCurve.LaunchPremiumPercent", 150.0f) / 100.0f);
+    _launchPremium = std::max(0.0f, CoaEconomy::Conf::Get<float>("AiPlayerbot.CoaEconomy.LaunchCurve.LaunchPremiumPercent", 0.0f) / 100.0f);
     _unitPriceCapGold = std::max(0.0f, CoaEconomy::Conf::Get<float>("AiPlayerbot.CoaEconomy.LaunchCurve.UnitPriceCapGold", 0.25f));
     _unitPriceCapUntilLevel = CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.LaunchCurve.UnitPriceCapUntilLevel", 60);
     // A changed setting is taken into account at the next survey.

@@ -44,12 +44,15 @@ int main()
         assert(found != table.end() && found->second == v);
     }
     assert(dist.size() == table.size());
-    // On for every realm since 3.0.1 (an update is seen by all); the Squid World start values stay off by default.
+    // The 3.0.1 economy, the default of every realm (an update is seen by all).
     assert(table.at("AiPlayerbot.CoaEconomy.Artisans.LearnRareRecipes.Enable") == "1");
     assert(table.at("AiPlayerbot.CoaEconomy.Artisans.MaterialsOnDelivery") == "1");
-    assert(table.at("AiPlayerbot.CoaEconomy.BotStartGoldPercent") == "100");
-    assert(table.at("AiPlayerbot.CoaEconomy.PriceScalePercent") == "100");
-    assert(table.at("AiPlayerbot.CoaEconomy.LaunchCurve.LaunchPremiumPercent") == "150");
+    assert(table.at("AiPlayerbot.CoaEconomy.BotStartGoldPercent") == "0");
+    assert(table.at("AiPlayerbot.CoaEconomy.PriceScalePercent") == "60");
+    assert(table.at("AiPlayerbot.CoaEconomy.LaunchCurve.LaunchPremiumPercent") == "0");
+    assert(table.at("AiPlayerbot.CoaEconomy.BotLevelGold") ==
+           "10:5000,15:10000,20:20000,25:30000,30:50000,35:70000,40:100000,45:120000,50:150000,55:200000,60:250000,"
+           "65:300000,70:350000,75:400000,80:500000");
     std::printf("coa_economy_conf_defaults PASS (%zu keys)\n", table.size());
     return 0;
 }
