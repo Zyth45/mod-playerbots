@@ -50,6 +50,7 @@ int main()
     assert(table.at("AiPlayerbot.CoaEconomy.BotStartGoldPercent") == "0");
     assert(table.at("AiPlayerbot.CoaEconomy.PriceScalePercent") == "60");
     assert(table.at("AiPlayerbot.CoaEconomy.LaunchCurve.LaunchPremiumPercent") == "0");
+    assert(table.at("AiPlayerbot.CoaEconomy.LaunchCurve.Enable") == "1");
     assert(table.at("AiPlayerbot.CoaEconomy.BotLevelGold") ==
            "10:5000,15:10000,20:20000,25:30000,30:50000,35:70000,40:100000,45:120000,50:150000,55:200000,60:250000,"
            "65:300000,70:350000,75:400000,80:500000");

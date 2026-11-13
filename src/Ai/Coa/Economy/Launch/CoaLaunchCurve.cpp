@@ -39,7 +39,7 @@ LaunchCurve* LaunchCurve::instance()
 
 void LaunchCurve::LoadSettings()
 {
-    _enabled = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.LaunchCurve.Enable", false, false);
+    _enabled = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.LaunchCurve.Enable", true, false);
     _refreshMs = std::max<uint32>(1, CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.LaunchCurve.RefreshMinutes", 10)) * MINUTE * IN_MILLISECONDS;
     _frontPercentile = std::clamp<uint32>(CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.LaunchCurve.FrontPercentile", 80), 1, 100);
     _topCount = std::max<uint32>(1, CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.LaunchCurve.TopCount", 3));
@@ -119,11 +119,19 @@ void LaunchCurve::ReadLevels(QueryResult result)
     uint32 const maxLevel = std::max<uint32>(1, sWorld->getIntConfig(CONFIG_MAX_PLAYER_LEVEL));
     _population = population;
     _surveyed = true;
-    if (population < _minPopulation || byLevel.empty())
+    if (byLevel.empty())
     {
         _frontLevel = 1;
         _topLevel = 1;
         _progress = 0.0f;
+        return;
+    }
+    // A small realm (a few characters, no bots): its highest level stands for the front and the top, so a solo
+    // realm at level 80 is not held at a level 1 house.
+    if (population < _minPopulation)
+    {
+        _frontLevel = _topLevel = CoaEconomyRules::SmallRealmFront(byLevel);
+        _progress = std::clamp(float(_frontLevel) / float(maxLevel), 0.0f, 1.0f);
         return;
     }
 
@@ -139,6 +147,9 @@ bool LaunchCurve::AllowsListing(ItemTemplate const& proto) const
 {
     if (!_enabled)
         return true;
+    // Nothing before the first survey answers (a few seconds after start-up): the front is not known yet.
+    if (!_surveyed)
+        return false;
 
     CoaEconomyRules::LaunchCaps caps;
     caps.front = _frontLevel;
@@ -156,6 +167,8 @@ bool LaunchCurve::AllowsUnitPrice(uint64 copper) const
 {
     if (!_enabled)
         return true;
+    if (!_surveyed)
+        return false;
     uint64 const cap = CoaEconomyRules::LaunchUnitPriceCap(_frontLevel, _unitPriceCapGold, _unitPriceCapUntilLevel);
     return !cap || copper <= cap;
 }
@@ -190,8 +203,8 @@ namespace
 
 void AddSC_coa_economy_launch()
 {
-    // Off by default; read at start-up (restart to change it). The settings below it are read again on reload.
-    if (!CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.LaunchCurve.Enable", false, false))
+    // On by default; read at start-up (restart to change it). The settings below it are read again on reload.
+    if (!CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.LaunchCurve.Enable", true, false))
         return;
 
     sCoaLaunchCurve->LoadSettings();

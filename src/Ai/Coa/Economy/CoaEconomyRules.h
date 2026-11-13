@@ -140,6 +140,12 @@ inline std::uint32_t FrontLevel(std::map<std::uint32_t, std::uint32_t> const& by
 }
 
 // The highest level that at least `topCount` characters have reached.
+// A realm under MinPopulation characters: its highest level (1 when empty).
+inline std::uint32_t SmallRealmFront(std::map<std::uint32_t, std::uint32_t> const& byLevel)
+{
+    return byLevel.empty() ? 1 : std::max<std::uint32_t>(1, byLevel.rbegin()->first);
+}
+
 inline std::uint32_t TopLevel(std::map<std::uint32_t, std::uint32_t> const& byLevel, std::uint32_t topCount)
 {
     std::uint32_t seen = 0;
