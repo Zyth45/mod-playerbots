@@ -19,6 +19,7 @@
 #include "CoaImmersionRules.h"
 #include "CoaCleanWorld.h"
 #include "CoaLiveRules.h"
+#include "CoaGroupEmoteRules.h"
 #include "CoaChatRules.h"
 #include "GameObject.h"
 #include "LootObjectStack.h"
@@ -372,6 +373,8 @@ bool React(Player* bot, std::string const& situation, Player* subject, std::stri
 
 void PlayEmote(Player* bot, uint32 emote, Player* target)
 {
+    if (!CoaLive::GroupEmoteAllowed(bot))
+        return;
     WorldPacket data(CMSG_TEXT_EMOTE, 4 + 4 + 8);
     data << emote;
     data << EmoteAction::GetNumberOfEmoteVariants(static_cast<TextEmotes>(emote), bot->getRace(), bot->getGender());
@@ -1935,6 +1938,19 @@ public:
 
 namespace CoaLive
 {
+bool GroupEmoteAllowed(Player* bot)
+{
+    uint32 const perBot = sPlayerbotAIConfig.coaLiveGroupEmotesPerBot;
+    uint32 const perGroup = sPlayerbotAIConfig.coaLiveGroupEmotesPerGroup;
+    if (!bot || (!perBot && !perGroup) || !bot->GetGroup() || !GroupHasRealPlayer(bot))
+        return true;
+    static std::mutex capLock;
+    static CoaGroupEmote::Cap cap;
+    uint64 const nowS = uint64(GameTime::GetGameTime().count());
+    std::lock_guard<std::mutex> guard(capLock);
+    return cap.Take(bot->GetGUID().GetRawValue(), bot->GetGroup()->GetGUID().GetRawValue(), nowS, perBot, perGroup);
+}
+
 void LoadBank()
 {
     CoaSoul::Load();

@@ -723,6 +723,9 @@ public:
     bool coaLiveCityEnable;  // AiPlayerbot.CoaLive.City.Enable (L2 City Life)
     bool coaLiveSocialEnable;
     uint32 coaLiveSocialInviteCooldownMinutes;  // AiPlayerbot.CoaLive.Social.InviteCooldownMinutes  // AiPlayerbot.CoaLive.Social.Enable (L2 social bots)
+    // Text emotes of the bots of a group with a real player, in 10 minutes (AiPlayerbot.CoaLive.GroupEmotes.*, 0: no cap).
+    uint32 coaLiveGroupEmotesPerBot;
+    uint32 coaLiveGroupEmotesPerGroup;
     // ---- end of CoA Live ----
 
     // ---- CoA World (LoadCoaWorldConfig, CoaWorldConfig.cpp) ----

@@ -25,6 +25,10 @@ namespace CoaLive
 // The bank, from the playerbots database (at startup and on each config load). Empties the no-repeat rings.
 void LoadBank();
 
+// A text emote of this bot now, under AiPlayerbot.CoaLive.GroupEmotes.* (a group with a real player): true, and counted,
+// when it may go. Any thread.
+bool GroupEmoteAllowed(Player* bot);
+
 // Every bot's update (map thread): about every 5 s, a random bot looks for a real player to greet, or idles at the
 // inn or in a capital in front of one.
 void OnBotUpdate(Player* bot, PlayerbotAI* botAI, uint32 diff);

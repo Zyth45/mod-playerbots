@@ -90,6 +90,8 @@ void PlayerbotAIConfig::LoadCoaLiveConfig()
     coaSoulAddon = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaSoul.Addon", true);
     coaSoulWeights = sConfigMgr->GetOption<std::string>("AiPlayerbot.CoaSoul.Weights", "20,40,20,10,10");
     coaLiveDataFileEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaLive.DataFile.Enable", true);
+    coaLiveGroupEmotesPerBot = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaLive.GroupEmotes.PerBot", 1);
+    coaLiveGroupEmotesPerGroup = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaLive.GroupEmotes.PerGroup", 3);
     // Shared with the other CoA data files (in the .dist once).
     coaLiveDataDir = sConfigMgr->GetOption<std::string>("AiPlayerbot.CoaDataDir", "", false);
     coaLiveDataFiles = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaDataFiles", true, false);
