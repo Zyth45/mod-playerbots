@@ -18,6 +18,9 @@
 
 namespace CoaWorldGuildAskRules
 {
+// AiPlayerbot.CoaWorld.Guilds.AnswerAsk: on by default since 3.0.1 (an improvement is on for everyone).
+constexpr bool ANSWER_ASK_DEFAULT = true;
+
 // Lower case, every other character than a letter or a digit a space, one space between words and one at each end
 // (" any guild "), so a phrase is found as " a phrase ".
 inline std::string Words(std::string const& text, size_t* count = nullptr)

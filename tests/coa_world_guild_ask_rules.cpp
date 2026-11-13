@@ -53,6 +53,8 @@ int main()
     assert(Words("  Any, GUILD?? ") == " any guild ");
     assert(Words("qu'un") == " qu un ");
 
+    static_assert(ANSWER_ASK_DEFAULT, "AnswerAsk is on by default");
+
     // One at a time, a rest per player.
     assert(MayAnswer(false, false, false, 0, 1000, 1800));
     assert(!MayAnswer(true, false, false, 0, 1000, 1800));
