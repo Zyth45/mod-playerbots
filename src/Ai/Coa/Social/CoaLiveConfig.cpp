@@ -15,6 +15,8 @@
 #include "Log.h"
 
 #include <algorithm>
+#include <cstdlib>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -92,6 +94,13 @@ void PlayerbotAIConfig::LoadCoaLiveConfig()
     coaLiveDataFileEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaLive.DataFile.Enable", true);
     coaLiveGroupEmotesPerBot = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaLive.GroupEmotes.PerBot", 1);
     coaLiveGroupEmotesPerGroup = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaLive.GroupEmotes.PerGroup", 3);
+    coaTankNormalDungeonOnly.clear();
+    {
+        std::istringstream ids(sConfigMgr->GetOption<std::string>("AiPlayerbot.CoaTankNormalDungeonOnly", "99"));
+        for (std::string id; std::getline(ids, id, ',');)
+            if (uint32 const specializationId = uint32(std::strtoul(id.c_str(), nullptr, 10)))
+                coaTankNormalDungeonOnly.insert(specializationId);
+    }
     // Shared with the other CoA data files (in the .dist once).
     coaLiveDataDir = sConfigMgr->GetOption<std::string>("AiPlayerbot.CoaDataDir", "", false);
     coaLiveDataFiles = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaDataFiles", true, false);

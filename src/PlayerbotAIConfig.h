@@ -726,6 +726,8 @@ public:
     // Text emotes of the bots of a group with a real player, in 10 minutes (AiPlayerbot.CoaLive.GroupEmotes.*, 0: no cap).
     uint32 coaLiveGroupEmotesPerBot;
     uint32 coaLiveGroupEmotesPerGroup;
+    // Tank specializations bots play in normal dungeons only (AiPlayerbot.CoaTankNormalDungeonOnly).
+    std::set<uint32> coaTankNormalDungeonOnly;
     // ---- end of CoA Live ----
 
     // ---- CoA World (LoadCoaWorldConfig, CoaWorldConfig.cpp) ----

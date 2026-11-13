@@ -349,6 +349,15 @@
    "coa": true
   },
   {
+   "key": "AiPlayerbot.CoaTankNormalDungeonOnly",
+   "group": "combat",
+   "title": "Tanks for normal dungeons only",
+   "description": "Conquest of Azeroth tank specialization ids, comma separated, that bots never tank with in a heroic or mythic dungeon or a raid.",
+   "type": "string",
+   "default": "99",
+   "coa": true
+  },
+  {
    "key": "AiPlayerbot.TellWhenAvoidAoe",
    "group": "combat",
    "title": "Say which spell is avoided",
