@@ -3218,13 +3218,14 @@ AiPlayerbot.CoaWorld.Guilds.Greetings = 1
 #                     "any guild?", "cherche une guilde"...) gets an answer: a few seconds later an officer bot of a
 #                     bot guild of the player's side (the nearest one) says a word, aloud when near, else by whisper
 #                     (phrase bank: guild_ask_reply, guild_ask_reply_w), and sends the guild invitation. One guild at
-#                     a time per player. Needs Guilds.Enable.
-#        Default:     0 - off
+#                     a time per player. Without a line in the bank the officer says nothing and sends no
+#                     invitation. Needs Guilds.Enable.
+#        Default:     1 - on (3.0.1)
 #    AiPlayerbot.CoaWorld.Guilds.AnswerAskMinutes
 #        Description: With AnswerAsk on: minutes before the same player's ask is answered again.
 #        Default:     30
 
-AiPlayerbot.CoaWorld.Guilds.AnswerAsk = 0
+AiPlayerbot.CoaWorld.Guilds.AnswerAsk = 1
 AiPlayerbot.CoaWorld.Guilds.AnswerAskMinutes = 30
 
 #    AiPlayerbot.CoaWorld.Guilds.GearAsk

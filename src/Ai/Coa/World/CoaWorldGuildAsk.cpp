@@ -15,7 +15,7 @@
  * player did with the last one. The core's own handler sends the invitation (Guild::HandleInviteMember: ignore
  * list, side, rights).
  * Lines from IA MIND's bank (guild_ask_reply aloud, guild_ask_reply_w whispered), no text of our own: without a
- * line the officer only sends the invitation.
+ * line (no bank, or the situation has none) the officer says nothing and sends no invitation.
  * Chat hooks queue the ask; the world thread picks the officer and acts.
  */
 
@@ -54,7 +54,7 @@ constexpr float NEAR_YARDS = 30.0f;  // the officer answers aloud within this, e
 
 struct Settings
 {
-    bool enabled = false;      // Guilds.Enable and Guilds.AnswerAsk
+    bool enabled = false;       // Guilds.Enable and Guilds.AnswerAsk
     uint32 restSeconds = 1800;  // Guilds.AnswerAskMinutes
 };
 Settings settings;
@@ -196,10 +196,10 @@ private:
             answer.spoke = true;
             Slots const slots = { { "player", player->GetName() }, { "guild", guild->GetName() } };
             bool const nearby = officer->GetMap() == player->GetMap() && officer->IsWithinDistInMap(player, NEAR_YARDS);
-            if (nearby)
-                BotLine(officer, "guild_ask_reply", slots);
-            else
-                CoaLive::SayLine(officer, "guild_ask_reply_w", slots, player->GetGUID());
+            bool const said = nearby ? BotLine(officer, "guild_ask_reply", slots)
+                                     : CoaLive::SayLine(officer, "guild_ask_reply_w", slots, player->GetGUID());
+            if (!said)
+                return true;  // no line: no invitation out of the blue
         }
         if (now < answer.inviteAt)
             return false;
@@ -223,7 +223,7 @@ void LoadSettings()
 {
     auto key = [](char const* name) { return std::string(PREFIX) + name; };
     settings.enabled = sConfigMgr->GetOption<bool>(key("Enable"), true, false) &&
-                       sConfigMgr->GetOption<bool>(key("AnswerAsk"), false, false);
+                       sConfigMgr->GetOption<bool>(key("AnswerAsk"), ANSWER_ASK_DEFAULT, false);
     settings.restSeconds = std::max<uint32>(1, sConfigMgr->GetOption<uint32>(key("AnswerAskMinutes"), 30, false)) * MINUTE;
 }
 
