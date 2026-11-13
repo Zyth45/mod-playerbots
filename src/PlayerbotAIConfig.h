@@ -782,6 +782,9 @@ public:
     // Bench only: the breath guard, stuck combat breaker, combat purge and Sunken Temple read their own key alone, also
     // inside a Dungeon Clear run, so that a Dungeon Clear series compares key 0 with key 1.
     bool coaCombatBenchKeyOnly = false;
+    // Body pull guard in a fight: an idle pack counts only if it would see the destination and the move brings the
+    // bot closer to it (CoaPullGuardSightRule), so ranged bots come out from behind walls.
+    bool coaCombatPullGuardSightEnable = false;
     // ---- end of CoA Combat ----
 
 private:
