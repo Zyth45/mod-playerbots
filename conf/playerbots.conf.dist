@@ -3902,6 +3902,14 @@ AiPlayerbot.CoaTankNormalDungeonOnly = 99
 
 AiPlayerbot.CoaLive.ChannelQuestions.Enable = 1
 
+#    AiPlayerbot.CoaLive.ChannelQuestions.ClassAnswers
+#        Description: How many bots answer "what class is the best?" (an opinion question): 2, a second bot gives
+#                     another class 4 to 12 seconds after the first; 1, one answer as any other question. Never more
+#                     than 2, and one when only one bot is free.
+#        Default:     2
+
+AiPlayerbot.CoaLive.ChannelQuestions.ClassAnswers = 2
+
 # Bots' minimum and maximum level when teleporting in and out of a zone, according to the new RPG strategy
 # Format: AiPlayerbot.ZoneBracket.zoneID = minLevel,maxLevel
 #

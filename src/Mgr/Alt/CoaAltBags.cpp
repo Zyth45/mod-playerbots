@@ -87,10 +87,13 @@ void Compare(PlayerbotAI* botAI, std::string const& arg)
     ItemTemplate const* proto = nullptr;
     if (CoaAltBags::ParseItem(arg, itemId, property))
         proto = sObjectMgr->GetItemTemplate(itemId);
+    // Every line of the reply ends with the requested item id (protocol 3.0.1): the addon matches each line to
+    // its request, and a reply can no longer land on another item's tooltip.
+    std::string const tag = "\t" + std::to_string(itemId);
     if (!proto)
     {
-        CoaAltAddon::SendToMaster(botAI, "CMP\terr\tnotfound");
-        CoaAltAddon::SendToMaster(botAI, "CMP\t-");
+        CoaAltAddon::SendToMaster(botAI, "CMP\terr\tnotfound" + tag);
+        CoaAltAddon::SendToMaster(botAI, "CMP\t-" + tag);
         return;
     }
 
@@ -98,8 +101,8 @@ void Compare(PlayerbotAI* botAI, std::string const& arg)
     bool const gear = (proto->Class == ITEM_CLASS_WEAPON || proto->Class == ITEM_CLASS_ARMOR) && !slots.empty();
     if (!gear)
     {
-        CoaAltAddon::SendToMaster(botAI, "CMP\terr\tnotgear");
-        CoaAltAddon::SendToMaster(botAI, "CMP\t-");
+        CoaAltAddon::SendToMaster(botAI, "CMP\terr\tnotgear" + tag);
+        CoaAltAddon::SendToMaster(botAI, "CMP\t-" + tag);
         return;
     }
 
@@ -141,9 +144,10 @@ void Compare(PlayerbotAI* botAI, std::string const& arg)
                  << ItemString(item, bot->GetLevel());
         else
             worn << "0\t0\t-";
+        worn << tag;
         CoaAltAddon::SendToMaster(botAI, worn.str());
     }
-    CoaAltAddon::SendToMaster(botAI, "CMP\t-");
+    CoaAltAddon::SendToMaster(botAI, "CMP\t-" + tag);
 }
 
 // The bag items that may go, with the exclusions of the protocol.
@@ -321,5 +325,44 @@ bool Command(PlayerbotAI* botAI, std::string const& command, std::string const& 
     else
         Bags(botAI, command, arg);
     return true;
+}
+
+bool Enqueue(PlayerbotAI* botAI, std::string const& request)
+{
+    std::string const command = request.substr(0, request.find(' '));
+    if (command != "cmp" && command != "bags" && command != "sell" && command != "destroy")
+        return false;
+    if (!botAI)
+        return true;
+    std::lock_guard<std::mutex> guard(botAI->coaAltBagsLock);
+    if (botAI->coaAltBagsQueue.size() < CoaAltBags::QUEUE_MAX)
+        botAI->coaAltBagsQueue.push_back(request);
+    else if (command == "cmp")
+    {
+        // Too many at once: answered at once, busy, so the addon stops waiting on it.
+        uint32_t itemId = 0;
+        int32_t property = 0;
+        CoaAltBags::ParseItem(request.size() > 4 ? request.substr(4) : std::string(), itemId, property);
+        CoaAltAddon::SendToMaster(botAI, "CMP\terr\tbusy\t" + std::to_string(itemId));
+        CoaAltAddon::SendToMaster(botAI, "CMP\t-\t" + std::to_string(itemId));
+    }
+    return true;
+}
+
+void Drain(PlayerbotAI* botAI)
+{
+    std::vector<std::string> requests;
+    {
+        std::lock_guard<std::mutex> guard(botAI->coaAltBagsLock);
+        requests.swap(botAI->coaAltBagsQueue);
+    }
+    for (std::string const& request : requests)
+    {
+        size_t const space = request.find(' ');
+        std::string const command = request.substr(0, space);
+        std::string arg = space == std::string::npos ? std::string() : request.substr(space + 1);
+        arg.erase(0, arg.find_first_not_of(' '));
+        Command(botAI, command, arg);
+    }
 }
 }  // namespace CoaAltBags

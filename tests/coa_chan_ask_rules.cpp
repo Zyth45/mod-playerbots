@@ -47,5 +47,24 @@ int main()
     assert(ChannelMayAnswer(0, 5));
     assert(!ChannelMayAnswer(100, 100 + CHANNEL_GAP_S - 1));
     assert(ChannelMayAnswer(100, 100 + CHANNEL_GAP_S));
+
+    // Never more than two answers, two only for the class question, one when one bot is free.
+    assert(AnswersWanted(Topic::Class, 2, 10) == 2);
+    assert(AnswersWanted(Topic::Class, 3, 10) == 2);
+    assert(AnswersWanted(Topic::Class, 99, 10) == 2);
+    assert(AnswersWanted(Topic::Class, 1, 10) == 1);
+    assert(AnswersWanted(Topic::Class, 0, 10) == 1);
+    assert(AnswersWanted(Topic::Class, 2, 1) == 1);
+    assert(AnswersWanted(Topic::Class, 2, 0) == 0);
+    assert(AnswersWanted(Topic::Question, 2, 10) == 1);
+    for (uint32_t roll : {0u, 1u, 7999u, 8000u, 4294967295u})
+    {
+        uint64_t const due = SecondDueMs(1000000, roll);
+        assert(due >= 1000000 + 4000 && due <= 1000000 + 12000);
+    }
+    assert(Lead("bloodmage, paying with your own health is a lifestyle") == "bloodmage");
+    assert(Lead("Knight of Xoroth, the name alone wins arguments") == "knight of xoroth");
+    assert(Lead("tinker. you get robots") == "tinker");
+    assert(Lead("reaper. edgy? yes") != Lead("bloodmage, x"));
     return 0;
 }

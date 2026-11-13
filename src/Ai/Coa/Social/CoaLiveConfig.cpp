@@ -102,6 +102,7 @@ void PlayerbotAIConfig::LoadCoaLiveConfig()
                 coaTankNormalDungeonOnly.insert(specializationId);
     }
     coaLiveChannelQuestions = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaLive.ChannelQuestions.Enable", true);
+    coaLiveChannelClassAnswers = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaLive.ChannelQuestions.ClassAnswers", 2);
     // Shared with the other CoA data files (in the .dist once).
     coaLiveDataDir = sConfigMgr->GetOption<std::string>("AiPlayerbot.CoaDataDir", "", false);
     coaLiveDataFiles = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaDataFiles", true, false);

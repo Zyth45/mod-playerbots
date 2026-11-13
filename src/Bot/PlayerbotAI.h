@@ -446,6 +446,9 @@ public:
     static bool WouldBeReflected(Unit* caster, SpellInfo const* spellInfo, Unit* target);
     // AiPlayerbot.CoaGearByContent: look at the bot's gear within the next two seconds (it just queued).
     void CoaCheckGearSoon() { coaGearCheckedAt = getMSTime() - 8000; }
+    // The addon's "alt cmp|bags|sell|destroy" requests, answered in order on the bot's update (CoaAltBags::Drain).
+    std::mutex coaAltBagsLock;
+    std::vector<std::string> coaAltBagsQueue;
     // Last time the bot was seen in a battleground, an arena or their queue (RandomPlayerbotMgr::CoaUpdateGear).
     uint32 coaGearPvpSeenAt = 0;
     static bool IsHeal(Player* player, bool bySpec = false);

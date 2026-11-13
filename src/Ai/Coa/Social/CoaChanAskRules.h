@@ -130,6 +130,40 @@ inline bool ChannelMayAnswer(uint64_t lastS, uint64_t nowS)
 {
     return !lastS || nowS >= lastS + CHANNEL_GAP_S;
 }
+
+// "What class is the best?" asks for opinions: up to two bots answer it (AiPlayerbot.CoaLive.ChannelQuestions.
+// ClassAnswers, 1 or 2), never more, each a different bot. Any other question gets one answer.
+constexpr uint32_t MAX_ANSWERS = 2;
+
+inline uint32_t AnswersWanted(Topic topic, uint32_t configured, size_t bots)
+{
+    uint32_t const wanted = topic == Topic::Class ? std::min<uint32_t>(std::max<uint32_t>(configured, 1), MAX_ANSWERS) : 1;
+    return static_cast<uint32_t>(std::min<size_t>(wanted, bots));
+}
+
+// The second answer comes 4 to 12 seconds after the first is said.
+constexpr uint32_t SECOND_MIN_MS = 4000;
+constexpr uint32_t SECOND_MAX_MS = 12000;
+
+inline uint64_t SecondDueMs(uint64_t firstDueMs, uint32_t roll)
+{
+    return firstDueMs + SECOND_MIN_MS + roll % (SECOND_MAX_MS - SECOND_MIN_MS + 1);
+}
+
+// What a class answer names first: "bloodmage, paying with..." -> "bloodmage". The second answer names another.
+inline std::string Lead(std::string const& text)
+{
+    std::string lead;
+    for (char c : text)
+    {
+        if (c == ',' || c == '.' || c == '!' || c == '?' || c == ':')
+            break;
+        lead += static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    }
+    while (!lead.empty() && lead.back() == ' ')
+        lead.pop_back();
+    return lead;
+}
 }  // namespace CoaChanAsk
 
 #endif
