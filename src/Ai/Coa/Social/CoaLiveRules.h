@@ -427,12 +427,20 @@ inline bool SaysSendIt(std::string const& normalized)
     return false;
 }
 
+// A whisper that links the item of the deal ("[Linen Cloth]", "[Linen Cloth] ?"): it names the item, it does not
+// buy it. lowered: the whisper in lower case, item links kept ("|hitem:<id>:").
+inline bool NamesItem(std::string const& lowered, uint32_t itemId)
+{
+    return itemId && lowered.find("|hitem:" + std::to_string(itemId) + ":") != std::string::npos;
+}
+
 // A yes to a deal the bot offered (its WTS, an artisan's quote): only a clear one. SaysSendIt counts even next to a
 // question ("how much? ok send it"); "ok", "sure", "oui" only without a price question ("ok how much?" is a
-// question); a bare link of the item only without a question mark. A trade or craft word alone ("wts", "how much",
-// "do you sell") is never a yes: the bot answers with its price and waits.
+// question). A link of the item alone is not a yes (a player's report: "which item?" -> "[Linen Cloth]" got the
+// cloth COD): it names the item, the bot quotes and waits. A trade or craft word alone ("wts", "how much", "do you
+// sell") is never a yes either.
 // normalized: NormalizeWhisper; lowered: the whisper in lower case, item links kept ("|hitem:<id>:").
-inline bool ConfirmsDeal(std::string const& normalized, std::string const& lowered, uint32_t itemId)
+inline bool ConfirmsDeal(std::string const& normalized, std::string const& /*lowered*/, uint32_t /*itemId*/)
 {
     if (SaysSendIt(normalized))
         return true;
@@ -443,8 +451,19 @@ inline bool ConfirmsDeal(std::string const& normalized, std::string const& lower
     for (char const* word : yes)
         if (normalized.find(word) != std::string::npos)
             return true;
-    return itemId && lowered.find('?') == std::string::npos &&
-           lowered.find("|hitem:" + std::to_string(itemId) + ":") != std::string::npos;
+    return false;
+}
+
+// What a whisper to a bot with a live offer (its WTS) does: a clear yes closes the deal; a price question or the
+// item named gets the price and the offer stays open, waiting for a yes; anything else gets the usual answer.
+enum class OfferAnswer : uint8_t { Yes, Quote, Other };
+inline OfferAnswer AnswerToOffer(std::string const& normalized, std::string const& lowered, uint32_t itemId)
+{
+    if (ConfirmsDeal(normalized, lowered, itemId))
+        return OfferAnswer::Yes;
+    if (AsksPrice(normalized) || NamesItem(lowered, itemId))
+        return OfferAnswer::Quote;
+    return OfferAnswer::Other;
 }
 
 // A whisper that says yes to the bot's own Trade announce (WTS: the item goes by mail, cash on delivery): only a
