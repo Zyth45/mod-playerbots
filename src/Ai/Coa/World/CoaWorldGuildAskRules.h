@@ -83,7 +83,10 @@ inline bool AsksForGuild(std::string const& text)
 
     if (HasAny(w, { " ginv ", " ginvite ", " lfguild ", " lf guild ", " lfg guild ", " lf a guild ", " lf new guild ",
                     " looking for a guild ", " looking for guild ", " looking for a new guild ", " looking for new guild ",
-                    " looking for a good guild ", " looking for an active guild ", " any guild ", " any guilds ",
+                    " looking for a good guild ", " looking for an active guild ", " lookin for guild ",
+                    " lookin for a guild ", " looking 4 guild ", " looking 4 a guild ", " lf 4 guild ",
+                    " seeking guild ", " seeking a guild ", " searching guild ", " searching for guild ",
+                    " searching for a guild ", " any guild ", " any guilds ",
                     " anyone have a guild ", " anyone got a guild ", " anybody have a guild ", " anybody got a guild ",
                     " any1 have a guild ", " someone have a guild ", " anyone in a guild ", " need a guild ",
                     " need guild ", " want a guild ", " want guild ", " guild request ", " guild invite ", " guild inv ",
@@ -91,7 +94,8 @@ inline bool AsksForGuild(std::string const& text)
                     " recruiting guilds ", " a guild to join ", " guild to join ", " guild i could join ",
                     " guild i can join ",
                     " cherche une guilde ", " cherche guilde ", " recherche une guilde ", " recherche guilde ",
-                    " cherche une nouvelle guilde ", " quelqu un a une guilde ", " qqn a une guilde ",
+                    " cherche une nouvelle guilde ", " recherche d une guilde ", " en quete d une guilde ",
+                    " quelqu un a une guilde ", " qqn a une guilde ",
                     " quelqu un aurait une guilde ", " une guilde svp ", " une guilde stp ", " guilde svp ",
                     " guilde stp ", " inv guilde ", " invit guilde ", " invite guilde ", " invitation guilde ",
                     " invitation de guilde ", " invitation en guilde ", " inviter en guilde ", " besoin d une guilde ",
@@ -109,6 +113,23 @@ inline bool AsksForGuild(std::string const& text)
         !HasAny(w, { " what ", " which ", " who ", " whose ", " quelle ", " quel ", " qui ", " laquelle " }))
         return true;
     return false;
+}
+
+// A public channel by its name: a world channel ("World", "Ascension" on Conquest of Azeroth, or the realm's
+// AiPlayerbot.BroadcastWorldChannelName), or a looking-for-group one. The game's own channels (General, Trade,
+// LookingForGroup) are found by their id, not here.
+inline bool PublicChannelName(std::string const& name, std::string const& worldName)
+{
+    auto lower = [](std::string text)
+    {
+        std::transform(text.begin(), text.end(), text.begin(), [](unsigned char c) { return char(std::tolower(c)); });
+        return text;
+    };
+    std::string const n = lower(name);
+    if (n.empty())
+        return false;
+    return n == lower(worldName) || n == "world" || n == "global" || n == "ascension" || n == "lfg" ||
+           n == "lookingforgroup";
 }
 
 // One ask per player at a time: a new one is heard when none is pending and the last one is older than the rest.

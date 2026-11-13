@@ -8,12 +8,12 @@
  * CoA World: a guild for the player who asks (AiPlayerbot.CoaWorld.Guilds.AnswerAsk, under Guilds.Enable).
  *
  * A real player without a guild asks for one aloud (say, yell) or in a public channel (General, Trade,
- * LookingForGroup, a world channel): "LF guild", "any guild?", "cherche une guilde"... An officer bot of a bot
- * guild of the player's side, with the right to invite and room in its guild, answers a few seconds later (aloud
- * when it stands near, else by whisper) and sends the guild invitation. One guild at a time: nothing while the
- * player has an invitation or an answer on its way, and a rest per player (Guilds.AnswerAskMinutes) whatever the
- * player did with the last one. The core's own handler sends the invitation (Guild::HandleInviteMember: ignore
- * list, side, rights).
+ * LookingForGroup, a world channel such as "Ascension"): "LF guild", "any guild?", "cherche une guilde"... An
+ * officer bot of a bot guild of the player's side, with the right to invite, answers a few
+ * seconds later (aloud when it stands near, else by whisper) and sends the guild invitation. One guild at a time:
+ * nothing while the player has an invitation or an answer on its way, and a rest per player (Guilds.AnswerAskMinutes)
+ * whatever the player did with the last one. The core's own handler sends the invitation
+ * (Guild::HandleInviteMember: ignore list, side, rights).
  * Lines from IA MIND's bank (guild_ask_reply aloud, guild_ask_reply_w whispered), no text of our own: without a
  * line (no bank, or the situation has none) the officer says nothing and sends no invitation.
  * Chat hooks queue the ask; the world thread picks the officer and acts.
@@ -75,7 +75,8 @@ bool OwnRandomBot(Player* bot)
     return !(master && IsHuman(master));
 }
 
-// An officer of a bot guild (its leader a random bot) that may invite, with room in the guild.
+// An officer of a bot guild (its leader a random bot) that may invite. AiPlayerbot.RandomBotGuildSizeMax is the bots'
+// own fill (every bot guild reaches it): a real player still has a place, as in a real guild.
 Guild* OfficerGuild(Player* bot)
 {
     if (!bot || !bot->IsInWorld() || !bot->IsAlive() || bot->IsInCombat() || !bot->GetGuildId() || !OwnRandomBot(bot) ||
@@ -83,7 +84,7 @@ Guild* OfficerGuild(Player* bot)
         return nullptr;
     Guild* guild = sGuildMgr->GetGuildById(bot->GetGuildId());
     if (!guild || !sRandomPlayerbotMgr.IsRandomBot(guild->GetLeaderGUID().GetCounter()) ||
-        guild->GetMemberSize() >= sPlayerbotAIConfig.randomBotGuildSizeMax || !guild->HasRankRight(bot, GR_RIGHT_INVITE))
+        !guild->HasRankRight(bot, GR_RIGHT_INVITE))
         return nullptr;
     return guild;
 }
@@ -227,16 +228,14 @@ void LoadSettings()
     settings.restSeconds = std::max<uint32>(1, sConfigMgr->GetOption<uint32>(key("AnswerAskMinutes"), 30, false)) * MINUTE;
 }
 
-// A public channel: the game's own (General, Trade, LookingForGroup...) or a world channel.
+// A public channel: the game's own (General, Trade, LookingForGroup...) or a world channel ("Ascension" on CoA).
 bool PublicChannel(Channel* channel)
 {
     if (!channel)
         return false;
     if (channel->IsConstant() || channel->IsLFG())
         return true;
-    std::string name = channel->GetName();
-    std::transform(name.begin(), name.end(), name.begin(), [](unsigned char c) { return char(std::tolower(c)); });
-    return name == "world" || name == "global" || name == "lfg" || name == "lookingforgroup";
+    return PublicChannelName(channel->GetName(), sPlayerbotAIConfig.broadcastWorldChannelName);
 }
 
 void Heard(Player* player, uint32 lang, std::string const& msg)

@@ -32,6 +32,17 @@ int main()
     assert(AsksForGuild("une guilde qui recrute ?"));
     assert(AsksForGuild("inv guilde svp"));
     assert(AsksForGuild("je voudrais rejoindre une guilde"));
+    // The user's test in the Ascension channel (3.0.1), and close ways to say it.
+    assert(AsksForGuild("looking for guild ?"));
+    assert(AsksForGuild("looking for guild"));
+    assert(AsksForGuild("Looking for a guild"));
+    assert(AsksForGuild("lf guild"));
+    assert(AsksForGuild("any guild recruiting?"));
+    assert(AsksForGuild("lookin for guild"));
+    assert(AsksForGuild("seeking a guild, lvl 30 hunter"));
+    assert(AsksForGuild("searching for a guild"));
+    assert(AsksForGuild("a la recherche d'une guilde"));
+    assert(AsksForGuild("en quete d'une guilde"));
 
     // Not a request.
     assert(!AsksForGuild("<Iron Wolves> is recruiting, /w me"));
@@ -49,6 +60,15 @@ int main()
     assert(!AsksForGuild("the guild bank is nice"));
     assert(!AsksForGuild(""));
     assert(!AsksForGuild("guildmaster in Stormwind?"));
+
+    // The channels: the world channel by name ("Ascension" on CoA, or the realm's own), not a private one.
+    assert(PublicChannelName("Ascension", "Ascension"));
+    assert(PublicChannelName("ascension", "World"));
+    assert(PublicChannelName("World", "Ascension"));
+    assert(PublicChannelName("MyRealmChat", "MyRealmChat"));
+    assert(PublicChannelName("LookingForGroup", "World"));
+    assert(!PublicChannelName("raidteam", "Ascension"));
+    assert(!PublicChannelName("", ""));
 
     assert(Words("  Any, GUILD?? ") == " any guild ");
     assert(Words("qu'un") == " qu un ");
