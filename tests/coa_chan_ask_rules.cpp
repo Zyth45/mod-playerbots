@@ -43,5 +43,9 @@ int main()
     assert(PlayerMayAsk(0, 100));
     assert(!PlayerMayAsk(100, 100 + PLAYER_CD_S - 1));
     assert(PlayerMayAsk(100, 100 + PLAYER_CD_S));
+    assert(PLAYER_CD_S <= 60);
+    assert(ChannelMayAnswer(0, 5));
+    assert(!ChannelMayAnswer(100, 100 + CHANNEL_GAP_S - 1));
+    assert(ChannelMayAnswer(100, 100 + CHANNEL_GAP_S));
     return 0;
 }

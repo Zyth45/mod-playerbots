@@ -1390,6 +1390,7 @@ struct ChannelAsk
 };
 std::vector<ChannelAsk> channelAsks;
 std::unordered_map<uint64, uint64> channelAskLast;  // player -> when a bot last took one of their questions (s)
+std::unordered_map<std::string, uint64> channelAnswerLast;  // "c<team>|<channel>" -> last answer (s), world thread
 
 void HearChannelQuestion(Player* player, std::string const& msg, ::Channel* channel)
 {
@@ -1434,11 +1435,28 @@ void AnswerChannelQuestions()
         }
         if (hearers.empty())
             continue;
+        // A real player's question gets its answer: no chance roll, no scope pace of the bank (the player and the
+        // channel have theirs, CoaChanAskRules.h), and the first of a few bots out of its own cooldown speaks.
+        std::string const scope = "c" + std::to_string(player->GetTeamId()) + "|" + ask.channelName;
+        uint64 const nowS = uint64(GameTime::GetGameTime().count());
+        auto const last = channelAnswerLast.find(scope);
+        if (!CoaChanAsk::ChannelMayAnswer(last == channelAnswerLast.end() ? 0 : last->second, nowS))
+            continue;
         ReactOptions opt;
         opt.sayChannel = ask.channelName;
+        opt.force = true;
         char const* situation = ask.topic == CoaChanAsk::Topic::Class ? "chan_class" : "chan_question";
-        React(hearers[urand(0, hearers.size() - 1)], situation, player,
-              "c" + std::to_string(player->GetTeamId()) + "|" + ask.channelName, opt);
+        for (uint32 tried = 0; tried < CoaChanAsk::BOTS_TRIED && !hearers.empty(); ++tried)
+        {
+            uint32 const i = urand(0, hearers.size() - 1);
+            if (React(hearers[i], situation, player, scope, opt))
+            {
+                channelAnswerLast[scope] = nowS;
+                break;
+            }
+            hearers[i] = hearers.back();
+            hearers.pop_back();
+        }
     }
 }
 
