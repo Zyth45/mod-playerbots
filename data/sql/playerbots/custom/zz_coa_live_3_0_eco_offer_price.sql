@@ -1,5 +1,5 @@
 -- CoA 3.0.1 Economy: a bot's Trade offer (WTS) answers a price question with its price and waits for a clear yes
--- (wh_offer_price, whisper). Added after zz_coa_live_3_0_19.sql; the next zz_coa_live_<version>.sql keeps these rows.
+-- (wh_offer_price, whisper). Named to load after every zz_coa_live_3_0_<n>.sql; the next bank version keeps these rows.
 -- Replayable: replaces only its own situation.
 DELETE FROM `playerbots_coa_live_lines` WHERE `situation` = 'wh_offer_price';
 INSERT INTO `playerbots_coa_live_lines` (`situation`,`channel`,`locale`,`level_band`,`emote`,`text`,`w_lazy`,`w_quester`,`w_wanderer`,`w_trader`,`w_pvp`,`rare`) VALUES
