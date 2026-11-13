@@ -5,6 +5,7 @@
  */
 
 #include "AcceptQuestAction.h"
+#include "CoaLive.h"
 #include "CoaAltAddon.h"
 #include "Event.h"
 #include "PlayerbotTextMgr.h"
@@ -231,6 +232,7 @@ bool AcceptQuestShareAction::Execute(Event event)
 
         if (CoaAltAddon::AddonSeen(botAI))
             CoaAltAddon::SendToMaster(botAI, "QR\t" + std::to_string(quest) + "\ttaken\t");
+        CoaLive::QuestShared(bot, sharer);  // a word in party chat (AiPlayerbot.CoaLive.PlayerReplies.Enable)
         if (!CoaAltAddon::ToAddon(botAI))
             botAI->TellMaster(PlayerbotTextMgr::instance().GetBotTextOrDefault(
                 "quest_accept", "Quest accepted", {}));
