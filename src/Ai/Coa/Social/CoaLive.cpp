@@ -2166,7 +2166,7 @@ bool SayLine(Player* bot, std::string const& situation, std::unordered_map<std::
 }
 
 bool SayLine(Player* bot, std::string const& situation, std::unordered_map<std::string, std::string> const& slots,
-             ObjectGuid to)
+             ObjectGuid to, bool force)
 {
     if (!Enabled() || !bot)
         return false;
@@ -2174,6 +2174,7 @@ bool SayLine(Player* bot, std::string const& situation, std::unordered_map<std::
     if (to && !subject)
         return false;
     ReactOptions opt;
+    opt.force = force;
     opt.extra.insert(slots.begin(), slots.end());
     return React(bot, situation, subject, situation + "@w" + std::to_string(bot->GetGUID().GetCounter()), opt);
 }

@@ -69,8 +69,10 @@ std::string SystemLine(Player* reader, std::string const& situation,
                        std::unordered_map<std::string, std::string> const& slots);
 
 // SayLine to one player: a whisper line (channel 6) of the situation goes to "to". False when "to" is not online.
+// force: no chance roll and no scope limit (the bot's cooldown kept), for a line a deal waits on (CoA Economy: the
+// artisan's "sent, COD 12g" and its thanks).
 bool SayLine(Player* bot, std::string const& situation, std::unordered_map<std::string, std::string> const& slots,
-             ObjectGuid to);
+             ObjectGuid to, bool force = false);
 
 // For CoA Economy (artisans): an announce that leads somewhere. Says the line (slots, plus %item and %price from
 // the item and the price when absent) and keeps the offer 15 minutes, as a Trade WTS: a real player who answers
