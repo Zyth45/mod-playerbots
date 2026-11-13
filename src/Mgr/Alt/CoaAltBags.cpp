@@ -304,13 +304,143 @@ void Bags(PlayerbotAI* botAI, std::string const& verb, std::string const& arg)
 
 namespace CoaAltBags
 {
+std::array<uint32_t, 4> BagSizes(Player* bot)
+{
+    std::array<uint32_t, 4> sizes{};
+    for (uint8 i = 0; i < 4; ++i)
+        if (Bag* bag = bot->GetBagByPos(INVENTORY_SLOT_BAG_START + i))
+            sizes[i] = bag->GetBagSize();
+    return sizes;
+}
+
+bool PutOnBag(Player* bot, Item* bag, uint8_t slot, ItemTemplate const** replaced)
+{
+    uint8 const bagSlot = INVENTORY_SLOT_BAG_START + slot;
+    if (replaced)
+        *replaced = nullptr;
+    if (Bag* old = bot->GetBagByPos(bagSlot))
+    {
+        if (old == bag)
+            return true;
+        if (replaced)
+            *replaced = old->GetTemplate();
+        // The items of the old bag: to free slots of the backpack and the other bags (never into the old bag).
+        std::vector<Item*> items;
+        for (uint32 i = 0; i < old->GetBagSize(); ++i)
+            if (Item* item = old->GetItemByPos(uint8(i)))
+                items.push_back(item);
+        std::vector<std::pair<uint8, uint8>> free;
+        for (uint8 s = INVENTORY_SLOT_ITEM_START; s < INVENTORY_SLOT_ITEM_END; ++s)
+            if (!bot->GetItemByPos(INVENTORY_SLOT_BAG_0, s))
+                free.push_back({INVENTORY_SLOT_BAG_0, s});
+        for (uint8 b = INVENTORY_SLOT_BAG_START; b < INVENTORY_SLOT_BAG_END; ++b)
+            if (b != bagSlot)
+                if (Bag* other = bot->GetBagByPos(b))
+                    for (uint32 i = 0; i < other->GetBagSize(); ++i)
+                        if (!other->GetItemByPos(uint8(i)))
+                            free.push_back({b, uint8(i)});
+        std::vector<size_t> const to = AssignSlots(items.size(), free.size(), [&](size_t i, size_t s)
+        {
+            ItemPosCountVec dest;
+            return bot->CanStoreItem(free[s].first, free[s].second, dest, items[i], false) == EQUIP_ERR_OK;
+        });
+        if (to.size() != items.size())
+            return false;
+        for (size_t i = 0; i < items.size(); ++i)
+            bot->SwapItem(items[i]->GetPos(), uint16(free[to[i]].first) << 8 | free[to[i]].second);
+        if (!old->IsEmpty())
+            return false;
+    }
+    bot->SwapItem(bag->GetPos(), uint16(INVENTORY_SLOT_BAG_0) << 8 | bagSlot);
+    return bot->GetItemByPos(INVENTORY_SLOT_BAG_0, bagSlot) == bag;
+}
+
+namespace
+{
+// "alt bagslots": the four bag slots.
+void BagSlots(PlayerbotAI* botAI)
+{
+    Player* bot = botAI->GetBot();
+    for (uint8 i = 0; i < 4; ++i)
+    {
+        std::ostringstream line;
+        line << "BAGSLOT\tslot\t" << uint32(i) + 1 << "\t";
+        if (Bag* bag = bot->GetBagByPos(INVENTORY_SLOT_BAG_START + i))
+            line << bag->GetEntry() << "\t" << bag->GetBagSize() << "\t" << bag->GetFreeSlots() << "\t"
+                 << ItemString(bag, bot->GetLevel());
+        else
+            line << "0\t0\t0\t-";
+        line << "\tbagslots";
+        CoaAltAddon::SendToMaster(botAI, line.str());
+    }
+    CoaAltAddon::SendToMaster(botAI, "BAGSLOT\t-\tbagslots");
+}
+
+// "alt bagequip <itemId|itemString> [1..4]": a bag of the bot's bags put in a bag slot.
+void BagEquip(PlayerbotAI* botAI, std::string const& arg)
+{
+    Player* bot = botAI->GetBot();
+    uint32 itemId = 0;
+    int32 property = 0;
+    CoaAltBags::ParseItem(arg, itemId, property);
+    std::string const tag = "\t" + std::to_string(itemId);
+    auto const fail = [&](char const* reason)
+    {
+        CoaAltAddon::SendToMaster(botAI, std::string("BAGSLOT\terr\t") + reason + tag);
+        CoaAltAddon::SendToMaster(botAI, "BAGSLOT\t-" + tag);
+    };
+    // The slot asked for: a last word 1..4 after the item.
+    uint32 requested = 0;
+    size_t const last = arg.find_last_of(' ');
+    if (last != std::string::npos && arg.size() == last + 2 && arg[last + 1] >= '1' && arg[last + 1] <= '4')
+        requested = uint32(arg[last + 1] - '0');
+    if (!bot->IsAlive())
+        return fail("dead");
+    if (bot->IsInCombat())
+        return fail("combat");
+    Item* bag = nullptr;
+    for (BagItem const& entry : BagItems(bot))
+        if (entry.item->GetEntry() == itemId)
+        {
+            bag = entry.item;
+            break;
+        }
+    if (!bag)
+        return fail("notfound");
+    ItemTemplate const* proto = bag->GetTemplate();
+    if (proto->Class != ITEM_CLASS_CONTAINER && proto->Class != ITEM_CLASS_QUIVER)
+        return fail("notbag");
+    int const slot = CoaAltBags::PickBagSlot(BagSizes(bot), proto->ContainerSlots, requested);
+    if (slot < 0 || !PutOnBag(bot, bag, uint8(slot), nullptr))
+        return fail("nospace");
+    CoaAltAddon::SendToMaster(botAI, "BAGSLOT\tdone\t" + std::to_string(slot + 1) + "\t" + std::to_string(itemId) + tag);
+    CoaAltAddon::SendToMaster(botAI, "BAGSLOT\t-" + tag);
+}
+}  // namespace
+
 bool Command(PlayerbotAI* botAI, std::string const& command, std::string const& arg)
 {
     bool const compare = command == "cmp";
-    if (!compare && command != "bags" && command != "sell" && command != "destroy")
+    bool const slots = command == "bagslots" || command == "bagequip";
+    if (!compare && !slots && command != "bags" && command != "sell" && command != "destroy")
         return false;
     if (!botAI || !botAI->GetBot())
         return true;
+
+    if (slots)
+    {
+        if (!sPlayerbotAIConfig.coaAltBags)
+        {
+            std::string const tag = command == "bagslots" ? "\tbagslots" : "\t0";
+            CoaAltAddon::SendToMaster(botAI, "BAGSLOT\terr\toff" + tag);
+            CoaAltAddon::SendToMaster(botAI, "BAGSLOT\t-" + tag);
+        }
+        else if (command == "bagslots")
+            BagSlots(botAI);
+        else
+            BagEquip(botAI, arg);
+        return true;
+    }
 
     if (!sPlayerbotAIConfig.coaAltBags)
     {
@@ -329,7 +459,8 @@ bool Command(PlayerbotAI* botAI, std::string const& command, std::string const& 
 bool Enqueue(PlayerbotAI* botAI, std::string const& request)
 {
     std::string const command = request.substr(0, request.find(' '));
-    if (command != "cmp" && command != "bags" && command != "sell" && command != "destroy")
+    if (command != "cmp" && command != "bags" && command != "sell" && command != "destroy" && command != "bagslots" &&
+        command != "bagequip")
         return false;
     if (!botAI)
         return true;

@@ -77,5 +77,20 @@ int main()
     pole.noPrice = true;
     pole.tool = IsProfessionItem(2, 20, 0);
     assert(!Eligible(pole, 1, false) && !Eligible(pole, 1, true));
+
+    // Bag slots: the slot asked for, else the first empty one, else the smallest when the new bag is bigger.
+    assert(PickBagSlot({6, 0, 10, 0}, 8, 0) == 1);
+    assert(PickBagSlot({6, 10, 8, 12}, 14, 0) == 0);
+    assert(PickBagSlot({10, 12, 14, 16}, 10, 0) == -1);  // no bigger: nothing replaced
+    assert(PickBagSlot({10, 12, 14, 16}, 6, 3) == 2);    // the player's choice, whatever the size
+    assert(PickBagSlot({10, 12, 14, 16}, 6, 5) == -1);
+    // Emptying the old bag: every item somewhere, never two in one slot; nothing when one does not fit.
+    std::vector<size_t> const to = AssignSlots(3, 4, [](size_t, size_t) { return true; });
+    assert(to.size() == 3 && to[0] == 0 && to[1] == 1 && to[2] == 2);
+    assert(AssignSlots(3, 2, [](size_t, size_t) { return true; }).empty());
+    // A herb bag (slot 0) takes item 1 only: item 0 goes to slot 1.
+    std::vector<size_t> const herb = AssignSlots(2, 2, [](size_t i, size_t s) { return s == 1 || i == 1; });
+    assert(herb.size() == 2 && herb[0] == 1 && herb[1] == 0);
+    assert(AssignSlots(0, 0, [](size_t, size_t) { return true; }).empty());
     return 0;
 }

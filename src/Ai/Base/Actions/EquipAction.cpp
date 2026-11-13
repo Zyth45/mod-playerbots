@@ -5,6 +5,8 @@
  */
 
 #include "EquipAction.h"
+#include "CoaAltBags.h"
+#include "CoaAltBagsRules.h"
 #include "PlayerbotFactory.h"
 #include "Event.h"
 #include "ItemCountValue.h"
@@ -129,15 +131,32 @@ void EquipAction::EquipItem(Item* item)
     bool equippedBag = false;
     if (itemProto->Class == ITEM_CLASS_CONTAINER)
     {
-        // Attempt to equip as a bag
-        uint8 newBagSlot = GetSmallestBagSlot();
-
-        if (newBagSlot > 0)
+        // Attempt to equip as a bag: an empty bag slot, else in place of the smallest bag when this one is bigger.
+        // The smaller bag's items first go to free slots of the others (the swap was refused while it held any, and
+        // nobody was told); with no room for them, the bag stays, and the player is told.
+        int const pick = CoaAltBags::PickBagSlot(CoaAltBags::BagSizes(bot), itemProto->ContainerSlots, 0);
+        if (pick >= 0)
         {
-            uint16 src = ((bagIndex << 8) | slot);
-            uint16 dst = ((INVENTORY_SLOT_BAG_0 << 8) | newBagSlot);
-            bot->SwapItem(src, dst);
-            equippedBag = true;
+            (void)bagIndex;
+            (void)slot;
+            ItemTemplate const* replaced = nullptr;
+            if (CoaAltBags::PutOnBag(bot, item, uint8(pick), &replaced))
+            {
+                equippedBag = true;
+                std::ostringstream out;
+                out << "I put on " << chat->FormatItem(itemProto) << " (" << itemProto->ContainerSlots << " slots)";
+                if (replaced)
+                    out << " in place of " << chat->FormatItem(replaced);
+                botAI->TellMaster(out);
+            }
+            else if (replaced)
+            {
+                std::ostringstream out;
+                out << "No room to empty my " << chat->FormatItem(replaced) << ": I keep it, "
+                    << chat->FormatItem(itemProto) << " stays in my bags";
+                botAI->TellMaster(out);
+                return;
+            }
         }
     }
 
