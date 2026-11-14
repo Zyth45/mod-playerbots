@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <map>
+#include <set>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -175,10 +176,18 @@ namespace CoaGearPvpRule
             return 0u;
         };
 
+        // A name (variant prefixes stripped) and slot that some obtainable piece carries: its copies and variants are
+        // the same piece for a player who looks for it.
+        std::set<std::pair<std::string, uint32_t>> obtainableNames;
+        for (Item const& item : items)
+            if (sources.count(item.id))
+                obtainableNames.emplace(StripVariantPrefixes(item.name), item.inventoryType);
+
         std::unordered_set<uint32_t> out;
         for (Item const& item : items)
         {
-            if (!item.pvp || sources.count(item.id) || IsWhitelisted(item.name))
+            if (!item.pvp || sources.count(item.id) || IsWhitelisted(item.name) ||
+                obtainableNames.count(std::make_pair(StripVariantPrefixes(item.name), item.inventoryType)))
                 continue;
             // A variant follows its base, whatever its quality.
             bool obtainable = false;

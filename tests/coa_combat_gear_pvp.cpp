@@ -70,5 +70,18 @@ int main()
     std::unordered_set<uint32_t> const sold = {23464};  // in 9490533; 16441 only in 12794's list
     std::unordered_set<uint32_t> const gone = Unobtainable(weapons, sold, {});
     assert(!gone.count(23464) && !gone.count(23459) && gone.count(16441));
+
+    // A piece whose own base is unsold still counts when another piece of the same name and slot is sold: the
+    // Bloodforged copy of an unsold id follows the sold one (860833), whatever the id offsets say.
+    std::vector<Item> const legion = {
+        {22875, "Legionnaire's Chain Legguards", 7, true},               // unsold (vendor with no spawn)
+        {6022875, "Bloodforged Legionnaire's Chain Legguards", 7, true},  // base by offset: 22875
+        {860833, "Legionnaire's Chain Legguards", 7, true},              // sold
+        {22872, "Legionnaire's Plate Hauberk", 5, true},                 // unsold, nothing of that name sold
+        {860834, "Legionnaire's Chain Legguards", 5, true},              // same name, other slot: not a copy
+    };
+    std::unordered_set<uint32_t> const legionGone = Unobtainable(legion, {860833}, {});
+    assert(!legionGone.count(22875) && !legionGone.count(6022875) && !legionGone.count(860833));
+    assert(legionGone.count(22872) && legionGone.count(860834));
     return 0;
 }
