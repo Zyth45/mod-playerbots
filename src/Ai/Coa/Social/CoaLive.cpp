@@ -6,6 +6,7 @@
 
 #include "CoaLive.h"
 
+#include "CoaSafeMove.h"
 #include "AuctionHouseMgr.h"
 #include "Bag.h"
 #include "CellImpl.h"
@@ -1014,8 +1015,9 @@ void Gather(Player* bot, PlayerbotAI* botAI)
     }
     if (!best)
         return;
+    if (!CoaSafeMove::MovePoint(bot, best->GetPositionX(), best->GetPositionY(), best->GetPositionZ()))
+        return;
     info.ChangeToRest();
-    bot->GetMotionMaster()->MovePoint(0, best->GetPositionX(), best->GetPositionY(), best->GetPositionZ());
     std::lock_guard<std::mutex> guard(liveLock);
     gatherUntil[key] = nowMs + CoaImmersion::GATHER_TRIP_MS;
     if (gatherUntil.size() > 20000)

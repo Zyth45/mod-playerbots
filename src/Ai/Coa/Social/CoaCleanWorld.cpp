@@ -6,6 +6,7 @@
 
 #include "CoaCleanWorld.h"
 
+#include "CoaSafeMove.h"
 #include "CellImpl.h"
 #include "CoaCleanWorldRules.h"
 #include "Corpse.h"
@@ -96,8 +97,14 @@ bool PrepareRevive(PlayerbotAI* botAI)
         }
         return botAI->DoSpecificAction("spirit healer");
     }
-    if (!bot->isMoving())
-        bot->GetMotionMaster()->MovePoint(0, spots[pick].x, spots[pick].y, z);
+    if (!bot->isMoving() && !CoaSafeMove::MovePoint(bot, spots[pick].x, spots[pick].y, z))
+    {
+        {
+            std::lock_guard<std::mutex> guard(cleanLock);
+            reviveSince.erase(key);
+        }
+        return botAI->DoSpecificAction("spirit healer");
+    }
     return true;
 }
 
@@ -133,9 +140,9 @@ void LeaveWater(Player* bot, PlayerbotAI* botAI)
             float const x = bot->GetPositionX() + dist * std::cos(a);
             float const y = bot->GetPositionY() + dist * std::sin(a);
             float const z = map->GetHeight(x, y, bot->GetPositionZ() + 20.0f);
-            if (z <= INVALID_HEIGHT || map->IsInWater(bot->GetPhaseMask(), x, y, z, bot->GetCollisionHeight()))
+            if (z <= INVALID_HEIGHT || map->IsInWater(bot->GetPhaseMask(), x, y, z, bot->GetCollisionHeight()) ||
+                !CoaSafeMove::MovePoint(bot, x, y, z, true))
                 continue;
-            bot->GetMotionMaster()->MovePoint(0, x, y, z);
             std::lock_guard<std::mutex> guard(cleanLock);
             swimSince.erase(key);
             return;

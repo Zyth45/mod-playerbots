@@ -6,6 +6,7 @@
 
 #include "CoaCityLife.h"
 
+#include "CoaSafeMove.h"
 #include "CellImpl.h"
 #include "CoaCityLifeRules.h"
 #include "Creature.h"
@@ -82,8 +83,7 @@ bool StepIntoRoom(Player* bot, WorldObject* auctioneer)
     if (z <= INVALID_HEIGHT || std::fabs(z - auctioneer->GetPositionZ()) > 3.0f ||
         !auctioneer->IsWithinLOS(x, y, z + 1.5f))
         return false;
-    bot->GetMotionMaster()->MovePoint(0, x, y, z);
-    return true;
+    return CoaSafeMove::MovePoint(bot, x, y, z);
 }
 
 bool InCapital(Player* bot)
