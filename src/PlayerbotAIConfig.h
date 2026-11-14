@@ -807,6 +807,10 @@ public:
     bool coaCombatPullGuardSightStrict = false;
     // Bot gear holds no PvP piece nobody can get (Grand Marshal's, High Warlord's; CoaGearPvp, CoaGearPvpRule).
     bool coaCombatGearPvpSoldOnly = true;
+    // In a group, a shaman keeps Bloodlust and Heroism for a boss: at the pull or under coaCombatLustBossHealthPct
+    // (CoaBossLust, CoaBossLustRule). 0 for the threshold: at the pull only.
+    bool coaCombatLustBossOnly = true;
+    uint32 coaCombatLustBossHealthPct = 30;
     // ---- end of CoA Combat ----
 
 private:

@@ -5884,3 +5884,23 @@ AiPlayerbot.CoaCombat.PullGuardSight.Strict = 0
 #                  1 - (Enabled)
 
 AiPlayerbot.CoaCombat.GearPvpSoldOnly = 1
+
+#
+# AiPlayerbot.CoaCombat.LustBossOnly
+#     Description: In a group, a shaman bot keeps Bloodlust and Heroism for a boss: it casts them at the pull (the boss
+#                  above 90 % health) or once the boss falls under LustBossHealthPct, never on trash. Raids and
+#                  dungeons that already time them for their bosses (Karazhan, SSC, Tempest Keep, Zul'Aman, Hyjal,
+#                  Black Temple, Sethekk Halls) keep their own timing; Baron Geddon gets them under 10 %. Alone, the
+#                  bot keeps the usual behavior.
+#     Default:     0 - (Disabled)
+#                  1 - (Enabled)
+
+AiPlayerbot.CoaCombat.LustBossOnly = 1
+
+#
+# AiPlayerbot.CoaCombat.LustBossHealthPct
+#     Description: With LustBossOnly, the boss health (%) under which a shaman that missed the pull casts them.
+#                  0 casts them at the pull only.
+#     Default:     30
+
+AiPlayerbot.CoaCombat.LustBossHealthPct = 30

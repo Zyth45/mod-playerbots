@@ -44,4 +44,7 @@ void PlayerbotAIConfig::LoadCoaCombatConfig()
     coaCombatPullGuardSightEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaCombat.PullGuardSight.Enable", true);
     coaCombatPullGuardSightStrict = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaCombat.PullGuardSight.Strict", false);
     coaCombatGearPvpSoldOnly = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaCombat.GearPvpSoldOnly", true);
+    coaCombatLustBossOnly = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaCombat.LustBossOnly", true);
+    coaCombatLustBossHealthPct =
+        std::min<uint32>(100, sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaCombat.LustBossHealthPct", 30));
 }

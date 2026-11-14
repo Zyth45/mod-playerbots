@@ -7,6 +7,7 @@
 #include "CoaCombatContext.h"
 
 #include "CoaEscapeLeapStrategy.h"
+#include "Lust/CoaBossLust.h"
 #include "CoaStuckCombat.h"
 #include "CoaStuckCombatStrategy.h"
 #include "CoaPursuitStrategy.h"
@@ -22,6 +23,7 @@ CoaCombatStrategyContext::CoaCombatStrategyContext() : NamedObjectContext<Strate
     creators["coa combat telegraph"] = [](PlayerbotAI* ai) -> Strategy* { return new CoaTelegraphStrategy(ai); };
     creators["coa combat pursuit stop"] = [](PlayerbotAI* ai) -> Strategy* { return new CoaPursuitStrategy(ai); };
     creators["coa combat call of the grave"] = [](PlayerbotAI* ai) -> Strategy* { return new CoaGraveCurseStrategy(ai); };
+    creators["coa combat boss lust"] = [](PlayerbotAI* ai) -> Strategy* { return new CoaBossLustStrategy(ai); };
 }
 
 CoaCombatTriggerContext::CoaCombatTriggerContext() : NamedObjectContext<Trigger>(false, true)
@@ -30,6 +32,8 @@ CoaCombatTriggerContext::CoaCombatTriggerContext() : NamedObjectContext<Trigger>
     creators["coa combat telegraph"] = [](PlayerbotAI* ai) -> Trigger* { return new CoaTelegraphTrigger(ai); };
     creators["coa combat grave curse dispel"] = [](PlayerbotAI* ai) -> Trigger* { return new CoaGraveCurseDispelTrigger(ai); };
     creators["coa combat grave curse leave"] = [](PlayerbotAI* ai) -> Trigger* { return new CoaGraveCurseLeaveTrigger(ai); };
+    creators["coa combat boss lust heroism"] = [](PlayerbotAI* ai) -> Trigger* { return new CoaBossLustTrigger(ai, "heroism"); };
+    creators["coa combat boss lust bloodlust"] = [](PlayerbotAI* ai) -> Trigger* { return new CoaBossLustTrigger(ai, "bloodlust"); };
 }
 
 CoaCombatActionContext::CoaCombatActionContext() : NamedObjectContext<Action>(false, true)
