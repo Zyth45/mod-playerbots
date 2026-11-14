@@ -6,11 +6,13 @@ int main()
 {
     using namespace CoaKeySpells;
 
-    // A long cooldown, active, not a profession, a mount or an item maker.
-    assert(Listed(false, 30000, false, false, false) && Listed(false, 600000, false, false, false));
-    assert(!Listed(false, 29999, false, false, false) && !Listed(true, 600000, false, false, false));
-    assert(!Listed(false, 600000, true, false, false) && !Listed(false, 600000, false, true, false) &&
-           !Listed(false, 600000, false, false, true));
+    // A long cooldown, active, not a profession, a mount, an item maker or a generic spell.
+    assert(Listed(false, 30000, false, false, false, false) && Listed(false, 600000, false, false, false, false));
+    assert(!Listed(false, 29999, false, false, false, false) && !Listed(true, 600000, false, false, false, false));
+    assert(!Listed(false, 600000, true, false, false, false) && !Listed(false, 600000, false, true, false, false) &&
+           !Listed(false, 600000, false, false, true, false));
+    // Stuck (10 min) and Summon Friend (60 min): skill line GENERIC, never on the bar.
+    assert(!Listed(false, 600000, false, false, false, true) && !Listed(false, 3600000, false, false, false, true));
 
     assert(Line(2825, 1500, 300000, true) == "KSPELL\tit\t2825\t1500\t300000\t1");
     assert(Line(29166, 0, 180000, false) == "KSPELL\tit\t29166\t0\t180000\t0");

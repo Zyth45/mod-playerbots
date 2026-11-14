@@ -23,10 +23,11 @@ constexpr uint32_t MIN_CD_MS = 30000;  // a key spell: a base cooldown of 30 s o
 constexpr uint32_t MAX_LINES = 40;
 
 // A spell of the list: learned and active, not passive, a base cooldown of MIN_CD_MS or more; never a profession
-// spell, a mount, or a spell that creates an item.
-inline bool Listed(bool passive, uint32_t cdTotalMs, bool profession, bool mount, bool createsItem)
+// spell, a mount, a spell that creates an item, or a generic spell every character has (skill line category
+// GENERIC: Stuck 7355, 10 min, and Summon Friend 45927, 60 min, are the ones with a long cooldown).
+inline bool Listed(bool passive, uint32_t cdTotalMs, bool profession, bool mount, bool createsItem, bool generic)
 {
-    return !passive && cdTotalMs >= MIN_CD_MS && !profession && !mount && !createsItem;
+    return !passive && cdTotalMs >= MIN_CD_MS && !profession && !mount && !createsItem && !generic;
 }
 
 inline std::string Line(uint32_t spellId, uint32_t cdLeftMs, uint32_t cdTotalMs, bool kept)

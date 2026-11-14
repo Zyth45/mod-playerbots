@@ -7,6 +7,7 @@
 #include "CoaKeySpells.h"
 
 #include <algorithm>
+#include <initializer_list>
 #include <vector>
 
 #include "CoaAltAddon.h"
@@ -22,13 +23,15 @@ namespace CoaKeySpells
 {
 namespace
 {
-bool ProfessionSpell(uint32 spellId)
+// A skill line of the spell is of one of these categories.
+bool InSkillCategory(uint32 spellId, std::initializer_list<uint32> categories)
 {
     SkillLineAbilityMapBounds const bounds = sSpellMgr->GetSkillLineAbilityMapBounds(spellId);
     for (auto it = bounds.first; it != bounds.second; ++it)
         if (SkillLineEntry const* skill = sSkillLineStore.LookupEntry(it->second->SkillLine))
-            if (skill->categoryId == SKILL_CATEGORY_PROFESSION || skill->categoryId == SKILL_CATEGORY_SECONDARY)
-                return true;
+            for (uint32 category : categories)
+                if (skill->categoryId == category)
+                    return true;
     return false;
 }
 
@@ -64,7 +67,9 @@ void List(PlayerbotAI* botAI)
                 createsItem = true;
         }
         uint32 const cdTotal = std::max(info->RecoveryTime, info->CategoryRecoveryTime);
-        if (Listed(info->IsPassive(), cdTotal, ProfessionSpell(spellId), mount, createsItem))
+        if (Listed(info->IsPassive(), cdTotal,
+                   InSkillCategory(spellId, {SKILL_CATEGORY_PROFESSION, SKILL_CATEGORY_SECONDARY}), mount, createsItem,
+                   InSkillCategory(spellId, {SKILL_CATEGORY_GENERIC})))
             ids.push_back(spellId);
     }
     std::sort(ids.begin(), ids.end());
