@@ -30,6 +30,7 @@
  * Config: AiPlayerbot.CoaWorld.Recovery.*, off by default.
  */
 
+#include "CoaWorldRecoveryRules.h"
 #include "CityDuels.h"
 #include "CoaWorldBots.h"
 #include "CoaWorldState.h"
@@ -83,6 +84,8 @@ namespace
         uint32 deathsWindowMinutes = 15;
         bool hearth = true;
         uint32 quarantineMinutes = 30;
+        uint32 sharedQuarantineMinutes = 240;  // a quest several bots die on, set aside for every bot
+        uint32 sharedBots = 2;
         uint32 noProgressSeconds = 30;
         uint32 outOfRangeMinutes = 5;
         uint32 outOfRangeLevels = 8;
@@ -134,6 +137,8 @@ namespace
     std::mutex g_quarantineLock;
     std::unordered_map<uint64, time_t> g_quarantine;
     std::atomic<bool> g_anyQuarantine{false};
+    std::unordered_map<uint32, time_t> g_shared;                           // quest -> until, for every bot
+    std::unordered_map<uint32, CoaWorldRecoveryRules::Strikes> g_strikes;  // quest -> its death loops
 
     uint64 QuarantineKey(uint32 bot, uint32 quest) { return (uint64(bot) << 32) | quest; }
 
@@ -151,6 +156,32 @@ namespace
             itr = itr->second <= now ? g_quarantine.erase(itr) : std::next(itr);
         g_quarantine[QuarantineKey(bot->GetGUID().GetCounter(), data->questId)] = now + settings.quarantineMinutes * MINUTE;
         g_anyQuarantine.store(true, std::memory_order_relaxed);
+    }
+
+    // A bot died over and over on its quest: the quest is left aside for it, and for every bot for
+    // sharedQuarantineMinutes once sharedBots bots did within the hour (seen: Darkcloud Pinnacle, the Grimtotem camp,
+    // bots following each other into death).
+    void DeathLoop(Player* bot, PlayerbotAI* botAI)
+    {
+        Quarantine(bot, botAI);
+        auto const* data = std::get_if<NewRpgInfo::DoQuest>(&botAI->rpgInfo.data);
+        if (!data || !data->questId || !settings.sharedQuarantineMinutes)
+            return;
+        uint32 const questId = data->questId;
+        time_t const now = time(nullptr);
+        {
+            std::lock_guard<std::mutex> lock(g_quarantineLock);
+            for (auto itr = g_shared.begin(); itr != g_shared.end();)
+                itr = itr->second <= now ? g_shared.erase(itr) : std::next(itr);
+            uint32 const lowGuid = bot->GetGUID().GetCounter();
+            if (!CoaWorldRecoveryRules::Strike(g_strikes[questId], lowGuid, now, settings.sharedBots))
+                return;
+            g_strikes.erase(questId);
+            g_shared[questId] = now + time_t(settings.sharedQuarantineMinutes) * MINUTE;
+            g_anyQuarantine.store(true, std::memory_order_relaxed);
+        }
+        CoaWorld::LogEvent("stuck", bot->GetName(),
+                           Acore::StringFormat("quest {} set aside for every bot: several die on it", questId));
     }
 
     // RPG states in which a bot is meant to be going somewhere.
@@ -262,6 +293,7 @@ namespace
                     track.deaths.clear();
                     ++_counters.deaths;
                     CoaWorldState::Recovery(bot->GetGUID().GetCounter(), false), CoaWorld::LogEvent("stuck", bot->GetName(), "dying over and over");
+                    DeathLoop(bot, botAI);
                     track.wasDead = dead;
                     // Back home once it is up again.
                     track.lastRecovery = now - RELAPSE_SECONDS / 2;
@@ -484,6 +516,10 @@ namespace
         settings.deathsWindowMinutes = std::clamp<uint32>(sConfigMgr->GetOption<uint32>(key("DeathsWindowMinutes"), 15, false), 1, 120);
         settings.hearth = sConfigMgr->GetOption<bool>(key("Hearth"), true, false);
         settings.quarantineMinutes = std::min<uint32>(1440, sConfigMgr->GetOption<uint32>(key("QuarantineMinutes"), 30, false));
+        settings.sharedQuarantineMinutes =
+            std::min<uint32>(2880, sConfigMgr->GetOption<uint32>(key("SharedQuarantineMinutes"), 240, false));
+        settings.sharedBots =
+            std::clamp<uint32>(sConfigMgr->GetOption<uint32>(key("SharedQuarantineBots"), 2, false), 2, 20);
         uint32 noProgress = sConfigMgr->GetOption<uint32>(key("NoProgressSeconds"), 120, false);
         settings.noProgressSeconds = noProgress ? std::clamp<uint32>(noProgress, 30, 1800) : 0;
         settings.outOfRangeMinutes = std::min<uint32>(120, sConfigMgr->GetOption<uint32>(key("OutOfRangeMinutes"), 5, false));
@@ -496,8 +532,11 @@ bool CoaWorldQuestQuarantined(uint32 botLowGuid, uint32 questId)
     if (!g_anyQuarantine.load(std::memory_order_relaxed))
         return false;
     std::lock_guard<std::mutex> lock(g_quarantineLock);
+    time_t const now = time(nullptr);
+    if (auto shared = g_shared.find(questId); shared != g_shared.end() && shared->second > now)
+        return true;
     auto itr = g_quarantine.find(QuarantineKey(botLowGuid, questId));
-    return itr != g_quarantine.end() && itr->second > time(nullptr);
+    return itr != g_quarantine.end() && itr->second > now;
 }
 
 class CoaWorldRecoveryWorldScript : public WorldScript

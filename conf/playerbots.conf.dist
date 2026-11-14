@@ -2911,6 +2911,17 @@ AiPlayerbot.CoaWorld.Recovery.Hearth = 1
 
 AiPlayerbot.CoaWorld.Recovery.QuarantineMinutes = 30
 
+#    AiPlayerbot.CoaWorld.Recovery.SharedQuarantineMinutes
+#    AiPlayerbot.CoaWorld.Recovery.SharedQuarantineBots
+#        Description: When SharedQuarantineBots different bots die over and over on the same quest within an hour
+#                     (DeathsLimit deaths in DeathsWindowMinutes, one spot), the quest is set aside for every bot for
+#                     SharedQuarantineMinutes, not only for those bots (seen: Darkcloud Pinnacle, the Grimtotem camp).
+#                     0 minutes: off.
+#        Default:     240 minutes (at most 2880), 2 bots (2 to 20)
+
+AiPlayerbot.CoaWorld.Recovery.SharedQuarantineMinutes = 240
+AiPlayerbot.CoaWorld.Recovery.SharedQuarantineBots = 2
+
 #    AiPlayerbot.CoaWorld.Recovery.NoProgressSeconds
 #        Description: Seconds a travelling bot may walk without getting nearer its destination before it picks
 #                     another (back and forth; 30 to 1800, 0 never). Nothing while Recovery.Enable is 0.
