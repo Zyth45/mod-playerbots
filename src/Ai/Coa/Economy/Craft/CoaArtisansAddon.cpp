@@ -300,16 +300,7 @@ namespace
         uint32 const quoteId = nextQuoteId++;
         quotes[quoteId] = {player->GetGUID().GetCounter(), bot->GetGUID(), name, itemId, qty, uint32(price), now};
         answer(uint32(price), "ok", quoteId);
-
-        // The artisan also says it, as a player would (CoA Live's bank and pace; nothing when its chat is off). The
-        // addon's card stays the way to order.
-        std::unordered_map<std::string, std::string> slots;
-        if (ItemTemplate const* product = sObjectMgr->GetItemTemplate(recipe.itemId))
-            slots["item"] = ChatHelper::FormatItem(product);
-        slots["qty"] = std::to_string(qty);
-        slots["price"] = ChatHelper::formatMoney(uint32(price));
-        slots["profession"] = Artisans::ProfessionLink(bot, recipe.skillId);
-        CoaLive::SayLine(bot, "craft_quote_addon", slots, player->GetGUID());
+        // No whisper of the quote (CoaEconomyRules::QuoteWhispered): the addon's card shows it.
     }
 
     std::string OrderLine(OrderRec const& order)

@@ -171,7 +171,7 @@ namespace
         slots["price"] = ChatHelper::formatMoney(price);
         slots["qty"] = "1";
         slots["profession"] = Artisans::ProfessionLink(bot, recipe.skillId);
-        if (!CoaLive::SayLine(bot, "craft_quote_addon", slots, from->GetGUID()))
+        if (!CoaEconomyRules::QuoteWhispered(false) || !CoaLive::SayLine(bot, "craft_quote_addon", slots, from->GetGUID()))
             return false;
         pendingQuotes[bot->GetGUID().GetCounter()] = PendingQuote{from->GetGUID(), itemId, price, now + QuoteSeconds};
         return true;

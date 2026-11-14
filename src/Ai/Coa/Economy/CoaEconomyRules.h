@@ -352,6 +352,14 @@ std::uint32_t HouseSellerCount(Owners const& owners, Sellers const& sellers)
     return count;
 }
 
+// An artisan's quote is whispered (craft_quote_addon) when a player asked it by whisper ("can you make X?": the
+// whisper is the quote, and the deal waits on it); never when the addon asked, whose card shows the price: every item
+// clicked in its list asked a quote, and their whispers came late, one for an item never ordered.
+inline bool QuoteWhispered(bool fromAddon)
+{
+    return !fromAddon;
+}
+
 // A line paced by a gap (seconds): allowed when never said yet, or when the gap since the last one is over. Used for
 // ah_sold (one per server per AhSold.MinutesBetween) and trade_window (one per player per TradeWindow.MinutesPerPlayer).
 inline bool PaceAllows(std::uint32_t lastS, std::uint32_t nowS, std::uint32_t gapS)
