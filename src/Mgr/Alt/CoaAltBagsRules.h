@@ -235,6 +235,35 @@ inline bool IsProfessionItem(uint32_t itemClass, uint32_t subClass, uint32_t tot
            (itemClass == WEAPON && subClass == FISHING_POLE) || totemCategory != 0;
 }
 
+// "alt bagcheck": why an item the player picked may not be sold or destroyed ("ok": it may), whatever its quality.
+// The same rules as the lists (Eligible), in this order.
+inline char const* Refusal(Candidate const& c, bool forSale)
+{
+    if (c.quest)
+        return "quest";
+    if (c.tool)
+        return "tool";
+    if (c.upgrade)
+        return "wear";
+    if (c.useSpell)
+        return "use";
+    if (c.kept)
+        return "kept";
+    if (c.outfit)
+        return "outfit";
+    if (c.container)
+        return "container";
+    if (c.ammo)
+        return "ammo";
+    if (forSale && c.conjured)
+        return "conjured";
+    if (forSale && c.noPrice)
+        return "noprice";
+    return "ok";
+}
+
+constexpr size_t BAGCHECK_MAX = 40;
+
 inline bool Eligible(Candidate const& c, uint32_t maxQuality, bool forSale)
 {
     if (maxQuality > MAX_QUALITY || c.quality > maxQuality)

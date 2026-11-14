@@ -5,6 +5,7 @@
  */
 
 #include "DestroyItemAction.h"
+#include "CoaAltBagsRules.h"
 #include "Event.h"
 #include "ItemCountValue.h"
 #include "Playerbots.h"
@@ -50,6 +51,13 @@ void DestroyItemAction::DestroyItem(FindItemVisitor* visitor)
     std::vector<Item*> items = visitor->GetResult();
     for (Item* item : items)
     {
+        // An alt keeps its profession tools (fishing pole, pick, knife...), whatever asks for them to go.
+        ItemTemplate const* proto = item->GetTemplate();
+        if (botAI->IsAltBot() && CoaAltBags::IsProfessionItem(proto->Class, proto->SubClass, proto->TotemCategory))
+        {
+            botAI->TellMaster(chat->FormatItem(proto) + " is a profession tool: I keep it");
+            continue;
+        }
         std::ostringstream out;
         out << chat->FormatItem(item->GetTemplate()) << " destroyed";
         botAI->TellMaster(out);

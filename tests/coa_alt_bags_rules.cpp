@@ -92,5 +92,33 @@ int main()
     std::vector<size_t> const herb = AssignSlots(2, 2, [](size_t i, size_t s) { return s == 1 || i == 1; });
     assert(herb.size() == 2 && herb[0] == 1 && herb[1] == 0);
     assert(AssignSlots(0, 0, [](size_t, size_t) { return true; }).empty());
+
+    // bagcheck: why a picked item may not go; conjured and no price only stop a sale; any quality.
+    Candidate plain;
+    plain.quality = 4;
+    assert(std::string(Refusal(plain, true)) == "ok" && std::string(Refusal(plain, false)) == "ok");
+    Candidate tool = plain;
+    tool.tool = true;
+    tool.noPrice = true;
+    assert(std::string(Refusal(tool, false)) == "tool" && std::string(Refusal(tool, true)) == "tool");
+    Candidate quest = plain;
+    quest.quest = true;
+    quest.tool = true;
+    assert(std::string(Refusal(quest, false)) == "quest");
+    Candidate wear = plain;
+    wear.upgrade = true;
+    assert(std::string(Refusal(wear, false)) == "wear");
+    Candidate cheap = plain;
+    cheap.noPrice = true;
+    assert(std::string(Refusal(cheap, true)) == "noprice" && std::string(Refusal(cheap, false)) == "ok");
+    Candidate conj = plain;
+    conj.conjured = true;
+    assert(std::string(Refusal(conj, true)) == "conjured" && std::string(Refusal(conj, false)) == "ok");
+    for (auto field : {&Candidate::useSpell, &Candidate::kept, &Candidate::outfit, &Candidate::container, &Candidate::ammo})
+    {
+        Candidate c = plain;
+        c.*field = true;
+        assert(std::string(Refusal(c, false)) != "ok");
+    }
     return 0;
 }

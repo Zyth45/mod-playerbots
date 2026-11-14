@@ -5,6 +5,7 @@
  */
 
 #include "SellAction.h"
+#include "CoaAltBagsRules.h"
 #include "CoaEnchanter.h"
 #include "CoaMissionMgr.h"
 #include "ChatHelper.h"
@@ -211,6 +212,11 @@ void SellAction::Sell(FindItemVisitor* visitor)
 void SellAction::Sell(Item* item)
 {
     std::ostringstream out;
+
+    // An alt keeps its profession tools (fishing pole, pick, knife...), whatever asks for them to go.
+    if (ItemTemplate const* proto = item->GetTemplate(); botAI->IsAltBot() &&
+        CoaAltBags::IsProfessionItem(proto->Class, proto->SubClass, proto->TotemCategory))
+        return;
 
     GuidVector vendors = botAI->GetAiObjectContext()->GetValue<GuidVector>("nearest npcs")->Get();
 
