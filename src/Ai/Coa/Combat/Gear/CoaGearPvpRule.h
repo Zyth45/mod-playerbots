@@ -70,6 +70,59 @@ namespace CoaGearPvpRule
         return false;
     }
 
+    // A gossip option: OptionType 3 opens the vendor list ActionMenuID (the creature's own list when 0), OptionType 1
+    // opens the menu ActionMenuID.
+    struct GossipOption
+    {
+        uint32_t menu = 0;
+        uint32_t type = 0;
+        uint32_t actionMenu = 0;
+    };
+
+    // The vendor lists a player can open: a spawned creature's own list, the lists its gossip menus open (through
+    // sub-menus too), and the lists those lists reference (npc_vendor rows with a negative item).
+    // `creatureMenus`: (creature entry, gossip_menu_id). `references`: (vendor list, referenced list).
+    inline std::unordered_set<uint32_t> ReachableVendorLists(
+        std::unordered_set<uint32_t> const& spawnedCreatures,
+        std::vector<std::pair<uint32_t, uint32_t>> const& creatureMenus, std::vector<GossipOption> const& options,
+        std::vector<std::pair<uint32_t, uint32_t>> const& references)
+    {
+        std::unordered_set<uint32_t> lists = spawnedCreatures;
+        std::unordered_set<uint32_t> menus;
+        std::vector<uint32_t> pending;
+        for (auto const& [entry, menu] : creatureMenus)
+            if (menu && spawnedCreatures.count(entry) && menus.insert(menu).second)
+                pending.push_back(menu);
+        std::unordered_map<uint32_t, std::vector<GossipOption const*>> byMenu;
+        for (GossipOption const& option : options)
+            byMenu[option.menu].push_back(&option);
+        while (!pending.empty())
+        {
+            uint32_t const menu = pending.back();
+            pending.pop_back();
+            auto it = byMenu.find(menu);
+            if (it == byMenu.end())
+                continue;
+            for (GossipOption const* option : it->second)
+            {
+                if (!option->actionMenu)
+                    continue;
+                if (option->type == 3)
+                    lists.insert(option->actionMenu);
+                else if (option->type == 1 && menus.insert(option->actionMenu).second)
+                    pending.push_back(option->actionMenu);
+            }
+        }
+        for (bool changed = true; changed;)
+        {
+            changed = false;
+            for (auto const& [from, to] : references)
+                if (lists.count(from) && lists.insert(to).second)
+                    changed = true;
+        }
+        return lists;
+    }
+
     // The id offsets CoA gives its variants (6000000 for most, then 6300000, 3000000, 200000...).
     inline std::vector<uint32_t> BaseIdCandidates(uint32_t id)
     {
@@ -80,7 +133,7 @@ namespace CoaGearPvpRule
         return out;
     }
 
-    // `sources`: every item a vendor, quest, loot table, cache, reward table or catalogue gives (the Manastorm demon's
+    // `sources`: every item a reachable vendor list (ReachableVendorLists), quest, loot table, cache, reward table or catalogue gives (the Manastorm demon's
     // random pool excluded). `derived`: (from, to) pairs, `to` obtainable when `from` is (heroic and mythic
     // dungeon drops, Worldforged upgrades). Returns the PvP pieces nobody can get.
     inline std::unordered_set<uint32_t> Unobtainable(std::vector<Item> const& items, std::unordered_set<uint32_t> sources,

@@ -41,5 +41,34 @@ int main()
     assert(!out.count(6318084) && !out.count(11063));
     assert(!out.count(1550720) && !out.count(500));
     assert(out.size() == 3);
+
+    // Vendor lists a player can open. 49053 is spawned, its gossip menu 9949053 opens the list 9490533 (weapons sold
+    // for honor) and a sub-menu 9949054 that opens 9490536; 9490536 references 9490537. 12794 sells the same weapons
+    // but has no spawn; 500 is spawned with its own list; 600 is spawned but its menu only opens a sub-menu nobody
+    // lists.
+    std::unordered_set<uint32_t> const spawned = {49053, 500, 600};
+    std::vector<std::pair<uint32_t, uint32_t>> const creatureMenus = {
+        {49053, 9949053}, {12794, 9949099}, {600, 7000}};
+    std::vector<GossipOption> const options = {
+        {9949053, 3, 9490533}, {9949053, 1, 9949054}, {9949054, 3, 9490536},
+        {9949099, 3, 9490599},  // the menu of a creature with no spawn
+        {7000, 1, 7001}, {9949053, 3, 0}};
+    std::vector<std::pair<uint32_t, uint32_t>> const references = {{9490536, 9490537}, {9490599, 9490598}};
+    std::unordered_set<uint32_t> const lists = ReachableVendorLists(spawned, creatureMenus, options, references);
+    assert(lists.count(9490533) && lists.count(9490536) && lists.count(9490537));
+    assert(lists.count(500) && lists.count(49053));
+    assert(!lists.count(12794) && !lists.count(9490599) && !lists.count(9490598));
+    assert(!lists.count(9949054) && !lists.count(7001) && !lists.count(0));
+
+    // High Warlord's weapons: the ilvl 90 piece is sold by a reachable list, its ilvl 78 copy of the same name follows
+    // it. A Grand Marshal's piece only an unspawned vendor sells stays out.
+    std::vector<Item> const weapons = {
+        {23464, "High Warlord's Battle Mace", 21, true},
+        {23459, "High Warlord's Battle Mace", 21, true},
+        {16441, "Grand Marshal's Claymore", 17, true},
+    };
+    std::unordered_set<uint32_t> const sold = {23464};  // in 9490533; 16441 only in 12794's list
+    std::unordered_set<uint32_t> const gone = Unobtainable(weapons, sold, {});
+    assert(!gone.count(23464) && !gone.count(23459) && gone.count(16441));
     return 0;
 }

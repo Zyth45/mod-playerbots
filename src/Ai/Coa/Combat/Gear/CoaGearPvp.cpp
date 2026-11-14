@@ -32,8 +32,8 @@ namespace
         char const* where;
     };
 
+    // npc_vendor is not listed here: only the lists a player can open count (VendorItems).
     SourceColumn const SOURCES[] = {
-        {"npc_vendor", "item", ""},
         {"game_event_npc_vendor", "item", ""},
         {"creature_loot_template", "Item", "Reference = 0"},
         {"gameobject_loot_template", "Item", "Reference = 0"},
@@ -92,10 +92,70 @@ namespace
                    table) != nullptr;
     }
 
+    bool ColumnExists(char const* table, char const* column)
+    {
+        return WorldDatabase.Query("SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND "
+                                   "table_name = '{}' AND column_name = '{}'",
+                                   table, column) != nullptr;
+    }
+
+    // The items of every vendor list a player can open: a spawned vendor's own list, a list a spawned creature's
+    // gossip opens, and the lists those reference. A vendor with no spawn sells nothing.
+    void VendorItems(std::unordered_set<uint32_t>& sources)
+    {
+        std::unordered_set<uint32_t> spawned;
+        for (char const* column : {"id", "id1", "id2", "id3"})
+        {
+            if (!ColumnExists("creature", column))
+                continue;
+            if (QueryResult result = WorldDatabase.Query("SELECT DISTINCT `{}` FROM creature", column))
+                do
+                    spawned.insert(result->Fetch()[0].Get<uint32>());
+                while (result->NextRow());
+        }
+
+        std::vector<std::pair<uint32_t, uint32_t>> creatureMenus;
+        if (QueryResult result =
+                WorldDatabase.Query("SELECT entry, gossip_menu_id FROM creature_template WHERE gossip_menu_id <> 0"))
+            do
+                creatureMenus.emplace_back(result->Fetch()[0].Get<uint32>(), result->Fetch()[1].Get<uint32>());
+            while (result->NextRow());
+
+        std::vector<CoaGearPvpRule::GossipOption> options;
+        if (QueryResult result = WorldDatabase.Query(
+                "SELECT MenuID, OptionType, ActionMenuID FROM gossip_menu_option WHERE ActionMenuID <> 0"))
+            do
+            {
+                Field* fields = result->Fetch();
+                options.push_back({fields[0].Get<uint32>(), fields[1].Get<uint32>(), fields[2].Get<uint32>()});
+            } while (result->NextRow());
+
+        std::vector<std::pair<uint32_t, uint32_t>> references;
+        std::vector<std::pair<uint32_t, uint32_t>> rows;
+        if (QueryResult result = WorldDatabase.Query("SELECT entry, item FROM npc_vendor"))
+            do
+            {
+                Field* fields = result->Fetch();
+                uint32 const entry = fields[0].Get<uint32>();
+                int32 const item = fields[1].Get<int32>();
+                if (item < 0)
+                    references.emplace_back(entry, uint32(-item));
+                else if (item > 0)
+                    rows.emplace_back(entry, uint32(item));
+            } while (result->NextRow());
+
+        std::unordered_set<uint32_t> const lists =
+            CoaGearPvpRule::ReachableVendorLists(spawned, creatureMenus, options, references);
+        for (auto const& [entry, item] : rows)
+            if (lists.count(entry))
+                sources.insert(item);
+    }
+
     std::unordered_set<uint32> Compute()
     {
         uint32 const startMs = getMSTime();
         std::unordered_set<uint32_t> sources;
+        VendorItems(sources);
         uint32 missingTables = 0;
         for (SourceColumn const& s : SOURCES)
         {
