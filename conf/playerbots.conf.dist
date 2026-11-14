@@ -4015,6 +4015,26 @@ AiPlayerbot.CoaLive.LootNeedAsk.MinUpgradePct = 10
 AiPlayerbot.CoaLive.LootNeedAsk.TestPlayer = ""
 AiPlayerbot.CoaLive.LootNeedAsk.TestAnswer = none
 
+#    AiPlayerbot.CoaLive.HealRequest.Enable
+#        Description: A real player asks for a heal in party or raid chat ("heal me", "heal plz", "need heal",
+#                     "soigne-moi", "besoin de soin"), or whispers it to a bot: a healer bot of its group, in range and
+#                     line of sight, not casting nor moving, casts a heal on it at once (a fast direct heal first).
+#                     One heal per player in 15 seconds, none at full health. No chat line.
+#        Default:     1 - on
+#                     0 - off
+
+AiPlayerbot.CoaLive.HealRequest.Enable = 1
+
+#    AiPlayerbot.CoaKeySpells.Enable
+#        Description: The SquidBots addon's key spells bar, for any bot of the player's group: the bot's spells with
+#                     a cooldown of 30 seconds or more and their cooldown left ("keyspells"), and the spells whose
+#                     cooldown the player keeps ("keepcd"): the bot never casts them by itself, only on the player's
+#                     "cast" whisper, until it logs out. Off: the addon is told so.
+#        Default:     1 - on
+#                     0 - off
+
+AiPlayerbot.CoaKeySpells.Enable = 1
+
 #    AiPlayerbot.CoaCursedFormUpkeep
 #        Description: A Bloodmage Eternal tank (specialization 99) keeps its Cursed Form, Eternal Curse: more
 #                     Stamina and armor while it tanks. Put on again after a death or a mount.

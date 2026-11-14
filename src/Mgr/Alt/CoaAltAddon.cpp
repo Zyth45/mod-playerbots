@@ -376,6 +376,13 @@ bool OnAddonWhisper(Player* from, Player* receiver, std::string const& msg)
         botAI->HandleCommand(CHAT_MSG_WHISPER, command, from);
         return true;
     }
+    // The key spells bar too (contract of 14/11).
+    if (command == "keyspells" || command.rfind("keyspells ", 0) == 0 || command.rfind("keepcd ", 0) == 0)
+    {
+        MarkSeen(from);
+        CoaAltBags::Enqueue(botAI, command);
+        return true;
+    }
     if (!botAI->IsAltBot())
     {
         // A player with no alt (a raid of random bots) announces the addon to any bot of the group.

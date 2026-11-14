@@ -5,6 +5,7 @@
  */
 
 #include "PlayerbotAI.h"
+#include "CoaKeySpells.h"
 
 #include "CoaLive.h"
 #include "CoaChatRules.h"
@@ -4070,6 +4071,10 @@ bool PlayerbotAI::CanCastSpell(uint32 spellid, Unit* target, bool checkHasSpell,
     // cooldown and could then be repeated without end.
     if (uint32 const replacement = bot->GetTemporarySpellReplacement(spellid); replacement && replacement != spellid)
         spellid = replacement;
+
+    // CoA: a spell whose cooldown the player keeps (addon key spells bar) is cast on a "cast" whisper only.
+    if (!coaCastOrdered && CoaKeySpells::Kept(this, spellid))
+        return false;
 
     if (bot->HasUnitState(UNIT_STATE_LOST_CONTROL))
     {

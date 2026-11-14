@@ -449,6 +449,10 @@ public:
     // The addon's "alt cmp|bags|sell|destroy" requests, answered in order on the bot's update (CoaAltBags::Drain).
     std::mutex coaAltBagsLock;
     std::vector<std::string> coaAltBagsQueue;
+    // The addon's key spells bar (CoaKeySpells): the first ranks of the spells the player keeps (the AI never
+    // casts them by itself), and true while a "cast" whisper of the player casts. The bot's own update only.
+    std::set<uint32> coaKeptSpells;
+    bool coaCastOrdered = false;
     // Last time the bot was seen in a battleground, an arena or their queue (RandomPlayerbotMgr::CoaUpdateGear).
     uint32 coaGearPvpSeenAt = 0;
     static bool IsHeal(Player* player, bool bySpec = false);

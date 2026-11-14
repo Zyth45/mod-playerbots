@@ -32,6 +32,13 @@ static inline void ltrim(std::string& s)
 
 bool CastCustomSpellAction::Execute(Event event)
 {
+    // CoA: the player's order casts a spell it keeps (addon key spells bar), for this action only.
+    struct CastOrdered
+    {
+        PlayerbotAI* ai;
+        explicit CastOrdered(PlayerbotAI* a) : ai(a) { ai->coaCastOrdered = true; }
+        ~CastOrdered() { ai->coaCastOrdered = false; }
+    } const castOrdered(botAI);
     // only allow proper vehicle seats
     if (botAI->IsInVehicle() && !botAI->IsInVehicle(false, false, true))
         return false;
