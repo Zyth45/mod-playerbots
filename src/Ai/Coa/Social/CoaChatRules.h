@@ -29,6 +29,13 @@ inline Parts PartsOf(bool chatOn)
 // off before a feature came keeps the silence he chose.
 inline bool ChatFeatureOn(bool liveOn, bool chatOn, bool featureOn) { return liveOn && chatOn && featureOn; }
 
+// A goodbye at logout is said only by a bot still whole: in the world and not yet logging out. Once the core has
+// begun its logout (OnPlayerLogout and after), its social list is freed and a guild line would read it.
+inline bool GoodbyeNow(bool inWorld, bool sessionLoggingOut, bool playerLoggingOut)
+{
+    return inWorld && !sessionLoggingOut && !playerLoggingOut;
+}
+
 // The Trade pace only picks speakers for lines: off, it has nothing to do.
 inline bool TradePaceRuns(bool chatOn, unsigned perMinute) { return chatOn && perMinute; }
 

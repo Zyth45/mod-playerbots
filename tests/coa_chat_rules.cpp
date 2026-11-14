@@ -27,5 +27,9 @@ int main()
     assert(!CoaChat::LegacySellAllowed(true, true, true) && !CoaChat::LegacySellAllowed(true, true, false));
     assert(CoaChat::LegacySellAllowed(false, true, false) && CoaChat::LegacySellAllowed(false, true, true));
     assert(!CoaChat::LegacySellAllowed(false, false, true) && !CoaChat::LegacySellAllowed(true, false, true));
+    // The goodbye at logout: only before the core's logout begins (crash 14/11, a freed social list).
+    assert(CoaChat::GoodbyeNow(true, false, false));
+    assert(!CoaChat::GoodbyeNow(false, false, false) && !CoaChat::GoodbyeNow(true, true, false) &&
+           !CoaChat::GoodbyeNow(true, false, true));
     return 0;
 }

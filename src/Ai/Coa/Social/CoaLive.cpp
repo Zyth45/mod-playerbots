@@ -2540,25 +2540,19 @@ public:
         }
     }
 
-    // World thread, the bot still in the world: its goodbye is said at once, it will not be there later.
+    // Nothing is said from here: the core has already freed the player's social list (RemovePlayerSocial comes
+    // before OnPlayerLogout), and a guild line read it for every member, the one leaving too (a server crash,
+    // 14/11). The goodbye is said before the logout, by CoaLive::BeforeBotLogout.
     void OnPlayerLogout(Player* player) override
     {
-        if (player)
+        if (!player)
+            return;
         {
             std::lock_guard<std::mutex> guard(liveLock);
             fishingUntil.erase(player->GetGUID().GetRawValue());  // a bot gone is no longer at the water
         }
-        if (player)
-            tradeJoined.erase(player->GetGUID().GetRawValue());
-            worldJoined.erase(player->GetGUID().GetRawValue());  // its channels are left with it: join again next time
-        if (!Enabled() || !player || !player->GetGuildId() || !IsRandom(player) ||
-            !RealOnlineInGuild(player->GetGuildId(), nullptr))
-            return;
-        ReactOptions opt;
-        opt.now = true;
-        ObjectGuid const guid = player->GetGUID();
-        if (React(player, "guild_logout", nullptr, "g" + std::to_string(player->GetGuildId()), opt))
-            Play([guid](Pending const& p) { return p.bot == guid && p.dueMs == 0; });
+        tradeJoined.erase(player->GetGUID().GetRawValue());
+        worldJoined.erase(player->GetGUID().GetRawValue());  // its channels are left with it: join again next time
     }
 
     // A guild member loots a rare item or better.
@@ -3075,6 +3069,20 @@ void OnBotUpdate(Player* bot, PlayerbotAI* botAI, uint32 diff)
 }
 
 bool ChatOn() { return sPlayerbotAIConfig.coaLiveChatEnable; }
+
+void BeforeBotLogout(Player* bot)
+{
+    if (!bot || !bot->GetSession() ||
+        !CoaChat::GoodbyeNow(bot->IsInWorld(), bot->GetSession()->isLogingOut(), bot->GetSession()->PlayerLogout()))
+        return;
+    if (!Enabled() || !bot->GetGuildId() || !IsRandom(bot) || !RealOnlineInGuild(bot->GetGuildId(), nullptr))
+        return;
+    ReactOptions opt;
+    opt.now = true;
+    ObjectGuid const guid = bot->GetGUID();
+    if (React(bot, "guild_logout", nullptr, "g" + std::to_string(bot->GetGuildId()), opt))
+        Play([guid](Pending const& p) { return p.bot == guid && p.dueMs == 0; });
+}
 
 bool LegacyChatOn()
 {

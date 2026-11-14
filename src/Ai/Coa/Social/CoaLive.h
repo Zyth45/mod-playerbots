@@ -82,6 +82,9 @@ bool IsGathering(Player* bot);
 // the slots ("city" fills %city), and says it on the line's channel after a human typing delay. False when the rule
 // or the chance says no, or the bank has nothing to say. Any thread; played by the world thread.
 bool SayLine(Player* bot, std::string const& situation, std::unordered_map<std::string, std::string> const& slots);
+// BeforeBotLogout: a random bot's goodbye to its guild, said while it is still whole, just before its logout
+// (PlayerbotHolder::LogoutPlayerBot). World thread. Never from OnPlayerLogout: its social list is freed by then.
+void BeforeBotLogout(Player* bot);
 // SystemLine: a line of the situation in the reader's language (English when it has none), filled with the slots
 // only, for a system announce: no pace, no typo, no slang. Empty when there is none or a slot is missing.
 std::string SystemLine(Player* reader, std::string const& situation,

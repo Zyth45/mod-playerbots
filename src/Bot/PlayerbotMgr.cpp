@@ -27,6 +27,7 @@
 #include "PlayerbotOperations.h"
 #include "PlayerbotRepository.h"
 #include "CoaMissionMgr.h"
+#include "CoaLive.h"
 #include "PlayerbotSecurity.h"
 #include "PlayerbotTextMgr.h"
 #include "PlayerbotWorldThreadProcessor.h"
@@ -502,6 +503,7 @@ void PlayerbotHolder::LogoutPlayerBot(ObjectGuid guid)
             std::string message = PlayerbotTextMgr::instance().GetBotTextOrDefault(
                 "goodbye", "Goodbye!", {});
             botAI->TellMaster(message);
+            CoaLive::BeforeBotLogout(bot);              // CoA Live: its goodbye to its guild, while it is whole
             RemoveFromPlayerbotsMap(guid);              // deletes bot player ptr inside this WorldSession PlayerBotMap
             botWorldSessionPtr->LogoutPlayer(true);     // this will delete the bot Player object and PlayerbotAI object
             delete botWorldSessionPtr;                  // finally delete the bot's WorldSession
