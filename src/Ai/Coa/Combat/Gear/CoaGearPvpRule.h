@@ -16,7 +16,7 @@
 #include <utility>
 #include <vector>
 
-// Which PvP pieces a player can get, from the world data alone (docs/ETUDE-EQUIPEMENT-PVP.md). Pure, so
+// Which PvP pieces a player can get, from the world data alone. Pure, so
 // tests/coa_combat_gear_pvp.cpp reads it as is; CoaGearPvp.cpp feeds it the item templates and the source tables.
 namespace CoaGearPvpRule
 {
@@ -49,7 +49,7 @@ namespace CoaGearPvpRule
         return name;
     }
 
-    // Pieces given by a script, found in no table, kept on purpose (user, 14/11). By name, so their variants follow.
+    // Pieces given by a script, found in no table, kept on purpose. By name, so their variants follow.
     inline bool IsWhitelisted(std::string const& name)
     {
         // Prefixes: Battlemaster's (11061, 11063 and their variants), Adversary's amulets (1500533-1500536), the
@@ -81,7 +81,7 @@ namespace CoaGearPvpRule
     }
 
     // `sources`: every item a vendor, quest, loot table, cache, reward table or catalogue gives (the Manastorm demon's
-    // random pool excluded, user 14/11). `derived`: (from, to) pairs, `to` obtainable when `from` is (heroic and mythic
+    // random pool excluded). `derived`: (from, to) pairs, `to` obtainable when `from` is (heroic and mythic
     // dungeon drops, Worldforged upgrades). Returns the PvP pieces nobody can get.
     inline std::unordered_set<uint32_t> Unobtainable(std::vector<Item> const& items, std::unordered_set<uint32_t> sources,
                                                      std::vector<std::pair<uint32_t, uint32_t>> const& derived)
@@ -127,7 +127,7 @@ namespace CoaGearPvpRule
         {
             if (!item.pvp || sources.count(item.id) || IsWhitelisted(item.name))
                 continue;
-            // A variant follows its base, whatever its quality (user, 14/11).
+            // A variant follows its base, whatever its quality.
             bool obtainable = false;
             std::unordered_set<uint32_t> seen{item.id};
             for (uint32_t base = baseOf(item); base && seen.insert(base).second;)

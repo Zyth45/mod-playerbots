@@ -22,9 +22,9 @@
 
 namespace
 {
-    // Every table that gives a player an item, with its item column (docs/ETUDE-EQUIPEMENT-PVP.md). The Manastorm
+    // Every table that gives a player an item, with its item column. The Manastorm
     // demon's random pool (manastorm_greedy_demon_loot_pool) is left out on purpose: it holds nearly every item,
-    // the Grand Marshal's and High Warlord's sets included (user, 14/11: "Retirer GM/HW").
+    // the Grand Marshal's and High Warlord's sets included.
     struct SourceColumn
     {
         char const* table;
