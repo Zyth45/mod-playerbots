@@ -6,7 +6,7 @@
 
 #include "CoaLootPetAction.h"
 
-#include "AscensionCompanionLoot.h"
+#include "CoaCompanionLootCompat.h"
 #include "CoaAltAddon.h"
 #include "CoaLootCompanionRules.h"
 #include "Creature.h"
@@ -56,7 +56,7 @@ std::vector<CoaKnownCompanion> KnownCompanions(Player* bot)
             continue;
         SpellInfo const* info = sSpellMgr->GetSpellInfo(spellId);
         if (uint32 const entry = info ? CritterEntry(info) : 0)
-            known.push_back({spellId, entry, Ascension::CompanionLooting::IsSelfLootingCompanion(entry)});
+            known.push_back({spellId, entry, CoaCompanionLoot::IsSelfLootingCompanion(entry)});
     }
     std::sort(known.begin(), known.end(),
               [](CoaKnownCompanion const& a, CoaKnownCompanion const& b) { return a.spellId < b.spellId; });
@@ -121,7 +121,7 @@ void SendList(PlayerbotAI* botAI, std::vector<CoaKnownCompanion> const& known, C
 {
     for (CoaKnownCompanion const& companion : CoaListedCompanions(known, choice.favourite))
         CoaAltAddon::SendToMaster(botAI, CoaLootPetLine(companion, CoaAltAddon::Field(CompanionName(companion))));
-    CoaAltAddon::SendToMaster(botAI, CoaLootPetAppLine(Ascension::CompanionLooting::HasLootAppearance(botAI->GetBot())));
+    CoaAltAddon::SendToMaster(botAI, CoaLootPetAppLine(CoaCompanionLoot::HasLootAppearance(botAI->GetBot())));
     CoaAltAddon::SendToMaster(botAI, CoaLootPetFavLine(choice));
     CoaAltAddon::SendToMaster(botAI, CoaLootPetEndLine());
 }
@@ -137,8 +137,8 @@ std::string StatusText(Player* bot, std::vector<CoaKnownCompanion> const& known,
         text += "favourite " + CompanionName(*fav);
     else
         text += "automatic";
-    text += Ascension::CompanionLooting::HasLootAppearance(bot) ? ", Loot-Transfigurator active" : "";
-    text += Ascension::CompanionLooting::CompanionLoots(bot) ? ", my companion loots for me." : ".";
+    text += CoaCompanionLoot::HasLootAppearance(bot) ? ", Loot-Transfigurator active" : "";
+    text += CoaCompanionLoot::CompanionLoots(bot) ? ", my companion loots for me." : ".";
     return text;
 }
 
@@ -248,7 +248,7 @@ void CoaLootCompanionTick(PlayerbotAI* botAI)
     if (!map)
         return skip("no map");
 
-    bool const lootAppearance = Ascension::CompanionLooting::HasLootAppearance(bot);
+    bool const lootAppearance = CoaCompanionLoot::HasLootAppearance(bot);
     CoaLootCompanionMoment const moment{bot->IsAlive(),
                                         bot->IsInCombat(),
                                         bot->IsMounted(),
@@ -272,7 +272,7 @@ void CoaLootCompanionTick(PlayerbotAI* botAI)
         return skip("loot pet off for this alt");
 
     Creature* out = OwnedCritter(bot);
-    bool const outLoots = out && Ascension::CompanionLooting::CompanionLoots(bot);
+    bool const outLoots = out && CoaCompanionLoot::CompanionLoots(bot);
     if (outLoots && !choice.favourite)
         return;
 
@@ -305,10 +305,10 @@ bool CoaLeavesCorpseToCompanion(Player* bot, Creature* corpse, bool skinning)
     Creature* companion = OwnedCritter(bot);
     if (!companion || !companion->IsInMap(corpse))
         return false;
-    bool const loots = skinning ? Ascension::CompanionLooting::CompanionSkins(bot)
-                                : Ascension::CompanionLooting::CompanionLoots(bot);
-    float const radius = skinning ? Ascension::CompanionLooting::SkinningRadius(bot)
-                                  : Ascension::CompanionLooting::LootRadius(bot);
+    bool const loots = skinning ? CoaCompanionLoot::CompanionSkins(bot)
+                                : CoaCompanionLoot::CompanionLoots(bot);
+    float const radius = skinning ? CoaCompanionLoot::SkinningRadius(bot)
+                                  : CoaCompanionLoot::LootRadius(bot);
     float const botToCorpse = bot->GetDistance(corpse);
     float const companionToCorpse = companion->GetDistance(corpse);
     float const companionToBot = companion->GetDistance(bot);

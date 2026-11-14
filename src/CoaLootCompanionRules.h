@@ -14,7 +14,7 @@
 
 // The loot pet of the alts (AiPlayerbot.AltLootCompanion, 2.9.5), apart from the game objects, so that
 // tests/coa_loot_companion_rules.cpp can check it. The core loots the corpses around a player with a companion out
-// (Ascension::CompanionLooting): any companion while the Loot-Transfigurator appearance is active, Lootbot 3000 and
+// (Ascension::CompanionLooting, or CoaCompanionLootCompat.h on a core without it): any companion while the Loot-Transfigurator appearance is active, Lootbot 3000 and
 // the Kleptomanic Demon by themselves outside raids. An alt brings one out and leaves those corpses to it.
 
 constexpr std::uint32_t CoaLootCompanionCheckMs = 5000;
