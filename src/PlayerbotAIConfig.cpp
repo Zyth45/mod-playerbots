@@ -1000,6 +1000,7 @@ bool PlayerbotAIConfig::Initialize()
     randomBotConcentrateInPlayerZone =
         sConfigMgr->GetOption<bool>("AiPlayerbot.RandomBotConcentrateInPlayerZone", false);
     randomBotGroupNearby = sConfigMgr->GetOption<bool>("AiPlayerbot.RandomBotGroupNearby", false);
+    flyOnlyOutOfSight = sConfigMgr->GetOption<bool>("AiPlayerbot.FlyOnlyOutOfSight", false);
 
     // arena
     randomBotArenaTeam2v2Count = sConfigMgr->GetOption<int32>("AiPlayerbot.RandomBotArenaTeam2v2Count", 10);

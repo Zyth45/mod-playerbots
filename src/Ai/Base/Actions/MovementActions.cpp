@@ -1075,7 +1075,8 @@ bool MovementAction::Follow(Unit* target, float distance) { return Follow(target
 
 namespace
 {
-// Masterless bots only take to the air where no real player can watch them do it.
+// With AiPlayerbot.FlyOnlyOutOfSight, bots not led by a real player only take to the air where no real player
+// can watch them do it.
 bool SeenByRealPlayer(Player* bot)
 {
     for (MapReference const& ref : bot->GetMap()->GetPlayers())
@@ -1105,7 +1106,11 @@ void MovementAction::UpdateMovementState()
         const bool wantsSwim = liquidState == LIQUID_MAP_IN_WATER || liquidState == LIQUID_MAP_UNDER_WATER;
         const bool wantsFly = bot->HasIncreaseMountedFlightSpeedAura() || bot->HasFlyAura();
         const bool canWaterWalk = bot->HasWaterWalkAura();
-        const bool isMasterFlying = master ? master->HasUnitMovementFlag(MOVEMENTFLAG_FLYING) : !SeenByRealPlayer(bot);
+        const bool ledByRealPlayer = master && master->GetSession() && !master->GetSession()->IsBot();
+        const bool flyHidden = sPlayerbotAIConfig.flyOnlyOutOfSight && !ledByRealPlayer;
+        bool isMasterFlying = master ? master->HasUnitMovementFlag(MOVEMENTFLAG_FLYING) : true;
+        if (flyHidden && isMasterFlying)
+            isMasterFlying = !SeenByRealPlayer(bot);
         const bool isMasterSwimming = master ? master->HasUnitMovementFlag(MOVEMENTFLAG_SWIMMING) : true;
         const bool isFlying = bot->HasUnitMovementFlag(MOVEMENTFLAG_FLYING);
         const bool isSwimming = bot->HasUnitMovementFlag(MOVEMENTFLAG_SWIMMING);
@@ -1159,7 +1164,7 @@ void MovementAction::UpdateMovementState()
             bot->RemoveUnitMovementFlag(MOVEMENTFLAG_FLYING);
             movementFlagsUpdated = true;
         }
-        else if (!isMasterFlying && isFlying && (onGroundZ || !master))
+        else if (!isMasterFlying && isFlying && (onGroundZ || flyHidden))
         {
             bot->RemoveUnitMovementFlag(MOVEMENTFLAG_CAN_FLY);
             bot->RemoveUnitMovementFlag(MOVEMENTFLAG_DISABLE_GRAVITY);

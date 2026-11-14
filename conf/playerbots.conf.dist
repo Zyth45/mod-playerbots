@@ -1515,6 +1515,11 @@ AiPlayerbot.RandomBotQuestIds = "3802,5505,6502,7761,7848,10277,10285,11492,1318
 # Note: Currently not functioning properly
 AiPlayerbot.RandomBotGroupNearby = 0
 
+# Bots without a real player as master (alone, or led by another bot) only take to the air
+# while no real player can see them, and land as soon as one can.
+# Default: 0 (off, bots fly as usual)
+AiPlayerbot.FlyOnlyOutOfSight = 0
+
 # Randombots will pick quests on their own and try to complete them
 # Default: 1 (enabled)
 AiPlayerbot.AutoDoQuests = 1
