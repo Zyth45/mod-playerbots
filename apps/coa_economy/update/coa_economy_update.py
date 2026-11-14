@@ -1,4 +1,4 @@
-"""CoA Bots 3.0.1 update: two one-time database steps of CoA Economy, run by coa_update.py on every realm.
+"""CoA Bots update: one-time database steps of CoA Economy, run by coa_update.py on every realm.
 
 1. phantomAuctions: auctions whose item no longer exists (item_instance), left by bots deleted while they sold. The
    core never loads them (CHAR_SEL_AUCTIONS joins item_instance): nobody sees them, nobody can bid, they never expire.
@@ -10,7 +10,10 @@
    RandomBotAccountPrefix AND playerbots_account_type = 1 in the realm's playerbots database. Players' characters and
    alts, bots of type 0 and 2, guild banks, mail and auctions are never touched.
 
-Both run once per realm: a mark in the realm's playerbots database (coa_update_marks), written in the same
+3. marketScale: the prices the house learned from past sales (playerbots coa_economy_market) times the realm's
+   PriceScalePercent, once: learned before the scale, they drew the house seller's prices back up to ~95 %.
+
+Each runs once per realm: a mark in the realm's playerbots database (coa_update_marks), written in the same
 transaction as the change, so an undo of the update (the database copied before it) also takes the mark back.
 The amounts before are also written to <backup>/economy/<realm>-*.json. MySQL runs; the realms' worldservers do not
 (an online bot would write its gold back from memory).
@@ -28,6 +31,7 @@ HIDDEN = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 DEFAULT_PREFIX = "rndbot"
 LEVEL_GOLD_KEY = "AiPlayerbot.CoaEconomy.BotLevelGold"
 PREFIX_KEY = "AiPlayerbot.RandomBotAccountPrefix"
+PRICE_SCALE_KEY = "AiPlayerbot.CoaEconomy.PriceScalePercent"
 NAME_RE = re.compile(r"^[A-Za-z0-9_]+$")
 BATCH = 500
 
@@ -59,6 +63,17 @@ def scale_for(level, table):
 def new_gold(money, level, table):
     """Only lowered: a bot poorer than the scale keeps what it has."""
     return min(money, scale_for(level, table))
+
+
+def price_scale(text):
+    """AiPlayerbot.CoaEconomy.PriceScalePercent as the module reads it: digits, kept between 50 and 150."""
+    digits = re.match(r"\s*(\d+)", text or "")
+    return min(150, max(50, int(digits.group(1)))) if digits else 60
+
+
+def scaled(copper, percent):
+    """The module's ScalePrice: copper times percent / 100, rounded down."""
+    return copper if percent == 100 else copper // 100 * percent + copper % 100 * percent // 100
 
 
 def is_random_bot(username, account_type, prefix):
@@ -114,9 +129,11 @@ def realms(repack):
         if not NAME_RE.match(prefix or "-"):
             raise RuntimeError(f"realm {key}: unexpected {PREFIX_KEY}")
         level_gold = bots[LEVEL_GOLD_KEY] if LEVEL_GOLD_KEY in bots else dist.get(LEVEL_GOLD_KEY)
+        scale_text = bots.get(PRICE_SCALE_KEY, dist.get(PRICE_SCALE_KEY, "60"))
         seen.add(chars)
         found.append({"key": key, "chars": chars, "auth": auth, "bots": pbots, "prefix": prefix,
-                      "levelGold": level_gold if level_gold and level_gold.strip() else None})
+                      "levelGold": level_gold if level_gold and level_gold.strip() else None,
+                      "priceScale": price_scale(scale_text)})
     return found
 
 
@@ -318,8 +335,58 @@ def bots_gold(run, realm, backup):
     return int(values["bots"]), int(values["lowered"]), int(values["before"]), int(values["after"])
 
 
+def market_rows(run, realm, what):
+    b = realm["bots"]
+    found = read(run, f"SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = '{b}' "
+                      "AND table_name = 'coa_economy_market';\n", f"the learned prices table of {realm['key']}")
+    if not found or found[0][0] == "0":
+        return None
+    return read(run, f"SELECT item, usual, low, high FROM `{b}`.coa_economy_market ORDER BY item;\n", what)
+
+
+def market_scale(run, realm, backup):
+    """The prices learned from past sales (coa_economy_market: usual, low, high) times the realm's PriceScalePercent,
+    once: they were learned before the scale, and the house seller's prices are drawn towards them (up to 80 %), so
+    the scale did not show in its prices. Returns (items, scale, usual before, usual after), None when already done,
+    "no-table" when the realm has no learned prices."""
+    name, scale = "marketScale", realm["priceScale"]
+    if mark_of(run, realm, name) is not None:
+        return None
+    found = market_rows(run, realm, f"the learned prices of {realm['key']}")
+    if found is None:
+        return "no-table"
+    save_rows(backup, realm, "market-prices", ["item", "usual", "low", "high"], found)
+    before = sum(int(r[1]) for r in found)
+    expected = {int(r[0]): tuple(scaled(int(v), scale) for v in r[1:4]) for r in found}
+    token = run_token()
+    s = str(scale)
+    sql = ["START TRANSACTION;"] + mark_first_sql(realm, name) + [
+        f"UPDATE `{realm['bots']}`.coa_economy_market SET "
+        f"usual = FLOOR(usual / 100) * {s} + FLOOR((usual % 100) * {s} / 100), "
+        f"low = FLOOR(low / 100) * {s} + FLOOR((low % 100) * {s} / 100), "
+        f"high = FLOOR(high / 100) * {s} + FLOOR((high % 100) * {s} / 100) WHERE @fresh = 1 AND {s} <> 100;",
+        "SET @rows = ROW_COUNT();",
+        mark_detail_sql(realm, name, f"CONCAT('items={len(found)} scale={s} before={before} after=', "
+                                     f"(SELECT COALESCE(SUM(usual), 0) FROM `{realm['bots']}`.coa_economy_market), "
+                                     f"' run={token}')"),
+        "COMMIT;"]
+    write(run, "\n".join(sql) + "\n")
+    detail = mark_of(run, realm, name)
+    if detail is None or detail == "pending":
+        raise RuntimeError(f"{realm['key']}: the learned prices were not scaled (no mark after the step)")
+    values = detail_values(detail)
+    if values.get("run") != token:
+        return None                                     # done by an earlier run: nothing changed now
+    # Read back: every learned price is the one expected (an item learned since the read would show here).
+    now = {int(r[0]): (int(r[1]), int(r[2]), int(r[3])) for r in market_rows(run, realm, "the learned prices, after")}
+    wrong = [item for item, prices in expected.items() if now.get(item) != prices]
+    if wrong:
+        raise RuntimeError(f"{realm['key']}: {len(wrong)} learned price(s) not as expected after the step")
+    return len(found), scale, before, int(values["after"])
+
+
 def run_steps(repack, backup, journal, emit, save_journal, run=None):
-    """Both steps on every realm of the repack; MySQL up, worldservers stopped. Journal: journal['economy'][realm]."""
+    """The steps on every realm of the repack; MySQL up, worldservers stopped. Journal: journal['economy'][realm]."""
     run = run or mysql_runner(repack)
     done = journal.setdefault("economy", {})
     for realm in realms(repack):
@@ -341,4 +408,12 @@ def run_steps(repack, backup, journal, emit, save_journal, run=None):
                 emit("info", f"{realm['key']}: random bots' gold brought down to the level scale: {result[1]} of "
                              f"{result[0]} bots, {result[2] // 10000} gold -> {result[3] // 10000} gold "
                              "(players' characters and alts not touched)")
+        if "marketScale" not in entry:
+            result = market_scale(run, realm, backup)
+            entry["marketScale"] = list(result) if isinstance(result, tuple) else (result or "done before")
+            save_journal(backup, journal)
+            if isinstance(result, tuple):
+                emit("info", f"{realm['key']}: the auction house's learned prices brought to the {result[1]} % price "
+                             f"scale ({result[0]} items, usual prices {result[2] // 10000} gold -> "
+                             f"{result[3] // 10000} gold in all)")
     return done

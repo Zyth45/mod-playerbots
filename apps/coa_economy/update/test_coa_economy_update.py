@@ -89,6 +89,10 @@ INSERT IGNORE INTO acore_auth.account VALUES (1,'SQUID'),(2,'RNDBOT1'),(3,'RNDBO
 CREATE DATABASE {pbots};
 CREATE TABLE {pbots}.playerbots_account_type (account_id INT UNSIGNED PRIMARY KEY, account_type INT UNSIGNED NOT NULL);
 INSERT INTO {pbots}.playerbots_account_type VALUES (1,1),(2,1),(3,2),(4,0),(5,1),(6,2);
+CREATE TABLE {pbots}.coa_economy_market (item INT UNSIGNED PRIMARY KEY, usual BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  low BIGINT UNSIGNED NOT NULL DEFAULT 0, high BIGINT UNSIGNED NOT NULL DEFAULT 0, sales INT UNSIGNED NOT NULL DEFAULT 0,
+  updated INT UNSIGNED NOT NULL DEFAULT 0);
+INSERT INTO {pbots}.coa_economy_market VALUES (2589,1000,500,3000,9,1),(12345,99,50,150,6,1);
 CREATE DATABASE {chars};
 USE {chars};
 CREATE TABLE characters (guid INT UNSIGNED PRIMARY KEY, account INT UNSIGNED, name VARCHAR(12), level TINYINT UNSIGNED,
@@ -124,7 +128,8 @@ def write_repack(root):
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(text, encoding="utf-8")
     put("CoA-Bots/Core/configs/modules/playerbots.conf.dist",
-        f'AiPlayerbot.RandomBotAccountPrefix = "rndbot"\nAiPlayerbot.CoaEconomy.BotLevelGold = "{SCALE}"\n')
+        f'AiPlayerbot.RandomBotAccountPrefix = "rndbot"\nAiPlayerbot.CoaEconomy.BotLevelGold = "{SCALE}"\n'
+        'AiPlayerbot.CoaEconomy.PriceScalePercent = 60\n')
     put("CoA-Bots/Core/configs/worldserver.conf",
         'LoginDatabaseInfo = "127.0.0.1;3399;acore;pw;acore_auth"\n'
         'CharacterDatabaseInfo = "127.0.0.1;3399;acore;pw;acore_characters"\n')
@@ -135,7 +140,8 @@ def write_repack(root):
         'CharacterDatabaseInfo = "127.0.0.1;3399;acore;pw;acore_characters_living"\n')
     put("Royaumes/living/configs/modules/playerbots.conf",          # the player's own scale
         'PlayerbotsDatabaseInfo = "127.0.0.1;3399;acore;pw;acore_playerbots_living"\n'
-        'AiPlayerbot.RandomBotAccountPrefix = "rndlv"\nAiPlayerbot.CoaEconomy.BotLevelGold = "10:100000,60:200000"\n')
+        'AiPlayerbot.RandomBotAccountPrefix = "rndlv"\nAiPlayerbot.CoaEconomy.BotLevelGold = "10:100000,60:200000"\n'
+        'AiPlayerbot.CoaEconomy.PriceScalePercent = 80\n')
     put("Royaumes/wildcard/configs/worldserver.conf",
         'LoginDatabaseInfo = "127.0.0.1;3399;acore;pw;acore_auth"\n'
         'CharacterDatabaseInfo = "127.0.0.1;3399;acore;pw;acore_characters_wildcard"\n')
@@ -205,6 +211,15 @@ def test_mysql(base):
         saved = json.loads((backup / "economy/coa-bots-gold.json").read_text())
         assert sorted(r[0] for r in saved["rows"]) == [20, 22] and saved["rows"][0][3] in (20000000, 10000000)
         assert len(json.loads((backup / "economy/living-phantom-auctions.json").read_text())["rows"]) == 2
+        # Learned prices at the realm's scale, once: 60 % (the .dist) on CoA, 80 % (its own) on Squid World.
+        market = lambda db: eco.rows(real(f"SELECT item, usual, low, high FROM {db}.coa_economy_market ORDER BY item;\n"))
+        assert market("acore_playerbots") == [["2589", "600", "300", "1800"], ["12345", "59", "30", "90"]]
+        assert market("acore_playerbots_living") == [["2589", "800", "400", "2400"], ["12345", "79", "40", "120"]]
+        assert journal["economy"]["coa"]["marketScale"] == [2, 60, 1099, 659]
+        assert journal["economy"]["wildcard"]["marketScale"] == "no-table"
+        assert json.loads((backup / "economy/coa-market-prices.json").read_text())["rows"][0] == ["2589", "1000", "500", "3000"]
+        assert eco.price_scale("60") == 60 and eco.price_scale("10") == 50 and eco.price_scale("x") == 60
+        assert eco.scaled(1099, 60) == 659 and eco.scaled(99, 60) == 59 and eco.scaled(1234, 100) == 1234
 
         # Once: a new update (new journal) finds the marks and changes nothing.
         real("UPDATE acore_characters.characters SET money = 5000000 WHERE guid = 20;\n"
@@ -213,7 +228,9 @@ def test_mysql(base):
         eco.run_steps(repack, backup, again, lambda *_: None, lambda *_: None, run=run)
         assert money(real, "acore_characters")[20] == 5000000
         assert eco.rows(real("SELECT COUNT(*) FROM acore_characters.auctionhouse;\n")) == [["2"]]
-        assert again["economy"]["coa"] == {"phantomAuctions": "done before", "botsGold": "done before"}
+        assert again["economy"]["coa"] == {"phantomAuctions": "done before", "botsGold": "done before",
+                                           "marketScale": "done before"}
+        assert market("acore_playerbots")[0] == ["2589", "600", "300", "1800"]   # not scaled twice
         # A cut journal: the step already marked is not run twice either.
         again["economy"]["coa"].pop("botsGold")
         eco.run_steps(repack, backup, again, lambda *_: None, lambda *_: None, run=run)
