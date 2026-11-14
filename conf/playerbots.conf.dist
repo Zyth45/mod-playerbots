@@ -2371,7 +2371,7 @@ AiPlayerbot.CoaDungeonPriorities = 1
 #       side can repair it. Take it out again once the form is granted.
 #       10/10: tried again (the core grants the form since jealous-sound#5655): still broken on the tank
 #       bench, 12 to 53% of the fight held, Scarlet Delirium cast 80 times in 3 minutes and almost nothing else.
-#       3.0.1: back in play, its dungeon runs now hold up. An installation that still has 99 here keeps it
+#       3.1: back in play, its dungeon runs now hold up. An installation that still has 99 here keeps it
 #       left out; empty the value to let bots play it.
 # Read again by ".reload config".
 # Default: (empty, every specialization is played)
@@ -3222,7 +3222,7 @@ AiPlayerbot.CoaWorld.Guilds.Greetings = 1
 #                     (phrase bank: guild_ask_reply, guild_ask_reply_w), and sends the guild invitation. One guild at
 #                     a time per player. Without a line in the bank the officer says nothing and sends no
 #                     invitation. Needs Guilds.Enable.
-#        Default:     1 - on (3.0.1)
+#        Default:     1 - on (3.1)
 #    AiPlayerbot.CoaWorld.Guilds.AnswerAskMinutes
 #        Description: With AnswerAsk on: minutes before the same player's ask is answered again.
 #        Default:     30
@@ -3252,7 +3252,7 @@ AiPlayerbot.CoaWorld.Guilds.AnswerAskMinutes = 30
 #                                 (weather_rain/snow/storm), once per zone and half hour.
 #                     Fishing   - a real player fishes: a bot within 20 yards says a word (fishing_idle), once per
 #                                 player and 20 minutes.
-#        Default:     1 - on (3.0.1)
+#        Default:     1 - on (3.1)
 
 AiPlayerbot.CoaWorld.Chatter.BgEnd = 1
 AiPlayerbot.CoaWorld.Chatter.WorldBoss = 1
@@ -3904,7 +3904,7 @@ AiPlayerbot.CoaLive.DataFile.Enable = 1
 #                     most PerBot for each bot and PerGroup for the whole group. Every text emote counts: CoA Live's,
 #                     and the playerbots ones when AiPlayerbot.RandomBotEmote or EnableGreet are on.
 #                     Players found them too many in groups. Away from a real player's group nothing changes.
-#                     0: no cap (as before 3.0.1).
+#                     0: no cap (as before 3.1).
 #        Default:     1 (PerBot), 3 (PerGroup)
 
 AiPlayerbot.CoaLive.GroupEmotes.PerBot = 1
@@ -3914,7 +3914,7 @@ AiPlayerbot.CoaLive.GroupEmotes.PerGroup = 3
 #        Description: Conquest of Azeroth tank specializations, comma separated, that bots play in normal
 #                     dungeons only: never recruited, offered or queued as tank for a heroic or mythic
 #                     dungeon or for a raid, where another tank specialization of the class is taken instead.
-#                     99 Bloodmage Eternal (3.0.1 dungeon bench): it holds normal dungeons (17 of 18), but takes
+#                     99 Bloodmage Eternal (3.1 dungeon tests): it holds normal dungeons (17 of 18), but takes
 #                     1.5 to 2 times the damage of the other tanks and dies in three boss hits in heroic and
 #                     mythic (2 of 4 and 1 of 4 against 3 and 2, 41 deaths against 25).
 #                     Only matters for a specialization bots play (see AiPlayerbot.CoaExcludedSpecializations).
