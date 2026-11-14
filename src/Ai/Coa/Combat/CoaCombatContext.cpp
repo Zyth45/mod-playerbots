@@ -34,6 +34,7 @@ CoaCombatTriggerContext::CoaCombatTriggerContext() : NamedObjectContext<Trigger>
     creators["coa combat grave curse leave"] = [](PlayerbotAI* ai) -> Trigger* { return new CoaGraveCurseLeaveTrigger(ai); };
     creators["coa combat boss lust heroism"] = [](PlayerbotAI* ai) -> Trigger* { return new CoaBossLustTrigger(ai, "heroism"); };
     creators["coa combat boss lust bloodlust"] = [](PlayerbotAI* ai) -> Trigger* { return new CoaBossLustTrigger(ai, "bloodlust"); };
+    creators["coa combat boss lust burst"] = [](PlayerbotAI* ai) -> Trigger* { return new CoaBossLustBurstTrigger(ai); };
 }
 
 CoaCombatActionContext::CoaCombatActionContext() : NamedObjectContext<Action>(false, true)
@@ -42,4 +43,5 @@ CoaCombatActionContext::CoaCombatActionContext() : NamedObjectContext<Action>(fa
     creators["coa combat telegraph"] = [](PlayerbotAI* ai) -> Action* { return new CoaTelegraphAction(ai); };
     creators["coa combat grave curse dispel"] = [](PlayerbotAI* ai) -> Action* { return new CoaGraveCurseDispelAction(ai); };
     creators["coa combat grave curse leave"] = [](PlayerbotAI* ai) -> Action* { return new CoaGraveCurseLeaveAction(ai); };
+    creators["coa combat boss lust burst"] = [](PlayerbotAI* ai) -> Action* { return new CoaBossLustBurstAction(ai); };
 }

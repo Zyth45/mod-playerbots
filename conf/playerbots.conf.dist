@@ -5907,11 +5907,13 @@ AiPlayerbot.CoaCombat.GearPvpSoldOnly = 1
 
 #
 # AiPlayerbot.CoaCombat.LustBossOnly
-#     Description: In a group, a shaman bot keeps Bloodlust and Heroism for a boss: it casts them at the pull (the boss
-#                  above 90 % health) or once the boss falls under LustBossHealthPct, never on trash. Raids and
+#     Description: In a group, a bot keeps its group burst for a boss: a shaman's Bloodlust or Heroism, or a CoA class
+#                  burst (Frenzy, Champion's Presence, Tempest's Call, Primal Awakening, War Cry...). It casts it at
+#                  the pull (the boss above 90 % health) or once the boss falls under LustBossHealthPct, never on
+#                  trash. Raids and
 #                  dungeons that already time them for their bosses (Karazhan, SSC, Tempest Keep, Zul'Aman, Hyjal,
-#                  Black Temple, Sethekk Halls) keep their own timing; Baron Geddon gets them under 10 %. Alone, the
-#                  bot keeps the usual behavior.
+#                  Black Temple, Sethekk Halls) keep their own timing; Baron Geddon gets it under 10 %. Alone, the
+#                  bot keeps the usual behavior. Off, CoA classes never cast their burst.
 #     Default:     0 - (Disabled)
 #                  1 - (Enabled)
 

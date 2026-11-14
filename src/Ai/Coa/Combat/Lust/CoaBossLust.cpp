@@ -11,6 +11,11 @@
 #include "PlayerbotAIConfig.h"
 #include "Playerbots.h"
 #include "ShamanActions.h"
+#include "SpellInfo.h"
+#include "SpellMgr.h"
+
+#include <mutex>
+#include <vector>
 
 namespace
 {
@@ -19,6 +24,35 @@ namespace
         Creature* creature = unit ? unit->ToCreature() : nullptr;
         return creature && creature->IsAlive() && creature->IsInCombat() &&
                (creature->IsDungeonBoss() || creature->isWorldBoss());
+    }
+
+    // Every group burst in the spell data, read once.
+    std::vector<uint32> const& GroupBursts()
+    {
+        static std::vector<uint32> bursts;
+        static std::once_flag once;
+        std::call_once(once, []
+        {
+            for (uint32 id = 1; id < sSpellMgr->GetSpellInfoStoreSize(); ++id)
+            {
+                SpellInfo const* info = sSpellMgr->GetSpellInfo(id);
+                if (!info || info->IsPassive())
+                    continue;
+                uint32 const triggers[3] = {info->Effects[0].TriggerSpell, info->Effects[1].TriggerSpell,
+                                            info->Effects[2].TriggerSpell};
+                if (CoaBossLustRule::IsGroupBurst(info->ExcludeTargetAuraSpell, triggers))
+                    bursts.push_back(id);
+            }
+        });
+        return bursts;
+    }
+
+    bool CarriesBurstDebuff(Player* bot)
+    {
+        for (uint32 id : {804457u, 572126u, 57723u, 57724u, 1157723u, 1157724u})
+            if (bot->HasAura(id))
+                return true;
+        return false;
     }
 }
 
@@ -60,6 +94,32 @@ CoaBossLustRule::Verdict CoaBossLust::Verdict(PlayerbotAI* botAI)
     return CoaBossLustRule::Decide(s);
 }
 
+uint32 CoaBossLust::ReadyGroupBurst(PlayerbotAI* botAI)
+{
+    Player* bot = botAI->GetBot();
+    if (CarriesBurstDebuff(bot))
+        return 0;
+    for (uint32 id : GroupBursts())
+        if (bot->HasSpell(id) && !bot->HasSpellCooldown(id) && !bot->HasAura(id) && botAI->CanCastSpell(id, bot))
+            return id;
+    return 0;
+}
+
+bool CoaBossLustBurstTrigger::IsActive()
+{
+    if (!botAI->HasStrategy("boost", BOT_STATE_COMBAT) || bot->getClass() == CLASS_SHAMAN)
+        return false;
+    return CoaBossLust::Verdict(botAI) == CoaBossLustRule::Verdict::Allow && CoaBossLust::ReadyGroupBurst(botAI);
+}
+
+bool CoaBossLustBurstAction::isUseful() { return CoaBossLust::ReadyGroupBurst(botAI) != 0; }
+
+bool CoaBossLustBurstAction::Execute(Event /*event*/)
+{
+    uint32 const id = CoaBossLust::ReadyGroupBurst(botAI);
+    return id && botAI->CastSpell(id, bot);
+}
+
 bool CoaBossLustTrigger::IsActive()
 {
     // A player who turned the boost strategy off keeps it off.
@@ -77,8 +137,13 @@ float CoaBossLustMultiplier::GetValue(Action* action)
 
 void CoaBossLustStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
 {
-    triggers.push_back(new TriggerNode("coa combat boss lust heroism", { NextAction("heroism", 30.0f) }));
-    triggers.push_back(new TriggerNode("coa combat boss lust bloodlust", { NextAction("bloodlust", 30.0f) }));
+    if (botAI->GetBot()->getClass() == CLASS_SHAMAN)
+    {
+        triggers.push_back(new TriggerNode("coa combat boss lust heroism", { NextAction("heroism", 30.0f) }));
+        triggers.push_back(new TriggerNode("coa combat boss lust bloodlust", { NextAction("bloodlust", 30.0f) }));
+        return;
+    }
+    triggers.push_back(new TriggerNode("coa combat boss lust burst", { NextAction("coa combat boss lust burst", 30.0f) }));
 }
 
 void CoaBossLustStrategy::InitMultipliers(std::vector<Multiplier*>& multipliers)

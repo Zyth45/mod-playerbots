@@ -59,6 +59,16 @@ int main()
     geddon.bossHealthPct = 9.5f;
     assert(Decide(geddon) == Verdict::Allow);
 
+    // Group bursts read from the spell data: Tempest's Call triggers Worn Out, War Cry checks Exhaustion 572126, a
+    // spell that only triggers a damage spell is none.
+    uint32_t const tempest[3] = {0, 0, 804457};
+    uint32_t const warCry[3] = {0, 0, 0};
+    uint32_t const fireball[3] = {133, 0, 0};
+    assert(IsGroupBurst(804457, tempest) && IsGroupBurst(0, tempest));
+    assert(IsGroupBurst(572126, warCry));
+    assert(!IsGroupBurst(0, warCry) && !IsGroupBurst(0, fireball));
+    assert(IsBurstDebuff(1157724) && !IsBurstDebuff(2825));
+
     // The encounter strategies the rule steps aside for.
     int count = 0;
     bool ssc = false;

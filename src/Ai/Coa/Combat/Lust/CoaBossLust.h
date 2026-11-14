@@ -7,6 +7,7 @@
 #ifndef PLAYERBOTS_COA_BOSS_LUST_H
 #define PLAYERBOTS_COA_BOSS_LUST_H
 
+#include "Action.h"
 #include "CoaBossLustRule.h"
 #include "GenericTriggers.h"
 #include "Multiplier.h"
@@ -18,6 +19,9 @@ namespace CoaBossLust
 {
     // The rule's verdict for this bot now (CoaBossLustRule::Decide).
     CoaBossLustRule::Verdict Verdict(PlayerbotAI* botAI);
+
+    // The group burst of a CoA class this bot knows and can cast now (CoaBossLustRule::IsGroupBurst), 0 if none.
+    uint32 ReadyGroupBurst(PlayerbotAI* botAI);
 }
 
 // A grouped shaman casts Bloodlust or Heroism on a boss: at the pull, or under AiPlayerbot.CoaCombat.LustBossHealthPct.
@@ -27,6 +31,23 @@ class CoaBossLustTrigger : public BuffTrigger
 public:
     CoaBossLustTrigger(PlayerbotAI* botAI, std::string const spell) : BuffTrigger(botAI, spell, 1) {}
     bool IsActive() override;
+};
+
+// The same for the CoA classes, whose class AI never casts their group burst (a 20 s aura is no buff to keep up):
+// Frenzy, Champion's Presence, Tempest's Call, Primal Awakening...
+class CoaBossLustBurstTrigger : public Trigger
+{
+public:
+    CoaBossLustBurstTrigger(PlayerbotAI* botAI) : Trigger(botAI, "coa combat boss lust burst") {}
+    bool IsActive() override;
+};
+
+class CoaBossLustBurstAction : public Action
+{
+public:
+    CoaBossLustBurstAction(PlayerbotAI* botAI) : Action(botAI, "coa combat boss lust burst") {}
+    bool isUseful() override;
+    bool Execute(Event event) override;
 };
 
 // Keeps Bloodlust and Heroism off trash: zero while the rule forbids them, whatever trigger asks.
