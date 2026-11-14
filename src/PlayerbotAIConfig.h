@@ -758,7 +758,7 @@ public:
 
     // ---- CoA Combat (LoadCoaCombatConfig, CoaCombatConfig.cpp) ----
     // B2 breath guard outside a Dungeon Clear run (always on inside one).
-    bool coaCombatBreathGuardEnable = false;
+    bool coaCombatBreathGuardEnable = true;
     // B3 stuck combat breaker outside a Dungeon Clear run (always on inside one), and its timeout in seconds (0 = off;
     // DungeonClear.StuckCombatTimeout first when the player has it).
     bool coaCombatStuckCombatEnable = false;

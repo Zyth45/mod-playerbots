@@ -5668,12 +5668,12 @@ AiPlayerbot.CoaEconomy.DataFile.Enable = 1
 #
 # AiPlayerbot.CoaCombat.BreathGuard.Enable
 #     Description: Breath guard outside a Dungeon Clear run. A grouped bot in a dungeon, out of combat, under water
-#                  for 90 s (half its breath) is brought back up beside its group's tank. Always on inside a
-#                  Dungeon Clear run.
-#     Default:     0 - (Disabled)
-#                  1 - (Enabled)
+#                  for 90 s (half its breath) is brought back up beside its group's tank, so bots following a player
+#                  no longer drown (Blackfathom Deeps). Always on inside a Dungeon Clear run. On by default since 3.1.
+#     Default:     1 - (Enabled)
+#                  0 - (Disabled)
 
-AiPlayerbot.CoaCombat.BreathGuard.Enable = 0
+AiPlayerbot.CoaCombat.BreathGuard.Enable = 1
 
 # AiPlayerbot.CoaCombat.StuckCombat.Enable
 #     Description: Stuck combat breaker outside a Dungeon Clear run. A grouped bot in a dungeon or raid, in combat
