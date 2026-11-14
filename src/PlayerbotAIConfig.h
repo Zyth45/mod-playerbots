@@ -788,7 +788,7 @@ public:
     bool coaCombatPullGuardSightEnable = true;
     // Its strict form: a step that stays as far from a pack but comes into its sight counts too.
     bool coaCombatPullGuardSightStrict = false;
-    // Bot gear holds no PvP piece that no vendor, quest or loot gives (Grand Marshal's, High Warlord's; CoaGearPvp).
+    // Bot gear holds no PvP piece nobody can get (Grand Marshal's, High Warlord's; CoaGearPvp, CoaGearPvpRule).
     bool coaCombatGearPvpSoldOnly = false;
     // ---- end of CoA Combat ----
 

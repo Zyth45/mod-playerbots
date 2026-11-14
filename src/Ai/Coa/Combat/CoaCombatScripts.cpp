@@ -11,6 +11,8 @@
 
 #include "CoaBreathGuard.h"
 #include "CoaCombatPurge.h"
+#include "CoaGearPvp.h"
+#include "PlayerbotAIConfig.h"
 #include "ScriptMgr.h"
 
 namespace
@@ -19,7 +21,14 @@ namespace
     class CoaCombatWorldScript : public WorldScript
     {
     public:
-        CoaCombatWorldScript() : WorldScript("CoaCombatWorldScript", {WORLDHOOK_ON_UPDATE}) {}
+        CoaCombatWorldScript() : WorldScript("CoaCombatWorldScript", {WORLDHOOK_ON_UPDATE, WORLDHOOK_ON_STARTUP}) {}
+
+        // GearPvpSoldOnly: the PvP pieces nobody can get, read from the world database at each start-up.
+        void OnStartup() override
+        {
+            if (sPlayerbotAIConfig.coaCombatGearPvpSoldOnly)
+                CoaGearPvp::Load();
+        }
 
         void OnUpdate(uint32 diff) override
         {
