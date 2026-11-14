@@ -141,7 +141,7 @@ def rows(text):
 
 
 # mysql.exe 8.4 sometimes gives back no output at all (exit 0, nothing on stderr; about 1 or 2 calls in 100 on the
-# Builder's test copy): an empty answer would read as "nothing". Every script ends with this witness line; a read
+# a test copy): an empty answer would read as "nothing". Every script ends with this witness line; a read
 # without it is run again, up to TRIES times, then the step fails (no mark, the update undoes itself).
 WITNESS = "COA_FIN"
 TRIES = 5

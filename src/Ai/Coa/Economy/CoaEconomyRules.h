@@ -320,7 +320,7 @@ inline bool BotMayList(std::uint32_t itemClass, bool crafted, bool soldByVendor,
 }
 
 // An upgrade kit (consumable, item enhancement: "Essence of Fire Upgrade Kit"). Every enchanter made it for the
-// house (1,530 in bots' bags, 50 at a time at the top of it): "2-3 OK, not 50" (user).
+// house (1,530 in bots' bags, 50 at a time at the top of it): two or three of a kit are fine, fifty are not.
 inline bool IsUpgradeKit(std::uint32_t itemClass, std::uint32_t subClass)
 {
     return itemClass == 0 && subClass == 6;
