@@ -11,7 +11,7 @@
 
 // AiPlayerbot.CoaCombat.GearPvpSoldOnly: the gear a bot is given never holds a PvP piece a player cannot get. A PvP
 // piece (resilience, or an honor rank required) counts only if a vendor, quest, loot table, cache or reward table gives
-// it, or gives the base piece it is a variant of (CoaGearPvpRule, docs/ETUDE-EQUIPEMENT-PVP.md). The Grand Marshal's
+// it, or gives the base piece it is a variant of (CoaGearPvpRule). The Grand Marshal's
 // and High Warlord's sets are none of these on CoA, yet bots wore them.
 namespace CoaGearPvp
 {
