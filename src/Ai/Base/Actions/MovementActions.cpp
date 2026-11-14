@@ -1073,6 +1073,22 @@ bool MovementAction::IsMovingAllowed()
 
 bool MovementAction::Follow(Unit* target, float distance) { return Follow(target, distance, GetFollowAngle()); }
 
+namespace
+{
+// Masterless bots only take to the air where no real player can watch them do it.
+bool SeenByRealPlayer(Player* bot)
+{
+    for (MapReference const& ref : bot->GetMap()->GetPlayers())
+    {
+        Player* player = ref.GetSource();
+        if (player && player != bot && player->GetSession() && !player->GetSession()->IsBot() &&
+            player->HaveAtClient(bot))
+            return true;
+    }
+    return false;
+}
+}
+
 void MovementAction::UpdateMovementState()
 {
     const bool isCurrentlyRestricted =  // see if the bot is currently slowed, rooted, or otherwise unable to move
@@ -1089,7 +1105,7 @@ void MovementAction::UpdateMovementState()
         const bool wantsSwim = liquidState == LIQUID_MAP_IN_WATER || liquidState == LIQUID_MAP_UNDER_WATER;
         const bool wantsFly = bot->HasIncreaseMountedFlightSpeedAura() || bot->HasFlyAura();
         const bool canWaterWalk = bot->HasWaterWalkAura();
-        const bool isMasterFlying = master ? master->HasUnitMovementFlag(MOVEMENTFLAG_FLYING) : true;
+        const bool isMasterFlying = master ? master->HasUnitMovementFlag(MOVEMENTFLAG_FLYING) : !SeenByRealPlayer(bot);
         const bool isMasterSwimming = master ? master->HasUnitMovementFlag(MOVEMENTFLAG_SWIMMING) : true;
         const bool isFlying = bot->HasUnitMovementFlag(MOVEMENTFLAG_FLYING);
         const bool isSwimming = bot->HasUnitMovementFlag(MOVEMENTFLAG_SWIMMING);
@@ -1143,7 +1159,7 @@ void MovementAction::UpdateMovementState()
             bot->RemoveUnitMovementFlag(MOVEMENTFLAG_FLYING);
             movementFlagsUpdated = true;
         }
-        else if (!isMasterFlying && isFlying && onGroundZ)
+        else if (!isMasterFlying && isFlying && (onGroundZ || !master))
         {
             bot->RemoveUnitMovementFlag(MOVEMENTFLAG_CAN_FLY);
             bot->RemoveUnitMovementFlag(MOVEMENTFLAG_DISABLE_GRAVITY);
