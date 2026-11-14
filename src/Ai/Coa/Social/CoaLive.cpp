@@ -564,7 +564,12 @@ void Play(Due isDue)
         // Chat off (AiPlayerbot.CoaLive.Chat.Enable = 0): no text, the rest of the line still happens.
         CoaChat::Parts const parts = CoaChat::PartsOf(sPlayerbotAIConfig.coaLiveChatEnable);
         if (parts.emote && p.emote && p.channel == CH_NEAR)
-            PlayEmote(bot, p.emote, emoteTarget);
+        {
+            if (parts.emoteText)
+                PlayEmote(bot, p.emote, emoteTarget);
+            else if (EmotesTextEntry const* em = sEmotesTextStore.LookupEntry(p.emote); em && em->textid)
+                bot->HandleEmoteCommand(em->textid);
+        }
 
         if (parts.text && !p.text.empty() && !p.sayChannel.empty())
             SayInNamedChannel(bot, p.sayChannel, p.text);
@@ -1856,7 +1861,15 @@ std::unordered_map<std::string, uint64> replyLast;  // "<kind><player or group>"
 std::unordered_map<uint64, uint64> fallAt;          // real player -> a deadly fall (game ms), under liveLock
 std::unordered_map<uint64, uint64> afkSince;        // real player -> away since (s), 0 once answered; world thread
 
-bool PlayerRepliesOn() { return Enabled() && sPlayerbotAIConfig.coaLivePlayerReplies; }
+bool ChatFeature(bool featureOn)
+{
+    return CoaChat::ChatFeatureOn(Enabled(), sPlayerbotAIConfig.coaLiveChatEnable, featureOn);
+}
+bool PlayerRepliesOn() { return ChatFeature(sPlayerbotAIConfig.coaLivePlayerReplies); }
+bool GreetRepliesOn() { return ChatFeature(sPlayerbotAIConfig.coaLiveGreetReplies); }
+bool ChannelQuestionsOn() { return ChatFeature(sPlayerbotAIConfig.coaLiveChannelQuestions); }
+bool DungeonChatOn() { return ChatFeature(sPlayerbotAIConfig.coaLiveDungeonChat); }
+bool LootNeedAskOn() { return ChatFeature(sPlayerbotAIConfig.coaLiveLootNeedAsk); }
 
 // true, and the time kept, when `key` has cooled down.
 bool ReplyAllowed(std::string const& key, uint32 cdS)
@@ -2602,10 +2615,10 @@ public:
             NoteTrade(player);
         // A hello in the Zone (id 3) or Ascension (id 1) channel gets a hello back (AiPlayerbot.CoaLive.GreetReplies).
         bool greeted = false;
-        if (Enabled() && sPlayerbotAIConfig.coaLiveGreetReplies && player && channel &&
+        if (GreetRepliesOn() && player && channel &&
             (channel->GetChannelId() == 3 || channel->GetChannelId() == 1) && IsRealPlayer(player))
             greeted = HearGreeting(player, msg, channel->GetChannelId(), channel->GetName());
-        if (!greeted && Enabled() && sPlayerbotAIConfig.coaLiveChannelQuestions && player && channel &&
+        if (!greeted && ChannelQuestionsOn() && player && channel &&
             IsRealPlayer(player))
             HearChannelQuestion(player, msg, channel);
         return true;
@@ -2615,7 +2628,7 @@ public:
     // bot next to it gets that bot's whisper (AiPlayerbot.CoaLive.PlayerReplies.Enable).
     bool OnPlayerCanUseChat(Player* player, uint32 type, uint32 /*lang*/, std::string& msg) override
     {
-        if (Enabled() && sPlayerbotAIConfig.coaLiveGreetReplies && player && type == CHAT_MSG_SAY &&
+        if (GreetRepliesOn() && player && type == CHAT_MSG_SAY &&
             IsRealPlayer(player))
             HearGreeting(player, msg, GREET_SAY, std::string());
         if (PlayerRepliesOn() && player && type == CHAT_MSG_SAY && IsRealPlayer(player) &&
@@ -2671,9 +2684,9 @@ public:
     // A real player answers a bot's loot ask (AiPlayerbot.CoaLive.LootNeedAsk) in party or raid chat, or by whisper.
     bool OnPlayerCanUseChat(Player* player, uint32 /*type*/, uint32 /*lang*/, std::string& msg, Group* group) override
     {
-        if (Enabled() && sPlayerbotAIConfig.coaLiveLootNeedAsk && player && group && IsRealPlayer(player))
+        if (LootNeedAskOn() && player && group && IsRealPlayer(player))
             HearLootAnswer(player, msg, nullptr);
-        if (Enabled() && sPlayerbotAIConfig.coaLiveGreetReplies && player && group && IsRealPlayer(player))
+        if (GreetRepliesOn() && player && group && IsRealPlayer(player))
             HearGreeting(player, msg, GREET_PARTY, std::string());
         if (Enabled() && sPlayerbotAIConfig.coaLiveHealRequest && player && group && IsRealPlayer(player))
             HearHealRequest(player, msg, nullptr);
@@ -2682,7 +2695,7 @@ public:
 
     bool OnPlayerCanUseChat(Player* player, uint32 /*type*/, uint32 /*lang*/, std::string& msg, Player* receiver) override
     {
-        if (Enabled() && sPlayerbotAIConfig.coaLiveLootNeedAsk && player && receiver && IsRealPlayer(player) &&
+        if (LootNeedAskOn() && player && receiver && IsRealPlayer(player) &&
             GET_PLAYERBOT_AI(receiver))
             HearLootAnswer(player, msg, receiver);
         if (Enabled() && sPlayerbotAIConfig.coaLiveHealRequest && player && receiver && IsRealPlayer(player) &&
@@ -2739,7 +2752,7 @@ public:
     void OnPlayerMapChanged(Player* player) override
     {
         // AiPlayerbot.CoaLive.DungeonChat.Enable: a real player in or out of a dungeon with its group's bots.
-        if (Enabled() && sPlayerbotAIConfig.coaLiveDungeonChat && player && IsRealPlayer(player))
+        if (DungeonChatOn() && player && IsRealPlayer(player))
             DungeonChatMapChanged(player);
         if (!Enabled() || !NightOn() || !player || !IsRandom(player))
             return;
@@ -2762,7 +2775,7 @@ public:
             return;
         std::string const scope = "g" + std::to_string(group->GetGUID().GetCounter());
         // The dungeon chat has its own hello and thanks, by two bots: the night bank's are not said on top of them.
-        if (sPlayerbotAIConfig.coaLiveDungeonChat)
+        if (DungeonChatOn())
             return;
         if (inDungeon)
         {
@@ -2828,13 +2841,13 @@ public:
             RefreshPeopledZones(nowMs);
             Play([nowMs](Pending const& p) { return p.dueMs <= nowMs; });
             PlayGuildEvents();
-            if (sPlayerbotAIConfig.coaLiveChannelQuestions)
+            if (ChannelQuestionsOn())
                 AnswerChannelQuestions();
-            if (sPlayerbotAIConfig.coaLiveGreetReplies)
+            if (GreetRepliesOn())
                 AnswerGreetings();
-            if (sPlayerbotAIConfig.coaLiveDungeonChat)
+            if (DungeonChatOn())
                 DungeonChatTick(nowMs);
-            if (sPlayerbotAIConfig.coaLivePlayerReplies)
+            if (PlayerRepliesOn())
                 AfkTick(nowMs);
             ChannelTimers(nowMs);
             TradePace(nowMs);
@@ -2905,7 +2918,7 @@ CoaLootAsk::Outcome LootNeedAsk(Player* bot, ObjectGuid itemGuid, uint8 itemSlot
                                 int32 randomProperty, uint32 seenMs)
 {
     using CoaLootAsk::Outcome;
-    if (!Enabled() || !sPlayerbotAIConfig.coaLiveLootNeedAsk || !bot || !proto || !bot->IsInWorld())
+    if (!LootNeedAskOn() || !bot || !proto || !bot->IsInWorld())
         return Outcome::NotAsked;
     uint64 const roll = itemGuid.GetRawValue() * 31 + itemSlot;
     uint64 const botKey = bot->GetGUID().GetRawValue();
@@ -3251,7 +3264,7 @@ uint32 OfflineSeconds() { return SessionsEnabled() ? CoaSessions::OfflineSeconds
 
 bool SayLine(Player* bot, std::string const& situation, std::unordered_map<std::string, std::string> const& slots)
 {
-    if (!Enabled() || !bot)
+    if (!ChatFeature(true) || !bot)  // AiPlayerbot.CoaLive.Chat.Enable = 0: no line
         return false;
     ReactOptions opt;
     opt.extra.insert(slots.begin(), slots.end());
@@ -3262,7 +3275,7 @@ bool SayLine(Player* bot, std::string const& situation, std::unordered_map<std::
 bool SayLine(Player* bot, std::string const& situation, std::unordered_map<std::string, std::string> const& slots,
              ObjectGuid to, bool force)
 {
-    if (!Enabled() || !bot)
+    if (!ChatFeature(true) || !bot)  // AiPlayerbot.CoaLive.Chat.Enable = 0: no line
         return false;
     Player* subject = to ? ObjectAccessor::FindConnectedPlayer(to) : nullptr;
     if (to && !subject)

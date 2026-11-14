@@ -2,14 +2,16 @@
 #define _PLAYERBOT_COACHATRULES_H
 
 // AiPlayerbot.CoaLive.Chat.Enable (the launcher's "Bot chat" switch): what of a CoA Live line is played. Off, the
-// bots write nothing (channels, guild, night bank, whisper answers, Trade), but what goes with a line still happens:
-// its emote, the group invite of a "sure, inviting", the COD mail of a sale. Pure rules (tests).
+// bots write nothing (channels, say, party, guild, night bank, whisper answers, Trade), not even the chat line of a
+// text emote ("X waves at you."), but what goes with a line still happens: the emote's animation, the group invite
+// of a "sure, inviting", the COD mail of a sale. Pure rules (tests).
 namespace CoaChat
 {
 struct Parts
 {
     bool text = true;
     bool emote = true;
+    bool emoteText = true;  // the emote as a text emote, with its chat line; false: its animation only
     bool invite = true;
     bool cod = true;
 };
@@ -18,8 +20,14 @@ inline Parts PartsOf(bool chatOn)
 {
     Parts p;
     p.text = chatOn;
+    p.emoteText = chatOn;
     return p;
 }
+
+// The talking features (GreetReplies, ChannelQuestions, PlayerReplies, DungeonChat, LootNeedAsk, the lines other
+// sessions say by CoaLive::SayLine): they run only while CoA Live and its chat are on. A player who turned the chat
+// off before a feature came keeps the silence he chose.
+inline bool ChatFeatureOn(bool liveOn, bool chatOn, bool featureOn) { return liveOn && chatOn && featureOn; }
 
 // The Trade pace only picks speakers for lines: off, it has nothing to do.
 inline bool TradePaceRuns(bool chatOn, unsigned perMinute) { return chatOn && perMinute; }
