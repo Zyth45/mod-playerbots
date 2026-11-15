@@ -179,6 +179,8 @@ namespace
         uint32 const id = g_nextLogId++;
         if (!g_logReady)
             return id;
+        if (bot.size() > 32)  // the column (a longer name would lose the whole row)
+            bot.resize(32);
         PlayerbotsDatabase.EscapeString(bot);
         // Written at once: the addon asks GLIST about a second after its GORD.
         PlayerbotsDatabase.DirectExecute("INSERT INTO `coa_world_guild_log` (`id`, `guid`, `kind`, `item`, `count`, `state`, `bot`, "
