@@ -48,5 +48,15 @@ int main()
     assert(std::string(EscapeSituation(12, false, false, false, true)) == "wh_escape_bg");
     assert(std::string(EscapeSituation(40, false, false, false, true)) == "wh_escape_dungeon");
     assert(std::string(EscapeSituation(40, false, false, false, false)) == "wh_escape_bg");
+
+    // "ça va" -> "ça va" -> "fine": never a loop.
+    Pair talk;
+    assert(Answered(talk, "wh_howru", 1000) == "wh_howru");
+    assert(Answered(talk, "wh_howru", 61000) == "wh_fine");
+    assert(Answered(talk, "wh_howru", 62000) == "wh_howru");
+    assert(Answered(talk, "wh_howru", 62000 + HOWRU_AGAIN_MS) == "wh_howru");
+    assert(Answered(talk, "wh_hello", 70000 + HOWRU_AGAIN_MS) == "wh_hello" && talk.howruMs == 0);
+    assert(Answered(talk, "wh_howru", 80000 + HOWRU_AGAIN_MS) == "wh_howru");
+    assert(!Stale(talk, 80000 + HOWRU_AGAIN_MS + 1000));
     return 0;
 }

@@ -3102,10 +3102,10 @@ bool OnWhisper(Player* from, Player* to, std::string const& msg)
     // A long talk ends on an excuse that fits what the bot is doing, then the bot is silent a while for that player
     // (AiPlayerbot.CoaLive.WhisperEscape.Enable). A deal or a handled intent above is never cut.
     std::string const scope = "w" + std::to_string(to->GetGUID().GetCounter());
+    uint64 const nowMs = GameTime::GetGameTimeMS().count();
+    uint64 const key = (uint64(to->GetGUID().GetCounter()) << 32) | from->GetGUID().GetCounter();
     if (ChatFeature(sPlayerbotAIConfig.coaLiveWhisperEscape))
     {
-        uint64 const nowMs = GameTime::GetGameTimeMS().count();
-        uint64 const key = (uint64(to->GetGUID().GetCounter()) << 32) | from->GetGUID().GetCounter();
         CoaWhisperTalk::Step step;
         {
             std::lock_guard<std::mutex> guard(liveLock);
@@ -3161,6 +3161,15 @@ bool OnWhisper(Player* from, Player* to, std::string const& msg)
                 keywords = i.keywords;
         place = FindPlace(WhereSubjects(normalized, keywords), BotLocale());
         situation = place.empty() ? "wh_where_unknown" : "wh_where_known";
+    }
+
+    // "ça va" answered by "ça va": a "fine" this time (CoaWhisperTalk::Answered).
+    {
+        std::lock_guard<std::mutex> guard(liveLock);
+        if (whisperTalks.size() > CoaWhisperTalk::PRUNE_ABOVE)
+            for (auto it = whisperTalks.begin(); it != whisperTalks.end();)
+                it = CoaWhisperTalk::Stale(it->second, nowMs) ? whisperTalks.erase(it) : std::next(it);
+        situation = CoaWhisperTalk::Answered(whisperTalks[key], situation, nowMs);
     }
 
     ReactOptions opt;
