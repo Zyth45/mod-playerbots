@@ -66,6 +66,7 @@
 #include "WorldSession.h"
 
 #include <algorithm>
+#include <cstring>
 #include <mutex>
 #include <random>
 #include <unordered_map>
@@ -914,20 +915,29 @@ namespace
 
             // 3. Bought out at the auction house of the player's side.
             OrderResult bought;
-            if (Auction(player, mates, proto, slots, qty, now, bought))
+            char const* why = "noah";  // why none came: no stock, no crafter online, and at the auction house...
+            if (Auction(player, mates, proto, slots, qty, now, bought, why))
             {
                 ++count.second;
                 return bought;
             }
 
+            // The reason goes to the addon (GO / GLIST) and to the guild line when it is said.
             if (roll_chance_i(50))
-                Answer(mates.front(), "guild_order_none", slots,
-                       Acore::StringFormat(Tr("sorry {}, nobody has that right now", "d\u00e9sol\u00e9 {}, personne n'a \u00e7a pour l'instant"), player->GetName()), now + urand(8, 20));
-            return Logged(player, entry, 0, "none", "", "", 0, now);
+            {
+                std::string const ah = !std::strcmp(why, "ahprice") ? Tr("too dear at the AH", "trop cher \u00e0 l'HV")
+                                       : !std::strcmp(why, "ahgold") ? Tr("nobody has the gold for the AH", "personne n'a l'or pour l'HV")
+                                                                     : Tr("none at the AH", "rien \u00e0 l'HV");
+                Say(mates.front(),
+                    Acore::StringFormat(Tr("sorry {}, no stock, no crafter online, {}", "d\u00e9sol\u00e9 {}, pas de stock, pas d'artisan en ligne, {}"),
+                                        player->GetName(), ah),
+                    now + urand(8, 20));
+            }
+            return Logged(player, entry, 0, "none", why, "", 0, now);
         }
 
         bool Auction(Player* player, std::vector<Player*> const& mates, ItemTemplate const* proto,
-                     CoaWorld::Slots& slots, uint32 qty, time_t now, OrderResult& result)
+                     CoaWorld::Slots& slots, uint32 qty, time_t now, OrderResult& result, char const*& why)
         {
             AuctionHouseObject* house = sAuctionMgr->GetAuctionsMap(player->GetFaction());
             if (!house)
@@ -946,7 +956,10 @@ namespace
             std::vector<std::size_t> const picks = CoaWorldGuildRules::PickAuctions(
                 offers, qty, uint64(settings.orderAuctionMaxGold) * GOLD, MAX_MAIL_ITEMS);
             if (picks.empty())
+            {
+                why = offers.empty() ? "noah" : "ahprice";  // none listed, or over OrderAuctionMaxGold
                 return false;
+            }
             uint64 total = 0;
             for (std::size_t i : picks)
                 total += entries[i]->buyout;
@@ -959,7 +972,10 @@ namespace
                     break;
                 }
             if (!buyer)
+            {
+                why = "ahgold";  // no guildmate online has the gold
                 return false;
+            }
             std::vector<Item*> items;
             uint32 sent = 0;
             for (std::size_t i : picks)
