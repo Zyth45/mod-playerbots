@@ -874,7 +874,7 @@ namespace
                                 made = uint32(std::max<int32>(1, info->Effects[e].CalcValue(bot)));
                         // As many casts as the count needs (one Silver Bar a cast: twenty casts for twenty bars).
                         CoaWorldGuildRules::GuildCraft const plan =
-                            CoaWorldGuildRules::PlanGuildCraft(qty, made, proto->GetMaxStackSize());
+                            CoaWorldGuildRules::PlanGuildCraft(qty, made, proto->GetMaxStackSize(), cost);
                         uint32 const sent = plan.sent;
                         cost *= plan.casts;
                         if (!MailNew(bot, player, entry, sent, cost, 0,

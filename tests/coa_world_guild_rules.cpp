@@ -51,6 +51,10 @@ int main()
     assert(PlanGuildCraft(5, 2, 20).casts == 3 && PlanGuildCraft(5, 2, 20).sent == 6);
     assert(PlanGuildCraft(20, 1, 1).casts == 1 && PlanGuildCraft(20, 1, 1).sent == 1);
     assert(PlanGuildCraft(0, 5, 20).casts == 1 && PlanGuildCraft(0, 5, 20).sent == 5);
+    // Materials without a price: one cast, as before (no twenty free items).
+    assert(PlanGuildCraft(20, 1, 20, 0).casts == 1 && PlanGuildCraft(20, 1, 20, 0).sent == 1);
+    assert(PlanGuildCraft(3, 5, 20, 0).casts == 1 && PlanGuildCraft(3, 5, 20, 0).sent == 3);
+    assert(PlanGuildCraft(0, 5, 4, 0).sent == 4 && PlanGuildCraft(20, 1, 20, 150).casts == 20);
 
     // Gear gifts: clearly better only, a gift every few days, of the player's level band.
     assert(WorthGiving(50.0f, 0.0f));

@@ -104,16 +104,19 @@ namespace CoaWorldGuildRules
     }
 
     // How a guildmate crafts an order: casts of the recipe (made items each) to cover qty, one stack at most (one
-    // cast when the order gives no count). The guild's mail holds one stack.
+    // cast when the order gives no count). The guild's mail holds one stack. A recipe whose materials cost nothing
+    // (no vendor price) stays at one cast, as before counts were read: nothing free twenty times over.
     struct GuildCraft
     {
         std::uint32_t casts;
         std::uint32_t sent;
     };
-    inline GuildCraft PlanGuildCraft(std::uint32_t qty, std::uint32_t made, std::uint32_t maxStack)
+    inline GuildCraft PlanGuildCraft(std::uint32_t qty, std::uint32_t made, std::uint32_t maxStack, std::uint64_t castCost = 1)
     {
         made = std::max<std::uint32_t>(1, made);
         maxStack = std::max<std::uint32_t>(1, maxStack);
+        if (!castCost)
+            return { 1, std::min(std::min(made, maxStack), qty ? qty : made) };
         std::uint32_t const want = qty ? std::min(qty, maxStack) : std::min(made, maxStack);
         std::uint32_t const casts = (want + made - 1) / made;
         return { casts, std::min(casts * made, maxStack) };
