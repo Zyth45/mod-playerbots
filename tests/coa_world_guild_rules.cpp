@@ -64,6 +64,32 @@ int main()
         assert((PickAuctions({ { 5, 100 }, { 5, 100 }, { 5, 100 } }, 20, 1000000, 2).size() == 2));  // one mail
     }
 
+    // The combined order (3.1.4): what is missing, stacks taken (one splits), the best stocked holders first.
+    assert(OrderMissing(20, 0) == 20 && OrderMissing(20, 5) == 15 && OrderMissing(20, 25) == 0);
+    assert(OrderMissing(0, 0) == 1 && OrderMissing(0, 3) == 0);
+    assert(OrderAsk(20, 5) == 15 && OrderAsk(0, 0) == 0 && OrderAsk(20, 20) == 0);
+    {
+        std::vector<StackTake> const t = TakeStacks({ 3, 20, 0, 7 }, 25, 12);
+        assert(t.size() == 2 && t[0].index == 1 && t[0].count == 20 && t[1].index == 3 && t[1].count == 5);
+        std::vector<StackTake> const one = TakeStacks({ 3, 20 }, 1, 12);  // one out of the twenty
+        assert(one.size() == 1 && one[0].index == 1 && one[0].count == 1);
+        std::vector<StackTake> const any = TakeStacks({ 3, 20 }, 0, 12);  // any: the biggest stack, whole
+        assert(any.size() == 1 && any[0].index == 1 && any[0].count == 20);
+        std::vector<StackTake> const few = TakeStacks({ 2, 2, 2 }, 20, 2);  // one mail
+        assert(few.size() == 2 && few[0].count + few[1].count == 4);
+        assert(TakeStacks({}, 5, 12).empty() && TakeStacks({ 0, 0 }, 5, 12).empty() && TakeStacks({ 5 }, 5, 0).empty());
+    }
+    {
+        // "5 in stock + 15 bought": two holders give 3 and 2, the rest goes on to the crafters and the AH.
+        std::vector<StackTake> const s = SplitStock({ 2, 0, 3 }, 20);
+        assert(s.size() == 2 && s[0].index == 2 && s[0].count == 3 && s[1].index == 0 && s[1].count == 2);
+        std::vector<StackTake> const enough = SplitStock({ 4, 30, 9 }, 20);
+        assert(enough.size() == 1 && enough[0].index == 1 && enough[0].count == 20);
+        std::vector<StackTake> const any = SplitStock({ 4, 9 }, 0);
+        assert(any.size() == 1 && any[0].index == 1 && any[0].count == 9);
+        assert(SplitStock({ 0, 0 }, 5).empty());
+    }
+
     // Materials without a price: one cast, as before (no twenty free items).
     assert(PlanGuildCraft(20, 1, 20, 0).casts == 1 && PlanGuildCraft(20, 1, 20, 0).sent == 1);
     assert(PlanGuildCraft(3, 5, 20, 0).casts == 1 && PlanGuildCraft(3, 5, 20, 0).sent == 3);

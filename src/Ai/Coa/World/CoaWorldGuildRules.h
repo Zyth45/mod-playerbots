@@ -122,6 +122,66 @@ namespace CoaWorldGuildRules
         return { casts, std::min(casts * made, maxStack) };
     }
 
+    // The combined order (3.1.4): what is still missing of an order of qty after got (0: any count, done at the
+    // first item).
+    inline std::uint32_t OrderMissing(std::uint32_t qty, std::uint32_t got) { return qty ? (got < qty ? qty - got : 0) : (got ? 0 : 1); }
+    // The count a path is asked for: what is missing, or 0 (any) for an order without a count.
+    inline std::uint32_t OrderAsk(std::uint32_t qty, std::uint32_t got) { return qty ? OrderMissing(qty, got) : 0; }
+
+    // What one holder gives of its stacks for need items (0: any, the one biggest stack): the biggest stacks first,
+    // whole while they fit, then part of the next (a stack splits, never more than need); maxStacks at most (a mail).
+    // Each pick is {stack index, count taken}.
+    struct StackTake
+    {
+        std::size_t index;
+        std::uint32_t count;
+    };
+    inline std::vector<StackTake> TakeStacks(std::vector<std::uint32_t> const& stacks, std::uint32_t need, std::size_t maxStacks)
+    {
+        std::vector<StackTake> picks;
+        std::vector<std::size_t> order;
+        for (std::size_t i = 0; i < stacks.size(); ++i)
+            if (stacks[i])
+                order.push_back(i);
+        std::stable_sort(order.begin(), order.end(), [&](std::size_t a, std::size_t b) { return stacks[a] > stacks[b]; });
+        std::uint32_t got = 0;
+        for (std::size_t i : order)
+        {
+            if (picks.size() >= maxStacks || (need && got >= need))
+                break;
+            std::uint32_t const take = need ? std::min(stacks[i], need - got) : stacks[i];
+            picks.push_back({ i, take });
+            got += take;
+            if (!need)
+                break;
+        }
+        return picks;
+    }
+
+    // The holders of a stock (guildmates' bags and banks) asked for need items: the best stocked first, each gives
+    // what it has up to what is still missing. Each pick is {holder index, count}; 0 (any): the best stocked alone.
+    inline std::vector<StackTake> SplitStock(std::vector<std::uint32_t> const& held, std::uint32_t need)
+    {
+        std::vector<StackTake> picks;
+        std::vector<std::size_t> order;
+        for (std::size_t i = 0; i < held.size(); ++i)
+            if (held[i])
+                order.push_back(i);
+        std::stable_sort(order.begin(), order.end(), [&](std::size_t a, std::size_t b) { return held[a] > held[b]; });
+        std::uint32_t got = 0;
+        for (std::size_t i : order)
+        {
+            if (need && got >= need)
+                break;
+            std::uint32_t const take = need ? std::min(held[i], need - got) : held[i];
+            picks.push_back({ i, take });
+            got += take;
+            if (!need)
+                break;
+        }
+        return picks;
+    }
+
     // An auction a guild order may buy out: its stack and its buyout.
     struct AuctionOffer
     {
