@@ -115,7 +115,7 @@ namespace
         if (!crafted)
         {
             Data::RecordOrder(from->GetName(), bot->GetName(), recipe.itemId, price, "busy", recipe.skillId);
-            return CoaLive::SayLine(bot, "wh_craft_busy", slots, from->GetGUID()), true;
+            return CoaLive::SayLine(bot, "wh_craft_busy", slots, from->GetGUID(), true), true;
         }
         lastOrder[bot->GetGUID().GetCounter()] = uint32(GameTime::GetGameTime().count());
 
@@ -123,11 +123,11 @@ namespace
         slots["profession"] = Artisans::ProfessionLink(bot, recipe.skillId);
         slots["recipe"] = Artisans::RecipeLink(bot, recipe);
         if (quoteFirst)
-            CoaLive::SayLine(bot, "wh_craft_quote", slots, from->GetGUID());
+            CoaLive::SayLine(bot, "wh_craft_quote", slots, from->GetGUID(), true);
         if (CoaLive::MailCod(bot, from, crafted->GetGUID(), price))
         {
             Data::RecordOrder(from->GetName(), bot->GetName(), recipe.itemId, price, "mailed", recipe.skillId);
-            CoaLive::SayLine(bot, "wh_craft_cod", slots, from->GetGUID());
+            CoaLive::SayLine(bot, "wh_craft_cod", slots, from->GetGUID(), true);
         }
         return true;
     }
@@ -240,7 +240,7 @@ namespace
             if (recipe.itemId == quote.itemId)
                 return Deliver(from, bot, recipe, quote.price, slots, false);
         Data::RecordOrder(from->GetName(), bot->GetName(), quote.itemId, 0, "refused");
-        return CoaLive::SayLine(bot, "wh_craft_cannot", slots, from->GetGUID()), true;
+        return CoaLive::SayLine(bot, "wh_craft_cannot", slots, from->GetGUID(), true), true;
     }
 
     bool IsCapital(uint32 zoneId)
