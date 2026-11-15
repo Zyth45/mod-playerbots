@@ -154,6 +154,7 @@ struct Pending
     ObjectGuid codItem;  // an item of the bot's bags mailed to the subject, cash on delivery
     uint32 cod = 0;
     std::string sayChannel;  // said in this public channel (its name) instead of the line's channel
+    bool asked = false;      // an answer the player asked for (ReactOptions::asked)
 };
 
 // A Trade announce that a real player may answer (spec: never an announce that leads nowhere).
@@ -287,6 +288,7 @@ struct ReactOptions
     bool sayParty = false;                         // said in party chat, whatever the line's channel
     bool sayWhisper = false;                       // whispered to the subject, whatever the line's channel
     uint32 emote = 0;                              // a text emote played with the line (said aloud only)
+    bool asked = false;  // an answer a real player asked for (a craft quote): whispered even with the chat off
     std::string avoidLead;                         // draw again a line naming this first (a second class answer)
     struct Said { uint64 dueMs = 0; std::string lead; } * said = nullptr;  // filled when the line is queued
 };
@@ -398,6 +400,7 @@ bool React(Player* bot, std::string const& situation, Player* subject, std::stri
         p.channel = CH_WHISPER;
     if (opt.emote)
         p.emote = opt.emote;
+    p.asked = opt.asked;
     if (opt.said)
     {
         opt.said->dueMs = p.dueMs;
@@ -565,7 +568,10 @@ void Play(Due isDue)
                                   : nullptr;
 
         // Chat off (AiPlayerbot.CoaLive.Chat.Enable = 0): no text, the rest of the line still happens.
-        CoaChat::Parts const parts = CoaChat::PartsOf(sPlayerbotAIConfig.coaLiveChatEnable);
+        // An answer a real player asked for by whisper is a function, not chat (as "heal please"): it is whispered.
+        CoaChat::Parts parts = CoaChat::PartsOf(sPlayerbotAIConfig.coaLiveChatEnable);
+        if (p.asked && p.channel == CH_WHISPER)
+            parts.text = true;
         if (parts.emote && p.emote && p.channel == CH_NEAR)
         {
             if (parts.emoteText)
@@ -3215,13 +3221,19 @@ bool SayLine(Player* bot, std::string const& situation, std::unordered_map<std::
 bool SayLine(Player* bot, std::string const& situation, std::unordered_map<std::string, std::string> const& slots,
              ObjectGuid to, bool force)
 {
-    if (!ChatFeature(true) || !bot)  // AiPlayerbot.CoaLive.Chat.Enable = 0: no line
+    if (!bot)
         return false;
     Player* subject = to ? ObjectAccessor::FindConnectedPlayer(to) : nullptr;
     if (to && !subject)
         return false;
+    // A forced whisper to a real player answers what they asked (a craft quote): it goes out with the chat off too,
+    // like "heal please" (AiPlayerbot.CoaLive.Chat.Enable = 0 silences talk, not answers).
+    bool const asked = force && subject && IsRealPlayer(subject);
+    if (asked ? !Enabled() : !ChatFeature(true))
+        return false;
     ReactOptions opt;
     opt.force = force;
+    opt.asked = asked;
     opt.extra.insert(slots.begin(), slots.end());
     return React(bot, situation, subject, situation + "@w" + std::to_string(bot->GetGUID().GetCounter()), opt);
 }
