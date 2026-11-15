@@ -29,6 +29,29 @@ int main()
     // Orders a day.
     assert(MayOrder(0, 3) && MayOrder(2, 3) && !MayOrder(3, 3) && !MayOrder(0, 0));
 
+    // The count next to the link in guild chat (Silver Bar, item 2842).
+    std::string const bar = "|cffffffff|Hitem:2842:0:0:0:0:0:0:0:20|h[Silver Bar]|h|r";
+    assert(OrderedQty("can someone make 20 " + bar) == 20);
+    assert(OrderedQty("need 20x " + bar) == 20);
+    assert(OrderedQty("need x20 " + bar) == 20);
+    assert(OrderedQty("need " + bar + " x20") == 20);
+    assert(OrderedQty("need " + bar + " 20 please") == 20);
+    assert(OrderedQty("need " + bar + "x5?") == 5);
+    assert(OrderedQty("anyone have " + bar + "?") == 0);
+    assert(OrderedQty("need " + bar + " for my level 30 quest") == 0);
+    assert(OrderedQty("need " + bar + " 200") == 0);
+    assert(OrderedQty("need 0 " + bar) == 0);
+    assert(OrderedQty("level40 " + bar) == 0);
+    assert(OrderedQty("need 21 " + bar) == 0);
+    assert(OrderedItem("can someone make 20 " + bar) == 2842);
+
+    // Crafted orders: enough casts for the count, one stack at most; one cast with no count.
+    assert(PlanGuildCraft(20, 1, 20).casts == 20 && PlanGuildCraft(20, 1, 20).sent == 20);
+    assert(PlanGuildCraft(0, 1, 20).casts == 1 && PlanGuildCraft(0, 1, 20).sent == 1);
+    assert(PlanGuildCraft(5, 2, 20).casts == 3 && PlanGuildCraft(5, 2, 20).sent == 6);
+    assert(PlanGuildCraft(20, 1, 1).casts == 1 && PlanGuildCraft(20, 1, 1).sent == 1);
+    assert(PlanGuildCraft(0, 5, 20).casts == 1 && PlanGuildCraft(0, 5, 20).sent == 5);
+
     // Gear gifts: clearly better only, a gift every few days, of the player's level band.
     assert(WorthGiving(50.0f, 0.0f));
     assert(WorthGiving(130.0f, 100.0f));
