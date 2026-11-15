@@ -45,8 +45,25 @@
 #include "Timer.h"
 #include "TravelMgr.h"
 #include "G3D/Vector2.h"
+#include "MapReference.h"
 #include <atomic>
 #include <ctime>
+
+namespace
+{
+// With AiPlayerbot.TeleportOnlyOutOfSight, a stuck bot only teleports where no real player can watch it happen.
+bool WatchedByRealPlayer(Player* bot)
+{
+    for (MapReference const& ref : bot->GetMap()->GetPlayers())
+    {
+        Player* player = ref.GetSource();
+        if (player && player != bot && player->GetSession() && !player->GetSession()->IsBot() &&
+            player->HaveAtClient(bot))
+            return true;
+    }
+    return false;
+}
+}
 
 QuestStatusData const* NewRpgBaseAction::GetQuestStatusData(uint32 questId) const
 {
@@ -124,6 +141,16 @@ bool NewRpgBaseAction::MoveFarTo(WorldPosition dest)
         // No meaningful progress toward dest for `stuckTime`: fall
         // back to teleporting directly so the bot can get on with
         // its RPG objective instead of oscillating indefinitely.
+        if (sPlayerbotAIConfig.teleportOnlyOutOfSight && WatchedByRealPlayer(bot))
+        {
+            // Seen: give the target up instead, so the bot picks something it can walk to.
+            LOG_DEBUG("playerbots", "[New RPG] {} gives up a target it cannot reach while a player watches",
+                      bot->GetName());
+            botAI->rpgInfo.stuckTs = getMSTime();
+            botAI->rpgInfo.stuckAttempts = 0;
+            botAI->rpgInfo.ChangeToIdle();
+            return false;
+        }
         botAI->rpgInfo.stuckTs = getMSTime();
         botAI->rpgInfo.stuckAttempts = 0;
         AreaTableEntry const* entry = sAreaTableStore.LookupEntry(bot->GetZoneId());
@@ -243,6 +270,12 @@ bool NewRpgBaseAction::MoveWorldObjectTo(ObjectGuid guid, float distance)
                 (M_PI * irand(-25, 25) / 100.0);  // 45 degrees infront of target (leading it's movement)
 
     float rnd = rand_norm();
+    if (sPlayerbotAIConfig.standOffObjects)
+    {
+        // Stop at talking distance instead of anywhere up to it: 0 yards walked bots into the NPC.
+        float const reach = bot->GetCombatReach() + (object->ToUnit() ? object->ToUnit()->GetCombatReach() : 0.0f);
+        rnd = distance > 0.0f ? std::max(0.5f + 0.5f * rnd, std::min(1.0f, reach / distance)) : rnd;
+    }
     x += cos(angle) * distance * rnd;
     y += sin(angle) * distance * rnd;
     if (!object->GetMap()->CheckCollisionAndGetValidCoords(object, object->GetPositionX(), object->GetPositionY(),

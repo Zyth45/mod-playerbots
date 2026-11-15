@@ -1520,6 +1520,16 @@ AiPlayerbot.RandomBotGroupNearby = 0
 # Default: 0 (off, bots fly as usual)
 AiPlayerbot.FlyOnlyOutOfSight = 0
 
+# A bot stuck on its way somewhere teleports to it only while no real player can see it; while one can,
+# it gives that target up and picks another it can walk to.
+# Default: 0 (off, bots teleport when stuck as usual)
+AiPlayerbot.TeleportOnlyOutOfSight = 0
+
+# Bots walking up to an NPC or object stop at talking distance instead of anywhere up to it, so they
+# don't stand inside it.
+# Default: 0 (off, as usual)
+AiPlayerbot.StandOffObjects = 0
+
 # Randombots will pick quests on their own and try to complete them
 # Default: 1 (enabled)
 AiPlayerbot.AutoDoQuests = 1
