@@ -7,6 +7,9 @@
 #ifndef COA_ECONOMY_MATERIALS_H
 #define COA_ECONOMY_MATERIALS_H
 
+// The guild stock API below (IsGuildStockEnabled, IsStockItem, StockCount, StockItems) is here.
+#define COA_ECONOMY_GUILD_STOCK 1
+
 #include "Define.h"
 #include "ObjectGuid.h"
 
