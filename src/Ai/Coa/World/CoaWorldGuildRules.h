@@ -122,6 +122,58 @@ namespace CoaWorldGuildRules
         return { casts, std::min(casts * made, maxStack) };
     }
 
+    // An auction a guild order may buy out: its stack and its buyout.
+    struct AuctionOffer
+    {
+        std::uint32_t count;
+        std::uint64_t buyout;
+    };
+    // The auctions bought for an order of qty (0: any count, the one cheapest auction as before): the cheapest by
+    // unit first while they fit the count, then the cheapest one for what is still missing (never more than one stack
+    // over); at most maxCopper in all and maxAuctions auctions (one mail).
+    inline std::vector<std::size_t> PickAuctions(std::vector<AuctionOffer> const& offers, std::uint32_t qty,
+                                                 std::uint64_t maxCopper, std::size_t maxAuctions)
+    {
+        std::vector<std::size_t> picked;
+        if (!maxAuctions)
+            return picked;
+        std::vector<bool> taken(offers.size(), false);
+        std::uint64_t spent = 0;
+        std::uint32_t got = 0;
+        if (qty)
+        {
+            std::vector<std::size_t> order;
+            for (std::size_t i = 0; i < offers.size(); ++i)
+                if (offers[i].count)
+                    order.push_back(i);
+            std::stable_sort(order.begin(), order.end(), [&](std::size_t a, std::size_t b)
+                             { return offers[a].buyout * offers[b].count < offers[b].buyout * offers[a].count; });
+            for (std::size_t i : order)
+            {
+                if (got >= qty || picked.size() >= maxAuctions)
+                    break;
+                if (got + offers[i].count <= qty && spent + offers[i].buyout <= maxCopper)
+                {
+                    taken[i] = true;
+                    picked.push_back(i);
+                    spent += offers[i].buyout;
+                    got += offers[i].count;
+                }
+            }
+            if (got >= qty || picked.size() >= maxAuctions)
+                return picked;
+        }
+        // The cheapest auction left for what is missing (or the one auction of an order without a count).
+        std::size_t best = offers.size();
+        for (std::size_t i = 0; i < offers.size(); ++i)
+            if (!taken[i] && offers[i].count && spent + offers[i].buyout <= maxCopper &&
+                (best == offers.size() || offers[i].buyout < offers[best].buyout))
+                best = i;
+        if (best < offers.size())
+            picked.push_back(best);
+        return picked;
+    }
+
     // What the materials cost a guildmate who crafts for you: each reagent at its vendor price, or four times what a
     // vendor gives for it when no vendor sells it (cloth, ore, herbs). No fee between guildmates.
     inline std::uint64_t ReagentPrice(std::uint32_t buyPrice, std::uint32_t sellPrice)

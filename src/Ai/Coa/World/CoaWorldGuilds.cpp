@@ -845,8 +845,13 @@ namespace
                     else
                         MailFromBags(bot, player, item, 0, 0);
                     ++count.second;
-                    Answer(bot, "guild_order_share", slots, Acore::StringFormat(Tr("{} I have one, sending it", "{} j'en ai un, je te l'envoie"), player->GetName()),
-                           now + urand(5, 15));
+                    if (qty && sent < qty)
+                        Say(bot, Acore::StringFormat(Tr("{} I only have {} of the {}, sending them", "{} j'en ai seulement {} sur les {}, je te les envoie"),
+                                                     player->GetName(), sent, qty),
+                            now + urand(5, 15));
+                    else
+                        Answer(bot, "guild_order_share", slots, Acore::StringFormat(Tr("{} I have one, sending it", "{} j'en ai un, je te l'envoie"), player->GetName()),
+                               now + urand(5, 15));
                     LogEvent("guild", bot->GetName(), Acore::StringFormat("sent {} to {}", proto->Name1, player->GetName()));
                     shared = Logged(player, entry, sent, "shared", "", bot->GetName(), 0, now);
                     return true;
@@ -887,9 +892,15 @@ namespace
                             continue;
                         ++count.second;
                         slots["price"] = Money(cost);
-                        Answer(bot, "guild_order_craft", slots,
-                               Acore::StringFormat(Tr("{} I can make that, mats only ({}), will mail it", "{} je peux te le faire, juste les compos ({}), je te l'envoie"), player->GetName(),
-                                                   Money(cost)), now + urand(5, 15));
+                        if (qty && sent < qty)
+                            Say(bot, Acore::StringFormat(Tr("{} I can make {} of the {}, mats only ({}), will mail them",
+                                                            "{} je peux t'en faire {} sur les {}, juste les compos ({}), je te les envoie"),
+                                                         player->GetName(), sent, qty, Money(cost)),
+                                now + urand(5, 15));
+                        else
+                            Answer(bot, "guild_order_craft", slots,
+                                   Acore::StringFormat(Tr("{} I can make that, mats only ({}), will mail it", "{} je peux te le faire, juste les compos ({}), je te l'envoie"), player->GetName(),
+                                                       Money(cost)), now + urand(5, 15));
                         LogEvent("guild", bot->GetName(), Acore::StringFormat("crafts {} for {}", proto->Name1,
                                                                                player->GetName()));
                         return Logged(player, entry, sent, "crafted", "", bot->GetName(), cost, now);
@@ -919,64 +930,89 @@ namespace
             AuctionHouseObject* house = sAuctionMgr->GetAuctionsMap(player->GetFaction());
             if (!house)
                 return false;
-            // The cheapest stack of at most qty; else the cheapest of any size (the player sees the price on delivery).
-            AuctionEntry* best = nullptr;
-            AuctionEntry* bestAny = nullptr;
+            // Auctions bought out up to the count asked (OrderAuctionMaxGold for them all), in one mail.
+            std::vector<AuctionEntry*> entries;
+            std::vector<CoaWorldGuildRules::AuctionOffer> offers;
             for (auto const& [id, auction] : house->GetAuctions())
             {
                 if (!auction || auction->item_template != proto->ItemId || !auction->buyout || auction->bidder ||
                     auction->owner == player->GetGUID())
                     continue;
-                if ((!qty || auction->itemCount <= qty) && (!best || auction->buyout < best->buyout))
-                    best = auction;
-                if (!bestAny || auction->buyout < bestAny->buyout)
-                    bestAny = auction;
+                entries.push_back(auction);
+                offers.push_back({ auction->itemCount, auction->buyout });
             }
-            if (!best)
-                best = bestAny;
-            if (!best || best->buyout > uint64(settings.orderAuctionMaxGold) * GOLD)
+            std::vector<std::size_t> const picks = CoaWorldGuildRules::PickAuctions(
+                offers, qty, uint64(settings.orderAuctionMaxGold) * GOLD, MAX_MAIL_ITEMS);
+            if (picks.empty())
                 return false;
+            uint64 total = 0;
+            for (std::size_t i : picks)
+                total += entries[i]->buyout;
             Player* buyer = nullptr;
             for (Player* bot : mates)
-                if (bot->GetMoney() >= best->buyout && bot->GetGUID() != best->owner)
+                if (bot->GetMoney() >= total &&
+                    std::none_of(picks.begin(), picks.end(), [&](std::size_t i) { return entries[i]->owner == bot->GetGUID(); }))
                 {
                     buyer = bot;
                     break;
                 }
-            Item* item = buyer ? sAuctionMgr->GetAItem(best->item_guid) : nullptr;
-            if (!item)
+            if (!buyer)
                 return false;
+            std::vector<Item*> items;
+            uint32 sent = 0;
+            for (std::size_t i : picks)
+            {
+                Item* item = sAuctionMgr->GetAItem(entries[i]->item_guid);
+                if (!item)
+                    return false;
+                items.push_back(item);
+                sent += item->GetCount();
+            }
+            bool const fewer = qty && sent < qty;
 
-            // As a buyout by the bot (AuctionHouseHandler), but the item goes on to the player instead of the won mail.
-            uint32 const price = best->buyout;
+            // As buyouts by the bot (AuctionHouseHandler), but the items go on to the player instead of the won mails.
             CharacterDatabaseTransaction trans = CharacterDatabase.BeginTransaction();
-            buyer->ModifyMoney(-int32(price));
-            best->bidder = buyer->GetGUID();
-            best->bid = price;
-            sAuctionMgr->SendAuctionSalePendingMail(best, trans);
-            sAuctionMgr->SendAuctionSuccessfulMail(best, trans);
-            sScriptMgr->OnAuctionSuccessful(house, best);
-            best->DeleteFromDB(trans);
-            sAuctionMgr->RemoveAItem(best->item_guid);
-            house->RemoveAuction(best);
-            item->SetOwnerGUID(player->GetGUID());
-            item->SetState(ITEM_CHANGED);  // the new owner reaches item_instance (an auction item is saved as unchanged)
-            item->SaveToDB(trans);
-            MailDraft(proto->Name1, Tr("Got it at the auction house, you pay what I paid.",
-                                       "Trouv\u00e9 \u00e0 l'h\u00f4tel des ventes, tu paies ce que j'ai pay\u00e9."))
-                .AddItem(item)
-                .AddCOD(price)
-                .SendMailTo(trans, MailReceiver(player), MailSender(buyer), MAIL_CHECK_MASK_COPIED, 0);
+            buyer->ModifyMoney(-int32(total));
+            MailDraft draft(proto->Name1,
+                            fewer ? Acore::StringFormat(Tr("Got {} of the {} you asked at the auction house, you pay what I paid.",
+                                                           "Trouv\u00e9 {} sur les {} demand\u00e9s \u00e0 l'h\u00f4tel des ventes, tu paies ce que j'ai pay\u00e9."),
+                                                        sent, qty)
+                                  : std::string(Tr("Got it at the auction house, you pay what I paid.",
+                                                   "Trouv\u00e9 \u00e0 l'h\u00f4tel des ventes, tu paies ce que j'ai pay\u00e9.")));
+            for (std::size_t n = 0; n < picks.size(); ++n)
+            {
+                AuctionEntry* auction = entries[picks[n]];
+                Item* item = items[n];
+                auction->bidder = buyer->GetGUID();
+                auction->bid = auction->buyout;
+                sAuctionMgr->SendAuctionSalePendingMail(auction, trans);
+                sAuctionMgr->SendAuctionSuccessfulMail(auction, trans);
+                sScriptMgr->OnAuctionSuccessful(house, auction);
+                auction->DeleteFromDB(trans);
+                sAuctionMgr->RemoveAItem(auction->item_guid);
+                house->RemoveAuction(auction);
+                item->SetOwnerGUID(player->GetGUID());
+                item->SetState(ITEM_CHANGED);  // the new owner reaches item_instance (an auction item is saved as unchanged)
+                item->SaveToDB(trans);
+                draft.AddItem(item);
+            }
+            draft.AddCOD(uint32(total)).SendMailTo(trans, MailReceiver(player), MailSender(buyer), MAIL_CHECK_MASK_COPIED, 0);
             buyer->SaveInventoryAndGoldToDB(trans);
             CharacterDatabase.CommitTransaction(trans);
 
-            slots["price"] = Money(price);
-            Answer(buyer, "guild_order_ah", slots,
-                   Acore::StringFormat(Tr("{} saw one on the AH for {}, I'll grab it for you", "{} j'en ai vu un \u00e0 l'HV pour {}, je te le prends"), player->GetName(), Money(price)),
-                   now + urand(5, 15));
-            LogEvent("guild", buyer->GetName(), Acore::StringFormat("bought {} at the auction house for {}", proto->Name1,
+            slots["price"] = Money(total);
+            if (fewer)
+                Say(buyer, Acore::StringFormat(Tr("{} only found {} of the {} on the AH, {} at cost, check your mail",
+                                                  "{} j'en ai trouv\u00e9 seulement {} sur les {} \u00e0 l'HV, {} au prix co\u00fbtant, regarde ta bo\u00eete"),
+                                               player->GetName(), sent, qty, Money(total)),
+                    now + urand(5, 15));
+            else
+                Answer(buyer, "guild_order_ah", slots,
+                       Acore::StringFormat(Tr("{} saw one on the AH for {}, I'll grab it for you", "{} j'en ai vu un \u00e0 l'HV pour {}, je te le prends"), player->GetName(), Money(total)),
+                       now + urand(5, 15));
+            LogEvent("guild", buyer->GetName(), Acore::StringFormat("bought {} {} at the auction house for {}", sent, proto->Name1,
                                                                      player->GetName()));
-            result = Logged(player, proto->ItemId, item->GetCount(), "bought", "", buyer->GetName(), price, now);
+            result = Logged(player, proto->ItemId, sent, "bought", "", buyer->GetName(), total, now);
             return true;
         }
 

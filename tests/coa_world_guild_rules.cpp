@@ -51,6 +51,19 @@ int main()
     assert(PlanGuildCraft(5, 2, 20).casts == 3 && PlanGuildCraft(5, 2, 20).sent == 6);
     assert(PlanGuildCraft(20, 1, 1).casts == 1 && PlanGuildCraft(20, 1, 1).sent == 1);
     assert(PlanGuildCraft(0, 5, 20).casts == 1 && PlanGuildCraft(0, 5, 20).sent == 5);
+    // The auction house: the cheapest by unit up to the count, then one more for the rest; gold for them all.
+    {
+        std::vector<AuctionOffer> const ah = { { 5, 15380 }, { 20, 100000 }, { 1, 2000 }, { 5, 16000 }, { 0, 1 } };
+        assert((PickAuctions(ah, 20, 1000000, 12) == std::vector<std::size_t>{ 2, 0, 3, 1 })); // 11, then a stack: 31
+        assert((PickAuctions(ah, 10, 1000000, 12) == std::vector<std::size_t>{ 2, 0, 3 }));  // 1 + 5, then 5: 11
+        assert((PickAuctions(ah, 11, 1000000, 12) == std::vector<std::size_t>{ 2, 0, 3 }));  // exactly 11
+        assert((PickAuctions(ah, 0, 1000000, 12) == std::vector<std::size_t>{ 2 }));        // no count: one, the cheapest
+        assert((PickAuctions(ah, 20, 40000, 12) == std::vector<std::size_t>{ 2, 0, 3 }));   // gold ceiling for them all
+        assert(PickAuctions(ah, 20, 1000, 12).empty() && PickAuctions(ah, 20, 1000000, 0).empty());
+        assert((PickAuctions(ah, 20, 1000000, 1) == std::vector<std::size_t>{ 2 }));
+        assert((PickAuctions({ { 5, 100 }, { 5, 100 }, { 5, 100 } }, 20, 1000000, 2).size() == 2));  // one mail
+    }
+
     // Materials without a price: one cast, as before (no twenty free items).
     assert(PlanGuildCraft(20, 1, 20, 0).casts == 1 && PlanGuildCraft(20, 1, 20, 0).sent == 1);
     assert(PlanGuildCraft(3, 5, 20, 0).casts == 1 && PlanGuildCraft(3, 5, 20, 0).sent == 3);
