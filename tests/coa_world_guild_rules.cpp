@@ -90,6 +90,21 @@ int main()
         assert(SplitStock({ 0, 0 }, 5).empty());
     }
 
+    // The professions kept online in a real player's guild (3.1.4).
+    {
+        std::uint32_t const mining = ProfessionBit(186), herbs = ProfessionBit(182), skin = ProfessionBit(393),
+                            alchemy = ProfessionBit(171), firstAid = ProfessionBit(129);
+        assert(mining && herbs && skin && alchemy && firstAid && !ProfessionBit(0) && !ProfessionBit(762));  // riding
+        assert(BitCount(mining | herbs | skin) == 3);
+        // Online: a herbalist. Offline: a skinner, a miner-alchemist, a second herbalist, a miner.
+        std::vector<std::size_t> const c = ProfessionCover(herbs, { skin, mining | alchemy, herbs, mining });
+        assert((c == std::vector<std::size_t>{ 1, 0 }));
+        assert(ProfessionCover(mining | herbs, { mining, herbs, 0 }).empty());
+        assert(ProfessionCover(0, {}).empty());
+        assert(SoleProfessionHolder(mining | firstAid, mining) && !SoleProfessionHolder(mining, mining | herbs));
+        assert(!SoleProfessionHolder(0, 0));
+    }
+
     // Materials without a price: one cast, as before (no twenty free items).
     assert(PlanGuildCraft(20, 1, 20, 0).casts == 1 && PlanGuildCraft(20, 1, 20, 0).sent == 1);
     assert(PlanGuildCraft(3, 5, 20, 0).casts == 1 && PlanGuildCraft(3, 5, 20, 0).sent == 3);

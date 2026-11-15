@@ -182,6 +182,52 @@ namespace CoaWorldGuildRules
         return picks;
     }
 
+    // Professions a real player's guild keeps online (3.1.4, Guilds.PlayerGuildProfessions): a bit each.
+    // Mining 186, Herbalism 182, Skinning 393, Blacksmithing 164, Alchemy 171, Tailoring 197, Leatherworking 165,
+    // Enchanting 333, Engineering 202, Cooking 185, First Aid 129.
+    inline std::uint32_t ProfessionBit(std::uint32_t skill)
+    {
+        static constexpr std::uint32_t skills[] = { 186, 182, 393, 164, 171, 197, 165, 333, 202, 185, 129 };
+        for (std::uint32_t i = 0; i < sizeof(skills) / sizeof(skills[0]); ++i)
+            if (skills[i] == skill)
+                return 1u << i;
+        return 0;
+    }
+    inline std::uint32_t BitCount(std::uint32_t v)
+    {
+        std::uint32_t n = 0;
+        for (; v; v &= v - 1)
+            ++n;
+        return n;
+    }
+    // The offline members to bring online first so that every profession some member has is online: each time the
+    // one who adds the most professions still missing (the first of equals), until none adds any.
+    inline std::vector<std::size_t> ProfessionCover(std::uint32_t onlineMask, std::vector<std::uint32_t> const& offline)
+    {
+        std::vector<std::size_t> picks;
+        std::vector<bool> taken(offline.size(), false);
+        std::uint32_t covered = onlineMask;
+        for (;;)
+        {
+            std::size_t best = offline.size();
+            std::uint32_t bestGain = 0;
+            for (std::size_t i = 0; i < offline.size(); ++i)
+                if (!taken[i])
+                    if (std::uint32_t const gain = BitCount(offline[i] & ~covered); gain > bestGain)
+                    {
+                        best = i;
+                        bestGain = gain;
+                    }
+            if (best == offline.size())
+                return picks;
+            taken[best] = true;
+            picks.push_back(best);
+            covered |= offline[best];
+        }
+    }
+    // An online member is the only one online with one of its professions: it stays when its time is up.
+    inline bool SoleProfessionHolder(std::uint32_t mine, std::uint32_t othersOnline) { return (mine & ~othersOnline) != 0; }
+
     // An auction a guild order may buy out: its stack and its buyout.
     struct AuctionOffer
     {

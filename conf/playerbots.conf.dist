@@ -3380,6 +3380,14 @@ AiPlayerbot.CoaWorld.CapitalRaid.RewardSilverPerLevel = 50
 
 AiPlayerbot.CoaWorld.Guilds.PlayerGuildOnline = 1
 AiPlayerbot.CoaWorld.Guilds.PlayerGuildOnlinePercent = 40
+
+#    AiPlayerbot.CoaWorld.Guilds.PlayerGuildProfessions
+#        Description: In a real player's guild, the bot members brought online first are those with a profession
+#                     nobody online has (mining, herbalism, skinning, the crafts, cooking, first aid), and the only
+#                     one online with a profession stays. Which bots come, never how many.
+#        Default:     1 (enabled)
+
+AiPlayerbot.CoaWorld.Guilds.PlayerGuildProfessions = 1
 AiPlayerbot.CoaWorld.Events.Addon = 1
 
 # Quality a looted item must reach to be written to the "playerbots.loot" logger:
