@@ -79,6 +79,11 @@ int main()
         assert(few.size() == 2 && few[0].count + few[1].count == 4);
         assert(TakeStacks({}, 5, 12).empty() && TakeStacks({ 0, 0 }, 5, 12).empty() && TakeStacks({ 5 }, 5, 0).empty());
     }
+    // The guild bank by order: the player's own rank's rights and withdrawals of the day, never more.
+    assert(BankStacksAllowed(true, false, 0, 99) == 0xFFFFFFFFu);
+    assert(BankStacksAllowed(false, false, 10, 0) == 0 && BankStacksAllowed(false, true, 0, 0) == 0);
+    assert(BankStacksAllowed(false, true, 5, 2) == 3 && BankStacksAllowed(false, true, 5, 5) == 0 && BankStacksAllowed(false, true, 5, 9) == 0);
+    assert(BankStacksAllowed(false, true, -1, 50) == 0xFFFFFFFFu && BankStacksAllowed(false, true, 0xFFFFFFFFLL, 50) == 0xFFFFFFFFu);
     {
         // "5 in stock + 15 bought": two holders give 3 and 2, the rest goes on to the crafters and the AH.
         std::vector<StackTake> const s = SplitStock({ 2, 0, 3 }, 20);
@@ -110,6 +115,16 @@ int main()
         assert(ProfessionCover(0, {}).empty());
         assert(SoleProfessionHolder(mining | firstAid, mining) && !SoleProfessionHolder(mining, mining | herbs));
         assert(!SoleProfessionHolder(0, 0));
+        // Taught when no member has it: gathering first, never twice, one at a time.
+        assert(ProfessionToTeach(0, 0) == mining && ProfessionSkill(mining) == 186 && ProfessionStarterSpell(186) == 2575);
+        assert(ProfessionToTeach(mining | herbs, 0) == skin);
+        assert(ProfessionToTeach(mining | herbs, skin) == ProfessionBit(164));
+        assert(ProfessionToTeach(0x7FF, 0) == 0 && ProfessionToTeach(0x3FF, 0x400) == 0);
+        assert(ProfessionSkill(firstAid) == 129 && !IsPrimaryProfession(129) && !IsPrimaryProfession(185) && IsPrimaryProfession(171));
+        assert(MayLearnProfession(186, 1, 2, false) && !MayLearnProfession(186, 2, 2, false));
+        assert(MayLearnProfession(185, 2, 2, false) && !MayLearnProfession(185, 0, 2, true) && !MayLearnProfession(0, 0, 2, false));
+        for (std::uint32_t b = 0; b < 11; ++b)
+            assert(ProfessionStarterSpell(ProfessionSkill(1u << b)) && ProfessionBit(ProfessionSkill(1u << b)) == (1u << b));
     }
 
     // Materials without a price: one cast, as before (no twenty free items).

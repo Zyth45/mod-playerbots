@@ -158,6 +158,20 @@ namespace CoaWorldGuildRules
         return picks;
     }
 
+    // The guild bank stacks an order may take out of a tab for this player (3.1.4): never more than the player's own
+    // rank could withdraw there today (a guild order is no way round the guild's rights). The guild master: all; no
+    // right to see the tab: none; slotsPerDay < 0 or huge (the core's unlimited): all; else what is left of the day.
+    inline std::uint32_t BankStacksAllowed(bool leader, bool viewTab, std::int64_t slotsPerDay, std::int64_t usedToday)
+    {
+        if (leader)
+            return 0xFFFFFFFFu;
+        if (!viewTab || !slotsPerDay)
+            return 0;
+        if (slotsPerDay < 0 || slotsPerDay >= 0x7FFFFFFF)
+            return 0xFFFFFFFFu;
+        return slotsPerDay > usedToday ? std::uint32_t(slotsPerDay - usedToday) : 0;
+    }
+
     // The holders of a stock (guildmates' bags and banks) asked for need items: the best stocked first, each gives
     // what it has up to what is still missing. Each pick is {holder index, count}; 0 (any): the best stocked alone.
     inline std::vector<StackTake> SplitStock(std::vector<std::uint32_t> const& held, std::uint32_t need)
@@ -243,6 +257,53 @@ namespace CoaWorldGuildRules
             covered |= offline[best];
         }
     }
+    // The skill of a profession bit, its starter spell (the apprentice rank a trainer teaches), and whether it takes
+    // one of the two primary slots (cooking and first aid do not).
+    inline std::uint32_t ProfessionSkill(std::uint32_t bit)
+    {
+        static constexpr std::uint32_t skills[] = { 186, 182, 393, 164, 171, 197, 165, 333, 202, 185, 129 };
+        for (std::uint32_t i = 0; i < sizeof(skills) / sizeof(skills[0]); ++i)
+            if (bit == (1u << i))
+                return skills[i];
+        return 0;
+    }
+    inline std::uint32_t ProfessionStarterSpell(std::uint32_t skill)
+    {
+        switch (skill)
+        {
+            case 186: return 2575;  // Mining
+            case 182: return 2366;  // Herbalism
+            case 393: return 8613;  // Skinning
+            case 164: return 2018;  // Blacksmithing
+            case 171: return 2259;  // Alchemy
+            case 197: return 3908;  // Tailoring
+            case 165: return 2108;  // Leatherworking
+            case 333: return 7411;  // Enchanting
+            case 202: return 4036;  // Engineering
+            case 185: return 2550;  // Cooking
+            case 129: return 3273;  // First Aid
+            default: return 0;
+        }
+    }
+    inline bool IsPrimaryProfession(std::uint32_t skill) { return skill && skill != 185 && skill != 129; }
+    // The one profession a guild learns next (3.1.4, Guilds.PlayerGuildTeach): the first that no member has, online
+    // or not, and none was taught already (0: none missing). The bit, gathering first (the list's order).
+    inline std::uint32_t ProfessionToTeach(std::uint32_t membersMask, std::uint32_t taughtMask)
+    {
+        for (std::uint32_t i = 0; i < 11; ++i)
+            if (!((membersMask | taughtMask) & (1u << i)))
+                return 1u << i;
+        return 0;
+    }
+    // A member who may learn it: a free primary slot for a primary profession (two at most), anyone for cooking and
+    // first aid, never one who has it.
+    inline bool MayLearnProfession(std::uint32_t skill, std::uint32_t primaryCount, std::uint32_t maxPrimary, bool hasIt)
+    {
+        if (!skill || hasIt)
+            return false;
+        return !IsPrimaryProfession(skill) || primaryCount < maxPrimary;
+    }
+
     // An online member is the only one online with one of its professions: it stays when its time is up.
     inline bool SoleProfessionHolder(std::uint32_t mine, std::uint32_t othersOnline) { return (mine & ~othersOnline) != 0; }
 

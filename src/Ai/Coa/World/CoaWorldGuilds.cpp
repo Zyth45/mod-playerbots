@@ -70,6 +70,7 @@
 #include "WorldSession.h"
 
 #include <algorithm>
+#include <array>
 #include <cstring>
 #include <mutex>
 #include <random>
@@ -932,19 +933,52 @@ namespace
                 uint8 tab, slot;
                 uint32 count;
             };
+            // The player's own rights: never more out of a tab than the player's rank could withdraw there today.
+            Guild::Member const* member = guild->GetMember(player->GetGUID());
+            if (!member)
+                return false;
+            bool const leader = member->IsRank(GR_GUILDMASTER) || guild->GetLeaderGUID() == player->GetGUID();
+            std::array<int64, GUILD_BANK_MAX_TABS> slotsPerDay{};
+            if (!leader)
+                if (QueryResult rights = CharacterDatabase.Query(
+                        "SELECT `TabId`, `SlotPerDay` FROM `guild_bank_right` WHERE `guildid` = {} AND `rid` = {}", guild->GetId(),
+                        uint32(member->GetRankId())))
+                    do
+                    {
+                        Field* f = rights->Fetch();
+                        if (uint8 const tab = f[0].Get<uint8>(); tab < GUILD_BANK_MAX_TABS)
+                            slotsPerDay[tab] = int64(f[1].Get<uint32>());
+                    } while (rights->NextRow());
+            std::array<uint32, GUILD_BANK_MAX_TABS> allowed{};
+            for (uint8 tab = 0; tab < GUILD_BANK_MAX_TABS; ++tab)
+                allowed[tab] = CoaWorldGuildRules::BankStacksAllowed(
+                    leader, guild->MemberHasTabRights(player->GetGUID(), tab, GUILD_BANK_RIGHT_VIEW_TAB), slotsPerDay[tab],
+                    member->GetBankWithdrawValue(tab));
+
             std::vector<BankStack> stacks;
             std::vector<uint32> counts;
             do
             {
                 Field* f = result->Fetch();
-                stacks.push_back({ f[0].Get<uint8>(), f[1].Get<uint8>(), f[2].Get<uint32>() });
+                uint8 const tab = f[0].Get<uint8>();
+                if (tab >= GUILD_BANK_MAX_TABS || !allowed[tab])
+                    continue;
+                stacks.push_back({ tab, f[1].Get<uint8>(), f[2].Get<uint32>() });
                 counts.push_back(stacks.back().count);
             } while (result->NextRow());
-            std::vector<CoaWorldGuildRules::StackTake> const takes = CoaWorldGuildRules::TakeStacks(counts, need, MAX_MAIL_ITEMS);
+            std::vector<CoaWorldGuildRules::StackTake> takes = CoaWorldGuildRules::TakeStacks(counts, need, MAX_MAIL_ITEMS);
+            // At most the player's allowance of stacks a tab (the biggest ones were picked first).
+            std::array<uint32, GUILD_BANK_MAX_TABS> taken{};
+            takes.erase(std::remove_if(takes.begin(), takes.end(), [&](CoaWorldGuildRules::StackTake const& take)
+                                       { return ++taken[stacks[take.index].tab] > allowed[stacks[take.index].tab]; }),
+                        takes.end());
+            if (takes.empty())
+                return false;
 
             for (Player* bot : mates)
             {
                 std::vector<Item*> got;
+                std::vector<uint8> gotTabs;
                 std::vector<CoaWorldGuildRules::StackTake> whole;
                 for (CoaWorldGuildRules::StackTake const& take : takes)
                 {
@@ -966,6 +1000,7 @@ namespace
                     }
                     whole.push_back({ got.size(), item->GetCount() });
                     got.push_back(item);
+                    gotTabs.push_back(stack.tab);
                 }
                 if (got.empty())
                     continue;
@@ -973,6 +1008,15 @@ namespace
                                                Tr("From the guild bank.", "De la banque de guilde."));
                 if (!sent)
                     continue;
+                // The stacks count as the player's own withdrawals of the day (the bot's were spent by the core too).
+                if (!leader)
+                    if (Guild::Member* own = guild->GetMember(player->GetGUID()))
+                    {
+                        CharacterDatabaseTransaction trans = CharacterDatabase.BeginTransaction();
+                        for (uint8 tab : gotTabs)
+                            own->UpdateBankWithdrawValue(trans, tab, 1);
+                        CharacterDatabase.CommitTransaction(trans);
+                    }
                 LogEvent("guild", bot->GetName(), Acore::StringFormat("took {} {} out of the guild bank for {}", sent,
                                                                        proto->Name1, player->GetName()));
                 part = { "bank", bot, sent, 0 };
@@ -1087,50 +1131,70 @@ namespace
                 got += part.count;
             bool const fewer = qty && got < qty;
             OrderPart const& first = parts.front();
+            bool const over = qty && got > qty;  // a recipe that makes several, an auction stack bigger than the rest
             if (parts.size() == 1)
             {
+                // The count said is the count sent: "it" for one, "them" for more, "N for the M you asked" over.
                 Player* bot = first.bot;
                 std::string const name = player->GetName();
-                slots["price"] = Money(first.cod);
+                std::string const price = Money(first.cod);
+                slots["price"] = price;
+                time_t const at = now + urand(5, 15);
                 if (!std::strcmp(first.state, "bank"))
-                    Say(bot, fewer ? Acore::StringFormat(Tr("{} only {} of the {} in the guild bank, sending them",
-                                                            "{} seulement {} sur les {} à la banque de guilde, je te les envoie"),
-                                                         name, got, qty)
-                                   : Acore::StringFormat(Tr("{} took it out of the guild bank for you, check your mail",
-                                                            "{} je te l'ai sorti de la banque de guilde, regarde ta boîte"),
-                                                         name),
-                        now + urand(5, 15));
+                {
+                    if (fewer)
+                        Say(bot, Acore::StringFormat(Tr("{} only {} of the {} in the guild bank, sending them",
+                                                        "{} seulement {} sur les {} à la banque de guilde, je te les envoie"),
+                                                     name, got, qty), at);
+                    else if (got == 1)
+                        Say(bot, Acore::StringFormat(Tr("{} took it out of the guild bank for you, check your mail",
+                                                        "{} je te l'ai sorti de la banque de guilde, regarde ta boîte"), name), at);
+                    else
+                        Say(bot, Acore::StringFormat(Tr("{} took {} out of the guild bank for you, check your mail",
+                                                        "{} je t'en ai sorti {} de la banque de guilde, regarde ta boîte"), name, got), at);
+                }
                 else if (!std::strcmp(first.state, "shared"))
                 {
                     if (fewer)
                         Say(bot, Acore::StringFormat(Tr("{} I only have {} of the {}, sending them", "{} j'en ai seulement {} sur les {}, je te les envoie"),
-                                                     name, got, qty),
-                            now + urand(5, 15));
+                                                     name, got, qty), at);
+                    else if (got == 1)
+                        Answer(bot, "guild_order_share", slots, Acore::StringFormat(Tr("{} I have one, sending it", "{} j'en ai un, je te l'envoie"), name), at);
                     else
-                        Answer(bot, "guild_order_share", slots, Acore::StringFormat(Tr("{} I have one, sending it", "{} j'en ai un, je te l'envoie"), name),
-                               now + urand(5, 15));
+                        Say(bot, Acore::StringFormat(Tr("{} I have {}, sending them", "{} j'en ai {}, je te les envoie"), name, got), at);
                 }
                 else if (!std::strcmp(first.state, "crafted"))
                 {
                     if (fewer)
                         Say(bot, Acore::StringFormat(Tr("{} I can make {} of the {}, mats only ({}), will mail them",
                                                         "{} je peux t'en faire {} sur les {}, juste les compos ({}), je te les envoie"),
-                                                     name, got, qty, Money(first.cod)),
-                            now + urand(5, 15));
-                    else
+                                                     name, got, qty, price), at);
+                    else if (over)
+                        Say(bot, Acore::StringFormat(Tr("{} the recipe makes {} for the {} you asked, mats only ({}), will mail them",
+                                                        "{} la recette en fait {} pour les {} demandés, juste les compos ({}), je te les envoie"),
+                                                     name, got, qty, price), at);
+                    else if (got == 1)
                         Answer(bot, "guild_order_craft", slots,
-                               Acore::StringFormat(Tr("{} I can make that, mats only ({}), will mail it", "{} je peux te le faire, juste les compos ({}), je te l'envoie"), name,
-                                                   Money(first.cod)), now + urand(5, 15));
+                               Acore::StringFormat(Tr("{} I can make that, mats only ({}), will mail it", "{} je peux te le faire, juste les compos ({}), je te l'envoie"),
+                                                   name, price), at);
+                    else
+                        Say(bot, Acore::StringFormat(Tr("{} I can make {}, mats only ({}), will mail them",
+                                                        "{} je peux t'en faire {}, juste les compos ({}), je te les envoie"), name, got, price), at);
                 }
                 else if (fewer)
                     Say(bot, Acore::StringFormat(Tr("{} only found {} of the {} on the AH, {} at cost, check your mail",
                                                     "{} j'en ai trouvé seulement {} sur les {} à l'HV, {} au prix coûtant, regarde ta boîte"),
-                                                 name, got, qty, Money(first.cod)),
-                        now + urand(5, 15));
-                else
+                                                 name, got, qty, price), at);
+                else if (over)
+                    Say(bot, Acore::StringFormat(Tr("{} got {} on the AH for the {} you asked (sold in stacks), {} at cost, check your mail",
+                                                    "{} j'en ai pris {} à l'HV pour les {} demandés (vendus par piles), {} au prix coûtant, regarde ta boîte"),
+                                                 name, got, qty, price), at);
+                else if (got == 1)
                     Answer(bot, "guild_order_ah", slots,
-                           Acore::StringFormat(Tr("{} saw one on the AH for {}, I'll grab it for you", "{} j'en ai vu un à l'HV pour {}, je te le prends"), name, Money(first.cod)),
-                           now + urand(5, 15));
+                           Acore::StringFormat(Tr("{} saw one on the AH for {}, I'll grab it for you", "{} j'en ai vu un à l'HV pour {}, je te le prends"), name, price), at);
+                else
+                    Say(bot, Acore::StringFormat(Tr("{} found {} on the AH for {}, I'll grab them for you", "{} j'en ai trouvé {} à l'HV pour {}, je te les prends"),
+                                                 name, got, price), at);
                 return;
             }
 
@@ -1166,6 +1230,8 @@ namespace
             std::string line = Acore::StringFormat(Tr("{} {}, check your mail", "{} {}, regarde ta boîte"), player->GetName(), text);
             if (fewer)
                 line += Acore::StringFormat(Tr(" ({} of the {})", " ({} sur les {})"), got, qty);
+            else if (over)
+                line += Acore::StringFormat(Tr(" ({} for the {} asked)", " ({} pour les {} demandés)"), got, qty);
             Say(parts.back().bot, line, now + urand(5, 15));
         }
 
