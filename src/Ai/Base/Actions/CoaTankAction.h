@@ -11,7 +11,12 @@
 #include "PositionAction.h"
 #include "Trigger.h"
 
+class SpellInfo;
 class Unit;
+
+// Whether a spell forces its target to attack the caster (SPELL_EFFECT_ATTACK_ME or a SPELL_AURA_MOD_TAUNT aura,
+// itself or through the spell it triggers): the taunts of the Main Tank bar and of "taunt please" (CoaQuickAsk).
+bool CoaIsTauntSpell(SpellInfo const* info);
 
 // "tank main on|off|status | target | taunt | swap [back] | hold | clear | status [all] | spec tank|dps", whispered
 // to a bot of the player's group or sent by the SquidBots Lite Main Tank bar (SQBA). Answers TK and TS lines to the

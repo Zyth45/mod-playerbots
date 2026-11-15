@@ -376,8 +376,9 @@ bool OnAddonWhisper(Player* from, Player* receiver, std::string const& msg)
         botAI->HandleCommand(CHAT_MSG_WHISPER, command, from);
         return true;
     }
-    // The key spells bar too (contract of 14/11).
-    if (command == "keyspells" || command.rfind("keyspells ", 0) == 0 || command.rfind("keepcd ", 0) == 0)
+    // The key spells bar too (contract of 14/11), and its quick asks Heal / CC / Taunt please (15/11).
+    if (command == "keyspells" || command.rfind("keyspells ", 0) == 0 || command.rfind("keepcd ", 0) == 0 ||
+        command == "qastate" || command.rfind("qa ", 0) == 0)
     {
         MarkSeen(from);
         CoaAltBags::Enqueue(botAI, command);

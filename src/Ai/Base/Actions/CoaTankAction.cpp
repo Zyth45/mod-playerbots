@@ -118,6 +118,8 @@ Unit* UnitOnMapOf(Player* from, ObjectGuid guid)
 }
 }  // namespace
 
+bool CoaIsTauntSpell(SpellInfo const* info) { return info && IsTaunt(info); }
+
 void CoaTankAction::Reply(std::string const& action, std::string const& result, uint8 icon, Unit* target)
 {
     std::string const name = target ? target->GetName() : "-";

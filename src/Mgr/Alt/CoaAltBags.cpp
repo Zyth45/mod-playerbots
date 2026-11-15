@@ -6,6 +6,7 @@
 
 #include "CoaAltBags.h"
 #include "CoaKeySpells.h"
+#include "CoaQuickAsk.h"
 
 #include "Bag.h"
 #include "CoaAltAddon.h"
@@ -465,7 +466,7 @@ bool Command(PlayerbotAI* botAI, std::string const& command, std::string const& 
     bool const compare = command == "cmp";
     bool const slots = command == "bagslots" || command == "bagequip";
     bool const check = command == "bagcheck";
-    if (CoaKeySpells::Command(botAI, command, arg))
+    if (CoaKeySpells::Command(botAI, command, arg) || CoaQuickAsk::Command(botAI, command, arg))
         return true;
     if (!compare && !slots && !check && command != "bags" && command != "sell" && command != "destroy")
         return false;
@@ -517,7 +518,8 @@ bool Enqueue(PlayerbotAI* botAI, std::string const& request)
 {
     std::string const command = request.substr(0, request.find(' '));
     if (command != "cmp" && command != "bags" && command != "sell" && command != "destroy" && command != "bagslots" &&
-        command != "bagequip" && command != "bagcheck" && command != "keyspells" && command != "keepcd")
+        command != "bagequip" && command != "bagcheck" && command != "keyspells" && command != "keepcd" &&
+        command != "qa" && command != "qastate")
         return false;
     if (!botAI)
         return true;

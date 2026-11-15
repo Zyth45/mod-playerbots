@@ -12,6 +12,7 @@
 
 #include "CoaAltAddon.h"
 #include "CoaKeySpellsRules.h"
+#include "CoaQuickAsk.h"
 #include "DBCStores.h"
 #include "Player.h"
 #include "PlayerbotAI.h"
@@ -48,6 +49,8 @@ void List(PlayerbotAI* botAI)
 {
     Player* bot = botAI->GetBot();
     std::vector<uint32> ids;
+    // The bot's crowd control is on the list too, whatever its cooldown (one per bot, 3.1.3).
+    uint32 const botCc = CoaQuickAsk::BestCc(bot, nullptr, false);
     for (auto const& [spellId, known] : bot->GetSpellMap())
     {
         if (!known || known->State == PLAYERSPELL_REMOVED || !known->Active)
@@ -69,7 +72,8 @@ void List(PlayerbotAI* botAI)
         uint32 const cdTotal = std::max(info->RecoveryTime, info->CategoryRecoveryTime);
         if (Listed(info->IsPassive(), cdTotal,
                    InSkillCategory(spellId, {SKILL_CATEGORY_PROFESSION, SKILL_CATEGORY_SECONDARY}), mount, createsItem,
-                   InSkillCategory(spellId, {SKILL_CATEGORY_GENERIC})))
+                   InSkillCategory(spellId, {SKILL_CATEGORY_GENERIC})) ||
+            spellId == botCc)
             ids.push_back(spellId);
     }
     std::sort(ids.begin(), ids.end());
@@ -80,7 +84,8 @@ void List(PlayerbotAI* botAI)
         SpellInfo const* info = sSpellMgr->GetSpellInfo(spellId);
         uint32 const cdTotal = std::max(info->RecoveryTime, info->CategoryRecoveryTime);
         uint32 const cdLeft = bot->HasSpellCooldown(spellId) ? bot->GetSpellCooldownDelay(spellId) : 0;
-        CoaAltAddon::SendToMaster(botAI, Line(spellId, cdLeft, cdTotal, Kept(botAI, spellId)));
+        CoaAltAddon::SendToMaster(botAI, Line(spellId, cdLeft, cdTotal, Kept(botAI, spellId),
+                                              CoaQuickAsk::SpellCategory(info, botCc)));
     }
     CoaAltAddon::SendToMaster(botAI, "KSPELL\t-");
 }

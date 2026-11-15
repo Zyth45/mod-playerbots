@@ -4016,14 +4016,37 @@ AiPlayerbot.CoaLive.LootNeedAsk.TestPlayer = ""
 AiPlayerbot.CoaLive.LootNeedAsk.TestAnswer = none
 
 #    AiPlayerbot.CoaLive.HealRequest.Enable
-#        Description: A real player asks for a heal in party or raid chat ("heal me", "heal plz", "need heal",
-#                     "soigne-moi", "besoin de soin"), or whispers it to a bot: a healer bot of its group, in range and
-#                     line of sight, not casting nor moving, casts a heal on it at once (a fast direct heal first).
-#                     One heal per player in 15 seconds, none at full health. No chat line.
+#        Description: "Heal please": a real player of a group asks for a heal in party, raid or say chat ("heal
+#                     please", "heal me", "heal", "need heal", "soigne-moi"), whispers it to a bot of its group, or
+#                     clicks Heal on the SquidBots addon's key spells bar. The healers of the group heal the player's
+#                     friendly target (else the player) cast after cast, fast direct heals first, until full health
+#                     (10 seconds at most); a bot of another role with a heal helps when no healer has cast after
+#                     1 second. The first healer says it in the same chat (or tells the addon), or why nobody can.
 #        Default:     1 - on
 #                     0 - off
 
 AiPlayerbot.CoaLive.HealRequest.Enable = 1
+
+#    AiPlayerbot.CoaLive.CcRequest.Enable
+#        Description: "CC please": a real player of a group asks for a crowd control ("cc please", "cc pls", "cc
+#                     this"; "cc" alone is a hello in French and is not an ask), in party, raid or say chat, by
+#                     whisper, or with the addon's CC button. ONE bot of the group with a crowd control ready, valid
+#                     on that kind of creature and in range, casts it on the player's hostile target; the moon marks
+#                     it and the bots on it leave it. Never on a boss or a target already under a crowd control.
+#        Default:     1 - on
+#                     0 - off
+
+AiPlayerbot.CoaLive.CcRequest.Enable = 1
+
+#    AiPlayerbot.CoaLive.TauntRequest.Enable
+#        Description: "Taunt please": a real player of a group asks for a taunt ("taunt please", "taunt", "taunt
+#                     it"), in party, raid or say chat, by whisper, or with the addon's Taunt button. The tank of the
+#                     group taunts the player's hostile target and keeps it; with no taunt ready it takes the target
+#                     with its threat and says so. Not on a target it already holds, nor on one immune to taunts.
+#        Default:     1 - on
+#                     0 - off
+
+AiPlayerbot.CoaLive.TauntRequest.Enable = 1
 
 #    AiPlayerbot.CoaKeySpells.Enable
 #        Description: The SquidBots addon's key spells bar, for any bot of the player's group: the bot's spells with

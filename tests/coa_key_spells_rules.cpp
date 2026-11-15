@@ -14,8 +14,9 @@ int main()
     // Stuck (10 min) and Summon Friend (60 min): skill line GENERIC, never on the bar.
     assert(!Listed(false, 600000, false, false, false, true) && !Listed(false, 3600000, false, false, false, true));
 
-    assert(Line(2825, 1500, 300000, true) == "KSPELL\tit\t2825\t1500\t300000\t1");
-    assert(Line(29166, 0, 180000, false) == "KSPELL\tit\t29166\t0\t180000\t0");
+    // The 7th field (3.1.3): the category of the addon's short bar.
+    assert(Line(2825, 1500, 300000, true, "burst") == "KSPELL\tit\t2825\t1500\t300000\t1\tburst");
+    assert(Line(29166, 0, 180000, false, "-") == "KSPELL\tit\t29166\t0\t180000\t0\t-");
 
     uint32_t id = 0;
     bool on = false;
