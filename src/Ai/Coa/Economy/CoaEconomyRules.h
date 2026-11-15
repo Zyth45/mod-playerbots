@@ -408,6 +408,81 @@ inline bool QuoteWhispered(bool fromAddon)
     return !fromAddon;
 }
 
+// A whisper without its item links ("|cff...|Hitem:...|h[Name]|h|r" and the bare "|Hitem:...|h[Name]|h"), lower
+// case kept: "how much for |c..[cloak of fire]|h|r?" -> "how much for ?".
+inline std::string StripItemLinks(std::string const& text)
+{
+    std::string out;
+    out.reserve(text.size());
+    for (std::size_t i = 0; i < text.size();)
+    {
+        if (text[i] == '|' && i + 1 < text.size())
+        {
+            char const c = char(text[i + 1] | 0x20);
+            if (c == 'c' && i + 10 <= text.size())
+            {
+                i += 10;
+                continue;
+            }
+            if (c == 'r')
+            {
+                i += 2;
+                continue;
+            }
+            if (c == 'h')
+            {
+                std::size_t const name = text.find("|h[", i + 2);
+                std::size_t const nameH = name == std::string::npos ? text.find("|H[", i + 2) : name;
+                std::size_t const end = nameH == std::string::npos ? std::string::npos : text.find("]|", nameH + 3);
+                if (end == std::string::npos)
+                    break;
+                i = end + 3;
+                continue;
+            }
+        }
+        out += text[i++];
+    }
+    return out;
+}
+
+// A whisper to an artisan naming an item it knows how to make asks for its quote (the craft panel's price, COD):
+// the link alone ("[Cloak of Fire]", "[Cloak of Fire]?"), or a word of price, trade or craft around it ("how much
+// for", "price", "wts?", "can you craft", "do you have", "combien", "prix"...). Anything else ("look at my [x]",
+// "where did you get [x]") keeps its usual answer. Takes the whisper in lower case.
+inline bool AsksCraftQuote(std::string const& lowered)
+{
+    std::string const text = StripItemLinks(lowered);
+    static char const* const words[] = {
+        "price", "prices", "cost", "costs", "much", "wts", "wtb", "craft", "crafts", "crafting", "make", "made",
+        "sell", "selling", "buy", "buying", "have", "got", "need", "want", "lf", "lfw", "pst", "available", "quote",
+        "cod", "order", "stock", "combien", "prix", "coute", "co\xc3\xbbte", "ach\xc3\xa8te", "vends", "vend", "achete", "fabriquer", "fabriques",
+        "faire", "fais", "dispo", "veux", "besoin", "commande"};
+    bool anyWord = false;
+    std::string word;
+    auto matches = [&]() {
+        for (char const* w : words)
+            if (word == w)
+                return true;
+        return false;
+    };
+    for (std::size_t i = 0; i <= text.size(); ++i)
+    {
+        char const c = i < text.size() ? text[i] : ' ';
+        if ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || (unsigned char)c >= 0x80)
+        {
+            word += c;
+            continue;
+        }
+        if (word.empty())
+            continue;
+        anyWord = true;
+        if (matches())
+            return true;
+        word.clear();
+    }
+    return !anyWord;
+}
+
 // A line paced by a gap (seconds): allowed when never said yet, or when the gap since the last one is over. Used for
 // ah_sold (one per server per AhSold.MinutesBetween) and trade_window (one per player per TradeWindow.MinutesPerPlayer).
 inline bool PaceAllows(std::uint32_t lastS, std::uint32_t nowS, std::uint32_t gapS)

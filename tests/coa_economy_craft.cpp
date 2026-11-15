@@ -167,6 +167,21 @@ int main()
     // An artisan's quote: whispered to "can you make X?" (the deal waits on it), never on the addon's request (its card
     // shows the price; a whisper per item clicked came late, for an item never ordered).
     assert(QuoteWhispered(false) && !QuoteWhispered(true));
+
+    // A whisper naming an item the artisan makes asks for its quote: a price, trade or craft word, or the link alone.
+    {
+        std::string const cloak = "|cff1eff00|hitem:14134:0:0:0:0:0:0:0:40|h[cloak of fire]|h|r";
+        assert(StripItemLinks("how much for " + cloak + "?") == "how much for ?");
+        assert(StripItemLinks("|hitem:2589:0|h[linen cloth]|h") == "");
+        for (std::string const& ask : { "how much for " + cloak, "price for " + cloak, cloak, cloak + "?",
+                                        "wts? " + cloak, "can you craft " + cloak, "do you have " + cloak,
+                                        cloak + " pst", "combien pour " + cloak, "prix " + cloak + " ?",
+                                        "tu le vends " + cloak, std::string("\xc3\xa7" "a co\xc3\xbbte ") + cloak })
+            assert(AsksCraftQuote(ask));
+        for (std::string const& other : { "look at my " + cloak, "where did you get " + cloak, "lol " + cloak,
+                                          "nice " + cloak + " grats", std::string("hi") })
+            assert(!AsksCraftQuote(other));
+    }
     // Never cooking (185) nor first aid (129): "[X Bot] has earned the achievement [Lunch Lady]!" in bursts.
     assert(!RareRecipeProfession(185) && !RareRecipeProfession(129) && !RareRecipeProfession(0));
     assert(RareRecipeProfession(164) && RareRecipeProfession(333) && RareRecipeProfession(171) &&
