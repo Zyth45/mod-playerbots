@@ -557,6 +557,56 @@ inline bool StockBargain(std::uint64_t pricePerItem, std::uint64_t marketPerItem
     return marketPerItem && pricePerItem * 100 <= marketPerItem * buyBelowPercent;
 }
 
+// Guild stock (CoaEconomy.GuildStock.*): gatherers keep a little of what they gather, in their bags and their bank,
+// for a guildmate's order. Trade goods (class 7) by subclass: cloth (5) for everyone, leather (6) for a skinner,
+// metal and stone (7) for a miner, herbs (9) for a herbalist.
+inline bool GathererKeeps(std::uint32_t itemClass, std::uint32_t subClass, bool mining, bool herbalism, bool skinning)
+{
+    if (itemClass != 7)
+        return false;
+    return subClass == 5 || (subClass == 6 && skinning) || (subClass == 7 && mining) || (subClass == 9 && herbalism);
+}
+
+// The kinds a gatherer keeps: those of its level band, the closest item level to its own first (the smaller id on a
+// tie, so the choice holds from one visit to the next), at most `kinds`. Candidates: (item id, item level).
+inline std::vector<std::uint32_t> PickStockKinds(std::vector<std::pair<std::uint32_t, std::uint32_t>> candidates,
+                                                 std::uint32_t level, std::uint32_t kinds)
+{
+    auto distance = [level](std::uint32_t itemLevel) { return itemLevel > level ? itemLevel - level : level - itemLevel; };
+    std::sort(candidates.begin(), candidates.end(), [&](auto const& a, auto const& b) {
+        std::uint32_t const da = distance(a.second), db = distance(b.second);
+        return da != db ? da < db : a.first < b.first;
+    });
+    std::vector<std::uint32_t> out;
+    for (auto const& c : candidates)
+    {
+        if (out.size() >= kinds)
+            break;
+        out.push_back(c.first);
+    }
+    return out;
+}
+
+// An intermediate an artisan keeps a stack of for its guild: a bolt of cloth (tailoring 197), a cured leather
+// (leatherworking 165), a bar (mining 186: smelting), all trade goods of their subclass.
+inline bool IsIntermediate(std::uint32_t skillId, std::uint32_t itemClass, std::uint32_t subClass)
+{
+    if (itemClass != 7)
+        return false;
+    return (skillId == 197 && subClass == 5) || (skillId == 165 && subClass == 6) || (skillId == 186 && subClass == 7);
+}
+
+// The guild's purchases of materials at the auction house, a day: only an item with at least minListings auctions,
+// never more than maxSharePercent of them for the guild (players keep the rest), and no more than perDay purchases
+// for the whole guild. listings: the item's auctions now; boughtOfItem / boughtToday: the guild's today.
+inline bool GuildMayBuy(std::uint32_t listings, std::uint32_t boughtOfItem, std::uint32_t boughtToday,
+                        std::uint32_t minListings, std::uint32_t maxSharePercent, std::uint32_t perDay)
+{
+    if (!perDay || boughtToday >= perDay || listings < std::max<std::uint32_t>(1, minListings))
+        return false;
+    return std::uint64_t(boughtOfItem + 1) * 100 <= std::uint64_t(listings + boughtOfItem) * maxSharePercent;
+}
+
 inline bool WantsVendor(bool rpgSellOn, std::uint32_t bagUsedPercent, std::uint32_t thresholdPercent, bool canSell)
 {
     return rpgSellOn && bagUsedPercent >= thresholdPercent && canSell;

@@ -16,7 +16,9 @@
 #include "Config.h"
 #include "Creature.h"
 #include "Item.h"
+#include "GameTime.h"
 #include "ItemUsageValue.h"
+#include "Log.h"
 #include "LootMgr.h"
 #include "ObjectMgr.h"
 #include "Player.h"
@@ -27,6 +29,8 @@
 #include "WorldPacket.h"
 #include "WorldSession.h"
 
+#include <algorithm>
+#include <unordered_map>
 #include <vector>
 
 namespace CoaEconomy::Materials
@@ -45,8 +49,67 @@ namespace
         uint32 maxStacks = 2;
         uint32 buyBelowPercent = 90;
         uint32 maxScan = 2000;
+        bool guildStock = true;
+        uint32 kinds = 3;
+        uint32 stacks = 2;
+        bool bank = true;
+        uint32 craftsPerVisit = 2;
+        uint32 buyMinListings = 8;
+        uint32 buyMaxSharePercent = 25;
+        uint32 buyPerDay = 10;
     };
     Settings settings;
+
+    constexpr uint32 SkillMining = 186;
+    constexpr uint32 SkillHerbalism = 182;
+    constexpr uint32 SkillSkinning = 393;
+
+    // The guild's purchases of stock today, per guild (a bot without a guild counts as its own), world thread only.
+    struct GuildDay
+    {
+        uint32 day = 0;
+        uint32 total = 0;
+        std::unordered_map<uint32, uint32> perItem;
+    };
+    std::unordered_map<uint64, GuildDay> guildDays;
+
+    GuildDay& GuildDayOf(Player* bot)
+    {
+        uint64 const key = bot->GetGuildId() ? uint64(bot->GetGuildId()) : (uint64(1) << 63) | bot->GetGUID().GetCounter();
+        uint32 const today = uint32(GameTime::GetGameTime().count() / DAY);
+        GuildDay& day = guildDays[key];
+        if (day.day != today)
+            day = GuildDay{today, 0, {}};
+        return day;
+    }
+
+    // The gatherer's kinds: one cloth for everyone, then what its gathering skills bring, of its level band.
+    std::vector<uint32> GathererKinds(Player* bot)
+    {
+        bool const mining = bot->HasSkill(SkillMining);
+        bool const herbalism = bot->HasSkill(SkillHerbalism);
+        bool const skinning = bot->HasSkill(SkillSkinning);
+        std::vector<std::pair<uint32, uint32>> cloth;
+        std::vector<std::pair<uint32, uint32>> gathered;
+        for (uint32 id : CoaEconomyRules::MaterialFloorItems())
+        {
+            ItemTemplate const* proto = sObjectMgr->GetItemTemplate(id);
+            if (!proto || !CoaEconomyRules::GathererKeeps(proto->Class, proto->SubClass, mining, herbalism, skinning))
+                continue;
+            (proto->SubClass == 5 ? cloth : gathered).emplace_back(id, proto->ItemLevel);
+        }
+        std::vector<uint32> kinds = CoaEconomyRules::PickStockKinds(cloth, bot->GetLevel(), 1);
+        if (settings.kinds > kinds.size())
+            for (uint32 id : CoaEconomyRules::PickStockKinds(gathered, bot->GetLevel(), settings.kinds - uint32(kinds.size())))
+                kinds.push_back(id);
+        return kinds;
+    }
+
+    bool IsIntermediateRecipe(Artisans::Recipe const& recipe)
+    {
+        ItemTemplate const* proto = sObjectMgr->GetItemTemplate(recipe.itemId);
+        return proto && CoaEconomyRules::IsIntermediate(recipe.skillId, proto->Class, proto->SubClass);
+    }
 
     constexpr uint32 ProspectStack = 5;
 
@@ -208,6 +271,21 @@ void LoadSettings()
     settings.maxStacks = CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.Artisans.Stock.MaxStacks", 2);
     settings.buyBelowPercent = std::min<uint32>(100,
         CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.Artisans.Stock.BuyBelowPercent", 90));
+    settings.guildStock = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.GuildStock.Enable", true, false);
+    settings.kinds = std::clamp<uint32>(CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.GuildStock.Kinds", 3), 1, 6);
+    settings.stacks = std::clamp<uint32>(CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.GuildStock.Stacks", 2), 1, 5);
+    settings.bank = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.GuildStock.Bank", true);
+    settings.craftsPerVisit = std::min<uint32>(10,
+        CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.GuildStock.CraftsPerVisit", 2));
+    settings.buyMinListings = CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.GuildStock.Buy.MinListings", 8);
+    settings.buyMaxSharePercent = std::min<uint32>(100,
+        CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.GuildStock.Buy.MaxSharePercent", 25));
+    settings.buyPerDay = CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.GuildStock.Buy.PerDay", 10);
+}
+
+bool IsGuildStockEnabled()
+{
+    return settings.guildStock;
 }
 
 bool IsEnabled()
@@ -237,12 +315,22 @@ uint32 Process(Player* bot, PlayerbotAI* botAI)
 std::unordered_set<uint32> StockReagents(Player* bot)
 {
     std::unordered_set<uint32> reagents;
-    if (!IsStockEnabled() || !bot)
+    if (!bot)
         return reagents;
-    for (Artisans::Recipe const& recipe : Artisans::KnownRecipes(bot))
-        for (uint8 i = 0; i < MAX_SPELL_REAGENTS; ++i)
-            if (recipe.spell->Reagent[i] > 0 && recipe.spell->ReagentCount[i])
-                reagents.insert(uint32(recipe.spell->Reagent[i]));
+    if (IsStockEnabled())
+        for (Artisans::Recipe const& recipe : Artisans::KnownRecipes(bot))
+            for (uint8 i = 0; i < MAX_SPELL_REAGENTS; ++i)
+                if (recipe.spell->Reagent[i] > 0 && recipe.spell->ReagentCount[i])
+                    reagents.insert(uint32(recipe.spell->Reagent[i]));
+    if (settings.guildStock)
+    {
+        for (uint32 id : GathererKinds(bot))
+            reagents.insert(id);
+        if (Artisans::IsEnabled())
+            for (Artisans::Recipe const& recipe : Artisans::KnownRecipes(bot))
+                if (IsIntermediateRecipe(recipe))
+                    reagents.insert(recipe.itemId);
+    }
     return reagents;
 }
 
@@ -250,22 +338,124 @@ bool KeepsInStock(Player* bot, Item* item, std::unordered_set<uint32> const& rea
 {
     if (!bot || !item || !reagents.count(item->GetEntry()))
         return false;
-    return CoaEconomyRules::KeepsInStock(bot->GetItemCount(item->GetEntry()), item->GetTemplate()->GetMaxStackSize(),
-                                         settings.maxStacks);
+    // With the guild stock the bank counts too: the bags and the bank together hold the stacks kept.
+    uint32 const held = settings.guildStock ? bot->GetItemCount(item->GetEntry(), true) : bot->GetItemCount(item->GetEntry());
+    uint32 const stacks = settings.guildStock ? std::max(settings.maxStacks, settings.stacks) : settings.maxStacks;
+    return CoaEconomyRules::KeepsInStock(held, item->GetTemplate()->GetMaxStackSize(), stacks);
+}
+
+bool IsStockItem(Player* bot, uint32 entry)
+{
+    return bot && entry && StockReagents(bot).count(entry);
+}
+
+uint32 StockCount(Player* bot, uint32 entry)
+{
+    return bot && entry ? bot->GetItemCount(entry, true) : 0;
+}
+
+std::vector<Item*> StockItems(Player* bot, uint32 entry)
+{
+    std::vector<Item*> items;
+    if (!bot || !entry)
+        return items;
+    ForEachBagItem(bot, [&](Item* item) { if (item->GetEntry() == entry && !item->IsInTrade()) items.push_back(item); });
+    for (uint8 slot = BANK_SLOT_ITEM_START; slot < BANK_SLOT_ITEM_END; ++slot)
+        if (Item* item = bot->GetItemByPos(INVENTORY_SLOT_BAG_0, slot))
+            if (item->GetEntry() == entry)
+                items.push_back(item);
+    for (uint8 bagSlot = BANK_SLOT_BAG_START; bagSlot < BANK_SLOT_BAG_END; ++bagSlot)
+        if (Bag* bag = bot->GetBagByPos(bagSlot))
+            for (uint32 slot = 0; slot < bag->GetBagSize(); ++slot)
+                if (Item* item = bag->GetItemByPos(uint8(slot)))
+                    if (item->GetEntry() == entry)
+                        items.push_back(item);
+    return items;
+}
+
+uint32 TendGuildStock(Player* bot)
+{
+    if (!settings.guildStock || !bot)
+        return 0;
+    uint32 done = 0;
+
+    // Intermediates from what it holds (no gold spent on missing reagents), up to one stack of each.
+    if (Artisans::IsEnabled() && settings.craftsPerVisit)
+        for (Artisans::Recipe const& recipe : Artisans::KnownRecipes(bot))
+        {
+            if (done >= settings.craftsPerVisit)
+                break;
+            if (!IsIntermediateRecipe(recipe) || !HoldsAll(bot, recipe.spell))
+                continue;
+            ItemTemplate const* proto = sObjectMgr->GetItemTemplate(recipe.itemId);
+            if (!proto || bot->GetItemCount(recipe.itemId, true) >= std::max<uint32>(1, proto->GetMaxStackSize()))
+                continue;
+            if (!Artisans::Craft(bot, recipe))
+                break;
+            ++done;
+            LOG_INFO("playerbots", "CoaEconomy: {} made {} x{} for the guild stock", bot->GetName(), recipe.itemId,
+                     recipe.count);
+        }
+
+    // The bank: full stacks of stock beyond the first one in the bags.
+    if (settings.bank)
+    {
+        std::unordered_set<uint32> const stock = StockReagents(bot);
+        std::vector<Item*> full;
+        std::unordered_map<uint32, uint32> seen;
+        ForEachBagItem(bot, [&](Item* item)
+        {
+            ItemTemplate const* proto = item->GetTemplate();
+            if (!proto || !stock.count(proto->ItemId) || item->IsInTrade() || proto->GetMaxStackSize() <= 1 ||
+                item->GetCount() < proto->GetMaxStackSize())
+                return;
+            if (++seen[proto->ItemId] > 1)
+                full.push_back(item);
+        });
+        uint32 moved = 0;
+        for (Item* item : full)
+        {
+            ItemPosCountVec dest;
+            if (bot->CanBankItem(NULL_BAG, NULL_SLOT, dest, item, false) != EQUIP_ERR_OK)
+                break;
+            uint32 const entry = item->GetEntry();
+            uint32 const count = item->GetCount();
+            bot->RemoveItem(item->GetBagSlot(), item->GetSlot(), true);
+            bot->ItemRemovedQuestCheck(entry, count);
+            bot->BankItem(dest, item, true);
+            ++moved;
+        }
+        if (moved)
+            LOG_INFO("playerbots", "CoaEconomy: {} put {} stacks of guild stock in the bank", bot->GetName(), moved);
+        done += moved;
+    }
+    return done;
 }
 
 bool BuyStock(Player* bot, ObjectGuid auctioneer, Creature* npc, uint64 budget)
 {
     if (!IsStockEnabled() || !bot || !npc || !budget)
         return false;
-    std::unordered_set<uint32> const reagents = StockReagents(bot);
+    // The artisan's reagents only: gatherers gather their stock, they do not buy it.
+    std::unordered_set<uint32> reagents;
+    for (Artisans::Recipe const& recipe : Artisans::KnownRecipes(bot))
+        for (uint8 i = 0; i < MAX_SPELL_REAGENTS; ++i)
+            if (recipe.spell->Reagent[i] > 0 && recipe.spell->ReagentCount[i])
+                reagents.insert(uint32(recipe.spell->Reagent[i]));
     if (reagents.empty())
         return false;
     AuctionHouseObject* house = sAuctionMgr->GetAuctionsMap(npc->GetFaction());
     if (!house)
         return false;
 
-    // The cheapest lot per item, well under its market price, of a reagent it still has room to stock.
+    // The cheapest lot per item, well under its market price, of a reagent it still has room to stock; with the guild
+    // stock, of an item the house holds enough of (the guild's share of the day, GuildMayBuy).
+    std::unordered_map<uint32, uint32> listings;
+    if (settings.guildStock)
+        for (auto const& entry : house->GetAuctions())
+            if (entry.second && reagents.count(entry.second->item_template))
+                ++listings[entry.second->item_template];
+    GuildDay* day = settings.guildStock ? &GuildDayOf(bot) : nullptr;
     AuctionEntry const* best = nullptr;
     uint64 bestPerItem = 0;
     uint32 scanned = 0;
@@ -276,6 +466,10 @@ bool BuyStock(Player* bot, ObjectGuid auctioneer, Creature* npc, uint64 budget)
         AuctionEntry const* auction = entry.second;
         if (!auction || !auction->buyout || auction->buyout > budget || auction->owner == bot->GetGUID() ||
             auction->bidder == bot->GetGUID() || !reagents.count(auction->item_template))
+            continue;
+        if (day && !CoaEconomyRules::GuildMayBuy(listings[auction->item_template], day->perItem[auction->item_template],
+                                                 day->total, settings.buyMinListings, settings.buyMaxSharePercent,
+                                                 settings.buyPerDay))
             continue;
         Item* item = sAuctionMgr->GetAItem(auction->item_guid);
         ItemTemplate const* proto = sObjectMgr->GetItemTemplate(auction->item_template);
@@ -296,9 +490,17 @@ bool BuyStock(Player* bot, ObjectGuid auctioneer, Creature* npc, uint64 budget)
     if (!best)
         return false;
 
+    uint32 const bought = best->item_template;
     WorldPacket packet(CMSG_AUCTION_PLACE_BID);
     packet << auctioneer << uint32(best->Id) << uint32(best->buyout);
     bot->GetSession()->HandleAuctionPlaceBid(packet);
+    if (day)
+    {
+        ++day->total;
+        ++day->perItem[bought];
+        LOG_INFO("playerbots", "CoaEconomy: {} bought item {} for its stock (guild {}: {} today)", bot->GetName(),
+                 bought, bot->GetGuildId(), day->total);
+    }
     return true;
 }
 
@@ -316,9 +518,10 @@ namespace
 
 void AddSC_coa_economy_materials()
 {
-    // Off by default; the two Enable keys are read at start-up (restart to change them).
+    // The Enable keys are read at start-up (restart to change them).
     if (!CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.Materials.Enable", true, false) &&
-        !CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.Artisans.Stock.Enable", true, false))
+        !CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.Artisans.Stock.Enable", true, false) &&
+        !CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.GuildStock.Enable", true, false))
         return;
     CoaEconomy::Materials::LoadSettings();
     new CoaMaterialsWorld();

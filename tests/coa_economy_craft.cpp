@@ -86,6 +86,19 @@ int main()
     assert(KeepsInStock(1, 0, 1));
     assert(StockBargain(90, 100, 90) && !StockBargain(91, 100, 90) && !StockBargain(1, 0, 90));
 
+    // Guild stock: what a gatherer keeps, its kinds, the intermediates, the guild's share of the house.
+    assert(GathererKeeps(7, 5, false, false, false) && !GathererKeeps(7, 7, false, true, true));
+    assert(GathererKeeps(7, 7, true, false, false) && GathererKeeps(7, 9, false, true, false));
+    assert(GathererKeeps(7, 6, false, false, true) && !GathererKeeps(7, 12, true, true, true) && !GathererKeeps(4, 5, true, true, true));
+    assert((PickStockKinds({ { 2770, 10 }, { 2771, 20 }, { 2772, 30 }, { 3858, 40 } }, 24, 2) == std::vector<std::uint32_t>{ 2771, 2772 }));
+    assert((PickStockKinds({ { 7, 25 }, { 3, 15 } }, 20, 3) == std::vector<std::uint32_t>{ 3, 7 }));
+    assert(PickStockKinds({ { 1, 1 } }, 20, 0).empty());
+    assert(IsIntermediate(197, 7, 5) && IsIntermediate(165, 7, 6) && IsIntermediate(186, 7, 7));
+    assert(!IsIntermediate(197, 4, 5) && !IsIntermediate(164, 7, 7) && !IsIntermediate(197, 7, 6));
+    assert(GuildMayBuy(8, 0, 0, 8, 25, 10) && GuildMayBuy(7, 1, 1, 6, 25, 10) && !GuildMayBuy(6, 2, 2, 6, 25, 10));
+    assert(!GuildMayBuy(7, 0, 0, 8, 25, 10) && !GuildMayBuy(20, 0, 10, 8, 25, 10) && !GuildMayBuy(20, 0, 0, 8, 25, 0));
+    assert(!GuildMayBuy(3, 0, 0, 1, 25, 10) && GuildMayBuy(4, 0, 0, 1, 25, 10));
+
     // Auctions on game time: a night off moves every end by the night; a restart or an unknown past moves nothing.
     assert(AuctionPause(1000, 1000 + 8 * 3600, 300, 30 * 86400) == 8 * 3600);
     assert(AuctionPause(1000, 1200, 300, 30 * 86400) == 0);
