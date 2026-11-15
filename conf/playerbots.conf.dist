@@ -5440,6 +5440,17 @@ AiPlayerbot.CoaEconomy.AHBot.Enable = 1
 #    EmptyOldAuctions  1 = do it at the next start if not done yet, 0 = never (default). Read at start-up.
 AiPlayerbot.CoaEconomy.AHBot.EmptyOldAuctions = 0
 
+# Auction house bot, floor of common crafting materials: the house seller keeps about ninety common materials of
+# levels 1 to 60 on offer in the Alliance and Horde houses (cloth, ore, bars, stone, herbs, leather, hides, elemental
+# and enchanting materials). For each one with fewer than Stacks auctions (players' and bots' counted), it lists full
+# stacks at the market price, never under the lowest price per item another seller asks; nothing when the offer is
+# already there. Inside its quota (AuctionHouseBot.*.MaxItems); a new realm's launch curve holds back what nobody can
+# reach yet. Read again by ".reload config" and ".ahbot reload".
+#    Enable  1 = on (default), 0 = off.
+#    Stacks  Auctions of each material the house makes sure of, 1 to 5 (default 2).
+AiPlayerbot.CoaEconomy.AHBot.MaterialFloor.Enable = 1
+AiPlayerbot.CoaEconomy.AHBot.MaterialFloor.Stacks = 2
+
 # Auction house bot, CoA sellable filter: the bot only lists goods a CoA player could really sell.
 # Read again by ".ahbot reload". Each rule below only counts when Filter.Enable = 1.
 #    Enable            1 = on (default), 0 = off.

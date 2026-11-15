@@ -1364,6 +1364,11 @@ void AuctionHouseBot::AddNewAuctions(std::vector<Player*> AHBPlayers, FactionSpe
         if (auction)
             owners.push_back(auction->owner.GetCounter());
     uint32 currentAuctionItemListCount = CoaEconomyRules::HouseSellerCount(owners, sellers);
+
+    // CoA Economy: the floor of common crafting materials first, inside the quota (AHBot.MaterialFloor.*).
+    if (currentAuctionItemListCount < maxItems)
+        currentAuctionItemListCount += ListMaterialFloor(AHBPlayers, config, auctionHouse, ahEntry, sellers,
+                                                         maxItems - currentAuctionItemListCount);
     if (currentAuctionItemListCount >= minItems)
     {
         if (debug_Out)
@@ -1531,6 +1536,104 @@ void AuctionHouseBot::AddNewAuctions(std::vector<Player*> AHBPlayers, FactionSpe
     }
     if (debug_Out)
         LOG_INFO("module", "AHSeller: Added {} items", itemsGenerated);
+}
+
+void AuctionHouseBot::LoadMaterialFloorSettings()
+{
+    MaterialFloorEnabled = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.AHBot.MaterialFloor.Enable", true, false);
+    MaterialFloorStacks = std::clamp<uint32>(
+        CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.AHBot.MaterialFloor.Stacks", 2), 1, 5);
+}
+
+// The common crafting materials (CoaEconomyRules::MaterialFloorItems) always on offer in the faction houses: a full
+// stack listed for each one missing up to MaterialFloor.Stacks auctions, players' and bots' auctions counted. At the
+// market price (CalculateItemValue: the house-wide scale, the learned prices), never under another seller's lowest
+// price per item. Inside the house seller's quota; what the realm's population cannot reach yet stays out (LaunchCurve).
+uint32 AuctionHouseBot::ListMaterialFloor(std::vector<Player*> const& AHBPlayers, FactionSpecificAuctionHouseConfig* config,
+    AuctionHouseObject* auctionHouse, AuctionHouseEntry const* ahEntry, std::unordered_set<uint32> const& sellers, uint32 room)
+{
+    if (!MaterialFloorEnabled || !room || AHBPlayers.empty() || !auctionHouse || !ahEntry ||
+        !CoaEconomyRules::FloorServesHouse(config->GetAHID()))
+        return 0;
+
+    std::vector<uint32> const& items = CoaEconomyRules::MaterialFloorItems();
+    std::unordered_set<uint32> const floorItems(items.begin(), items.end());
+    std::unordered_map<uint32, uint32> stacks;       // item -> its auctions, every seller
+    std::unordered_map<uint32, uint64> lowestOther;  // item -> lowest buyout per item asked by another seller
+    for (auto const& [id, auction] : auctionHouse->GetAuctions())
+    {
+        if (!auction || !floorItems.count(auction->item_template))
+            continue;
+        ++stacks[auction->item_template];
+        if (sellers.count(auction->owner.GetCounter()) || !auction->buyout || !auction->itemCount)
+            continue;
+        uint64 const perItem = auction->buyout / auction->itemCount;
+        auto low = lowestOther.find(auction->item_template);
+        if (low == lowestOther.end() || perItem < low->second)
+            lowestOther[auction->item_template] = perItem;
+    }
+
+    uint32 listed = 0;
+    auto trans = CharacterDatabase.BeginTransaction();
+    for (uint32 itemId : items)
+    {
+        if (listed >= room)
+            break;
+        auto const found = stacks.find(itemId);
+        uint32 const want = CoaEconomyRules::FloorStacksToList(found == stacks.end() ? 0 : found->second,
+                                                               MaterialFloorStacks, room - listed);
+        if (!want)
+            continue;
+        ItemTemplate const* proto = sObjectMgr->GetItemTemplate(itemId);
+        if (!proto || !sCoaLaunchCurve->AllowsListing(*proto) ||
+            !sCoaLaunchCurve->AllowsUnitPrice(GetHouseLowestBuyoutPerItem(proto)))
+            continue;
+        auto const low = lowestOther.find(itemId);
+        uint64 const lowest = low == lowestOther.end() ? 0 : low->second;
+        uint32 const stackCount = std::max<uint32>(1, proto->GetMaxStackSize());
+
+        for (uint32 n = 0; n < want; ++n)
+        {
+            uint64 bidPrice = 0;
+            uint64 buyoutPrice = 0;
+            CalculateItemValue(proto, bidPrice, buyoutPrice);
+            buyoutPrice = CoaEconomyRules::FloorUnitPrice(buyoutPrice, lowest);
+            bidPrice = std::min(bidPrice, buyoutPrice);
+
+            Player* seller = AHBPlayers[urand(0, AHBPlayers.size() - 1)];
+            Item* item = Item::CreateItem(itemId, 1, seller);
+            if (!item)
+                break;
+            item->AddToUpdateQueueOf(seller);
+            item->SetCount(stackCount);
+
+            uint32 const etime = urand(ListingExpireTimeInSecondsMin, ListingExpireTimeInSecondsMax);
+            AuctionEntry* auctionEntry = new AuctionEntry();
+            auctionEntry->Id = sObjectMgr->GenerateAuctionID();
+            auctionEntry->houseId = AuctionHouseId(config->GetAHID());
+            auctionEntry->item_guid = item->GetGUID();
+            auctionEntry->item_template = itemId;
+            auctionEntry->itemCount = stackCount;
+            auctionEntry->owner = seller->GetGUID();
+            auctionEntry->startbid = uint32(std::min<uint64>(bidPrice * stackCount, MAX_MONEY_AMOUNT));
+            auctionEntry->buyout = uint32(std::min<uint64>(buyoutPrice * stackCount, MAX_MONEY_AMOUNT));
+            auctionEntry->bid = 0;
+            auctionEntry->deposit = sAuctionMgr->GetAuctionDeposit(ahEntry, etime, item, stackCount);
+            auctionEntry->expire_time = time_t(etime) + time(nullptr);
+            auctionEntry->auctionHouseEntry = ahEntry;
+            item->SaveToDB(trans);
+            item->RemoveFromUpdateQueueOf(seller);
+            sAuctionMgr->AddAItem(item);
+            auctionHouse->AddAuction(auctionEntry);
+            auctionEntry->SaveToDB(trans);
+            ++listed;
+            CoaEconomy::Data::RecordAhBot(1, 0, 0, 0);
+        }
+    }
+    CharacterDatabase.CommitTransaction(trans);
+    if (debug_Out && listed)
+        LOG_INFO("module", "AHSeller: material floor, {} stacks listed in house {}", listed, config->GetAHID());
+    return listed;
 }
 
 bool AuctionHouseBot::HandleAdvancedListingRuleUseDropRates(ItemTemplate const*& proto)
@@ -2834,6 +2937,7 @@ void AuctionHouseBot::InitializeConfiguration()
 
     LoadHumanBuyerSettings();
     LoadRaritySettings();
+    LoadMaterialFloorSettings();
 }
 
 void AuctionHouseBot::EmptyAuctionHouses()

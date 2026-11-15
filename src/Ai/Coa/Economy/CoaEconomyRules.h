@@ -352,6 +352,54 @@ std::uint32_t HouseSellerCount(Owners const& owners, Sellers const& sellers)
     return count;
 }
 
+// ---- Material floor (AuctionHouse/CoaAuctionHouseBot, AHBot.MaterialFloor.*) ----
+
+// The common crafting materials of levels 1 to 60 the house always offers: cloth, ore, bars, stone, herbs, leather and
+// hides, elemental materials, enchanting materials.
+inline std::vector<std::uint32_t> const& MaterialFloorItems()
+{
+    static std::vector<std::uint32_t> const items = {
+        // Cloth
+        2589, 2592, 4306, 4338, 14047,
+        // Ore, bars, stone
+        2770, 2771, 2775, 2772, 3858, 7911, 10620,
+        2840, 2841, 2842, 3576, 3575, 3577, 3859, 3860, 6037, 12359,
+        2835, 2836, 2838, 7912, 12365,
+        // Herbs
+        2447, 765, 2449, 785, 2450, 2452, 3820, 2453, 3369, 3355, 3356, 3357, 3818, 3821, 3358, 3819, 4625,
+        8831, 8836, 8838, 8839, 8845, 8846, 13464, 13463, 13465, 13466, 13467,
+        // Leather and hides
+        2318, 783, 2319, 4232, 4234, 4235, 4304, 8169, 8170, 8171,
+        // Elemental
+        7067, 7068, 7069, 7070, 7075, 7076, 7077, 7078, 7079, 7080, 7081, 7082,
+        // Enchanting
+        10940, 10938, 10939, 10998, 11083, 11082, 11134, 11135, 11137, 11174, 11175, 11176, 16202, 16203, 16204,
+    };
+    return items;
+}
+
+// Stacks the house lists of a floor material: what is missing to reach the floor, nothing when players and bots
+// already offer that many stacks, never more than the room left in the house seller's quota.
+inline std::uint32_t FloorStacksToList(std::uint32_t listedStacks, std::uint32_t floorStacks, std::uint32_t quotaRoom)
+{
+    if (listedStacks >= floorStacks)
+        return 0;
+    return std::min(floorStacks - listedStacks, quotaRoom);
+}
+
+// The house's price per item of a floor material: its market price, never under the lowest price per item another
+// seller asks (the floor does not undercut players).
+inline std::uint64_t FloorUnitPrice(std::uint64_t marketPerItem, std::uint64_t lowestOtherPerItem)
+{
+    return std::max(marketPerItem, lowestOtherPerItem);
+}
+
+// The floor serves the faction houses only (Alliance 2 and Horde 6), not the neutral one (Booty Bay, Gadgetzan...).
+inline bool FloorServesHouse(std::uint32_t houseId)
+{
+    return houseId == 2 || houseId == 6;
+}
+
 // An artisan's quote is whispered (craft_quote_addon) when a player asked it by whisper ("can you make X?": the
 // whisper is the quote, and the deal waits on it); never when the addon asked, whose card shows the price: every item
 // clicked in its list asked a quote, and their whispers came late, one for an item never ordered.

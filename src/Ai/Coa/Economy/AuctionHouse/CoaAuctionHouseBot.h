@@ -28,9 +28,11 @@
 
 #include <map>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 struct AuctionEntry;
+struct AuctionHouseEntry;
 class AuctionHouseObject;
 class Player;
 class WorldSession;
@@ -372,6 +374,14 @@ private:
     double RarityRareRate = 0.01;
     void LoadRaritySettings();
     double GetRarityPriceFactor(uint32 itemId) const;
+
+    // CoA Economy: the floor of common crafting materials (AiPlayerbot.CoaEconomy.AHBot.MaterialFloor.*).
+    bool MaterialFloorEnabled = true;
+    uint32 MaterialFloorStacks = 2;
+    void LoadMaterialFloorSettings();
+    uint32 ListMaterialFloor(std::vector<Player*> const& AHBPlayers, FactionSpecificAuctionHouseConfig* config,
+        AuctionHouseObject* auctionHouse, AuctionHouseEntry const* ahEntry, std::unordered_set<uint32> const& sellers,
+        uint32 room);
     void FilterHumanBuyerCandidates(uint32 houseId, std::vector<uint32>& possibleBids, AuctionHouseObject* auctionHouse);
 
     AuctionHouseBot();
