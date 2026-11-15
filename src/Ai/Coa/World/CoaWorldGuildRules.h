@@ -182,6 +182,24 @@ namespace CoaWorldGuildRules
         return picks;
     }
 
+    // The addon's catalogue category (GCAT, 3.1.4) of an item class: "trade" (trade goods 7, reagents 5, gems 3,
+    // recipes 9), "consumable" (0), "equipment" (weapons 2, armor 4), "other"; an empty or unknown category: all.
+    inline bool InCatalogCategory(std::uint32_t itemClass, std::string const& category)
+    {
+        bool const trade = itemClass == 7 || itemClass == 5 || itemClass == 3 || itemClass == 9;
+        bool const consumable = itemClass == 0;
+        bool const equipment = itemClass == 2 || itemClass == 4;
+        if (category == "trade")
+            return trade;
+        if (category == "consumable")
+            return consumable;
+        if (category == "equipment")
+            return equipment;
+        if (category == "other")
+            return !trade && !consumable && !equipment;
+        return true;
+    }
+
     // Professions a real player's guild keeps online (3.1.4, Guilds.PlayerGuildProfessions): a bit each.
     // Mining 186, Herbalism 182, Skinning 393, Blacksmithing 164, Alchemy 171, Tailoring 197, Leatherworking 165,
     // Enchanting 333, Engineering 202, Cooking 185, First Aid 129.

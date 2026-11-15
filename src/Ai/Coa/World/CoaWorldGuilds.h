@@ -25,7 +25,7 @@ bool CoaWorldGuildAddonOn();
 bool CoaWorldGuildOrderHeard(std::string const& msg);
 // GORD\t<itemId>\t<qty> (args[0] is the word): GOK\t<id> or ERR\tGORD\t<reason>.
 std::vector<std::string> CoaWorldGuildAddonOrder(Player* player, std::vector<std::string> const& args);
-// GLIST: the player's GO (7 days) and GG (30 days) lines, newest first.
+// GLIST: the player's GO (7 days) and GG (30 days) lines, newest first. GO's 10th field (3.1.4): the count asked.
 std::vector<std::string> CoaWorldGuildAddonList(Player* player);
 // Guilds.GearAsk: GOFF (the player's pending offers, GF lines), GACC/GREF <offerId> (args[0] is the word).
 bool CoaWorldGuildGiftsOn();
@@ -33,7 +33,8 @@ bool CoaWorldGuildGiftsOn();
 bool CoaWorldJustLoggedIn(Player* player);
 std::vector<std::string> CoaWorldGuildGiftList(Player* player);
 std::vector<std::string> CoaWorldGuildGiftAnswer(Player* player, std::vector<std::string> const& args, bool accept);
-// Guilds.Catalog: GCAT <search> <page> (args[0] is the word): GC lines (30 a page) and GCN <total> <page>.
+// Guilds.Catalog: GCAT <search> <page> [category] (args[0] is the word): GC lines (30 a page, class and subclass
+// after the name since 3.1.4) and GCN <total> <page>. Category: trade, consumable, equipment, other (else all).
 bool CoaWorldGuildCatalogOn();
 std::vector<std::string> CoaWorldGuildCatalog(Player* player, std::vector<std::string> const& args);
 // A whisper "yes"/"no" (oui/non) to the bot that made the player an offer. True: taken.

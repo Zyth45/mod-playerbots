@@ -90,6 +90,13 @@ int main()
         assert(SplitStock({ 0, 0 }, 5).empty());
     }
 
+    // The catalogue's categories (GCAT, 3.1.4).
+    assert(InCatalogCategory(7, "trade") && InCatalogCategory(5, "trade") && !InCatalogCategory(0, "trade"));
+    assert(InCatalogCategory(0, "consumable") && !InCatalogCategory(2, "consumable"));
+    assert(InCatalogCategory(2, "equipment") && InCatalogCategory(4, "equipment") && !InCatalogCategory(7, "equipment"));
+    assert(InCatalogCategory(15, "other") && InCatalogCategory(12, "other") && !InCatalogCategory(4, "other"));
+    assert(InCatalogCategory(4, "") && InCatalogCategory(7, "all") && InCatalogCategory(0, "nonsense"));
+
     // The professions kept online in a real player's guild (3.1.4).
     {
         std::uint32_t const mining = ProfessionBit(186), herbs = ProfessionBit(182), skin = ProfessionBit(393),

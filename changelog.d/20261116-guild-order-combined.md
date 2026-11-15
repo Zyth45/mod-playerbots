@@ -1,0 +1,7 @@
+### Guild orders: the guild bank, the guildmates' stock, crafting and the auction house together
+- An order is now filled from several places, each for what is still missing: the guild bank first, then the guildmates' bags and banks, then a guildmate who crafts it (you pay the materials), then the auction house (you pay what was paid). "need 20 [Silver Bar]" with 5 bars in stock brings the 5 for free and the other 15 crafted or bought.
+- The guild bank: an online guildmate takes the items out with its rank's rights and daily withdrawals, so they show in the bank's log, and mails them to you for free. Give the bots' rank the right to withdraw from the tabs you want used.
+- One answer in guild chat, for example "5 from our bags, 15 bought at the AH (4g 60s COD), check your mail", and it counts as one order of the day. Free items and cash on delivery come in separate mails.
+- In a player's guild, the bots brought online first are those with a profession nobody online has (mining, herbalism, skinning, the crafts, cooking, first aid). Which bots come online changes, never how many.
+- The addon's order history shows the count asked ("5 of 20"), and its catalogue can be filtered by category (trade goods, consumables, equipment, other) over the whole list.
+- Options: AiPlayerbot.CoaWorld.Guilds.OrderCombined, OrderGuildBank, OrderPersonalBank and PlayerGuildProfessions (all on by default).

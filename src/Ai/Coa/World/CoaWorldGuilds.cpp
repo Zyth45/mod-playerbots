@@ -1828,6 +1828,8 @@ std::vector<std::string> CoaWorldGuildCatalog(Player* player, std::vector<std::s
     std::string search = args.size() > 1 ? args[1] : std::string();
     std::transform(search.begin(), search.end(), search.begin(), [](unsigned char c) { return char(std::tolower(c)); });
     uint32 const page = std::max<uint32>(1, args.size() > 2 ? Number(args[2]) : 1);
+    // 3.1.4: a category (trade, consumable, equipment, other; empty or unknown: all), filtered before the pages.
+    std::string const category = args.size() > 3 ? args[3] : std::string();
 
     time_t const now = time(nullptr);
     CatalogCache& cache = g_catalogs[player->GetGuildId()];
@@ -1837,7 +1839,9 @@ std::vector<std::string> CoaWorldGuildCatalog(Player* player, std::vector<std::s
     std::vector<CatalogEntry const*> found;
     for (CatalogEntry const& e : cache.entries)
         if (search.empty() || e.lower.find(search) != std::string::npos)
-            found.push_back(&e);
+            if (ItemTemplate const* proto = sObjectMgr->GetItemTemplate(e.item))
+                if (CoaWorldGuildRules::InCatalogCategory(proto->Class, category))
+                    found.push_back(&e);
     constexpr uint32 PER_PAGE = 30;
     std::vector<std::string> out;
     for (uint32 i = (page - 1) * PER_PAGE; i < found.size() && i < page * PER_PAGE; ++i)
@@ -1846,10 +1850,11 @@ std::vector<std::string> CoaWorldGuildCatalog(Player* player, std::vector<std::s
         ItemTemplate const* proto = sObjectMgr->GetItemTemplate(e.item);
         if (!proto)
             continue;
-        out.push_back(Cut(Acore::StringFormat("GC\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}", e.item,
+        // 3.1.4: the item's class and subclass after the name (the 12 fields before stay as the addon reads them).
+        out.push_back(Cut(Acore::StringFormat("GC\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}", e.item,
                                               e.craft ? "craft" : "stock", Text(e.bot), e.amount, e.price, proto->Quality,
                                               proto->ItemLevel, proto->RequiredLevel, proto->InventoryType, e.skill,
-                                              Text(proto->Name1))));
+                                              Text(proto->Name1), proto->Class, proto->SubClass)));
     }
     out.push_back(Acore::StringFormat("GCN\t{}\t{}", found.size(), page));
     return out;
