@@ -3388,6 +3388,14 @@ AiPlayerbot.CoaWorld.Guilds.PlayerGuildOnlinePercent = 40
 #        Default:     1 (enabled)
 
 AiPlayerbot.CoaWorld.Guilds.PlayerGuildProfessions = 1
+
+#    AiPlayerbot.CoaWorld.Guilds.PlayerGuildTeach
+#        Description: With PlayerGuildProfessions, a profession no member of a real player's guild has is learned by
+#                     an online bot member with a free slot (one a minute per guild, at its level's skill, with the
+#                     trainer's recipes when AiPlayerbot.AutoLearnTradeskillSpells is on).
+#        Default:     1 (enabled)
+
+AiPlayerbot.CoaWorld.Guilds.PlayerGuildTeach = 1
 AiPlayerbot.CoaWorld.Events.Addon = 1
 
 # Quality a looted item must reach to be written to the "playerbots.loot" logger:
