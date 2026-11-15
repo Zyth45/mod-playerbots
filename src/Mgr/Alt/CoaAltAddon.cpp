@@ -5,6 +5,7 @@
  */
 
 #include "CoaAltAddon.h"
+#include "CoaQuestTab.h"
 #include "CoaAltBags.h"
 
 #include "Bag.h"
@@ -647,6 +648,7 @@ void TickTeam(PlayerbotAI* botAI, TeamCache& cache)
     cache.objectives.swap(seen);
 
     SendSheet(botAI, cache, false);
+    CoaQuestTab::TickWatch(botAI, cache);
 }
 
 void SendSheet(PlayerbotAI* botAI, TeamCache& cache, bool force)

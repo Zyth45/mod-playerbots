@@ -742,6 +742,7 @@ public:
     bool coaLiveCcRequest;         // AiPlayerbot.CoaLive.CcRequest.Enable: "cc please", one bot CCs the player's target
     bool coaLiveTauntRequest;      // AiPlayerbot.CoaLive.TauntRequest.Enable: "taunt please", the tank taunts it
     bool coaKeySpells;             // AiPlayerbot.CoaKeySpells.Enable: the addon's key spells bar (keyspells, keepcd)
+    bool coaQuestLog;              // AiPlayerbot.CoaQuestLog.Enable: the addon's group Quests tab (qlog, turnin)
     bool coaCursedFormUpkeep;      // AiPlayerbot.CoaCursedFormUpkeep: a Bloodmage Eternal tank keeps its Cursed Form
     // ---- end of CoA Live ----
 

@@ -115,6 +115,7 @@ void PlayerbotAIConfig::LoadCoaLiveConfig()
     coaLiveCcRequest = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaLive.CcRequest.Enable", true);
     coaLiveTauntRequest = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaLive.TauntRequest.Enable", true);
     coaKeySpells = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaKeySpells.Enable", true);
+    coaQuestLog = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaQuestLog.Enable", true);
     coaCursedFormUpkeep = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaCursedFormUpkeep", true);
     // Shared with the other CoA data files (in the .dist once).
     coaLiveDataDir = sConfigMgr->GetOption<std::string>("AiPlayerbot.CoaDataDir", "", false);

@@ -4058,6 +4058,17 @@ AiPlayerbot.CoaLive.TauntRequest.Enable = 1
 
 AiPlayerbot.CoaKeySpells.Enable = 1
 
+#    AiPlayerbot.CoaQuestLog.Enable
+#        Description: The SquidBots addon's group Quests tab, for each alt of the player: its quest log with the
+#                     objectives ("qlog"), the changes while the tab is open ("qlog watch on", 5 minutes renewed by
+#                     the addon), and the turn in of a finished quest when its ender is within 10 yards ("turnin").
+#                     The quest order of the tab stays in the addon: the bots' travel is not changed. Off: the addon
+#                     is told so.
+#        Default:     1 - on
+#                     0 - off
+
+AiPlayerbot.CoaQuestLog.Enable = 1
+
 #    AiPlayerbot.CoaCursedFormUpkeep
 #        Description: A Bloodmage Eternal tank (specialization 99) keeps its Cursed Form, Eternal Curse: more
 #                     Stamina and armor while it tanks. Put on again after a death or a mount.

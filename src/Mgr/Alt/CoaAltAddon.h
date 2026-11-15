@@ -36,6 +36,9 @@ struct TeamCache
     std::string prof;
     time_t statAt = 0;
     time_t profAt = 0;
+    // The group Quests tab (CoaQuestTab): "qlog watch on" until then, and the lines sent last.
+    time_t qlogWatchUntil = 0;
+    std::map<uint32, std::string> qlog;
 };
 
 struct QuestState
