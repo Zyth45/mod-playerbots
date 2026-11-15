@@ -782,6 +782,9 @@ namespace
         {
             OrderResult result;
             result.id = LogRow(player, LOG_ORDER, entry, count, state, bot, now, cod, reason);
+            LOG_INFO("module", "CoA World: guild order by {} <{}>: item {} asked {} ({}), {} {}{}{}, sent {}, COD {}c",
+                     player->GetName(), GuildName(player), entry, _askedQty, _askedQty ? "count" : "any", state,
+                     *reason ? "reason " : "", reason, bot.empty() ? std::string() : " by " + bot, count, cod);
             result.state = state;
             result.reason = reason;
             CoaWorldState::Order(GuildName(player), entry, count, state, bot);
@@ -791,6 +794,7 @@ namespace
         // qty: at most this many (the addon's GORD), 0 for any (guild chat).
         OrderResult Order(Player* player, uint32 entry, uint32 qty, time_t now)
         {
+            _askedQty = qty;
             ItemTemplate const* proto = sObjectMgr->GetItemTemplate(entry);
             if (!proto || proto->Bonding == BIND_QUEST_ITEM)
                 return Logged(player, entry, 0, "refused", "item", "", 0, now);
@@ -1231,6 +1235,7 @@ namespace
         std::unordered_map<uint32, time_t> _lastMotd;
         std::unordered_map<uint32, time_t> _lastGift;
         std::unordered_map<uint32, std::pair<uint32, uint32>> _orders;  // player -> (day, orders that day)
+        uint32 _askedQty = 0;  // the order being served (its log line)
         std::unordered_map<uint32, time_t> _greeted;  // real player -> last answer to its hello
         std::unordered_map<uint32, time_t> _byed;     // real player -> last answer to its goodbye
         uint32 _timer = 0;
@@ -1457,6 +1462,11 @@ namespace
                   { return a.lower != b.lower ? a.lower < b.lower : a.craft < b.craft; });
         return out;
     }
+}
+
+bool CoaWorldGuildOrderHeard(std::string const& msg)
+{
+    return settings.enabled && settings.orders && CoaWorldGuildRules::OrderedItem(msg);
 }
 
 bool CoaWorldGuildCatalogOn() { return settings.enabled && settings.orders && settings.catalog && settings.addon; }

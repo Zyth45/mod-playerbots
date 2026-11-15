@@ -21,6 +21,8 @@ bool CoaWorldGuildSideMayCreate(uint8 side, uint32 allianceGuilds, uint32 hordeG
 
 // The SquidBots Lite world protocol (CoaWorldAddon.cpp), world thread. On: Guilds.Enable, .Orders and .Addon.
 bool CoaWorldGuildAddonOn();
+// A real player's guild order heard in /g ("need [Silver Bar]"): the player's own bots leave it to the guild.
+bool CoaWorldGuildOrderHeard(std::string const& msg);
 // GORD\t<itemId>\t<qty> (args[0] is the word): GOK\t<id> or ERR\tGORD\t<reason>.
 std::vector<std::string> CoaWorldGuildAddonOrder(Player* player, std::vector<std::string> const& args);
 // GLIST: the player's GO (7 days) and GG (30 days) lines, newest first.

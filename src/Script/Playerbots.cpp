@@ -388,6 +388,10 @@ public:
     {
         if (type != CHAT_MSG_GUILD || lang == LANG_ADDON)
             return true;
+        // CoA World: an order to the guild ("need 20 [Silver Bar]") is not a command for the player's own bots (an item
+        // link would have them whisper their inventory).
+        if (CoaWorldGuildOrderHeard(msg))
+            return true;
 
         PlayerbotMgr* playerbotMgr = PlayerbotsMgr::instance().GetPlayerbotMgr(player);
 
