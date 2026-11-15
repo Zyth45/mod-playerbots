@@ -26,6 +26,7 @@
 #include "CoaGreetReplyRules.h"
 #include "CoaDungeonChatRules.h"
 #include "CoaPlayerReplyRules.h"
+#include "CoaWhisperTalkRules.h"
 #include "SpellInfo.h"
 #include "SpellMgr.h"
 #include "GroupScript.h"
@@ -107,6 +108,8 @@ constexpr uint32 GREET_PLAYER_CD_S = 3600;  // a bot greets the same player once
 constexpr size_t QUEUE_MAX = 4096;
 
 std::mutex liveLock;
+// The whisper talks of the random bots with real players (CoaWhisperTalk), by bot and player; under liveLock.
+std::unordered_map<uint64, CoaWhisperTalk::Pair> whisperTalks;
 
 // The zones where a real player is, refreshed by the world thread every second: a bot's look (about every 5 s)
 // stops at once in any other zone, so 2 000 bots cost a set lookup each, not a grid search.
@@ -3096,6 +3099,41 @@ bool OnWhisper(Player* from, Player* to, std::string const& msg)
         }
     }
 
+    // A long talk ends on an excuse that fits what the bot is doing, then the bot is silent a while for that player
+    // (AiPlayerbot.CoaLive.WhisperEscape.Enable). A deal or a handled intent above is never cut.
+    std::string const scope = "w" + std::to_string(to->GetGUID().GetCounter());
+    if (ChatFeature(sPlayerbotAIConfig.coaLiveWhisperEscape))
+    {
+        uint64 const nowMs = GameTime::GetGameTimeMS().count();
+        uint64 const key = (uint64(to->GetGUID().GetCounter()) << 32) | from->GetGUID().GetCounter();
+        CoaWhisperTalk::Step step;
+        {
+            std::lock_guard<std::mutex> guard(liveLock);
+            if (whisperTalks.size() > CoaWhisperTalk::PRUNE_ABOVE)
+                for (auto it = whisperTalks.begin(); it != whisperTalks.end();)
+                    it = CoaWhisperTalk::Stale(it->second, nowMs) ? whisperTalks.erase(it) : std::next(it);
+            step = CoaWhisperTalk::Next(whisperTalks[key], nowMs,
+                                        rng.between(CoaWhisperTalk::MIN_ANSWERS, CoaWhisperTalk::MAX_ANSWERS),
+                                        rng.between(CoaWhisperTalk::SILENCE_MIN_MS, CoaWhisperTalk::SILENCE_MAX_MS));
+        }
+        if (step == CoaWhisperTalk::Step::Silent)
+            return true;
+        if (step == CoaWhisperTalk::Step::Escape)
+        {
+            Map* map = to->GetMap();
+            ReactOptions escape;
+            escape.force = true;
+            if (React(to,
+                      CoaWhisperTalk::EscapeSituation(to->GetLevel(), map && map->Instanceable(), to->IsInCombat(),
+                                                      to->GetGroup() != nullptr, rng.between(0, 1) == 1),
+                      from, scope, escape))
+                return true;
+            // No excuse line in the bank (or the chat is off): the talk goes on as before.
+            std::lock_guard<std::mutex> guard(liveLock);
+            whisperTalks[key] = CoaWhisperTalk::Pair();
+        }
+    }
+
     std::string situation = "wh_" + intent;
     bool invite = false;
     if (intent == "group")
@@ -3129,7 +3167,7 @@ bool OnWhisper(Player* from, Player* to, std::string const& msg)
     opt.invite = invite;
     if (!place.empty())
         opt.extra["place"] = place;
-    React(to, situation, from, "w" + std::to_string(to->GetGUID().GetCounter()), opt);
+    React(to, situation, from, scope, opt);
     return true;
 }
 
