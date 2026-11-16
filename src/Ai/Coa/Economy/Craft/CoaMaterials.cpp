@@ -393,7 +393,7 @@ uint32 TendGuildStock(Player* bot)
             if (!Artisans::Craft(bot, recipe))
                 break;
             ++done;
-            LOG_INFO("playerbots", "CoaEconomy: {} made {} x{} for the guild stock", bot->GetName(), recipe.itemId,
+            LOG_INFO("playerbots.coa", "CoaEconomy: {} made {} x{} for the guild stock", bot->GetName(), recipe.itemId,
                      recipe.count);
         }
 
@@ -426,7 +426,7 @@ uint32 TendGuildStock(Player* bot)
             ++moved;
         }
         if (moved)
-            LOG_INFO("playerbots", "CoaEconomy: {} put {} stacks of guild stock in the bank", bot->GetName(), moved);
+            LOG_INFO("playerbots.coa", "CoaEconomy: {} put {} stacks of guild stock in the bank", bot->GetName(), moved);
         done += moved;
     }
     return done;
@@ -498,7 +498,7 @@ bool BuyStock(Player* bot, ObjectGuid auctioneer, Creature* npc, uint64 budget)
     {
         ++day->total;
         ++day->perItem[bought];
-        LOG_INFO("playerbots", "CoaEconomy: {} bought item {} for its stock (guild {}: {} today)", bot->GetName(),
+        LOG_INFO("playerbots.coa", "CoaEconomy: {} bought item {} for its stock (guild {}: {} today)", bot->GetName(),
                  bought, bot->GetGuildId(), day->total);
     }
     return true;

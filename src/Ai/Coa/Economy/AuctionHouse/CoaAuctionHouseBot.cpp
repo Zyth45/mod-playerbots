@@ -1632,7 +1632,7 @@ uint32 AuctionHouseBot::ListMaterialFloor(std::vector<Player*> const& AHBPlayers
     }
     CharacterDatabase.CommitTransaction(trans);
     if (debug_Out && listed)
-        LOG_INFO("module", "AHSeller: material floor, {} stacks listed in house {}", listed, config->GetAHID());
+        LOG_INFO("playerbots.coa", "AHSeller: material floor, {} stacks listed in house {}", listed, config->GetAHID());
     return listed;
 }
 

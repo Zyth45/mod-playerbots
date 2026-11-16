@@ -109,7 +109,7 @@ void Teach(uint32 guildId, GuildBots const& g)
         }
         PlayerbotFactory(bot, bot->GetLevel()).InitAvailableSpells();
         taught |= bit;
-        LOG_INFO("module", "CoA World: guild {}: {} learned profession {} at {} (nobody in the guild had it)", guildId,
+        LOG_INFO("playerbots.coa", "CoA World: guild {}: {} learned profession {} at {} (nobody in the guild had it)", guildId,
                  bot->GetName(), skill, value);
         return;
     }

@@ -3134,7 +3134,7 @@ bool OnWhisper(Player* from, Player* to, std::string const& msg)
                                                 to->GetGroup() != nullptr, rng.between(0, 1) == 1);
             if (React(to, excuse, from, scope, escape))
             {
-                LOG_INFO("playerbots", "CoaLive: {} ends its whisper talk with {} ({}), then stays silent for them",
+                LOG_INFO("playerbots.coa", "CoaLive: {} ends its whisper talk with {} ({}), then stays silent for them",
                          to->GetName(), from->GetName(), excuse);
                 return true;
             }

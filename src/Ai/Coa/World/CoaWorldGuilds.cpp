@@ -799,7 +799,7 @@ namespace
         {
             OrderResult result;
             result.id = LogRow(player, LOG_ORDER, entry, count, state, bot, now, cod, reason, _askedQty);
-            LOG_INFO("module", "CoA World: guild order by {} <{}>: item {} asked {} ({}), {} {}{}{}, sent {}, COD {}c",
+            LOG_INFO("playerbots.coa", "CoA World: guild order by {} <{}>: item {} asked {} ({}), {} {}{}{}, sent {}, COD {}c",
                      player->GetName(), GuildName(player), entry, _askedQty, _askedQty ? "count" : "any", state,
                      *reason ? "reason " : "", reason, bot.empty() ? std::string() : " by " + bot, count, cod);
             result.state = state;
@@ -1128,7 +1128,7 @@ namespace
                                              part.bot->GetName());
                 CoaWorldState::Order(GuildName(player), entry, part.count, part.state, part.bot->GetName());
             }
-            LOG_INFO("module", "CoA World: guild order by {} <{}>: item {} asked {} ({}), sent {} ({}), COD {}c",
+            LOG_INFO("playerbots.coa", "CoA World: guild order by {} <{}>: item {} asked {} ({}), sent {} ({}), COD {}c",
                      player->GetName(), GuildName(player), entry, _askedQty, _askedQty ? "count" : "any", got, paths, cod);
             return result;
         }
