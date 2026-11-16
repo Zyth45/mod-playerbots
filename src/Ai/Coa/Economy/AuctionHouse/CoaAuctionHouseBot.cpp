@@ -1569,6 +1569,11 @@ void AuctionHouseBot::LoadVendorBuyPrices()
         Field* fields = result->Fetch();
         vendorBuyPrices[fields[0].Get<uint32>()] = fields[1].Get<uint32>();
     } while (result->NextRow());
+    uint32 floorSold = 0;
+    for (uint32 itemId : CoaEconomyRules::MaterialFloorItems())
+        floorSold += vendorBuyPrices.count(itemId) ? 1 : 0;
+    LOG_INFO("playerbots", "CoaEconomy: vendor guard loaded {} items sold by NPC vendors ({} of the {} floor materials)",
+             vendorBuyPrices.size(), floorSold, CoaEconomyRules::MaterialFloorItems().size());
 }
 
 uint64 AuctionHouseBot::GetVendorBuyPrice(uint32 itemId) const
@@ -2223,7 +2228,18 @@ void AuctionHouseBot::AddNewAuctionBuyerBotBid(std::vector<Player*> AHBPlayers, 
             if (!CoaEconomyRules::AccountMaySell(std::get<1>(sold), std::get<2>(sold), auction->buyout,
                                                  MaterialBuyerPerAccountPerDay,
                                                  uint64(MaterialBuyerGoldPerAccountPerDay) * GOLD))
+            {
+                // One line per refused auction a day (the buyer looks at it again each cycle).
+                static std::unordered_map<uint32, uint32> refusedLogged;  // auction -> day logged
+                if (refusedLogged[auction->Id] != buyDay)
+                {
+                    refusedLogged[auction->Id] = buyDay;
+                    LOG_INFO("playerbots", "CoaEconomy: house refused material {} x{} from account {} for {} copper: "
+                             "daily cap ({} auctions, {} copper bought today)", prototype->ItemId, auction->itemCount,
+                             sellerAccount, auction->buyout, std::get<1>(sold), std::get<2>(sold));
+                }
                 continue;
+            }
         }
 
         // Only buy what the seller bot itself could list, if configured (the crafting materials always)
