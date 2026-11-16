@@ -1605,6 +1605,43 @@ void AuctionHouseBot::RecordHouseSale(uint32 buyerAccount, uint32 itemId)
     BoughtFromHouse[CoaEconomyRules::HouseSaleKey(buyerAccount, itemId)] = now;
 }
 
+bool AuctionHouseBot::BoughtFromBotsRecently(uint32 account, uint32 itemId) const
+{
+    auto const found = BoughtFromHouse.find(CoaEconomyRules::HouseSaleKey(account, itemId));
+    return found != BoughtFromHouse.end() &&
+           CoaEconomyRules::BoughtFromHouseRecently(found->second, uint32(GameTime::GetGameTime().count()));
+}
+
+bool AuctionHouseBot::IsHouseCharacter(uint32 guidLow) const
+{
+    for (AuctionHouseBotCharacter const& character : AHCharacters)
+        if (character.CharacterGUID == guidLow)
+            return true;
+    return false;
+}
+
+bool AuctionHouseBot::SoldByBots(ObjectGuid owner) const
+{
+    return IsHouseCharacter(owner.GetCounter()) ||
+           sPlayerbotAIConfig.IsInRandomAccountList(sCharacterCache->GetCharacterAccountIdByGuid(owner));
+}
+
+uint64 AuctionHouseBot::HouseCheapestNow(AuctionHouseObject* house, uint32 itemId) const
+{
+    uint64 cheapest = 0;
+    if (!house)
+        return 0;
+    for (auto const& [id, entry] : house->GetAuctions())
+        if (entry && entry->item_template == itemId && entry->buyout && entry->itemCount &&
+            IsHouseCharacter(entry->owner.GetCounter()))
+        {
+            uint64 const perItem = entry->buyout / entry->itemCount;
+            if (!cheapest || perItem < cheapest)
+                cheapest = perItem;
+        }
+    return cheapest;
+}
+
 uint64 AuctionHouseBot::GetVendorBuyPrice(uint32 itemId) const
 {
     auto found = vendorBuyPrices.find(itemId);
@@ -2321,16 +2358,14 @@ void AuctionHouseBot::AddNewAuctionBuyerBotBid(std::vector<Player*> AHBPlayers, 
         bool const matchesHouse = MaterialBuyerPlayerMatchesHouse && playerSeller && houseCheapestNow;
         if (matchesHouse)
         {
-            auto const bought = BoughtFromHouse.find(CoaEconomyRules::HouseSaleKey(sellerAccount, prototype->ItemId));
-            if (bought != BoughtFromHouse.end() &&
-                CoaEconomyRules::BoughtFromHouseRecently(bought->second, uint32(GameTime::GetGameTime().count())))
+            if (BoughtFromBotsRecently(sellerAccount, prototype->ItemId))
             {
                 static std::unordered_map<uint32, uint32> rebuyLogged;  // auction -> day logged
                 if (rebuyLogged[auction->Id] != buyDay)
                 {
                     rebuyLogged[auction->Id] = buyDay;
                     LOG_INFO("playerbots.coa", "CoaEconomy: house refused material {} x{} from account {} for {} copper: "
-                             "bought from the house in the last 24 hours", prototype->ItemId, auction->itemCount,
+                             "bought from the house or a bot in the last 24 hours", prototype->ItemId, auction->itemCount,
                              sellerAccount, auction->buyout);
                 }
                 continue;

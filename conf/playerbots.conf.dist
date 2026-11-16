@@ -5811,6 +5811,10 @@ AiPlayerbot.CoaEconomy.Artisans.Stock.BuyBelowPercent = 90
 #    Buy.MinListings      Auctions of an item needed before a bot buys it for its stock (default 8).
 #    Buy.MaxSharePercent  Most of an item's auctions one guild buys in a day, in percent (default 25).
 #    Buy.PerDay           Stock purchases a day for a whole guild (default 10).
+#    Buy.PlayerMatchesHouse  1 = a player's lot (not a bot's) at or under the cheapest price the house asks for it is
+#                         bought even over Artisans.Stock.BuyBelowPercent, except an item that account bought from the
+#                         house or a bot in the last 24 hours (default); 0 = BuyBelowPercent for every lot.
+#    Buy.PlayerMinListings   Auctions of the item needed for such a player's lot (default 3; MinListings otherwise).
 AiPlayerbot.CoaEconomy.GuildStock.Enable = 1
 AiPlayerbot.CoaEconomy.GuildStock.Kinds = 3
 AiPlayerbot.CoaEconomy.GuildStock.Stacks = 2
@@ -5819,6 +5823,8 @@ AiPlayerbot.CoaEconomy.GuildStock.CraftsPerVisit = 2
 AiPlayerbot.CoaEconomy.GuildStock.Buy.MinListings = 8
 AiPlayerbot.CoaEconomy.GuildStock.Buy.MaxSharePercent = 25
 AiPlayerbot.CoaEconomy.GuildStock.Buy.PerDay = 10
+AiPlayerbot.CoaEconomy.GuildStock.Buy.PlayerMatchesHouse = 1
+AiPlayerbot.CoaEconomy.GuildStock.Buy.PlayerMinListings = 3
 
 # Artisans' rare recipes: bots learn only what profession trainers teach, so no artisan ever made the recipes players
 # find (Lionheart Helm, Flarecore Robe...). With this on, an artisan also knows a few of the recipes of its professions

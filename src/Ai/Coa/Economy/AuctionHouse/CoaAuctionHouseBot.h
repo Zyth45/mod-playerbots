@@ -431,6 +431,13 @@ public:
     // 3.1.4: an account bought an item from the house (CoaAhBotAuctionHooks): the house does not buy it back from
     // that account for 24 hours.
     void RecordHouseSale(uint32 buyerAccount, uint32 itemId);
+    // 3.1.4: that account bought this item from the house or a random bot in the last 24 hours.
+    bool BoughtFromBotsRecently(uint32 account, uint32 itemId) const;
+    // 3.1.4: the seller is the house (its characters) or a random bot account.
+    bool IsHouseCharacter(uint32 guidLow) const;
+    bool SoldByBots(ObjectGuid owner) const;
+    // 3.1.4: the house's cheapest price per item of this item in that house right now (0 = none listed).
+    uint64 HouseCheapestNow(AuctionHouseObject* house, uint32 itemId) const;
     // 3.1.4 guard: what a buyer pays per item at most, payPerItem or under the vendor price when the guard holds for
     // the item (CoaEconomyRules::VendorGuardApplies: unlimited stock, or a limited stock worth over 10 gold a day).
     uint64 VendorGuardCap(uint32 itemId, uint64 payPerItem) const;

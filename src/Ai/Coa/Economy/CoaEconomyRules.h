@@ -669,6 +669,22 @@ inline std::uint32_t BankRoom(std::uint32_t inBags, std::uint32_t inBank, std::u
     return std::min(spare, room);
 }
 
+// 3.1.4 (player's decision, 16/11): a bot artisan takes a player's lot (not a bot's nor the house's) for its stock
+// when its price per item is at most the house's cheapest ask of the item right now, even over BuyBelowPercent;
+// never one that account bought from the bots or the house in the last 24 hours (no loop).
+inline bool ArtisanMatchesPlayer(bool enabled, bool playerSeller, std::uint64_t perItem, std::uint64_t houseCheapestNow,
+                                 bool boughtFromBotsRecently)
+{
+    return enabled && playerSeller && houseCheapestNow && perItem <= houseCheapestNow && !boughtFromBotsRecently;
+}
+
+// The auctions of an item its house needs before a bot artisan buys one: MinListings, or PlayerMinListings for a
+// player's lot matched to the house (the floor's 2 stacks and the player's one make 3).
+inline std::uint32_t StockMinListings(bool playerMatch, std::uint32_t minListings, std::uint32_t playerMinListings)
+{
+    return playerMatch ? playerMinListings : minListings;
+}
+
 inline bool StockBargain(std::uint64_t pricePerItem, std::uint64_t marketPerItem, std::uint32_t buyBelowPercent)
 {
     return marketPerItem && pricePerItem * 100 <= marketPerItem * buyBelowPercent;
@@ -758,11 +774,16 @@ inline bool IsIntermediate(std::uint32_t skillId, std::uint32_t itemClass, std::
 // The guild's purchases of materials at the auction house, a day: only an item with at least minListings auctions,
 // never more than maxSharePercent of them for the guild (players keep the rest), and no more than perDay purchases
 // for the whole guild. listings: the item's auctions now; boughtOfItem / boughtToday: the guild's today.
+// firstOfItemFree (3.1.4, a player's lot): the guild's first lot of an item a day is not held by the share (25 % of
+// 3 auctions is under one lot); the next ones are.
 inline bool GuildMayBuy(std::uint32_t listings, std::uint32_t boughtOfItem, std::uint32_t boughtToday,
-                        std::uint32_t minListings, std::uint32_t maxSharePercent, std::uint32_t perDay)
+                        std::uint32_t minListings, std::uint32_t maxSharePercent, std::uint32_t perDay,
+                        bool firstOfItemFree = false)
 {
     if (!perDay || boughtToday >= perDay || listings < std::max<std::uint32_t>(1, minListings))
         return false;
+    if (firstOfItemFree && boughtOfItem == 0)
+        return true;
     return std::uint64_t(boughtOfItem + 1) * 100 <= std::uint64_t(listings + boughtOfItem) * maxSharePercent;
 }
 

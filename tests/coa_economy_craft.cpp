@@ -138,6 +138,22 @@ int main()
         // Default Kinds 3 x (Stacks 2 + 1) = 9 full stacks at most.
         assert(3 * (60 / 20) == 9);
     }
+    // 3.1.4 artisans and players: a player's lot 1 copper under the house's cheapest is taken, even over BuyBelowPercent;
+    // over it, a bot's lot, no house auction, a buy-back within 24 h or the key off: no; 3 auctions are then enough.
+    assert(ArtisanMatchesPlayer(true, true, 2176, 2177, false));
+    assert(!ArtisanMatchesPlayer(true, true, 2178, 2177, false));
+    assert(!ArtisanMatchesPlayer(true, false, 2176, 2177, false));
+    assert(!ArtisanMatchesPlayer(true, true, 2176, 0, false));
+    assert(!ArtisanMatchesPlayer(true, true, 2176, 2177, true));
+    assert(!ArtisanMatchesPlayer(false, true, 2176, 2177, false));
+    assert(StockMinListings(true, 8, 3) == 3 && StockMinListings(false, 8, 3) == 8);
+    // 25 % of 3 auctions is under one lot: the guild's first lot of the item a day is free of the share, not the next.
+    assert(!GuildMayBuy(3, 0, 0, StockMinListings(true, 8, 3), 25, 10));
+    assert(GuildMayBuy(3, 0, 0, StockMinListings(true, 8, 3), 25, 10, true));
+    assert(!GuildMayBuy(3, 1, 1, StockMinListings(true, 8, 3), 25, 10, true));
+    assert(!GuildMayBuy(3, 0, 0, StockMinListings(false, 8, 3), 25, 10));
+    assert(!GuildMayBuy(4, 0, 10, StockMinListings(true, 8, 3), 25, 10, true));  // the guild's 10 a day still hold
+    assert(!GuildMayBuy(2, 0, 0, StockMinListings(true, 8, 3), 25, 10, true));   // and the 3 auctions
     assert(GuildMayBuy(8, 0, 0, 8, 25, 10) && GuildMayBuy(7, 1, 1, 6, 25, 10) && !GuildMayBuy(6, 2, 2, 6, 25, 10));
     assert(!GuildMayBuy(7, 0, 0, 8, 25, 10) && !GuildMayBuy(20, 0, 10, 8, 25, 10) && !GuildMayBuy(20, 0, 0, 8, 25, 0));
     assert(!GuildMayBuy(3, 0, 0, 1, 25, 10) && GuildMayBuy(4, 0, 0, 1, 25, 10));

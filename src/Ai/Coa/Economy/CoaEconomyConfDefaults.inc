@@ -64,6 +64,8 @@
 {"AiPlayerbot.CoaEconomy.GuildStock.Buy.MaxSharePercent", R"coa(25)coa"},
 {"AiPlayerbot.CoaEconomy.GuildStock.Buy.MinListings", R"coa(8)coa"},
 {"AiPlayerbot.CoaEconomy.GuildStock.Buy.PerDay", R"coa(10)coa"},
+{"AiPlayerbot.CoaEconomy.GuildStock.Buy.PlayerMatchesHouse", R"coa(1)coa"},
+{"AiPlayerbot.CoaEconomy.GuildStock.Buy.PlayerMinListings", R"coa(3)coa"},
 {"AiPlayerbot.CoaEconomy.GuildStock.CraftsPerVisit", R"coa(2)coa"},
 {"AiPlayerbot.CoaEconomy.GuildStock.Enable", R"coa(1)coa"},
 {"AiPlayerbot.CoaEconomy.GuildStock.Kinds", R"coa(3)coa"},
