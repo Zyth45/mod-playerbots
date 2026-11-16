@@ -80,7 +80,9 @@ namespace
 
     bool WantsAuctioneer(PlayerbotAI* botAI)
     {
-        return BotAuctions::IsEnabled() && !BotAuctions::IsOnCooldown(botAI->GetBot()->GetGUID()) && HasAuctionLoot(botAI);
+        // 3.1.4: guild stock to bank or surplus to sell is a reason too (a gatherer's ore is no auction loot to it).
+        return BotAuctions::IsEnabled() && !BotAuctions::IsOnCooldown(botAI->GetBot()->GetGUID()) &&
+               (HasAuctionLoot(botAI) || Materials::HasStockWork(botAI->GetBot()));
     }
 
     // What goes to the vendor: what the bot's item usage marks for a vendor, and its auction loot too when the bot

@@ -462,6 +462,38 @@ uint32 TendGuildStock(Player* bot)
     return done;
 }
 
+bool HasStockWork(Player* bot)
+{
+    if (!settings.guildStock || !bot)
+        return false;
+    static std::unordered_map<uint64, std::pair<uint32, bool>> lastLook;  // bot -> (time looked, answer)
+    uint32 const now = uint32(GameTime::GetGameTime().count());
+    auto& look = lastLook[bot->GetGUID().GetRawValue()];
+    if (look.first && now < look.first + 60)
+        return look.second;
+    std::unordered_set<uint32> const stock = StockReagents(bot);
+    bool work = false;
+    ForEachBagItem(bot, [&](Item* item)
+    {
+        if (work || item->IsInTrade() || !stock.count(item->GetEntry()))
+            return;
+        ItemTemplate const* proto = item->GetTemplate();
+        uint32 const inBags = bot->GetItemCount(proto->ItemId);
+        uint32 const held = bot->GetItemCount(proto->ItemId, true);
+        // Surplus to sell, or (bank on) a quarter of a stack or more of stock to put in the bank (the deposit leaves an
+        // artisan's stack of reagents in the bags at the visit).
+        uint32 const stackSize = proto->GetMaxStackSize();
+        if (!KeepsInStock(bot, item, stock))
+            work = true;
+        else if (settings.bank && stackSize > 1 &&
+                 CoaEconomyRules::BankRoom(inBags, held - inBags, stackSize, settings.stacks, 0) >=
+                     std::max<uint32>(1, stackSize / 4))
+            work = true;
+    });
+    look = {now, work};
+    return work;
+}
+
 bool BuyStock(Player* bot, ObjectGuid auctioneer, Creature* npc, uint64 budget)
 {
     if (!IsStockEnabled() || !bot || !npc || !budget)
