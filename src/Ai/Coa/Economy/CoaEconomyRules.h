@@ -394,6 +394,87 @@ inline std::uint64_t FloorUnitPrice(std::uint64_t marketPerItem, std::uint64_t l
     return std::max(marketPerItem, lowestOtherPerItem);
 }
 
+// 3.1.4: what the house buyer pays per item for a common crafting material another seller lists (a farmer's
+// stack): pricePercent of the house's own value, never above the arbitrage cap applied after it.
+inline std::uint64_t MaterialBuyerPrice(std::uint64_t houseValuePerItem, std::uint32_t pricePercent)
+{
+    return houseValuePerItem * pricePercent / 100;
+}
+
+// 3.1.4 guard: an item an NPC vendor sells (any stock, limited or not) is never bought above this share of the vendor
+// price. With the best reputation discount (20 %) and the house's cut (5 %), buying it at a vendor to sell it to the
+// house always loses: 0.95 x 75 % = 71 % < 80 %.
+constexpr std::uint32_t VendorSafePercent = 75;
+inline std::uint64_t VendorSafeCap(std::uint64_t perItem, std::uint64_t vendorBuyPrice)
+{
+    return vendorBuyPrice ? std::min(perItem, vendorBuyPrice * VendorSafePercent / 100) : perItem;
+}
+
+// 3.1.4 guard, which vendor goods it holds for: an item an NPC vendor sells in unlimited stock (maxcount 0) always;
+// one sold in limited stock only when buying all the vendors' stock of a day (itemsPerDay) and selling it at payPerItem
+// (the house's 5 % cut taken, the best reputation discount given) would bring more than maxCopperPerDay. Farmers are
+// paid the normal price for the rest (a herbalist's Dreamfoil: 2 a day at its vendor).
+constexpr std::uint64_t VendorAbuseCopperPerDay = 10 * 10000;  // 10 gold
+inline bool VendorGuardApplies(bool unlimited, std::uint64_t itemsPerDay, std::uint64_t payPerItem,
+                               std::uint64_t vendorBuyPrice, std::uint64_t maxCopperPerDay = VendorAbuseCopperPerDay)
+{
+    if (!vendorBuyPrice)
+        return false;
+    if (unlimited)
+        return true;
+    std::uint64_t const net = payPerItem * 95 / 100;
+    std::uint64_t const cost = vendorBuyPrice * 80 / 100;
+    return net > cost && itemsPerDay * (net - cost) > maxCopperPerDay;
+}
+
+// 3.1.4: the most the house buyer pays per item for a farmer's material: pricePercent of the house's value, under
+// marginPercent of the lowest price the house asks itself (buying from the house to sell back loses), under the
+// vendor guard. 0 = it does not buy.
+inline std::uint64_t MaterialBuyerPay(std::uint64_t houseValuePerItem, std::uint32_t pricePercent,
+                                      std::uint64_t houseLowestPerItem, std::uint32_t marginPercent,
+                                      std::uint64_t vendorBuyPrice)
+{
+    std::uint64_t pay = MaterialBuyerPrice(houseValuePerItem, pricePercent);
+    if (houseLowestPerItem)
+        pay = std::min(pay, houseLowestPerItem * marginPercent / 100);
+    return VendorSafeCap(pay, vendorBuyPrice);
+}
+
+// 3.1.4: a farmer's auction is bought at its own buyout, only when that buyout is within what the buyer pays for the
+// stack; no bid, no buyout = no purchase. The buyer never pays more than asked, nor anything for a dearer one.
+inline bool MaterialBuyerTakes(std::uint64_t buyout, std::uint32_t count, std::uint64_t payPerItem)
+{
+    return buyout && count && payPerItem && buyout <= payPerItem * count;
+}
+
+// 3.1.4: one account (all its characters) sells the house buyer at most perDay auctions of materials and goldCopper
+// a day (0 = no cap).
+inline bool AccountMaySell(std::uint32_t soldToday, std::uint64_t paidToday, std::uint64_t price, std::uint32_t perDay,
+                           std::uint64_t goldCopper)
+{
+    if (perDay && soldToday >= perDay)
+        return false;
+    return !goldCopper || paidToday + price <= goldCopper;
+}
+
+// 3.1.4: which candidate the house buyer looks at next: one of the first `materials` (the crafting materials, put
+// first) while any is left, else any of them. `roll` is any random number.
+inline std::size_t BuyerCandidate(std::size_t materials, std::size_t total, std::uint32_t roll)
+{
+    if (!total)
+        return 0;
+    return materials ? roll % std::min(materials, total) : roll % total;
+}
+
+// 3.1.4: a look at a farmer's material does not use one of the buyer's candidates of the cycle (3), only a purchase
+// does, up to maxMaterialLooks looks a cycle: every seller's materials are looked at, none starves behind auctions
+// refused for their price or their account's day.
+constexpr std::uint32_t MaterialLooksPerCycle = 40;
+inline bool BuyerLookUsesSlot(bool material, std::uint32_t materialLooks, std::uint32_t maxMaterialLooks = MaterialLooksPerCycle)
+{
+    return !material || materialLooks > maxMaterialLooks;
+}
+
 // The floor serves the faction houses only (Alliance 2 and Horde 6), not the neutral one (Booty Bay, Gadgetzan...).
 inline bool FloorServesHouse(std::uint32_t houseId)
 {
@@ -552,6 +633,20 @@ inline bool KeepsInStock(std::uint32_t held, std::uint32_t stackSize, std::uint3
     return held <= std::max<std::uint32_t>(1, stackSize) * maxStacks;
 }
 
+// 3.1.4 guild stock in the bank: how many more items of one kind go from the bags to the bot's own bank. The stock is
+// `stacks` full stacks in all; an artisan keeps `keepInBags` of its reagents in the bags to craft with, the rest of
+// the stock lies in the bank. What is held beyond the stock is surplus, sold at the auction house (KeepsInStock).
+inline std::uint32_t BankRoom(std::uint32_t inBags, std::uint32_t inBank, std::uint32_t stackSize, std::uint32_t stacks,
+                              std::uint32_t keepInBags)
+{
+    std::uint32_t const total = std::max<std::uint32_t>(1, stackSize) * stacks;
+    std::uint32_t const keep = std::min(keepInBags, total);
+    std::uint32_t const target = total - keep;
+    std::uint32_t const spare = inBags > keep ? inBags - keep : 0;
+    std::uint32_t const room = inBank < target ? target - inBank : 0;
+    return std::min(spare, room);
+}
+
 inline bool StockBargain(std::uint64_t pricePerItem, std::uint64_t marketPerItem, std::uint32_t buyBelowPercent)
 {
     return marketPerItem && pricePerItem * 100 <= marketPerItem * buyBelowPercent;
@@ -569,6 +664,37 @@ inline bool GathererKeeps(std::uint32_t itemClass, std::uint32_t subClass, bool 
 
 // The kinds a gatherer keeps: those of its level band, the closest item level to its own first (the smaller id on a
 // tie, so the choice holds from one visit to the next), at most `kinds`. Candidates: (item id, item level).
+// 3.1.4: the kinds a gatherer keeps are first those it holds (most held first), then the closest to its level: a
+// level 60 miner holding Mithril Ore keeps Mithril, not only Thorium it has not gathered (the bench of 16/11 saw
+// only Runecloth banked). candidates: (item, item level, held).
+struct StockCandidate
+{
+    std::uint32_t item;
+    std::uint32_t itemLevel;
+    std::uint32_t held;
+};
+inline std::vector<std::uint32_t> PickHeldStockKinds(std::vector<StockCandidate> candidates, std::uint32_t level,
+                                                 std::uint32_t kinds)
+{
+    auto distance = [level](std::uint32_t itemLevel) { return itemLevel > level ? itemLevel - level : level - itemLevel; };
+    std::sort(candidates.begin(), candidates.end(), [&](StockCandidate const& a, StockCandidate const& b) {
+        if ((a.held > 0) != (b.held > 0))
+            return a.held > 0;
+        if (a.held != b.held)
+            return a.held > b.held;
+        std::uint32_t const da = distance(a.itemLevel), db = distance(b.itemLevel);
+        return da != db ? da < db : a.item < b.item;
+    });
+    std::vector<std::uint32_t> out;
+    for (StockCandidate const& c : candidates)
+    {
+        if (out.size() >= kinds)
+            break;
+        out.push_back(c.item);
+    }
+    return out;
+}
+
 inline std::vector<std::uint32_t> PickStockKinds(std::vector<std::pair<std::uint32_t, std::uint32_t>> candidates,
                                                  std::uint32_t level, std::uint32_t kinds)
 {

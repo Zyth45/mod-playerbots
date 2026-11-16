@@ -54,6 +54,25 @@ int main()
     // Materials at vendor price, else four times the vendor's buying price.
     assert(ReagentPrice(100, 25) == 100);
     assert(ReagentPrice(0, 25) == 100);
+    // 3.1.4 guild craft: never above the 3.1.3 price; the market when lower; unknown market (0) is not free.
+    assert(GuildCraftReagentPrice(2770, 30, 15) == 30);
+    assert(GuildCraftReagentPrice(20, 30, 15) == 20);
+    assert(GuildCraftReagentPrice(0, 30, 15) == 30);
+    assert(GuildCraftReagentPrice(0, 0, 25) == 100);
+    assert(GuildCraftReagentPrice(500, 0, 0) == 500);
+    // 3.1.4: each reagent of the price table (3.1.3 price, house prices seen on the bench, Alliance and Horde): never
+    // above 3.1.3. Linen, Light Leather, Silver Bar, Iron Bar, Thorium Bar, Elemental Fire, Dreamfoil, Peacebloom,
+    // Runecloth, Strange Dust.
+    struct Row { unsigned old; unsigned market[2]; };
+    Row const rows[] = {{55, {985, 874}}, {30, {2770, 2571}}, {400, {2707, 2639}}, {800, {3003, 2520}},
+                        {2400, {4238, 4517}}, {1600, {4101, 4407}}, {400, {5877, 5015}}, {40, {254, 256}},
+                        {1600, {421, 469}}, {800, {133, 176}}};
+    for (Row const& row : rows)
+        for (unsigned market : row.market)
+            assert(GuildCraftReagentPrice(market, row.old, 0) <= row.old);
+    // Bolt of Linen (2 Linen) 110 as in 3.1.3; Bolt of Runecloth (4 Runecloth) at the market, under 3.1.3's 6400.
+    assert(GuildCraftReagentPrice(985, 55, 0) * 2 == 110);
+    assert(GuildCraftReagentPrice(469, 1600, 0) * 4 == 1876);
 
     // Orders a day.
     assert(MayOrder(0, 3) && MayOrder(2, 3) && !MayOrder(3, 3) && !MayOrder(0, 0));

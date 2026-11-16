@@ -90,14 +90,12 @@ namespace
     constexpr char const* PREFIX = "AiPlayerbot.CoaWorld.Guilds.";
 
     // What one reagent costs a guildmate who crafts for you: what it costs an artisan of CoA Economy (its market
-    // price, or less when making it is cheaper) while the artisans are on; else its vendor price, or four times what
-    // a vendor gives for it. No fee between guildmates.
+    // price, or less when making it is cheaper) while the artisans are on, never more than the 3.1.3 price (its vendor
+    // price, or four times what a vendor gives for it). No fee between guildmates.
     uint64 GuildReagentPrice(ItemTemplate const* reagent)
     {
-        if (CoaEconomy::Artisans::IsEnabled())
-            if (uint64 const cost = CoaEconomy::Artisans::ReagentCost(reagent->ItemId))
-                return cost;
-        return CoaWorldGuildRules::ReagentPrice(reagent->BuyPrice, reagent->SellPrice);
+        uint64 const cost = CoaEconomy::Artisans::IsEnabled() ? CoaEconomy::Artisans::ReagentCost(reagent->ItemId) : 0;
+        return CoaWorldGuildRules::GuildCraftReagentPrice(cost, reagent->BuyPrice, reagent->SellPrice);
     }
 
     struct Settings

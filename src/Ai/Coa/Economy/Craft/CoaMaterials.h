@@ -51,6 +51,9 @@ namespace CoaEconomy::Materials
     // At an auction house visit: makes intermediates from the materials held (up to GuildStock.CraftsPerVisit),
     // then puts the full stacks of stock beyond the first in the bank. Returns the items moved or made.
     uint32 TendGuildStock(Player* bot);
+    // 3.1.4: the bot has guild stock to put in its bank or surplus to sell: a reason to visit an auctioneer (RpgTrade).
+    // Looked at once a minute per bot at most.
+    bool HasStockWork(Player* bot);
 
     // For CoA World (guild orders): an item the bot keeps in stock, and how many it holds, bags and bank.
     bool IsStockItem(Player* bot, uint32 entry);

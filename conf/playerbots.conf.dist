@@ -5528,6 +5528,25 @@ AiPlayerbot.CoaEconomy.AHBot.EmptyOldAuctions = 0
 AiPlayerbot.CoaEconomy.AHBot.MaterialFloor.Enable = 1
 AiPlayerbot.CoaEconomy.AHBot.MaterialFloor.Stacks = 2
 
+# Auction house bot, buyer of crafting materials (3.1.4): the house buyer (AuctionHouseBot.Buyer.Enabled) looks first at
+# the materials of the floor above that players and bots list, and pays up to PricePercent of the house's own value
+# for them (other goods: AuctionHouseBot.Buyer.AcceptablePriceModifier), never more than 90 % of the lowest price the
+# house asks itself (Buyer.ArbitrageMarginPercent). A player who farms and lists near the house price sells to the
+# bots. Read again by ".reload config" and ".ahbot reload".
+# Guards: it buys a farmer's stack at its own buyout only (never a bid, never more than asked), nothing beyond the
+# realm's launch curve, and nothing an NPC vendor sells in unlimited stock at 75 % of the vendor price or more (no
+# gold from buying at a vendor to sell to the house; this guard holds for every item the house buys). A limited vendor
+# stock (a few a day) is paid the normal price, unless buying all of it each day would bring over 10 gold a day. One account, all its characters
+# together, sells it at most PerAccountPerDay auctions and GoldPerAccountPerDay gold of materials a day.
+#    Enable                1 = on (default), 0 = off.
+#    PricePercent          Share of the house's value it pays per item, 10 to 100 (default 90).
+#    PerAccountPerDay      Material auctions bought from one account a day (default 10; 0 = no cap).
+#    GoldPerAccountPerDay  Gold paid to one account a day for materials (default 50; 0 = no cap).
+AiPlayerbot.CoaEconomy.AHBot.MaterialBuyer.Enable = 1
+AiPlayerbot.CoaEconomy.AHBot.MaterialBuyer.PricePercent = 90
+AiPlayerbot.CoaEconomy.AHBot.MaterialBuyer.PerAccountPerDay = 10
+AiPlayerbot.CoaEconomy.AHBot.MaterialBuyer.GoldPerAccountPerDay = 50
+
 # Auction house bot, CoA sellable filter: the bot only lists goods a CoA player could really sell.
 # Read again by ".ahbot reload". Each rule below only counts when Filter.Enable = 1.
 #    Enable            1 = on (default), 0 = off.
@@ -5775,14 +5794,15 @@ AiPlayerbot.CoaEconomy.Artisans.Stock.BuyBelowPercent = 90
 # for 20 bars may get 5 from a member's stock, free, and the rest crafted or bought). Gatherers keep Kinds kinds of
 # their level band (one cloth for everyone, then ore and bars for a miner, herbs for a herbalist, leather for a
 # skinner), artisans one stack of each intermediate they make from their own materials (bars, bolts of cloth, cured
-# leather). Up to Stacks stacks of each, bags and bank together; full stacks beyond the first go to the bank at an
-# auction house visit. An artisan's stock purchases at the auction house stay within the guild's daily share: only an
+# leather). Up to Stacks stacks of each, bags and bank together. At an auction house visit the stock goes to the bot's
+# own bank (an artisan keeps one stack of its reagents in the bags to craft with), and what is held beyond the stock
+# is surplus, listed at the auction house for the bot's gold. An artisan's stock purchases at the auction house stay within the guild's daily share: only an
 # item with at least Buy.MinListings auctions, never more than Buy.MaxSharePercent of them for one guild, and at
 # most Buy.PerDay purchases a day for the whole guild, so players always find materials. Needs BotAuctions.
 #    Enable               1 = on (default), 0 = off. Read at start-up (restart to change it).
 #    Kinds                Kinds of gathered materials kept by a gatherer, 1 to 6 (default 3).
 #    Stacks               Stacks kept of each, bags and bank, 1 to 5 (default 2).
-#    Bank                 1 = full stacks beyond the first go to the bank (default), 0 = bags only.
+#    Bank                 1 = the stock lies in the bot's own bank (default), 0 = bags only.
 #    CraftsPerVisit       Intermediates made per auction house visit, 0 to 10 (default 2).
 #    Buy.MinListings      Auctions of an item needed before a bot buys it for its stock (default 8).
 #    Buy.MaxSharePercent  Most of an item's auctions one guild buys in a day, in percent (default 25).
