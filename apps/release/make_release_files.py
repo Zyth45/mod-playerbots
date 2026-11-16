@@ -143,6 +143,9 @@ def main():
     keys = dist_keys((ROOT / DIST).read_text(encoding='utf-8'))
     new_keys, changed_defaults = [], []
     if a.since_rev:
+        # A new action log line must be written on a player's server (check_log_categories.py).
+        subprocess.run([sys.executable, str(ROOT / 'apps' / 'release' / 'check_log_categories.py'), '--since-rev',
+                        a.since_rev], check=True)
         changed = changed_since(a.since_rev, files)
         if changed:
             sys.exit('published SQL files changed since ' + a.since_rev + ' (add a new file instead): ' +

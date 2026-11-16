@@ -115,7 +115,16 @@ data and its AI contexts, then creates, deletes, renames and logs in no bot, and
 For a qualification run that checks a build starts before it is opened. Dungeon Clear is inert in this mode too.
 Default 0.
 
-## 6. Following our releases
+## 6. Logs
+
+- Startup lines of the module (Dungeon Clear built in or not, the startup check, race lines read or ignored) use
+  the core's `server.loading` category: `Logger.server` writes them (Server.log and the console with the core's
+  default worldserver.conf).
+- Lines about what the bots do use `playerbots.coa`. With the core's default worldserver.conf, which has no
+  `Logger.playerbots.coa`, they go to its parent `playerbots` (Playerbots.log). A server may give them a file of their
+  own: `Logger.playerbots.coa=4,CoaBots` with an `Appender.CoaBots=2,5,0,CoaBots.log,w`.
+
+## 7. Following our releases
 
 - Take a tag, read `squidbots-release.json` (components and their tags, new keys, SQL files and their
   sha256) and `changelog.d/`.
