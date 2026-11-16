@@ -466,6 +466,28 @@ inline std::size_t BuyerCandidate(std::size_t materials, std::size_t total, std:
     return materials ? roll % std::min(materials, total) : roll % total;
 }
 
+// 3.1.4 (player's decision, 16/11): a player's material (not a bot's) is bought at its own price when that price per
+// item is at most the cheapest price the house asks for it right now (an Auctionator undercut sells); with no house
+// auction of it, the usual cap (usualPay). Bots keep the usual cap: no gold for 1,300 bot accounts.
+inline std::uint64_t PlayerMatchPay(bool enabled, bool playerSeller, std::uint64_t houseCheapestNow, std::uint64_t usualPay)
+{
+    return enabled && playerSeller && houseCheapestNow ? houseCheapestNow : usualPay;
+}
+
+// 3.1.4: the house does not buy from an account, for 24 hours, an item that account bought from the house (buy its
+// cheapest stack, list it under the next one: up to 0.34 x the value an item otherwise).
+constexpr std::uint32_t HouseRebuyHoldSeconds = 24 * 3600;
+// Kept in memory only (emptied by a restart), at most this many (account, item) entries; the stale ones go first.
+constexpr std::size_t HouseSalesMax = 20000;
+inline std::uint64_t HouseSaleKey(std::uint32_t account, std::uint32_t item)
+{
+    return (std::uint64_t(account) << 32) | item;
+}
+inline bool BoughtFromHouseRecently(std::uint32_t boughtAt, std::uint32_t now, std::uint32_t hold = HouseRebuyHoldSeconds)
+{
+    return boughtAt && now >= boughtAt && now < boughtAt + hold;
+}
+
 // 3.1.4: a look at a farmer's material does not use one of the buyer's candidates of the cycle (3), only a purchase
 // does, up to maxMaterialLooks looks a cycle: every seller's materials are looked at, none starves behind auctions
 // refused for their price or their account's day.

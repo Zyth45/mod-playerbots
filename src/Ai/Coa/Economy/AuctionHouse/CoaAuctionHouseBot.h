@@ -384,6 +384,9 @@ private:
     uint32 MaterialBuyerPricePercent = 90;
     uint32 MaterialBuyerPerAccountPerDay = 10;
     uint32 MaterialBuyerGoldPerAccountPerDay = 50;
+    bool MaterialBuyerPlayerMatchesHouse = true;  // a player's stack at or under the house's cheapest ask sells
+    // (account << 32 | item) -> when that account last bought that item from the house (BoughtFromHouseRecently)
+    std::unordered_map<uint64, uint32> BoughtFromHouse;
     // account -> (day, auctions bought, copper paid)
     std::unordered_map<uint32, std::tuple<uint32, uint32, uint64>> MaterialBuyerSoldToday;
     // 3.1.4 guard: item -> what NPC vendors sell of it (no extended cost): lowest price, unlimited stock anywhere,
@@ -425,6 +428,9 @@ public:
     uint64 GetReferencePricePerItem(ItemTemplate const* itemProto);
     // 3.1.4: the lowest price an NPC vendor sells this item for (0 = no vendor sells it).
     uint64 GetVendorBuyPrice(uint32 itemId) const;
+    // 3.1.4: an account bought an item from the house (CoaAhBotAuctionHooks): the house does not buy it back from
+    // that account for 24 hours.
+    void RecordHouseSale(uint32 buyerAccount, uint32 itemId);
     // 3.1.4 guard: what a buyer pays per item at most, payPerItem or under the vendor price when the guard holds for
     // the item (CoaEconomyRules::VendorGuardApplies: unlimited stock, or a limited stock worth over 10 gold a day).
     uint64 VendorGuardCap(uint32 itemId, uint64 payPerItem) const;

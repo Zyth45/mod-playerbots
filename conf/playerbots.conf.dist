@@ -5542,10 +5542,14 @@ AiPlayerbot.CoaEconomy.AHBot.MaterialFloor.Stacks = 2
 #    PricePercent          Share of the house's value it pays per item, 10 to 100 (default 90).
 #    PerAccountPerDay      Material auctions bought from one account a day (default 10; 0 = no cap).
 #    GoldPerAccountPerDay  Gold paid to one account a day for materials (default 50; 0 = no cap).
+#    PlayerMatchesHouse    1 = a player's stack (not a bot's) at or under the cheapest price the house asks for it
+#                          sells at its own price (an auction addon's undercut sells), except an item that account
+#                          bought from the house in the last 24 hours (default); 0 = players too get PricePercent.
 AiPlayerbot.CoaEconomy.AHBot.MaterialBuyer.Enable = 1
 AiPlayerbot.CoaEconomy.AHBot.MaterialBuyer.PricePercent = 90
 AiPlayerbot.CoaEconomy.AHBot.MaterialBuyer.PerAccountPerDay = 10
 AiPlayerbot.CoaEconomy.AHBot.MaterialBuyer.GoldPerAccountPerDay = 50
+AiPlayerbot.CoaEconomy.AHBot.MaterialBuyer.PlayerMatchesHouse = 1
 
 # Auction house bot, CoA sellable filter: the bot only lists goods a CoA player could really sell.
 # Read again by ".ahbot reload". Each rule below only counts when Filter.Enable = 1.

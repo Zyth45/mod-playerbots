@@ -33,6 +33,7 @@
 #include "AuctionHouseSearcher.h"
 #include "AccountMgr.h"
 #include "CharacterCache.h"
+#include "PlayerbotAIConfig.h"
 #include "Config.h"
 #include "CryptoRandom.h"
 #include "Player.h"
@@ -1551,6 +1552,8 @@ void AuctionHouseBot::LoadMaterialFloorSettings()
         CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.AHBot.MaterialBuyer.PerAccountPerDay", 10);
     MaterialBuyerGoldPerAccountPerDay =
         CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.AHBot.MaterialBuyer.GoldPerAccountPerDay", 50);
+    MaterialBuyerPlayerMatchesHouse =
+        CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.AHBot.MaterialBuyer.PlayerMatchesHouse", true);
     LoadVendorBuyPrices();
 }
 
@@ -1584,6 +1587,22 @@ void AuctionHouseBot::LoadVendorBuyPrices()
     LOG_INFO("server.loading", "CoaEconomy: vendor guard loaded {} items sold by NPC vendors ({} of the {} floor materials, "
              "{} of them in unlimited stock)", vendorBuyPrices.size(), floorSold,
              CoaEconomyRules::MaterialFloorItems().size(), floorUnlimited);
+}
+
+void AuctionHouseBot::RecordHouseSale(uint32 buyerAccount, uint32 itemId)
+{
+    if (!buyerAccount || !itemId)
+        return;
+    uint32 const now = uint32(GameTime::GetGameTime().count());
+    // Bounded (HouseSalesMax): the entries older than 24 hours go first, then the whole table if it is still full.
+    if (BoughtFromHouse.size() >= CoaEconomyRules::HouseSalesMax)
+    {
+        for (auto it = BoughtFromHouse.begin(); it != BoughtFromHouse.end();)
+            it = CoaEconomyRules::BoughtFromHouseRecently(it->second, now) ? std::next(it) : BoughtFromHouse.erase(it);
+        if (BoughtFromHouse.size() >= CoaEconomyRules::HouseSalesMax)
+            BoughtFromHouse.clear();
+    }
+    BoughtFromHouse[CoaEconomyRules::HouseSaleKey(buyerAccount, itemId)] = now;
 }
 
 uint64 AuctionHouseBot::GetVendorBuyPrice(uint32 itemId) const
@@ -2178,6 +2197,24 @@ void AuctionHouseBot::AddNewAuctionBuyerBotBid(std::vector<Player*> AHBPlayers, 
         AuctionEntry const* entry = auctionHouse->GetAuction(auctionId);
         return entry && floorItems.count(entry->item_template);
     };
+    // 3.1.4: the house's cheapest ask per item of the floor materials right now (PlayerMatchPay).
+    std::unordered_map<uint32, uint64> houseCheapest;
+    if (MaterialBuyerEnabled && MaterialBuyerPlayerMatchesHouse)
+    {
+        std::unordered_set<uint32> houseSellers;
+        for (AuctionHouseBotCharacter const& seller : AHCharacters)
+            houseSellers.insert(seller.CharacterGUID);
+        for (auto const& [id, entry] : auctionHouse->GetAuctions())
+        {
+            if (!entry || !entry->buyout || !entry->itemCount || !floorItems.count(entry->item_template) ||
+                !houseSellers.count(entry->owner.GetCounter()))
+                continue;
+            uint64 const perItem = entry->buyout / entry->itemCount;
+            auto found = houseCheapest.find(entry->item_template);
+            if (found == houseCheapest.end() || perItem < found->second)
+                houseCheapest[entry->item_template] = perItem;
+        }
+    }
     std::size_t materialCandidates = 0;
     if (MaterialBuyerEnabled)
         materialCandidates = std::size_t(std::stable_partition(possibleBids.begin(), possibleBids.end(), isMaterial) -
@@ -2276,9 +2313,33 @@ void AuctionHouseBot::AddNewAuctionBuyerBotBid(std::vector<Player*> AHBPlayers, 
         // A crafting material: up to MaterialBuyer.PricePercent of the house's value, so a farmer listing near the house's
         // price sells (AcceptablePriceModifier, 65 %, made them go far under it); under the house's own lowest price
         // (ArbitrageMarginPercent) and under an NPC vendor's price.
+        // 3.1.4: a player's stack (not a bot's) at or under the house's cheapest ask sells at its own price
+        // (PlayerMatchPay), unless that account bought this item from the house in the last 24 hours.
+        bool const playerSeller = material && !sPlayerbotAIConfig.IsInRandomAccountList(sellerAccount);
+        auto const cheapest = houseCheapest.find(prototype->ItemId);
+        uint64 const houseCheapestNow = cheapest == houseCheapest.end() ? 0 : cheapest->second;
+        bool const matchesHouse = MaterialBuyerPlayerMatchesHouse && playerSeller && houseCheapestNow;
+        if (matchesHouse)
+        {
+            auto const bought = BoughtFromHouse.find(CoaEconomyRules::HouseSaleKey(sellerAccount, prototype->ItemId));
+            if (bought != BoughtFromHouse.end() &&
+                CoaEconomyRules::BoughtFromHouseRecently(bought->second, uint32(GameTime::GetGameTime().count())))
+            {
+                static std::unordered_map<uint32, uint32> rebuyLogged;  // auction -> day logged
+                if (rebuyLogged[auction->Id] != buyDay)
+                {
+                    rebuyLogged[auction->Id] = buyDay;
+                    LOG_INFO("playerbots.coa", "CoaEconomy: house refused material {} x{} from account {} for {} copper: "
+                             "bought from the house in the last 24 hours", prototype->ItemId, auction->itemCount,
+                             sellerAccount, auction->buyout);
+                }
+                continue;
+            }
+        }
         if (material)
-            willingToSpendPerItemPrice = CoaEconomyRules::MaterialBuyerPay(willingToSpendPerItemPrice,
-                MaterialBuyerPricePercent, GetHouseLowestBuyoutPerItem(prototype), HumanBuyer.ArbitrageMarginPercent, 0);
+            willingToSpendPerItemPrice = CoaEconomyRules::PlayerMatchPay(matchesHouse, true, houseCheapestNow,
+                CoaEconomyRules::MaterialBuyerPay(willingToSpendPerItemPrice, MaterialBuyerPricePercent,
+                    GetHouseLowestBuyoutPerItem(prototype), HumanBuyer.ArbitrageMarginPercent, 0));
         else
             willingToSpendPerItemPrice = (uint64)((float)willingToSpendPerItemPrice * BuyingBotAcceptablePriceModifier);
         // 3.1.4 guard, every item: nothing an NPC vendor sells in unlimited stock (or in a limited stock worth over
@@ -2303,7 +2364,8 @@ void AuctionHouseBot::AddNewAuctionBuyerBotBid(std::vector<Player*> AHBPlayers, 
 
         // No arbitrage: the house never pays more than a share of the lowest price it asks itself,
         // so buying from the house to sell back to it can never pay
-        if (HumanBuyer.Enabled)
+        // (a player's stack matched to the house's ask is held by the 24-hour rule instead)
+        if (HumanBuyer.Enabled && !matchesHouse)
         {
             willingToSpendPerItemPrice = CoaEconomyRules::ArbitrageCap(willingToSpendPerItemPrice,
                 GetHouseLowestBuyoutPerItem(prototype), HumanBuyer.ArbitrageMarginPercent);
