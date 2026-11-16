@@ -240,7 +240,7 @@ namespace
                     { "zone", AreaName(_zoneId) } }, text), true);
 
             RecruitBots();
-            LOG_INFO("module", "CoA World: resource rush near {} in {} (level {}, {} nodes, {} bots)", AreaName(_areaId),
+            LOG_INFO("playerbots.coa", "CoA World: resource rush near {} in {} (level {}, {} nodes, {} bots)", AreaName(_areaId),
                 AreaName(_zoneId), _level, _nodes.size(), BorrowedCount(BOT_OWNER_RUSH));
             LogEvent("rush", "", Acore::StringFormat("gold rush near {} in {} (level {}, {} nodes)", AreaName(_areaId),
                 AreaName(_zoneId), _level, _nodes.size()));
@@ -268,7 +268,7 @@ namespace
             _atNode.clear();
 
             ReleaseBots(BOT_OWNER_RUSH, settings.botsReturnHome);
-            LOG_INFO("module", "CoA World: resource rush near {} ended", AreaName(_areaId));
+            LOG_INFO("playerbots.coa", "CoA World: resource rush near {} ended", AreaName(_areaId));
             LogEvent("rush", "", Acore::StringFormat("gold rush near {} ended", AreaName(_areaId)));
             Reschedule();
         }

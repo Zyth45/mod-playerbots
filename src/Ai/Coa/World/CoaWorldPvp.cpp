@@ -225,7 +225,7 @@ namespace
                 Tell(player, WorldLine(player, "sys_skirmish", { { "place", best->name } }, text));
             BorrowedSay(BOT_OWNER_PVP_SKIRMISH, 0, "pvp_skirmish", { { "place", best->name } }, 2);
 
-            LOG_INFO("module", "CoA World: skirmish {} ({} bots)", best->name, got);
+            LOG_INFO("playerbots.coa", "CoA World: skirmish {} ({} bots)", best->name, got);
             return true;
         }
 
@@ -361,7 +361,7 @@ namespace
                     {
                         ReleaseBots(itr->Owner(), true);
                         _cooldown[i] = now + settings.defenceCooldown * MINUTE;
-                        LOG_INFO("module", "CoA World: {} defenders stand down", capital.name);
+                        LOG_INFO("playerbots.coa", "CoA World: {} defenders stand down", capital.name);
                         _defences.erase(itr);
                     }
                     continue;
@@ -414,7 +414,7 @@ namespace
                     if (IsHumanPlayer(player) && player->GetTeamId() == capital.team)
                         Tell(player, WorldLine(player, "sys_capital", { { "city", capital.name } }, text));
                 BorrowedSay(defence.Owner(), 0, "pvp_capital", { { "city", capital.name } }, 2);
-                LOG_INFO("module", "CoA World: {} attacked by {} players, {} defenders", capital.name, attackers.size(),
+                LOG_INFO("playerbots.coa", "CoA World: {} attacked by {} players, {} defenders", capital.name, attackers.size(),
                     BorrowedCount(defence.Owner()));
             }
         }

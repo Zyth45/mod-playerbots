@@ -189,7 +189,7 @@ namespace
                 ? Acore::StringFormat("|cffff8000[Server First]|r {} is the first of {} to reach level {}!", who, side, p.entry)
                 : Acore::StringFormat("|cffff8000[Server First]|r {} has slain {}, a first for {}!", who, p.what, side);
             ChatHandler(nullptr).SendWorldText(text);
-            LOG_INFO("module", "CoA World: server first ({}): {}", side, text);
+            LOG_INFO("playerbots.coa", "CoA World: server first ({}): {}", side, text);
             Recent(uint8(p.kind), p.entry, uint8(p.team), p.name, p.guild, time(nullptr));
             CoaWorldState::First(p.kind == FIRST_LEVEL ? Acore::StringFormat("level {} ({})", p.entry, side)
                                                       : Acore::StringFormat("{} ({})", p.what, side),

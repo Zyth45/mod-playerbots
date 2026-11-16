@@ -260,7 +260,7 @@ private:
                 HoldBot(bot->GetGUID().GetCounter(), match.until);
                 sRandomPlayerbotMgr.LogoutPlayerBot(bot->GetGUID());
             }
-        LOG_INFO("module", "CoA World: simulated {} ({}-{}), {} v {} bots, {} minutes", bg.name, bracket.minLevel,
+        LOG_INFO("playerbots.coa", "CoA World: simulated {} ({}-{}), {} v {} bots, {} minutes", bg.name, bracket.minLevel,
                  bracket.maxLevel, sides[0].size(), sides[1].size(), minutes);
         _matches.push_back(std::move(match));
     }
@@ -398,7 +398,7 @@ private:
                 _offers.push_back({ f[0].Get<uint32>(), cost->reqhonorpoints, f[2].Get<uint32>() });
             } while (result->NextRow());
         }
-        LOG_INFO("module", "CoA World: {} PvP pieces sold for honor by vendors in the world", _offers.size());
+        LOG_INFO("playerbots.coa", "CoA World: {} PvP pieces sold for honor by vendors in the world", _offers.size());
         return _offers;
     }
 
@@ -447,7 +447,7 @@ private:
         bot->ModifyHonorPoints(-int32(best->honor));
         ++Day(time(nullptr)).purchases;
         bot->StoreNewItem(dest, best->item, true);
-        LOG_INFO("module", "CoA World: {} bought item {} for {} honor", bot->GetName(), best->item, best->honor);
+        LOG_DEBUG("playerbots.coa", "CoA World: {} bought item {} for {} honor", bot->GetName(), best->item, best->honor);
         LogEvent("pvp", bot->GetName(), Acore::StringFormat("bought {} for {} honor",
                                                              sObjectMgr->GetItemTemplate(best->item)->Name1, best->honor));
     }

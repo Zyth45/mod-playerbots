@@ -189,9 +189,9 @@ namespace
                 if (found == 2 && route.docks[0].valid && route.docks[1].valid)
                     _routes.push_back(std::move(route));
                 else
-                    LOG_INFO("module", "CoA World: travel leaves out {} (no two docks with a platform)", def.name);
+                    LOG_INFO("server.loading", "CoA World: travel leaves out {} (no two docks with a platform)", def.name);
             }
-            LOG_INFO("module", "CoA World: travel knows {} transport routes", _routes.size());
+            LOG_INFO("server.loading", "CoA World: travel knows {} transport routes", _routes.size());
         }
 
         void Update(uint32 diff)

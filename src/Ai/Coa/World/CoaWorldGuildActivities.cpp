@@ -178,7 +178,7 @@ void BringFar(Player* player, Activity& a)
     if (!pending)
         a.bringAt = 0;
     if (brought)
-        LOG_DEBUG("module", "CoA World: {} gathering, {} guildmates brought near", player->GetName(), brought);
+        LOG_DEBUG("playerbots.coa", "CoA World: {} gathering, {} guildmates brought near", player->GetName(), brought);
 }
 
 // The party of 5: the group's members count; one tank, one healer, the rest damage dealers.
@@ -290,7 +290,7 @@ std::vector<std::string> CoaWorldGuildActivityStart(Player* player, std::vector<
             return error("none");
         time_t const now = time(nullptr);
         EndGather(low, running, now);
-        LOG_INFO("module", "CoA World: {} cancelled a gathering", player->GetName());
+        LOG_INFO("playerbots.coa", "CoA World: {} cancelled a gathering", player->GetName());
         return Lines(player, now);
     }
     if (std::find_if(std::begin(KINDS), std::end(KINDS), [&](char const* k) { return kind == k; }) == std::end(KINDS))
@@ -332,7 +332,7 @@ std::vector<std::string> CoaWorldGuildActivityStart(Player* player, std::vector<
         a.slot = slot;
         a.until = now + settings.gatherMinutes * MINUTE;
         a.bringAt = settings.bringSeconds ? now + settings.bringSeconds : 0;
-        LOG_INFO("module", "CoA World: {} gathers {} guildmates", player->GetName(), got);
+        LOG_INFO("playerbots.coa", "CoA World: {} gathers {} guildmates", player->GetName(), got);
         return Lines(player, now);
     }
 
@@ -351,7 +351,7 @@ std::vector<std::string> CoaWorldGuildActivityStart(Player* player, std::vector<
     if (!built)
         return error(reason.c_str());
     a.cooldown = now + settings.cooldownMinutes * MINUTE;
-    LOG_INFO("module", "CoA World: {} built a guild {}", player->GetName(), kind);
+    LOG_INFO("playerbots.coa", "CoA World: {} built a guild {}", player->GetName(), kind);
     return Lines(player, now);
 }
 
