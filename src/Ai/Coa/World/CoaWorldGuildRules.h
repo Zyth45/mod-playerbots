@@ -403,6 +403,17 @@ namespace CoaWorldGuildRules
         return buyPrice ? buyPrice : std::uint64_t(sellPrice) * 4;
     }
 
+    // 3.1.4: what one reagent of a guild craft costs. What it costs an artisan (its market price, or less when making
+    // it is cheaper), never more than the 3.1.3 price (ReagentPrice): a guildmate does not charge the house's market
+    // markup. No market price known (0): the 3.1.3 price.
+    inline std::uint64_t GuildCraftReagentPrice(std::uint64_t artisanCost, std::uint32_t buyPrice, std::uint32_t sellPrice)
+    {
+        std::uint64_t const old = ReagentPrice(buyPrice, sellPrice);
+        if (!artisanCost)
+            return old;
+        return old && old < artisanCost ? old : artisanCost;
+    }
+
     // Orders a player may place a day.
     inline bool MayOrder(std::uint32_t placedToday, std::uint32_t perDay)
     {

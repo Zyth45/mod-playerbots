@@ -54,6 +54,12 @@ int main()
     // Materials at vendor price, else four times the vendor's buying price.
     assert(ReagentPrice(100, 25) == 100);
     assert(ReagentPrice(0, 25) == 100);
+    // 3.1.4 guild craft: never above the 3.1.3 price; the market when lower; unknown market (0) is not free.
+    assert(GuildCraftReagentPrice(2770, 30, 15) == 30);
+    assert(GuildCraftReagentPrice(20, 30, 15) == 20);
+    assert(GuildCraftReagentPrice(0, 30, 15) == 30);
+    assert(GuildCraftReagentPrice(0, 0, 25) == 100);
+    assert(GuildCraftReagentPrice(500, 0, 0) == 500);
 
     // Orders a day.
     assert(MayOrder(0, 3) && MayOrder(2, 3) && !MayOrder(3, 3) && !MayOrder(0, 0));
