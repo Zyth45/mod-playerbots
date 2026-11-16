@@ -11,6 +11,7 @@
 
 #include "AuctionHouseMgr.h"
 #include "CoaArtisans.h"
+#include "CoaAuctionHouseBot.h"
 #include "CoaEconomyRules.h"
 #include "CoaSellable.h"
 #include "Config.h"
@@ -542,6 +543,9 @@ bool BuyStock(Player* bot, ObjectGuid auctioneer, Creature* npc, uint64 budget)
             continue;
         uint64 const perItem = auction->buyout / item->GetCount();
         if (!CoaEconomyRules::StockBargain(perItem, Artisans::MarketPrice(proto->ItemId), settings.buyBelowPercent))
+            continue;
+        // 3.1.4 guard: nothing an NPC vendor sells, at a price that would pay to buy it there and list it here.
+        if (CoaEconomyRules::VendorSafeCap(perItem, auctionbot->GetVendorBuyPrice(proto->ItemId)) < perItem)
             continue;
         if (!best || perItem < bestPerItem)
         {

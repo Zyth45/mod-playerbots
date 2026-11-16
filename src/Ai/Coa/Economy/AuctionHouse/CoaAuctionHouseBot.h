@@ -27,6 +27,7 @@
 #include "Random.h"
 
 #include <map>
+#include <tuple>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -381,6 +382,13 @@ private:
     // 3.1.4: the house buyer takes the common crafting materials other sellers list (MaterialBuyer.*).
     bool MaterialBuyerEnabled = true;
     uint32 MaterialBuyerPricePercent = 90;
+    uint32 MaterialBuyerPerAccountPerDay = 10;
+    uint32 MaterialBuyerGoldPerAccountPerDay = 50;
+    // account -> (day, auctions bought, copper paid)
+    std::unordered_map<uint32, std::tuple<uint32, uint32, uint64>> MaterialBuyerSoldToday;
+    // 3.1.4 guard: item -> lowest price an NPC vendor sells it for (any stock, no extended cost).
+    std::unordered_map<uint32, uint32> vendorBuyPrices;
+    void LoadVendorBuyPrices();
     void LoadMaterialFloorSettings();
     uint32 ListMaterialFloor(std::vector<Player*> const& AHBPlayers, FactionSpecificAuctionHouseConfig* config,
         AuctionHouseObject* auctionHouse, AuctionHouseEntry const* ahEntry, std::unordered_set<uint32> const& sellers,
@@ -408,6 +416,8 @@ public:
     // CoA Economy: the house's lowest asking price for one item (0 while the house bot is off). SquidBots that
     // sell at the auction house price from it, so the house and the bots share one price model.
     uint64 GetReferencePricePerItem(ItemTemplate const* itemProto);
+    // 3.1.4: the lowest price an NPC vendor sells this item for (0 = no vendor sells it). Buyers stay under it.
+    uint64 GetVendorBuyPrice(uint32 itemId) const;
     uint32 GetRandomStackValue(std::string configKeyString, uint32 defaultValue);
     uint32 GetRandomStackIncrementValue(std::string configKeyString, uint32 defaultValue);
     void SetCyclesBetweenBuyOrSell();

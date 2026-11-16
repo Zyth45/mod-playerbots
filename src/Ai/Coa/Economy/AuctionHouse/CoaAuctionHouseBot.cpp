@@ -32,6 +32,7 @@
 #include "CoaSellable.h"
 #include "AuctionHouseSearcher.h"
 #include "AccountMgr.h"
+#include "CharacterCache.h"
 #include "Config.h"
 #include "CryptoRandom.h"
 #include "Player.h"
@@ -1546,6 +1547,34 @@ void AuctionHouseBot::LoadMaterialFloorSettings()
     MaterialBuyerEnabled = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.AHBot.MaterialBuyer.Enable", true, false);
     MaterialBuyerPricePercent = std::clamp<uint32>(
         CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.AHBot.MaterialBuyer.PricePercent", 90), 10, 100);
+    MaterialBuyerPerAccountPerDay =
+        CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.AHBot.MaterialBuyer.PerAccountPerDay", 10);
+    MaterialBuyerGoldPerAccountPerDay =
+        CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.AHBot.MaterialBuyer.GoldPerAccountPerDay", 50);
+    LoadVendorBuyPrices();
+}
+
+// 3.1.4 guard: what NPC vendors sell, at their lowest price (limited stock or not; no extended cost). The buyers
+// (house and bot artisans) never pay VendorSafePercent of it or more, so nothing bought at a vendor sells at a profit.
+void AuctionHouseBot::LoadVendorBuyPrices()
+{
+    vendorBuyPrices.clear();
+    QueryResult result = WorldDatabase.Query(
+        "SELECT t.entry, MIN(t.BuyPrice) FROM npc_vendor v JOIN item_template t ON t.entry = v.item "
+        "WHERE v.ExtendedCost = 0 AND t.BuyPrice > 0 GROUP BY t.entry");
+    if (!result)
+        return;
+    do
+    {
+        Field* fields = result->Fetch();
+        vendorBuyPrices[fields[0].Get<uint32>()] = fields[1].Get<uint32>();
+    } while (result->NextRow());
+}
+
+uint64 AuctionHouseBot::GetVendorBuyPrice(uint32 itemId) const
+{
+    auto found = vendorBuyPrices.find(itemId);
+    return found == vendorBuyPrices.end() ? 0 : found->second;
 }
 
 // The common crafting materials (CoaEconomyRules::MaterialFloorItems) always on offer in the faction houses: a full
@@ -2180,6 +2209,22 @@ void AuctionHouseBot::AddNewAuctionBuyerBotBid(std::vector<Player*> AHBPlayers, 
             continue;
 
         bool const material = MaterialBuyerEnabled && floorItems.count(prototype->ItemId);
+        // 3.1.4: never a material the realm's population cannot reach yet (LaunchCurve, the level front).
+        if (material && !sCoaLaunchCurve->AllowsListing(*prototype))
+            continue;
+        // 3.1.4: one account's daily share of the material purchases (all its characters together).
+        uint32 const sellerAccount = material ? sCharacterCache->GetCharacterAccountIdByGuid(auction->owner) : 0;
+        uint32 const buyDay = uint32(GameTime::GetGameTime().count() / DAY);
+        if (material)
+        {
+            auto& sold = MaterialBuyerSoldToday[sellerAccount];
+            if (std::get<0>(sold) != buyDay)
+                sold = {buyDay, 0, 0};
+            if (!CoaEconomyRules::AccountMaySell(std::get<1>(sold), std::get<2>(sold), auction->buyout,
+                                                 MaterialBuyerPerAccountPerDay,
+                                                 uint64(MaterialBuyerGoldPerAccountPerDay) * GOLD))
+                continue;
+        }
 
         // Only buy what the seller bot itself could list, if configured (the crafting materials always)
         if (BuyingBotOnlyBuyListableItems && !material && !IsItemListableBySeller(prototype))
@@ -2209,11 +2254,17 @@ void AuctionHouseBot::AddNewAuctionBuyerBotBid(std::vector<Player*> AHBPlayers, 
         uint64 discardBidPrice = 0;
         CalculateItemValue(prototype, discardBidPrice, willingToSpendPerItemPrice);
         // A crafting material: up to MaterialBuyer.PricePercent of the house's value, so a farmer listing near the house's
-        // price sells (AcceptablePriceModifier, 65 %, made them go far under it).
+        // price sells (AcceptablePriceModifier, 65 %, made them go far under it); under the house's own lowest price
+        // (ArbitrageMarginPercent) and under an NPC vendor's price.
         if (material)
-            willingToSpendPerItemPrice = CoaEconomyRules::MaterialBuyerPrice(willingToSpendPerItemPrice, MaterialBuyerPricePercent);
+            willingToSpendPerItemPrice = CoaEconomyRules::MaterialBuyerPay(willingToSpendPerItemPrice,
+                MaterialBuyerPricePercent, GetHouseLowestBuyoutPerItem(prototype), HumanBuyer.ArbitrageMarginPercent,
+                GetVendorBuyPrice(prototype->ItemId));
         else
             willingToSpendPerItemPrice = (uint64)((float)willingToSpendPerItemPrice * BuyingBotAcceptablePriceModifier);
+        // 3.1.4 guard, every item: nothing an NPC vendor sells is bought at a price that pays (VendorSafePercent).
+        willingToSpendPerItemPrice = CoaEconomyRules::VendorSafeCap(willingToSpendPerItemPrice,
+                                                                    GetVendorBuyPrice(prototype->ItemId));
 
         // No arbitrage: the house never pays more than a share of the lowest price it asks itself,
         // so buying from the house to sell back to it can never pay
@@ -2229,7 +2280,10 @@ void AuctionHouseBot::AddNewAuctionBuyerBotBid(std::vector<Player*> AHBPlayers, 
         bool doBid = false;
         uint64 calcBidAmount = 0;
 
-        if (auction->buyout != 0 && auction->buyout < willingToPayForStackPrice)
+        if (material)
+            // A farmer's stack: its own buyout, never a bid, never more than asked (MaterialBuyerTakes).
+            doBuyout = CoaEconomyRules::MaterialBuyerTakes(auction->buyout, pItem->GetCount(), willingToSpendPerItemPrice);
+        else if (auction->buyout != 0 && auction->buyout < willingToPayForStackPrice)
             doBuyout = true;
         else
         {
@@ -2365,8 +2419,14 @@ void AuctionHouseBot::AddNewAuctionBuyerBotBid(std::vector<Player*> AHBPlayers, 
             uint64 const price = doBuyout ? uint64(auction->buyout) : calcBidAmount;
             CoaEconomy::Data::RecordAhBot(0, 1, 0, price);
             if (material)
-                LOG_INFO("playerbots", "CoaEconomy: house bought material {} x{} from seller {} for {} copper (house {})",
-                         prototype->ItemId, auction->itemCount, auction->owner.GetCounter(), price, config->GetAHID());
+            {
+                auto& sold = MaterialBuyerSoldToday[sellerAccount];
+                ++std::get<1>(sold);
+                std::get<2>(sold) += price;
+                LOG_INFO("playerbots", "CoaEconomy: house bought material {} x{} from seller {} (account {}) for {} copper (house {})",
+                         prototype->ItemId, auction->itemCount, auction->owner.GetCounter(), sellerAccount, price,
+                         config->GetAHID());
+            }
             auto trans = CharacterDatabase.BeginTransaction();
 
             if ((auction->bidder) && (AHBplayer->GetGUID() != auction->bidder))

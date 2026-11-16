@@ -401,6 +401,45 @@ inline std::uint64_t MaterialBuyerPrice(std::uint64_t houseValuePerItem, std::ui
     return houseValuePerItem * pricePercent / 100;
 }
 
+// 3.1.4 guard: an item an NPC vendor sells (any stock, limited or not) is never bought above this share of the vendor
+// price. With the best reputation discount (20 %) and the house's cut (5 %), buying it at a vendor to sell it to the
+// house always loses: 0.95 x 75 % = 71 % < 80 %.
+constexpr std::uint32_t VendorSafePercent = 75;
+inline std::uint64_t VendorSafeCap(std::uint64_t perItem, std::uint64_t vendorBuyPrice)
+{
+    return vendorBuyPrice ? std::min(perItem, vendorBuyPrice * VendorSafePercent / 100) : perItem;
+}
+
+// 3.1.4: the most the house buyer pays per item for a farmer's material: pricePercent of the house's value, under
+// marginPercent of the lowest price the house asks itself (buying from the house to sell back loses), under the
+// vendor guard. 0 = it does not buy.
+inline std::uint64_t MaterialBuyerPay(std::uint64_t houseValuePerItem, std::uint32_t pricePercent,
+                                      std::uint64_t houseLowestPerItem, std::uint32_t marginPercent,
+                                      std::uint64_t vendorBuyPrice)
+{
+    std::uint64_t pay = MaterialBuyerPrice(houseValuePerItem, pricePercent);
+    if (houseLowestPerItem)
+        pay = std::min(pay, houseLowestPerItem * marginPercent / 100);
+    return VendorSafeCap(pay, vendorBuyPrice);
+}
+
+// 3.1.4: a farmer's auction is bought at its own buyout, only when that buyout is within what the buyer pays for the
+// stack; no bid, no buyout = no purchase. The buyer never pays more than asked, nor anything for a dearer one.
+inline bool MaterialBuyerTakes(std::uint64_t buyout, std::uint32_t count, std::uint64_t payPerItem)
+{
+    return buyout && count && payPerItem && buyout <= payPerItem * count;
+}
+
+// 3.1.4: one account (all its characters) sells the house buyer at most perDay auctions of materials and goldCopper
+// a day (0 = no cap).
+inline bool AccountMaySell(std::uint32_t soldToday, std::uint64_t paidToday, std::uint64_t price, std::uint32_t perDay,
+                           std::uint64_t goldCopper)
+{
+    if (perDay && soldToday >= perDay)
+        return false;
+    return !goldCopper || paidToday + price <= goldCopper;
+}
+
 // 3.1.4: which candidate the house buyer looks at next: one of the first `materials` (the crafting materials, put
 // first) while any is left, else any of them. `roll` is any random number.
 inline std::size_t BuyerCandidate(std::size_t materials, std::size_t total, std::uint32_t roll)

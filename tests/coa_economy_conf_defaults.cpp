@@ -60,6 +60,8 @@ int main()
     assert(table.at("AiPlayerbot.CoaEconomy.GuildStock.Enable") == "1");
     assert(table.at("AiPlayerbot.CoaEconomy.AHBot.MaterialBuyer.Enable") == "1");
     assert(table.at("AiPlayerbot.CoaEconomy.AHBot.MaterialBuyer.PricePercent") == "90");
+    assert(table.at("AiPlayerbot.CoaEconomy.AHBot.MaterialBuyer.PerAccountPerDay") == "10");
+    assert(table.at("AiPlayerbot.CoaEconomy.AHBot.MaterialBuyer.GoldPerAccountPerDay") == "50");
     assert(table.at("AiPlayerbot.CoaEconomy.GuildStock.Kinds") == "3");
     assert(table.at("AiPlayerbot.CoaEconomy.GuildStock.Stacks") == "2");
     assert(table.at("AiPlayerbot.CoaEconomy.GuildStock.Bank") == "1");

@@ -27,6 +27,53 @@ int main()
     assert(BuyerCandidate(0, 10, 7) == 7);
     assert(BuyerCandidate(5, 2, 3) == 1);
     assert(BuyerCandidate(0, 0, 3) == 0);
+
+    // 3.1.4 guards of the material buyer.
+    {
+        // (a) The 28 floor materials an NPC vendor sells in CoA's world data (npc_vendor, any stock; vendor price in
+        // copper). For any house value and house price, buying one at a vendor (20 % reputation discount at best) to
+        // sell it to the house (5 % cut) always loses.
+        struct Vendor { unsigned item; unsigned buyPrice; };
+        Vendor const vendors[] = {
+            {765, 40}, {785, 80}, {2319, 200}, {2447, 40}, {2449, 80}, {2453, 100}, {2589, 55}, {2592, 135},
+            {2770, 20}, {2771, 100}, {2775, 300}, {3355, 200}, {3356, 120}, {3357, 300}, {3358, 700}, {4234, 600},
+            {4304, 1200}, {4306, 600}, {4338, 1000}, {8170, 2000}, {8845, 1500}, {8846, 1000}, {10938, 800},
+            {10940, 800}, {13463, 400}, {13464, 400}, {13465, 600}, {13467, 1000}};
+        static_assert(sizeof(vendors) / sizeof(vendors[0]) == 28);
+        std::set<unsigned> floor(MaterialFloorItems().begin(), MaterialFloorItems().end());
+        for (Vendor const& v : vendors)
+        {
+            assert(floor.count(v.item));
+            for (std::uint64_t value : {1ull, 40ull, 254ull, 2770ull, 58770ull, 10000000ull})
+                for (std::uint64_t lowest : {0ull, 10ull, value, value * 3})
+                {
+                    std::uint64_t const pay = MaterialBuyerPay(value, 100, lowest, 100, v.buyPrice);
+                    assert(pay * 95 < std::uint64_t(v.buyPrice) * 80);
+                    assert(VendorSafeCap(value, v.buyPrice) * 95 < std::uint64_t(v.buyPrice) * 80);
+                }
+        }
+        // (c) No loop: what the house asks is at least its lowest price; the buyer pays at most 90 % of it, the seller
+        // gets 95 % of that: buying the house's stack to sell it back loses at least 14 %.
+        for (std::uint64_t lowest : {1ull, 100ull, 2571ull, 5877ull, 99999ull})
+        {
+            std::uint64_t const pay = MaterialBuyerPay(lowest * 2, 100, lowest, 90, 0);
+            assert(pay <= lowest * 90 / 100 && pay * 95 / 100 < lowest);
+        }
+        assert(MaterialBuyerPay(2770, 90, 2571, 90, 0) == 2313);
+        assert(MaterialBuyerPay(2770, 90, 0, 90, 0) == 2493);
+        assert(MaterialBuyerPay(254, 90, 254, 90, 40) == 30);
+        // (d) Its own buyout only, never above what it pays: 20 at 2300 within 2313 each, not 20 at 2314; no buyout, no.
+        assert(MaterialBuyerTakes(46000, 20, 2313));
+        assert(MaterialBuyerTakes(46260, 20, 2313));
+        assert(!MaterialBuyerTakes(46280, 20, 2313));
+        assert(!MaterialBuyerTakes(0, 20, 2313) && !MaterialBuyerTakes(100, 0, 2313) && !MaterialBuyerTakes(100, 1, 0));
+        // (b) An account's day: 10 auctions, 50 gold (500000 copper); 0 = no cap.
+        assert(AccountMaySell(9, 0, 1000, 10, 500000));
+        assert(!AccountMaySell(10, 0, 1000, 10, 500000));
+        assert(AccountMaySell(0, 490000, 10000, 10, 500000));
+        assert(!AccountMaySell(0, 490000, 10001, 10, 500000));
+        assert(AccountMaySell(1000, 99999999, 1, 0, 0));
+    }
     assert(ArbitrageCap(500, 1000, 90) == 500);
     for (std::uint64_t lowest = 1; lowest < 100000; lowest += 997)
         assert(ArbitrageCap(lowest * 10, lowest, 90) < lowest);
