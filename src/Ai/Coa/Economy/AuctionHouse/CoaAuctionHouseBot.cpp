@@ -2298,7 +2298,23 @@ void AuctionHouseBot::AddNewAuctionBuyerBotBid(std::vector<Player*> AHBPlayers, 
             willingToSpendPerItemPrice = (uint64)((float)willingToSpendPerItemPrice * BuyingBotAcceptablePriceModifier);
         // 3.1.4 guard, every item: nothing an NPC vendor sells in unlimited stock (or in a limited stock worth over
         // 10 gold a day) is bought at a price that pays (VendorGuardCap).
+        uint64 const beforeGuard = willingToSpendPerItemPrice;
         willingToSpendPerItemPrice = VendorGuardCap(prototype->ItemId, willingToSpendPerItemPrice);
+        // One line per farmer's auction a day that only the vendor guard stops (it would buy it otherwise).
+        if (material && willingToSpendPerItemPrice < beforeGuard &&
+            CoaEconomyRules::MaterialBuyerTakes(auction->buyout, pItem->GetCount(), beforeGuard) &&
+            !CoaEconomyRules::MaterialBuyerTakes(auction->buyout, pItem->GetCount(), willingToSpendPerItemPrice))
+        {
+            static std::unordered_map<uint32, uint32> guardLogged;  // auction -> day logged
+            if (guardLogged[auction->Id] != buyDay)
+            {
+                guardLogged[auction->Id] = buyDay;
+                LOG_INFO("playerbots.coa", "CoaEconomy: house refused material {} x{} from account {} for {} copper: "
+                         "vendor guard (pays {} copper an item at most, vendor price {})", prototype->ItemId,
+                         auction->itemCount, sellerAccount, auction->buyout, willingToSpendPerItemPrice,
+                         GetVendorBuyPrice(prototype->ItemId));
+            }
+        }
 
         // No arbitrage: the house never pays more than a share of the lowest price it asks itself,
         // so buying from the house to sell back to it can never pay
