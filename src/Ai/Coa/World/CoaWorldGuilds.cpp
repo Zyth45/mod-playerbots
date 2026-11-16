@@ -38,6 +38,7 @@
 #include "CoaWorldAddonRules.h"
 #include "CoaWorldState.h"
 
+#include "CoaArtisans.h"
 #include "CoaLive.h"
 #include "CoaWorldBots.h"
 
@@ -87,6 +88,17 @@ namespace
     using CoaWorld::RandomBots;
 
     constexpr char const* PREFIX = "AiPlayerbot.CoaWorld.Guilds.";
+
+    // What one reagent costs a guildmate who crafts for you: what it costs an artisan of CoA Economy (its market
+    // price, or less when making it is cheaper) while the artisans are on; else its vendor price, or four times what
+    // a vendor gives for it. No fee between guildmates.
+    uint64 GuildReagentPrice(ItemTemplate const* reagent)
+    {
+        if (CoaEconomy::Artisans::IsEnabled())
+            if (uint64 const cost = CoaEconomy::Artisans::ReagentCost(reagent->ItemId))
+                return cost;
+        return CoaWorldGuildRules::ReagentPrice(reagent->BuyPrice, reagent->SellPrice);
+    }
 
     struct Settings
     {
@@ -1073,8 +1085,7 @@ namespace
                     for (uint8 r = 0; r < MAX_SPELL_REAGENTS; ++r)
                         if (info->Reagent[r] > 0 && info->ReagentCount[r])
                             if (ItemTemplate const* reagent = sObjectMgr->GetItemTemplate(info->Reagent[r]))
-                                cost += CoaWorldGuildRules::ReagentPrice(reagent->BuyPrice, reagent->SellPrice) *
-                                        info->ReagentCount[r];
+                                cost += GuildReagentPrice(reagent) * info->ReagentCount[r];
                     uint32 made = 1;
                     for (uint8 e = 0; e < MAX_SPELL_EFFECTS; ++e)
                         if (info->Effects[e].Effect == SPELL_EFFECT_CREATE_ITEM && info->Effects[e].ItemType == entry)
@@ -1812,7 +1823,7 @@ namespace
         for (uint8 r = 0; r < MAX_SPELL_REAGENTS; ++r)
             if (info->Reagent[r] > 0 && info->ReagentCount[r])
                 if (ItemTemplate const* reagent = sObjectMgr->GetItemTemplate(info->Reagent[r]))
-                    cost += CoaWorldGuildRules::ReagentPrice(reagent->BuyPrice, reagent->SellPrice) * info->ReagentCount[r];
+                    cost += GuildReagentPrice(reagent) * info->ReagentCount[r];
         return cost;
     }
 
