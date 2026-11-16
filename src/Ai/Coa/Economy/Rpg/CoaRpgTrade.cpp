@@ -173,7 +173,12 @@ bool TradeAtNpc(PlayerbotAI* botAI, WorldObject* npc)
     if (sPlayerbotAIConfig.coaEconomyRpgSellEnable)
     {
         if (Creature* vendor = AsNpc(npc, UNIT_NPC_FLAG_VENDOR))
+        {
+            // 3.1.4: a stop at a vendor is also when the guild stock goes to the bank (as at an auctioneer):
+            // bots stop at vendors far more often than at auctioneers.
+            traded |= Materials::TendGuildStock(botAI->GetBot()) > 0;
             traded |= SellToVendor(botAI, vendor) > 0;
+        }
 
         if (AsNpc(npc, UNIT_NPC_FLAG_REPAIR) && AI_VALUE(bool, "should repair") && AI_VALUE(bool, "can repair"))
             traded |= botAI->DoSpecificAction("repair", Event("rpg action"), true);

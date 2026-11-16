@@ -27,6 +27,15 @@ int main()
     assert(BuyerCandidate(0, 10, 7) == 7);
     assert(BuyerCandidate(5, 2, 3) == 1);
     assert(BuyerCandidate(0, 0, 3) == 0);
+    // 3.1.4 fairness: looking at a material is free up to 40 a cycle; any other look uses one of the 3 candidates.
+    // Account A's 17 refused stacks and 20 too dear: account B's 10 still looked at in the same cycle.
+    {
+        std::uint32_t looks = 0, slots = 0;
+        for (int n = 0; n < 47; ++n)
+            if (BuyerLookUsesSlot(true, ++looks))
+                ++slots;
+        assert(slots == 7 && !BuyerLookUsesSlot(true, 40) && BuyerLookUsesSlot(true, 41) && BuyerLookUsesSlot(false, 0));
+    }
 
     // 3.1.4 guards of the material buyer.
     {

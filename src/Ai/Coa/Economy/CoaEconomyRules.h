@@ -466,6 +466,15 @@ inline std::size_t BuyerCandidate(std::size_t materials, std::size_t total, std:
     return materials ? roll % std::min(materials, total) : roll % total;
 }
 
+// 3.1.4: a look at a farmer's material does not use one of the buyer's candidates of the cycle (3), only a purchase
+// does, up to maxMaterialLooks looks a cycle: every seller's materials are looked at, none starves behind auctions
+// refused for their price or their account's day.
+constexpr std::uint32_t MaterialLooksPerCycle = 40;
+inline bool BuyerLookUsesSlot(bool material, std::uint32_t materialLooks, std::uint32_t maxMaterialLooks = MaterialLooksPerCycle)
+{
+    return !material || materialLooks > maxMaterialLooks;
+}
+
 // The floor serves the faction houses only (Alliance 2 and Horde 6), not the neutral one (Booty Bay, Gadgetzan...).
 inline bool FloorServesHouse(std::uint32_t houseId)
 {
@@ -655,6 +664,37 @@ inline bool GathererKeeps(std::uint32_t itemClass, std::uint32_t subClass, bool 
 
 // The kinds a gatherer keeps: those of its level band, the closest item level to its own first (the smaller id on a
 // tie, so the choice holds from one visit to the next), at most `kinds`. Candidates: (item id, item level).
+// 3.1.4: the kinds a gatherer keeps are first those it holds (most held first), then the closest to its level: a
+// level 60 miner holding Mithril Ore keeps Mithril, not only Thorium it has not gathered (the bench of 16/11 saw
+// only Runecloth banked). candidates: (item, item level, held).
+struct StockCandidate
+{
+    std::uint32_t item;
+    std::uint32_t itemLevel;
+    std::uint32_t held;
+};
+inline std::vector<std::uint32_t> PickHeldStockKinds(std::vector<StockCandidate> candidates, std::uint32_t level,
+                                                 std::uint32_t kinds)
+{
+    auto distance = [level](std::uint32_t itemLevel) { return itemLevel > level ? itemLevel - level : level - itemLevel; };
+    std::sort(candidates.begin(), candidates.end(), [&](StockCandidate const& a, StockCandidate const& b) {
+        if ((a.held > 0) != (b.held > 0))
+            return a.held > 0;
+        if (a.held != b.held)
+            return a.held > b.held;
+        std::uint32_t const da = distance(a.itemLevel), db = distance(b.itemLevel);
+        return da != db ? da < db : a.item < b.item;
+    });
+    std::vector<std::uint32_t> out;
+    for (StockCandidate const& c : candidates)
+    {
+        if (out.size() >= kinds)
+            break;
+        out.push_back(c.item);
+    }
+    return out;
+}
+
 inline std::vector<std::uint32_t> PickStockKinds(std::vector<std::pair<std::uint32_t, std::uint32_t>> candidates,
                                                  std::uint32_t level, std::uint32_t kinds)
 {

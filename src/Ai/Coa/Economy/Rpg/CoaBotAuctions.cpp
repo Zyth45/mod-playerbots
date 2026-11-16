@@ -337,6 +337,7 @@ namespace
             return;
 
         Traits const traits = TraitsFor(bot->GetGUID());
+        LOG_INFO("playerbots.coa", "CoaEconomy: {} visits the auctioneer", bot->GetName());
         CollectAuctionMail(bot);
 
         // Ore smelted or prospected, gear disenchanted, when what comes out is worth more (Materials).

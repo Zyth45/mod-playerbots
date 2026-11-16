@@ -103,6 +103,14 @@ int main()
     assert(BankRoom(30, 0, 20, 2, 20) == 10);
     assert(BankRoom(10, 40, 20, 2, 0) == 0);
     assert(BankRoom(5, 0, 20, 1, 40) == 0);
+    // 3.1.4: held kinds first (most held first), then the closest to the level.
+    {
+        std::vector<StockCandidate> ore = {{10620, 50, 0}, {3858, 40, 12}, {2772, 30, 30}, {12359, 50, 0}};
+        assert((PickHeldStockKinds(ore, 60, 2) == std::vector<std::uint32_t>{2772, 3858}));
+        assert((PickHeldStockKinds(ore, 60, 3) == std::vector<std::uint32_t>{2772, 3858, 10620}));
+        std::vector<StockCandidate> none = {{10620, 50, 0}, {3858, 40, 0}};
+        assert((PickHeldStockKinds(none, 60, 1) == std::vector<std::uint32_t>{10620}));
+    }
     assert(GuildMayBuy(8, 0, 0, 8, 25, 10) && GuildMayBuy(7, 1, 1, 6, 25, 10) && !GuildMayBuy(6, 2, 2, 6, 25, 10));
     assert(!GuildMayBuy(7, 0, 0, 8, 25, 10) && !GuildMayBuy(20, 0, 10, 8, 25, 10) && !GuildMayBuy(20, 0, 0, 8, 25, 0));
     assert(!GuildMayBuy(3, 0, 0, 1, 25, 10) && GuildMayBuy(4, 0, 0, 1, 25, 10));

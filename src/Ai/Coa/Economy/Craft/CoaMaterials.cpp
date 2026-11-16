@@ -90,18 +90,19 @@ namespace
         bool const mining = bot->HasSkill(SkillMining);
         bool const herbalism = bot->HasSkill(SkillHerbalism);
         bool const skinning = bot->HasSkill(SkillSkinning);
-        std::vector<std::pair<uint32, uint32>> cloth;
-        std::vector<std::pair<uint32, uint32>> gathered;
+        std::vector<CoaEconomyRules::StockCandidate> cloth;
+        std::vector<CoaEconomyRules::StockCandidate> gathered;
         for (uint32 id : CoaEconomyRules::MaterialFloorItems())
         {
             ItemTemplate const* proto = sObjectMgr->GetItemTemplate(id);
             if (!proto || !CoaEconomyRules::GathererKeeps(proto->Class, proto->SubClass, mining, herbalism, skinning))
                 continue;
-            (proto->SubClass == 5 ? cloth : gathered).emplace_back(id, proto->ItemLevel);
+            (proto->SubClass == 5 ? cloth : gathered)
+                .push_back({id, proto->ItemLevel, bot->GetItemCount(id, true)});
         }
-        std::vector<uint32> kinds = CoaEconomyRules::PickStockKinds(cloth, bot->GetLevel(), 1);
+        std::vector<uint32> kinds = CoaEconomyRules::PickHeldStockKinds(cloth, bot->GetLevel(), 1);
         if (settings.kinds > kinds.size())
-            for (uint32 id : CoaEconomyRules::PickStockKinds(gathered, bot->GetLevel(), settings.kinds - uint32(kinds.size())))
+            for (uint32 id : CoaEconomyRules::PickHeldStockKinds(gathered, bot->GetLevel(), settings.kinds - uint32(kinds.size())))
                 kinds.push_back(id);
         return kinds;
     }

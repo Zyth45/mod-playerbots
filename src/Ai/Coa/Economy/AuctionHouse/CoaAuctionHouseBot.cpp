@@ -2184,6 +2184,7 @@ void AuctionHouseBot::AddNewAuctionBuyerBotBid(std::vector<Player*> AHBPlayers, 
                                          possibleBids.begin());
 
     int randBuyingBotBuyCandidatesPerBuyCycle = urand(BuyingBotBuyCandidatesPerBuyCycleMin, BuyingBotBuyCandidatesPerBuyCycleMax);
+    uint32 materialLooks = 0;  // 3.1.4: looks at farmers' materials this cycle (BuyerLookUsesSlot)
     for (int count = 1; count <= randBuyingBotBuyCandidatesPerBuyCycle; ++count)
     {
         // Do we have anything to bid? If not, stop here.
@@ -2197,7 +2198,13 @@ void AuctionHouseBot::AddNewAuctionBuyerBotBid(std::vector<Player*> AHBPlayers, 
         // Choose random auction from possible currentAuctionItemListCount, a crafting material first while any is left
         std::size_t const vectorPos = CoaEconomyRules::BuyerCandidate(materialCandidates, possibleBids.size(), urand(0, 0x7FFFFFFF));
         if (vectorPos < materialCandidates)
+        {
             --materialCandidates;
+            // 3.1.4: a look at a material is free (a purchase takes the candidate back below), so every seller's
+            // materials are looked at each cycle, up to MaterialLooksPerCycle.
+            if (!CoaEconomyRules::BuyerLookUsesSlot(true, ++materialLooks))
+                --count;
+        }
         vector<uint32>::iterator iter = possibleBids.begin();
         advance(iter, vectorPos);
 
@@ -2239,28 +2246,6 @@ void AuctionHouseBot::AddNewAuctionBuyerBotBid(std::vector<Player*> AHBPlayers, 
         // 3.1.4: one account's daily share of the material purchases (all its characters together).
         uint32 const sellerAccount = material ? sCharacterCache->GetCharacterAccountIdByGuid(auction->owner) : 0;
         uint32 const buyDay = uint32(GameTime::GetGameTime().count() / DAY);
-        if (material)
-        {
-            auto& sold = MaterialBuyerSoldToday[sellerAccount];
-            if (std::get<0>(sold) != buyDay)
-                sold = {buyDay, 0, 0};
-            if (!CoaEconomyRules::AccountMaySell(std::get<1>(sold), std::get<2>(sold), auction->buyout,
-                                                 MaterialBuyerPerAccountPerDay,
-                                                 uint64(MaterialBuyerGoldPerAccountPerDay) * GOLD))
-            {
-                // One line per refused auction a day (the buyer looks at it again each cycle).
-                static std::unordered_map<uint32, uint32> refusedLogged;  // auction -> day logged
-                if (refusedLogged[auction->Id] != buyDay)
-                {
-                    refusedLogged[auction->Id] = buyDay;
-                    LOG_INFO("playerbots.coa", "CoaEconomy: house refused material {} x{} from account {} for {} copper: "
-                             "daily cap ({} auctions, {} copper bought today)", prototype->ItemId, auction->itemCount,
-                             sellerAccount, auction->buyout, std::get<1>(sold), std::get<2>(sold));
-                }
-                continue;
-            }
-        }
-
         // Only buy what the seller bot itself could list, if configured (the crafting materials always)
         if (BuyingBotOnlyBuyListableItems && !material && !IsItemListableBySeller(prototype))
         {
@@ -2331,8 +2316,29 @@ void AuctionHouseBot::AddNewAuctionBuyerBotBid(std::vector<Player*> AHBPlayers, 
         uint64 calcBidAmount = 0;
 
         if (material)
+        {
             // A farmer's stack: its own buyout, never a bid, never more than asked (MaterialBuyerTakes).
             doBuyout = CoaEconomyRules::MaterialBuyerTakes(auction->buyout, pItem->GetCount(), willingToSpendPerItemPrice);
+            // One account's daily share (all its characters together), looked at for a stack it would buy.
+            auto& sold = MaterialBuyerSoldToday[sellerAccount];
+            if (std::get<0>(sold) != buyDay)
+                sold = {buyDay, 0, 0};
+            if (doBuyout && !CoaEconomyRules::AccountMaySell(std::get<1>(sold), std::get<2>(sold), auction->buyout,
+                                                             MaterialBuyerPerAccountPerDay,
+                                                             uint64(MaterialBuyerGoldPerAccountPerDay) * GOLD))
+            {
+                // One line per refused auction a day (the buyer looks at it again each cycle).
+                static std::unordered_map<uint32, uint32> refusedLogged;  // auction -> day logged
+                if (refusedLogged[auction->Id] != buyDay)
+                {
+                    refusedLogged[auction->Id] = buyDay;
+                    LOG_INFO("playerbots.coa", "CoaEconomy: house refused material {} x{} from account {} for {} copper: "
+                             "daily cap ({} auctions, {} copper bought today)", prototype->ItemId, auction->itemCount,
+                             sellerAccount, auction->buyout, std::get<1>(sold), std::get<2>(sold));
+                }
+                continue;
+            }
+        }
         else if (auction->buyout != 0 && auction->buyout < willingToPayForStackPrice)
             doBuyout = true;
         else
@@ -2470,6 +2476,8 @@ void AuctionHouseBot::AddNewAuctionBuyerBotBid(std::vector<Player*> AHBPlayers, 
             CoaEconomy::Data::RecordAhBot(0, 1, 0, price);
             if (material)
             {
+                if (!CoaEconomyRules::BuyerLookUsesSlot(true, materialLooks))
+                    ++count;  // a purchase takes one of the cycle's candidates (the look itself was free)
                 auto& sold = MaterialBuyerSoldToday[sellerAccount];
                 ++std::get<1>(sold);
                 std::get<2>(sold) += price;
