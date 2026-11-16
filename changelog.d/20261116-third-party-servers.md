@@ -3,3 +3,4 @@
 - The side of an added race now comes from its data everywhere: bots of an added Alliance race were filed as Horde in a few places.
 - `AiPlayerbot.StartupCheckOnly = 1` (or `CoA.ValidationMode = 1`): the server starts and loads the bots' data, but creates and logs in no bot, to check a build before opening it. Default 0.
 - Each release now ships `squidbots-release.json` (version, every SQL file with its sha256, new keys) and an up-to-date `playerbots.conf.settings.json` with the 3.x options.
+- A server built without Dungeon Clear says so once in its log at startup, and the SquidBots addon can ask it (`SQBW CAPS?`, `AiPlayerbot.CoaCaps.Addon = 1`): its Dungeon features then show "Dungeon Clear not installed on this server". Servers with Dungeon Clear see no change.

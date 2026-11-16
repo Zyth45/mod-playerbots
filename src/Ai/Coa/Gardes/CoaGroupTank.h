@@ -32,6 +32,8 @@ namespace CoaGroupTank
     // update; never changed afterwards.
     using Provider = std::function<Player*(Player const* member)>;
     void SetProvider(Provider provider);
+    // A provider was set (Dungeon Clear is built in: it sets it on its first world tick).
+    bool HasProvider();
 
     // What the provider answered for one member: whether a run is active for him, and its leader. A bot reads it
     // through its "coa run leader" value (cached for its tick: the provider takes Dungeon Clear's leader-cache lock,

@@ -8,7 +8,8 @@ It writes:
 - conf/playerbots.conf.settings.json (apps/settings/gen_settings_json.py): the options a server owner changes;
 - squidbots-release.json: version, tag, the SQL files by database and stage with their sha256 and size, the keys
   added or whose default changed since the previous release, the optional core headers the module looks for, and
-  the versions of the addon, Dungeon Clear and the dashboard tested with it (when given).
+  the components of a full SquidBots install (this module, Dungeon Clear, the addon, the dashboard) with the tags
+  that go together.
 
 A SQL file listed in an earlier manifest must never change: --since-rev reports one that did (and stops), since an
 installer that records what it applied refuses to start on a changed file.
@@ -125,6 +126,8 @@ def main():
                  'never changes; a change comes as a new file. large: over 30 MB, also attached to the release. '
                  'new_keys / changed_defaults: playerbots.conf.dist against the previous release; a key missing '
                  'from a server\'s playerbots.conf takes the default of the code, equal to the .dist. '
+                 'components: the parts of a full SquidBots install and the tags released together (empty tag: '
+                 'not given for this release). '
                  'optional_core_headers: headers the module uses when the core has them, with a fallback otherwise: '
                  'the module builds on the official core without any of them. '
                  'commit = the commit the files were read from; the build itself is identified by its tag.',
@@ -133,8 +136,20 @@ def main():
         'new_keys': new_keys,
         'changed_defaults': changed_defaults,
         'optional_core_headers': sorted(headers),
-        'tested_with': {k: v for k, v in (('addon', a.addon), ('dungeon_clear', a.dungeon_clear),
-                                          ('dashboard', a.dashboard)) if v},
+        'components': [
+            {'name': 'SquidBots module (mod-playerbots)', 'kind': 'server module', 'required': True, 'tag': tag,
+             'repository': 'https://github.com/Zyth45/mod-playerbots'},
+            {'name': 'Dungeon Clear (mod-dungeon-clear)', 'kind': 'server module', 'required': False,
+             'tag': a.dungeon_clear and f'v{a.dungeon_clear.lstrip("v")}',
+             'note': 'Built next to this module in modules/. Without it the bots play, but the Dungeon features '
+                     '(bot groups clearing dungeons and raids with a player) are unavailable; the log and the addon '
+                     'say so.'},
+            {'name': 'SquidBots addon', 'kind': 'client addon', 'required': False,
+             'tag': a.addon and f'v{a.addon.lstrip("v")}',
+             'repository': 'https://github.com/Zyth45/squidbots-addon'},
+            {'name': 'SquidBots dashboard', 'kind': 'server tool', 'required': False,
+             'tag': a.dashboard and f'v{a.dashboard.lstrip("v")}'},
+        ],
     }
     OUT.write_text(json.dumps(doc, ensure_ascii=False, indent=1) + '\n', encoding='utf-8', newline='\n')
     print(f'{OUT.name}: {len(files)} SQL files ({sum(f["large"] for f in files)} large), {len(new_keys)} new keys, '

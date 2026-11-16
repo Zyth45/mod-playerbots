@@ -88,6 +88,12 @@ AiPlayerbot.Enabled = 1
 # Default: 0 (off)
 AiPlayerbot.StartupCheckOnly = 0
 
+# The SquidBots addon asks what this server has ("SQBW\tCAPS?"): the bots' version and whether Dungeon Clear is
+# built in. Without Dungeon Clear the addon says so on its Dungeon features instead of acting on nothing. Whether
+# Dungeon Clear is built in is also written once in the log at startup. 0: no answer, as on an older server.
+# Default: 1 (on)
+AiPlayerbot.CoaCaps.Addon = 1
+
 # Enable randombot system
 AiPlayerbot.RandomBotAutologin = 1
 

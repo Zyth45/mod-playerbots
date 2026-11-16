@@ -7,6 +7,7 @@
 // CoA Live (session CoA SquidBot): every script of the session is registered here, in this order.
 // Called once by AddPlayerbotsScripts (src/Script/Playerbots.cpp); a new script of the session goes here.
 
+#include "CoaDungeonClearLink.h"
 #include "CoaLive.h"
 #include "CoaQuietAchievements.h"
 
@@ -14,4 +15,5 @@ void AddCoaLiveScripts()
 {
     AddSC_coa_live();
     AddSC_coa_quiet_achievements();
+    AddSC_coa_dungeon_clear_link();
 }

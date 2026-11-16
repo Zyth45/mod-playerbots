@@ -1,5 +1,12 @@
 # Integrating SquidBots into a third-party server
 
+**The full SquidBots is three parts released together**: this module (`mod-playerbots`), **Dungeon Clear**
+(`mod-dungeon-clear`, a second server module built next to it in `modules/`) and the **SquidBots addon** on the
+players' side (the dashboard is an optional server tool). Without Dungeon Clear the bots play, but the Dungeon
+features (bot groups clearing dungeons and raids with a player) are missing: the server log says so at startup, and
+the addon shows "Dungeon Clear not installed on this server" instead of acting on nothing. `squidbots-release.json`
+lists the components and the tags that go together (`components`).
+
 SquidBots is the bots module of Conquest of Azeroth servers. This page is for a server that builds it into its own core,
 with its own races, modules and installer, and wants to follow each release without patching the module.
 
@@ -16,7 +23,9 @@ behaves exactly as before, and everything a server needs to adapt is in configur
 - The module only uses core APIs of the official core. Where it can use more, it looks for the header first
   (`__has_include`) and falls back otherwise; the release manifest lists these headers under
   `optional_core_headers`. Today: `AscensionIncarnation.h` (male-only added races) and `AscensionCompanionLoot.h`.
-- Dungeon Clear is a separate module with its own releases; it does nothing without SquidBots.
+- Dungeon Clear is a separate module with its own releases; it does nothing without SquidBots. Build the tag the
+  manifest names with this release. At startup the log says `SquidBots: Dungeon Clear <version> is built into this
+  server.` or that it is not; `AiPlayerbot.CoaCaps.Addon = 1` (default) lets the addon ask the same.
 
 ## 2. Databases and SQL
 
@@ -91,7 +100,7 @@ Default 0.
 
 ## 6. Following our releases
 
-- Take a tag, read `squidbots-release.json` (new keys, SQL files and their sha256, the addon and Dungeon Clear
-  versions tested with it when given) and `changelog.d/`.
+- Take a tag, read `squidbots-release.json` (components and their tags, new keys, SQL files and their
+  sha256) and `changelog.d/`.
 - A server that needs a change in the module is welcome to tell us: we would rather add a key than see a patch
   that has to be redone at each release.
