@@ -488,6 +488,13 @@ inline bool BoughtFromHouseRecently(std::uint32_t boughtAt, std::uint32_t now, s
     return boughtAt && now >= boughtAt && now < boughtAt + hold;
 }
 
+// 3.1.4 (16/11, measured on a player's realm: about 8,000 gold a day paid to bots): the material buyer rewards
+// players who farm; a random bot's material auction is left to players, other bots and vendors unless buyFromBots.
+inline bool MaterialBuyerSkips(bool buyFromBots, bool randomBotSeller)
+{
+    return randomBotSeller && !buyFromBots;
+}
+
 // 3.1.4: a look at a farmer's material does not use one of the buyer's candidates of the cycle (3), only a purchase
 // does, up to maxMaterialLooks looks a cycle: every seller's materials are looked at, none starves behind auctions
 // refused for their price or their account's day.

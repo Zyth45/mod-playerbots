@@ -1554,6 +1554,7 @@ void AuctionHouseBot::LoadMaterialFloorSettings()
         CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.AHBot.MaterialBuyer.GoldPerAccountPerDay", 50);
     MaterialBuyerPlayerMatchesHouse =
         CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.AHBot.MaterialBuyer.PlayerMatchesHouse", true);
+    MaterialBuyerBuyFromBots = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.AHBot.MaterialBuyer.BuyFromBots", false);
     LoadVendorBuyPrices();
 }
 
@@ -2252,6 +2253,15 @@ void AuctionHouseBot::AddNewAuctionBuyerBotBid(std::vector<Player*> AHBPlayers, 
                 houseCheapest[entry->item_template] = perItem;
         }
     }
+    // 3.1.4: the random bots' material auctions are left out (MaterialBuyerSkips): the buyer rewards players who farm.
+    if (MaterialBuyerEnabled && !MaterialBuyerBuyFromBots)
+        possibleBids.erase(std::remove_if(possibleBids.begin(), possibleBids.end(), [&](uint32 auctionId)
+        {
+            AuctionEntry const* entry = auctionHouse->GetAuction(auctionId);
+            return entry && floorItems.count(entry->item_template) &&
+                   CoaEconomyRules::MaterialBuyerSkips(false, sPlayerbotAIConfig.IsInRandomAccountList(
+                       sCharacterCache->GetCharacterAccountIdByGuid(entry->owner)));
+        }), possibleBids.end());
     std::size_t materialCandidates = 0;
     if (MaterialBuyerEnabled)
         materialCandidates = std::size_t(std::stable_partition(possibleBids.begin(), possibleBids.end(), isMaterial) -
