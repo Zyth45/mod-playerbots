@@ -379,7 +379,7 @@ def main():
         'groups': GROUPS,
         'settings': settings,
     }
-    OUT.write_text(json.dumps(doc, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
+    OUT.write_text(json.dumps(doc, ensure_ascii=False, indent=1) + '\n', encoding='utf-8', newline='\n')
     print(f'{OUT.relative_to(ROOT)}: {len(settings)} options, {sum(s["coa"] for s in settings)} CoA, '
           f'{sum("new_in" in s for s in settings)} new, {sum("changed_in" in s for s in settings)} changed')
 
