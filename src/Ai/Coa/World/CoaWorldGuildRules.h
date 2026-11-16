@@ -36,14 +36,51 @@ namespace CoaWorldGuildRules
         std::size_t const end = message.find("|h|r", link);
         if (end != std::string::npos)
             text += " " + message.substr(end + 4);
-        // Lower case, punctuation as spaces ("anyone?" is "anyone").
+        // French accents as plain letters (UTF-8 "é" is "e"), so "fabriqué" and "fabrique" read the same.
+        std::string folded;
+        folded.reserve(text.size());
+        for (std::size_t i = 0; i < text.size(); ++i)
+        {
+            unsigned char const c = static_cast<unsigned char>(text[i]);
+            if (c == 0xC3 && i + 1 < text.size())
+            {
+                unsigned char const n = static_cast<unsigned char>(text[i + 1]) | 0x20;  // upper as lower
+                char plain = 0;
+                if (n >= 0xA0 && n <= 0xA5) plain = 'a';
+                else if (n == 0xA7) plain = 'c';
+                else if (n >= 0xA8 && n <= 0xAB) plain = 'e';
+                else if (n >= 0xAC && n <= 0xAF) plain = 'i';
+                else if (n >= 0xB2 && n <= 0xB6) plain = 'o';
+                else if (n >= 0xB9 && n <= 0xBC) plain = 'u';
+                if (plain)
+                {
+                    folded += plain;
+                    ++i;
+                    continue;
+                }
+            }
+            folded += char(c);
+        }
+        text = folded;
+        // Lower case, punctuation as spaces ("anyone?" is "anyone", "j'ai" is "j ai").
         std::transform(text.begin(), text.end(), text.begin(),
                        [](unsigned char c) { return std::isalnum(c) ? char(std::tolower(c)) : ' '; });
+        // One space between words ("quelqu’un", with its three-byte apostrophe, is "quelqu un").
+        text.erase(std::unique(text.begin(), text.end(), [](char a, char b) { return a == ' ' && b == ' '; }),
+                   text.end());
         text = " " + text + " ";
 
+        // English, then French ("besoin de 20 [x]", "j'ai besoin de [x]", "je cherche [x]", "qui peut faire [x] ?",
+        // "quelqu'un a [x] ?", "il me faut [x]"). Not "regarde [x]" nor "j'ai eu [x]": no word of asking.
         static char const* const asking[] = { " need ", " anyone ", " anybody ", " someone ", " somebody ", " craft ",
                                               " make ", " lf ", " looking for ", " spare ", " can i get ", " wtb ",
-                                              " got a ", " has a ", " have a ", " have an " };
+                                              " got a ", " has a ", " have a ", " have an ",
+                                              " besoin ", " cherche ", " recherche ", " il me faut ", " il m en faut ",
+                                              " me faudrait ", " qui peut ", " qui pourrait ", " qui sait faire ",
+                                              " qui aurait ", " qui vend ", " fabriquer ", " crafter ",
+                                              " quelqu un a ", " quelqu un aurait ", " quelqu un peut ",
+                                              " quelqu un pourrait ", " quelqu un pour ", " qqn a ", " qqn aurait ",
+                                              " qqn peut ", " qqun a ", " qq1 a " };
         for (char const* word : asking)
             if (text.find(word) != std::string::npos)
                 return item;

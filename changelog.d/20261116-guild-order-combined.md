@@ -6,3 +6,4 @@
 - The addon's order history shows the count asked ("5 of 20"), and its catalogue can be filtered by category (trade goods, consumables, equipment, other) over the whole list.
 - Options: AiPlayerbot.CoaWorld.Guilds.OrderCombined, OrderGuildBank, OrderPersonalBank and PlayerGuildProfessions and PlayerGuildTeach (all on by default).
 - The guild's answer says the count really sent ("it" for one, "them" for more, "the recipe makes 6 for the 5 you asked").
+- Guild orders understand French in guild chat: "besoin de 20 [Barre d'argent]", "je cherche [x]", "qui peut faire [x] ?", "quelqu'un a [x] ?", "il me faut [x]", with or without accents.
