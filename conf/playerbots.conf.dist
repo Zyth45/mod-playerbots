@@ -3033,6 +3033,28 @@ AiPlayerbot.CoaWorld.Guilds.OrderMaxQuality = 3
 
 AiPlayerbot.CoaWorld.Guilds.OrderAuctionMaxGold = 50
 
+#    AiPlayerbot.CoaWorld.Guilds.OrderCombined
+#        Description: An order is filled from several places, each for what is still missing: the guild bank, the
+#                     guildmates' stock, a crafter (cash on delivery), then the auction house ("5 from our bags,
+#                     15 bought"). One answer in /g, one order of the day. 0: the first place that has it, as before.
+#        Default:     1 (enabled)
+
+AiPlayerbot.CoaWorld.Guilds.OrderCombined = 1
+
+#    AiPlayerbot.CoaWorld.Guilds.OrderGuildBank
+#        Description: An order is served from the guild bank first: an online guildmate takes the items out with its
+#                     rank's rights and daily withdrawals (the bank's log shows it) and mails them free.
+#        Default:     1 (enabled)
+
+AiPlayerbot.CoaWorld.Guilds.OrderGuildBank = 1
+
+#    AiPlayerbot.CoaWorld.Guilds.OrderPersonalBank
+#        Description: The guildmates' own banks count with their bags for an order (with
+#                     AiPlayerbot.CoaEconomy.GuildStock.Enable, which keeps materials there).
+#        Default:     1 (enabled)
+
+AiPlayerbot.CoaWorld.Guilds.OrderPersonalBank = 1
+
 #    AiPlayerbot.CoaWorld.Guilds.Gear
 #        Description: The guild equips the player: at login or a level-up, a guildmate mails a piece of gear of
 #                     the player's level that is clearly better than what they wear in that slot, for their spec.
@@ -3358,6 +3380,22 @@ AiPlayerbot.CoaWorld.CapitalRaid.RewardSilverPerLevel = 50
 
 AiPlayerbot.CoaWorld.Guilds.PlayerGuildOnline = 1
 AiPlayerbot.CoaWorld.Guilds.PlayerGuildOnlinePercent = 40
+
+#    AiPlayerbot.CoaWorld.Guilds.PlayerGuildProfessions
+#        Description: In a real player's guild, the bot members brought online first are those with a profession
+#                     nobody online has (mining, herbalism, skinning, the crafts, cooking, first aid), and the only
+#                     one online with a profession stays. Which bots come, never how many.
+#        Default:     1 (enabled)
+
+AiPlayerbot.CoaWorld.Guilds.PlayerGuildProfessions = 1
+
+#    AiPlayerbot.CoaWorld.Guilds.PlayerGuildTeach
+#        Description: With PlayerGuildProfessions, a profession no member of a real player's guild has is learned by
+#                     an online bot member with a free slot (one a minute per guild, at its level's skill, with the
+#                     trainer's recipes when AiPlayerbot.AutoLearnTradeskillSpells is on).
+#        Default:     1 (enabled)
+
+AiPlayerbot.CoaWorld.Guilds.PlayerGuildTeach = 1
 AiPlayerbot.CoaWorld.Events.Addon = 1
 
 # Quality a looted item must reach to be written to the "playerbots.loot" logger:

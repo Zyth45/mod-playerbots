@@ -64,6 +64,69 @@ int main()
         assert((PickAuctions({ { 5, 100 }, { 5, 100 }, { 5, 100 } }, 20, 1000000, 2).size() == 2));  // one mail
     }
 
+    // The combined order (3.1.4): what is missing, stacks taken (one splits), the best stocked holders first.
+    assert(OrderMissing(20, 0) == 20 && OrderMissing(20, 5) == 15 && OrderMissing(20, 25) == 0);
+    assert(OrderMissing(0, 0) == 1 && OrderMissing(0, 3) == 0);
+    assert(OrderAsk(20, 5) == 15 && OrderAsk(0, 0) == 0 && OrderAsk(20, 20) == 0);
+    {
+        std::vector<StackTake> const t = TakeStacks({ 3, 20, 0, 7 }, 25, 12);
+        assert(t.size() == 2 && t[0].index == 1 && t[0].count == 20 && t[1].index == 3 && t[1].count == 5);
+        std::vector<StackTake> const one = TakeStacks({ 3, 20 }, 1, 12);  // one out of the twenty
+        assert(one.size() == 1 && one[0].index == 1 && one[0].count == 1);
+        std::vector<StackTake> const any = TakeStacks({ 3, 20 }, 0, 12);  // any: the biggest stack, whole
+        assert(any.size() == 1 && any[0].index == 1 && any[0].count == 20);
+        std::vector<StackTake> const few = TakeStacks({ 2, 2, 2 }, 20, 2);  // one mail
+        assert(few.size() == 2 && few[0].count + few[1].count == 4);
+        assert(TakeStacks({}, 5, 12).empty() && TakeStacks({ 0, 0 }, 5, 12).empty() && TakeStacks({ 5 }, 5, 0).empty());
+    }
+    // The guild bank by order: the player's own rank's rights and withdrawals of the day, never more.
+    assert(BankStacksAllowed(true, false, 0, 99) == 0xFFFFFFFFu);
+    assert(BankStacksAllowed(false, false, 10, 0) == 0 && BankStacksAllowed(false, true, 0, 0) == 0);
+    assert(BankStacksAllowed(false, true, 5, 2) == 3 && BankStacksAllowed(false, true, 5, 5) == 0 && BankStacksAllowed(false, true, 5, 9) == 0);
+    assert(BankStacksAllowed(false, true, -1, 50) == 0xFFFFFFFFu && BankStacksAllowed(false, true, 0xFFFFFFFFLL, 50) == 0xFFFFFFFFu);
+    {
+        // "5 in stock + 15 bought": two holders give 3 and 2, the rest goes on to the crafters and the AH.
+        std::vector<StackTake> const s = SplitStock({ 2, 0, 3 }, 20);
+        assert(s.size() == 2 && s[0].index == 2 && s[0].count == 3 && s[1].index == 0 && s[1].count == 2);
+        std::vector<StackTake> const enough = SplitStock({ 4, 30, 9 }, 20);
+        assert(enough.size() == 1 && enough[0].index == 1 && enough[0].count == 20);
+        std::vector<StackTake> const any = SplitStock({ 4, 9 }, 0);
+        assert(any.size() == 1 && any[0].index == 1 && any[0].count == 9);
+        assert(SplitStock({ 0, 0 }, 5).empty());
+    }
+
+    // The catalogue's categories (GCAT, 3.1.4).
+    assert(InCatalogCategory(7, "trade") && InCatalogCategory(5, "trade") && !InCatalogCategory(0, "trade"));
+    assert(InCatalogCategory(0, "consumable") && !InCatalogCategory(2, "consumable"));
+    assert(InCatalogCategory(2, "equipment") && InCatalogCategory(4, "equipment") && !InCatalogCategory(7, "equipment"));
+    assert(InCatalogCategory(15, "other") && InCatalogCategory(12, "other") && !InCatalogCategory(4, "other"));
+    assert(InCatalogCategory(4, "") && InCatalogCategory(7, "all") && InCatalogCategory(0, "nonsense"));
+
+    // The professions kept online in a real player's guild (3.1.4).
+    {
+        std::uint32_t const mining = ProfessionBit(186), herbs = ProfessionBit(182), skin = ProfessionBit(393),
+                            alchemy = ProfessionBit(171), firstAid = ProfessionBit(129);
+        assert(mining && herbs && skin && alchemy && firstAid && !ProfessionBit(0) && !ProfessionBit(762));  // riding
+        assert(BitCount(mining | herbs | skin) == 3);
+        // Online: a herbalist. Offline: a skinner, a miner-alchemist, a second herbalist, a miner.
+        std::vector<std::size_t> const c = ProfessionCover(herbs, { skin, mining | alchemy, herbs, mining });
+        assert((c == std::vector<std::size_t>{ 1, 0 }));
+        assert(ProfessionCover(mining | herbs, { mining, herbs, 0 }).empty());
+        assert(ProfessionCover(0, {}).empty());
+        assert(SoleProfessionHolder(mining | firstAid, mining) && !SoleProfessionHolder(mining, mining | herbs));
+        assert(!SoleProfessionHolder(0, 0));
+        // Taught when no member has it: gathering first, never twice, one at a time.
+        assert(ProfessionToTeach(0, 0) == mining && ProfessionSkill(mining) == 186 && ProfessionStarterSpell(186) == 2575);
+        assert(ProfessionToTeach(mining | herbs, 0) == skin);
+        assert(ProfessionToTeach(mining | herbs, skin) == ProfessionBit(164));
+        assert(ProfessionToTeach(0x7FF, 0) == 0 && ProfessionToTeach(0x3FF, 0x400) == 0);
+        assert(ProfessionSkill(firstAid) == 129 && !IsPrimaryProfession(129) && !IsPrimaryProfession(185) && IsPrimaryProfession(171));
+        assert(MayLearnProfession(186, 1, 2, false) && !MayLearnProfession(186, 2, 2, false));
+        assert(MayLearnProfession(185, 2, 2, false) && !MayLearnProfession(185, 0, 2, true) && !MayLearnProfession(0, 0, 2, false));
+        for (std::uint32_t b = 0; b < 11; ++b)
+            assert(ProfessionStarterSpell(ProfessionSkill(1u << b)) && ProfessionBit(ProfessionSkill(1u << b)) == (1u << b));
+    }
+
     // Materials without a price: one cast, as before (no twenty free items).
     assert(PlanGuildCraft(20, 1, 20, 0).casts == 1 && PlanGuildCraft(20, 1, 20, 0).sent == 1);
     assert(PlanGuildCraft(3, 5, 20, 0).casts == 1 && PlanGuildCraft(3, 5, 20, 0).sent == 3);
