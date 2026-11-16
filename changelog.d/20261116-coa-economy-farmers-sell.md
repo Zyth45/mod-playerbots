@@ -1,0 +1,1 @@
+- CoA Economy: the auction house buyer looks first at the common crafting materials players list and pays up to 90 % of the house's value for them (was 65 %), so a player who farms and lists near the house price sells to the bots. Key AiPlayerbot.CoaEconomy.AHBot.MaterialBuyer.Enable / PricePercent. One log line per material bought.

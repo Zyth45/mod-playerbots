@@ -378,6 +378,9 @@ private:
     // CoA Economy: the floor of common crafting materials (AiPlayerbot.CoaEconomy.AHBot.MaterialFloor.*).
     bool MaterialFloorEnabled = true;
     uint32 MaterialFloorStacks = 2;
+    // 3.1.4: the house buyer takes the common crafting materials other sellers list (MaterialBuyer.*).
+    bool MaterialBuyerEnabled = true;
+    uint32 MaterialBuyerPricePercent = 90;
     void LoadMaterialFloorSettings();
     uint32 ListMaterialFloor(std::vector<Player*> const& AHBPlayers, FactionSpecificAuctionHouseConfig* config,
         AuctionHouseObject* auctionHouse, AuctionHouseEntry const* ahEntry, std::unordered_set<uint32> const& sellers,

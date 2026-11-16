@@ -58,6 +58,8 @@ int main()
     assert(table.at("AiPlayerbot.CoaEconomy.AHBot.MaterialFloor.Enable") == "1");
     assert(table.at("AiPlayerbot.CoaEconomy.AHBot.MaterialFloor.Stacks") == "2");
     assert(table.at("AiPlayerbot.CoaEconomy.GuildStock.Enable") == "1");
+    assert(table.at("AiPlayerbot.CoaEconomy.AHBot.MaterialBuyer.Enable") == "1");
+    assert(table.at("AiPlayerbot.CoaEconomy.AHBot.MaterialBuyer.PricePercent") == "90");
     assert(table.at("AiPlayerbot.CoaEconomy.GuildStock.Kinds") == "3");
     assert(table.at("AiPlayerbot.CoaEconomy.GuildStock.Stacks") == "2");
     assert(table.at("AiPlayerbot.CoaEconomy.GuildStock.Bank") == "1");

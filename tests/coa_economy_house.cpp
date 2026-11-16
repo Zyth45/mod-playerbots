@@ -20,6 +20,13 @@ int main()
 
     // No arbitrage: the buyer never pays more than 90 % of the house lowest asking price.
     assert(ArbitrageCap(5000, 1000, 90) == 900);
+    // 3.1.4 material buyer: 90 % of the house value; materials looked at first, then any candidate.
+    assert(MaterialBuyerPrice(2770, 90) == 2493);
+    assert(MaterialBuyerPrice(0, 90) == 0);
+    assert(BuyerCandidate(3, 10, 7) == 1);
+    assert(BuyerCandidate(0, 10, 7) == 7);
+    assert(BuyerCandidate(5, 2, 3) == 1);
+    assert(BuyerCandidate(0, 0, 3) == 0);
     assert(ArbitrageCap(500, 1000, 90) == 500);
     for (std::uint64_t lowest = 1; lowest < 100000; lowest += 997)
         assert(ArbitrageCap(lowest * 10, lowest, 90) < lowest);

@@ -1,0 +1,1 @@
+- CoA World: a guild craft never costs more than in 3.1.3: each reagent at what it costs an artisan, capped at its vendor price (or four times what a vendor gives). An unknown market price keeps the 3.1.3 price.

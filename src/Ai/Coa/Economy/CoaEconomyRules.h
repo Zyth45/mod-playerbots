@@ -394,6 +394,22 @@ inline std::uint64_t FloorUnitPrice(std::uint64_t marketPerItem, std::uint64_t l
     return std::max(marketPerItem, lowestOtherPerItem);
 }
 
+// 3.1.4: what the house buyer pays per item for a common crafting material another seller lists (a farmer's
+// stack): pricePercent of the house's own value, never above the arbitrage cap applied after it.
+inline std::uint64_t MaterialBuyerPrice(std::uint64_t houseValuePerItem, std::uint32_t pricePercent)
+{
+    return houseValuePerItem * pricePercent / 100;
+}
+
+// 3.1.4: which candidate the house buyer looks at next: one of the first `materials` (the crafting materials, put
+// first) while any is left, else any of them. `roll` is any random number.
+inline std::size_t BuyerCandidate(std::size_t materials, std::size_t total, std::uint32_t roll)
+{
+    if (!total)
+        return 0;
+    return materials ? roll % std::min(materials, total) : roll % total;
+}
+
 // The floor serves the faction houses only (Alliance 2 and Horde 6), not the neutral one (Booty Bay, Gadgetzan...).
 inline bool FloorServesHouse(std::uint32_t houseId)
 {
@@ -550,6 +566,20 @@ inline bool WorthBreaking(std::uint64_t inputValue, std::uint64_t outputValue)
 inline bool KeepsInStock(std::uint32_t held, std::uint32_t stackSize, std::uint32_t maxStacks)
 {
     return held <= std::max<std::uint32_t>(1, stackSize) * maxStacks;
+}
+
+// 3.1.4 guild stock in the bank: how many more items of one kind go from the bags to the bot's own bank. The stock is
+// `stacks` full stacks in all; an artisan keeps `keepInBags` of its reagents in the bags to craft with, the rest of
+// the stock lies in the bank. What is held beyond the stock is surplus, sold at the auction house (KeepsInStock).
+inline std::uint32_t BankRoom(std::uint32_t inBags, std::uint32_t inBank, std::uint32_t stackSize, std::uint32_t stacks,
+                              std::uint32_t keepInBags)
+{
+    std::uint32_t const total = std::max<std::uint32_t>(1, stackSize) * stacks;
+    std::uint32_t const keep = std::min(keepInBags, total);
+    std::uint32_t const target = total - keep;
+    std::uint32_t const spare = inBags > keep ? inBags - keep : 0;
+    std::uint32_t const room = inBank < target ? target - inBank : 0;
+    return std::min(spare, room);
 }
 
 inline bool StockBargain(std::uint64_t pricePerItem, std::uint64_t marketPerItem, std::uint32_t buyBelowPercent)
