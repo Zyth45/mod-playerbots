@@ -1602,8 +1602,8 @@ AiPlayerbot.CrashingBotRaces = "32,72,77,97"
 #   look=full|simple         simple: the first face and hair variant only and no facial hair (missing textures).
 #   names=human|orc|dwarf|nightelf|undead|tauren|gnome|troll|bloodelf|draenei|generic   the name pool.
 #   classes=1,2,5            the classes bots of the race may have (default: every class of playercreateinfo).
-# A line for a race this server does not have, or with an unknown field or value, is ignored as a whole with an
-# error at startup. The start position, the race mask and the racials come from the core's data. Restart after
+# A race with one id per side takes both in one key: AiPlayerbot.BotRace.20/29 = "...". A line with an unknown
+# field or value is ignored as a whole, an id this server does not have is skipped, with an error at startup. The start position, the race mask and the racials come from the core's data. Restart after
 # a change.
 # Example:
 # AiPlayerbot.BotRace.85 = "bots=1 gender=female side=horde look=simple names=orc"

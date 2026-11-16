@@ -88,8 +88,25 @@ AiPlayerbot.BotRace.96 = "gender=male side=alliance classes=1,2,4,5,8,9"
   stops the server and never touches a character.
 - The start position, the race mask, the racials and the gear the race may wear come from the core's data
   (`playercreateinfo`, `ChrRaces.dbc`, `getRaceMask()`): a race that players can create works for bots too.
+- A race with one id per side takes both ids in one key, as in a custom races list: `AiPlayerbot.BotRace.20/29`.
+  An id this server does not have is skipped with an error line; the others still apply.
 - Bots already created keep their race and gender. Bots of a race closed by a line or a list stay offline; their
   characters are not deleted. Restart after a change.
+
+### A launcher page that picks the bots' races
+
+A page with one box per race only has to write three keys the module already reads, after a restart:
+
+- `AiPlayerbot.ExcludedBotRaces = "<every unchecked race id>"`: no new bot of these races; the existing ones stay
+  offline (not deleted) until a bot reset recreates them with the checked races.
+- `CoACustomRaces.BotsEnable = 1` when any checked race is an added race (id above 11).
+- `AiPlayerbot.CrashingBotRaces`: the races the server's client cannot draw (default `"32,72,77,97"`); an empty
+  list when the client draws them all.
+
+No patch to the module is needed. `squidbots-release.json` (`races`) gives these keys, the race line format and
+the module's own defaults (base races, single-gender races, crashing races), read from the code at each release, so
+a launcher can take them from there instead of keeping its own copy. The list of races itself (ids, names, sides)
+stays with the races module: SquidBots accepts any race id the server has, without knowing it in advance.
 
 ## 5. Startup check
 

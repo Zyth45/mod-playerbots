@@ -3,9 +3,9 @@
  "module": "SquidBots (mod-playerbots for Conquest of Azeroth)",
  "version": "3.1.4",
  "tag": "v3.1.4",
- "commit": "f71145e1",
+ "commit": "3c454edf",
  "previous_version": "3.1.3",
- "notes": "sql: every file of data/sql, applied per database in the stages base, updates, custom, each in name order (create: the database itself; archive: kept for history, never applied). A published file never changes; a change comes as a new file. large: over 30 MB, also attached to the release. new_keys / changed_defaults: playerbots.conf.dist against the previous release; a key missing from a server's playerbots.conf takes the default of the code, equal to the .dist. components: the parts of a full SquidBots install and the tags released together (empty tag: not given for this release). optional_core_headers: headers the module uses when the core has them, with a fallback otherwise: the module builds on the official core without any of them. commit = the commit the files were read from; the build itself is identified by its tag.",
+ "notes": "sql: every file of data/sql, applied per database in the stages base, updates, custom, each in name order (create: the database itself; archive: kept for history, never applied). A published file never changes; a change comes as a new file. large: over 30 MB, also attached to the release. new_keys / changed_defaults: playerbots.conf.dist against the previous release; a key missing from a server's playerbots.conf takes the default of the code, equal to the .dist. components: the parts of a full SquidBots install and the tags released together (empty tag: not given for this release). races: the keys a race page writes and the module's own race defaults. optional_core_headers: headers the module uses when the core has them, with a fallback otherwise: the module builds on the official core without any of them. commit = the commit the files were read from; the build itself is identified by its tag.",
  "settings_file": "conf/playerbots.conf.settings.json",
  "sql": [
   {
@@ -1208,6 +1208,88 @@
   "AscensionIncarnation.h",
   "CoaDungeonClearLink.h"
  ],
+ "races": {
+  "base_races": [
+   1,
+   2,
+   3,
+   4,
+   5,
+   6,
+   7,
+   8,
+   10,
+   11
+  ],
+  "added_races_switch": "CoACustomRaces.BotsEnable",
+  "excluded_key": "AiPlayerbot.ExcludedBotRaces",
+  "crashing_key": "AiPlayerbot.CrashingBotRaces",
+  "crashing_default": [
+   32,
+   72,
+   77,
+   97
+  ],
+  "race_line_key": "AiPlayerbot.BotRace.<id>",
+  "race_line_ids": "\"85\", or \"20/29\" for a race with one id per side",
+  "race_line_fields": {
+   "bots": [
+    "1",
+    "0"
+   ],
+   "gender": [
+    "male",
+    "female",
+    "any"
+   ],
+   "side": [
+    "alliance",
+    "horde",
+    "dbc"
+   ],
+   "look": [
+    "full",
+    "simple"
+   ],
+   "names": [
+    "human",
+    "orc",
+    "dwarf",
+    "nightelf",
+    "undead",
+    "tauren",
+    "gnome",
+    "troll",
+    "bloodelf",
+    "draenei",
+    "generic"
+   ],
+   "classes": "class ids separated by commas"
+  },
+  "single_gender_default": {
+   "male": [
+    15,
+    17,
+    18,
+    22,
+    23,
+    24,
+    25,
+    26,
+    32,
+    50,
+    53,
+    68,
+    69,
+    83,
+    97
+   ],
+   "female": [
+    57
+   ]
+  },
+  "notes": "Random bots take the base races, and the added races of ChrRaces.dbc when the switch is 1. A race in excluded_key or crashing_key gets no new bot, and its existing bots stay offline (their characters are kept). A race_line_key line sets the rest for one race. Any race id of the server is accepted; the module does not need to know it."
+ },
  "components": [
   {
    "name": "SquidBots module (mod-playerbots)",

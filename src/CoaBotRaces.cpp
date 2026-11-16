@@ -12,6 +12,7 @@
 #include "PlayerbotAIConfig.h"
 
 #include <array>
+#include <vector>
 
 // A core with added races may declare which of them have a male model only. The official core has no such header:
 // the module's own list (CoaBotRaceRules.h) and the server's lines are then the only sources.
@@ -37,15 +38,11 @@ void Load()
     uint32 loaded = 0;
     for (std::string const& key : sConfigMgr->GetKeysByString(PREFIX))
     {
-        uint32 const race = CoaBotRace::RaceOfKey(key, PREFIX);
-        if (!race)
+        std::vector<uint32> const races = CoaBotRace::RacesOfKey(key, PREFIX);
+        if (races.empty())
         {
-            LOG_ERROR("server.loading", "{}: not a race id from 1 to {}, line ignored.", key, CoaBotRace::MAX_RACE);
-            continue;
-        }
-        if (!sChrRacesStore.LookupEntry(race))
-        {
-            LOG_ERROR("server.loading", "{}: race {} is not in ChrRaces.dbc on this server, line ignored.", key, race);
+            LOG_ERROR("server.loading", "{}: not race ids from 1 to {} (\"85\", or \"20/29\" for one id per side), "
+                      "line ignored.", key, CoaBotRace::MAX_RACE);
             continue;
         }
         std::string error;
@@ -55,11 +52,21 @@ void Load()
             LOG_ERROR("server.loading", "{}: {}, line ignored.", key, error);
             continue;
         }
-        profiles[race] = std::move(profile);
-        ++loaded;
+        // A race id this server does not have is skipped alone: the line may come from a list made for a newer
+        // version of the races.
+        for (uint32 race : races)
+        {
+            if (!sChrRacesStore.LookupEntry(race))
+            {
+                LOG_ERROR("server.loading", "{}: race {} is not in ChrRaces.dbc on this server, skipped.", key, race);
+                continue;
+            }
+            profiles[race] = profile;
+            ++loaded;
+        }
     }
     if (loaded)
-        LOG_INFO("server.loading", "Playerbots: {} race lines read (AiPlayerbot.BotRace.*).", loaded);
+        LOG_INFO("server.loading", "Playerbots: {} races described by AiPlayerbot.BotRace.* lines.", loaded);
 }
 
 CoaBotRace::Profile const& Get(std::uint32_t race)

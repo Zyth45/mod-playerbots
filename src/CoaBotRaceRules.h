@@ -236,6 +236,29 @@ inline std::uint32_t RaceOfKey(std::string const& key, std::string const& prefix
     std::uint32_t const race = std::uint32_t(std::stoul(id));
     return race >= 1 && race <= MAX_RACE ? race : 0;
 }
+
+// The race ids of a key: "AiPlayerbot.BotRace.85", or "AiPlayerbot.BotRace.20/29" for a race with one id per side
+// (the same notation as the custom races' list). Empty when any id is not from 1 to 255.
+inline std::vector<std::uint32_t> RacesOfKey(std::string const& key, std::string const& prefix)
+{
+    std::vector<std::uint32_t> races;
+    if (key.size() <= prefix.size() || key.compare(0, prefix.size(), prefix) != 0)
+        return races;
+    std::string const ids = key.substr(prefix.size());
+    std::size_t start = 0;
+    while (true)
+    {
+        std::size_t const slash = ids.find('/', start);
+        std::uint32_t const race = RaceOfKey(prefix + ids.substr(start, slash - start), prefix);
+        if (!race || races.size() >= 8)
+            return {};
+        if (std::find(races.begin(), races.end(), race) == races.end())
+            races.push_back(race);
+        if (slash == std::string::npos)
+            return races;
+        start = slash + 1;
+    }
+}
 }  // namespace CoaBotRace
 
 #endif

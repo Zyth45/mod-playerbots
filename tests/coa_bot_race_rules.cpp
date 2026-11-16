@@ -79,5 +79,17 @@ int main()
     assert(RaceOfKey("AiPlayerbot.BotRace.x1", prefix) == 0);
     assert(RaceOfKey("AiPlayerbot.BotRace.", prefix) == 0);
     assert(RaceOfKey("AiPlayerbot.BotRaces", prefix) == 0);
+
+    // One id per side, as in the custom races' list ("20/29").
+    using Ids = std::vector<std::uint32_t>;
+    assert(RacesOfKey("AiPlayerbot.BotRace.85", prefix) == Ids{85});
+    assert(RacesOfKey("AiPlayerbot.BotRace.20/29", prefix) == (Ids{20, 29}));
+    assert(RacesOfKey("AiPlayerbot.BotRace.54/58/54", prefix) == (Ids{54, 58}));
+    assert(RacesOfKey("AiPlayerbot.BotRace.20/", prefix).empty());
+    assert(RacesOfKey("AiPlayerbot.BotRace./29", prefix).empty());
+    assert(RacesOfKey("AiPlayerbot.BotRace.20/300", prefix).empty());
+    assert(RacesOfKey("AiPlayerbot.BotRace.20,29", prefix).empty());
+    assert(RacesOfKey("AiPlayerbot.BotRace.1/2/3/4/5/6/7/8/10", prefix).empty());
+    assert(RacesOfKey("AiPlayerbot.BotRaces", prefix).empty());
     return 0;
 }

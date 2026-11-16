@@ -76,6 +76,49 @@ def changed_since(rev, files):
     return changed
 
 
+def race_rules():
+    """The race rules of the module, read from its code, for launchers that list races: the keys a race page writes
+    and the module's own defaults. The races themselves (names, sides, ids) belong to the server's races module."""
+    header = (ROOT / 'src' / 'CoaBotRaceRules.h').read_text(encoding='utf-8')
+    body = header[header.index('inline Gender DefaultGender'):]
+    body = body[:body.index('\n}\n')]
+    female_part, male_part = body.split('return Gender::Female;', 1)
+
+    def ids(text):
+        found = {int(n) for n in re.findall(r'race == (\d+)', text)}
+        for lo, hi in re.findall(r'race >= (\d+) && race <= (\d+)', text):
+            found.update(range(int(lo), int(hi) + 1))
+        return sorted(found)
+
+    config = (ROOT / 'src' / 'PlayerbotAIConfig.cpp').read_text(encoding='utf-8')
+    crashing = re.search(r'"AiPlayerbot\.CrashingBotRaces",\s*"([\d,]*)"', config)
+    if not crashing:
+        sys.exit('AiPlayerbot.CrashingBotRaces default not found in PlayerbotAIConfig.cpp')
+    return {
+        'base_races': [1, 2, 3, 4, 5, 6, 7, 8, 10, 11],
+        'added_races_switch': 'CoACustomRaces.BotsEnable',
+        'excluded_key': 'AiPlayerbot.ExcludedBotRaces',
+        'crashing_key': 'AiPlayerbot.CrashingBotRaces',
+        'crashing_default': [int(n) for n in crashing.group(1).split(',') if n],
+        'race_line_key': 'AiPlayerbot.BotRace.<id>',
+        'race_line_ids': '"85", or "20/29" for a race with one id per side',
+        'race_line_fields': {
+            'bots': ['1', '0'],
+            'gender': ['male', 'female', 'any'],
+            'side': ['alliance', 'horde', 'dbc'],
+            'look': ['full', 'simple'],
+            'names': ['human', 'orc', 'dwarf', 'nightelf', 'undead', 'tauren', 'gnome', 'troll', 'bloodelf',
+                      'draenei', 'generic'],
+            'classes': 'class ids separated by commas',
+        },
+        'single_gender_default': {'male': ids(male_part), 'female': ids(female_part)},
+        'notes': 'Random bots take the base races, and the added races of ChrRaces.dbc when the switch is 1. A race '
+                 'in excluded_key or crashing_key gets no new bot, and its existing bots stay offline (their '
+                 'characters are kept). A race_line_key line sets the rest for one race. Any race id of the server '
+                 'is accepted; the module does not need to know it.',
+    }
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--version', required=True)
@@ -128,6 +171,7 @@ def main():
                  'from a server\'s playerbots.conf takes the default of the code, equal to the .dist. '
                  'components: the parts of a full SquidBots install and the tags released together (empty tag: '
                  'not given for this release). '
+                 'races: the keys a race page writes and the module\'s own race defaults. '
                  'optional_core_headers: headers the module uses when the core has them, with a fallback otherwise: '
                  'the module builds on the official core without any of them. '
                  'commit = the commit the files were read from; the build itself is identified by its tag.',
@@ -136,6 +180,7 @@ def main():
         'new_keys': new_keys,
         'changed_defaults': changed_defaults,
         'optional_core_headers': sorted(headers),
+        'races': race_rules(),
         'components': [
             {'name': 'SquidBots module (mod-playerbots)', 'kind': 'server module', 'required': True, 'tag': tag,
              'repository': 'https://github.com/Zyth45/mod-playerbots'},
