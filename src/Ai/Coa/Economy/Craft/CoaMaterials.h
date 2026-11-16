@@ -48,6 +48,8 @@ namespace CoaEconomy::Materials
     // for all, ore and bars, herbs, leather), artisans a stack of the intermediates they make (bars, bolts, cured
     // leather), in their bags and their bank, for a guildmate's order.
     bool IsGuildStockEnabled();
+    // GuildStock.Stacks: full stacks of each material the stock keeps (1 to 5).
+    uint32 GuildStockStacks();
     // At an auction house visit: makes intermediates from the materials held (up to GuildStock.CraftsPerVisit),
     // then puts the full stacks of stock beyond the first in the bank. Returns the items moved or made.
     uint32 TendGuildStock(Player* bot);

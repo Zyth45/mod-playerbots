@@ -655,6 +655,17 @@ inline bool StockBargain(std::uint64_t pricePerItem, std::uint64_t marketPerItem
 // Guild stock (CoaEconomy.GuildStock.*): gatherers keep a little of what they gather, in their bags and their bank,
 // for a guildmate's order. Trade goods (class 7) by subclass: cloth (5) for everyone, leather (6) for a skinner,
 // metal and stone (7) for a miner, herbs (9) for a herbalist.
+// 3.1.4: when a random bot's bags are emptied (refresh, RefreshClearsInventory), a material of its guild stock stays,
+// up to stacks + 1 full stacks of it (the stock and one of surplus for the auction house); the rest is emptied as
+// before. Guild stock off: nothing stays (3.1.3). keptSoFar: items of it already kept in this emptying.
+inline bool RefreshKeepsStock(bool guildStock, bool isStock, std::uint32_t keptSoFar, std::uint32_t count,
+                              std::uint32_t stackSize, std::uint32_t stacks)
+{
+    if (!guildStock || !isStock)
+        return false;
+    return keptSoFar + count <= std::max<std::uint32_t>(1, stackSize) * (stacks + 1);
+}
+
 inline bool GathererKeeps(std::uint32_t itemClass, std::uint32_t subClass, bool mining, bool herbalism, bool skinning)
 {
     if (itemClass != 7)

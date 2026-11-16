@@ -24,6 +24,10 @@
 #include "CoaRefreshRules.h"
 #include "CoaEconomyConf.h"
 #include "CoaEconomyRules.h"
+#if __has_include("CoaMaterials.h")
+#include "CoaMaterials.h"
+#endif
+#include "CoaEconomyRules.h"
 #include "DBCStores.h"
 #include "DBCStructure.h"
 #include "GuildMgr.h"
@@ -2309,9 +2313,23 @@ class DestroyItemsVisitor : public IterateItemsVisitor
 public:
     DestroyItemsVisitor(Player* bot) : IterateItemsVisitor(), bot(bot) {}
 
+    // CoA Economy 3.1.4: the materials of the bot's guild stock stay, up to stockStacks + 1 full stacks of each
+    // (CoaEconomyRules::RefreshKeepsStock); nullptr = none (guild stock off: as in 3.1.3).
+    void KeepStock(std::unordered_set<uint32> const* materials, uint32 stockStacks)
+    {
+        stock = materials;
+        stacks = stockStacks;
+    }
+
     bool Visit(Item* item) override
     {
         uint32 id = item->GetTemplate()->ItemId;
+        if (stock && CoaEconomyRules::RefreshKeepsStock(true, stock->count(id) != 0, kept[id], item->GetCount(),
+                                                        item->GetTemplate()->GetMaxStackSize(), stacks))
+        {
+            kept[id] += item->GetCount();
+            return true;
+        }
         if (CanKeep(id))
         {
             keep.insert(id);
@@ -2336,6 +2354,9 @@ private:
 
     Player* bot;
     std::set<uint32> keep;
+    std::unordered_set<uint32> const* stock = nullptr;
+    uint32 stacks = 0;
+    std::unordered_map<uint32, uint32> kept;  // material -> items kept so far
 };
 
 bool PlayerbotFactory::CanEquipArmor(ItemTemplate const* proto)
@@ -4575,6 +4596,15 @@ void PlayerbotFactory::InitInstanceQuests()
 void PlayerbotFactory::ClearInventory()
 {
     DestroyItemsVisitor visitor(bot);
+#ifdef COA_ECONOMY_GUILD_STOCK
+    // CoA Economy 3.1.4: with the guild stock on, its materials stay (bounded); off, the bags are emptied as in 3.1.3.
+    std::unordered_set<uint32> stock;
+    if (CoaEconomy::Materials::IsGuildStockEnabled())
+    {
+        stock = CoaEconomy::Materials::StockReagents(bot);
+        visitor.KeepStock(&stock, CoaEconomy::Materials::GuildStockStacks());
+    }
+#endif
     IterateItems(&visitor);
 }
 

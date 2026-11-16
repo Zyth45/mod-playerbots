@@ -111,6 +111,33 @@ int main()
         std::vector<StockCandidate> none = {{10620, 50, 0}, {3858, 40, 0}};
         assert((PickHeldStockKinds(none, 60, 1) == std::vector<std::uint32_t>{10620}));
     }
+    // 3.1.4 refresh: guild stock off, nothing stays (3.1.3); on, a stock material stays up to Stacks + 1 stacks.
+    for (std::uint32_t kept : {0u, 20u, 60u})
+        assert(!RefreshKeepsStock(false, true, kept, 20, 20, 2));
+    assert(!RefreshKeepsStock(true, false, 0, 1, 20, 2));
+    {
+        // 5 stacks of Runecloth in the bags, Stacks 2: 3 stay (60 items), 2 go.
+        std::uint32_t kept = 0, stayed = 0;
+        for (int n = 0; n < 5; ++n)
+            if (RefreshKeepsStock(true, true, kept, 20, 20, 2))
+            {
+                kept += 20;
+                ++stayed;
+            }
+        assert(stayed == 3 && kept == 60);
+        // Partial stacks fill up to the bound: 15 + 15 + 15 + 15 = 60 stays, the fifth 15 goes.
+        kept = 0;
+        stayed = 0;
+        for (int n = 0; n < 5; ++n)
+            if (RefreshKeepsStock(true, true, kept, 15, 20, 2))
+            {
+                kept += 15;
+                ++stayed;
+            }
+        assert(stayed == 4 && kept == 60);
+        // Default Kinds 3 x (Stacks 2 + 1) = 9 full stacks at most.
+        assert(3 * (60 / 20) == 9);
+    }
     assert(GuildMayBuy(8, 0, 0, 8, 25, 10) && GuildMayBuy(7, 1, 1, 6, 25, 10) && !GuildMayBuy(6, 2, 2, 6, 25, 10));
     assert(!GuildMayBuy(7, 0, 0, 8, 25, 10) && !GuildMayBuy(20, 0, 10, 8, 25, 10) && !GuildMayBuy(20, 0, 0, 8, 25, 0));
     assert(!GuildMayBuy(3, 0, 0, 1, 25, 10) && GuildMayBuy(4, 0, 0, 1, 25, 10));
