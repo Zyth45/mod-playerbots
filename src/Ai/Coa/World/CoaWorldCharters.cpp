@@ -302,7 +302,7 @@ private:
             charter.npc = npc->GetGUID();
             charter.npcAt = WorldLocation(npc->GetMapId(), npc->GetPositionX(), npc->GetPositionY(), npc->GetPositionZ());
             charter.deadline = now + MAX_MINUTES * MINUTE;
-            LOG_INFO("module", "CoA World: {} goes to buy a guild charter", bot->GetName());
+            LOG_INFO("playerbots.coa", "CoA World: {} goes to buy a guild charter", bot->GetName());
             return;
         }
     }

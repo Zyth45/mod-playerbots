@@ -271,7 +271,7 @@ void Finish(bool attackersWon, char const* why)
     Push("end", now);
     LogEvent("capitalraid", "", Acore::StringFormat("{} raid on {} {} ({})", Attacker(city) == TEAM_HORDE ? "Horde" : "Alliance",
                                                      city.name, attackersWon ? "won" : "failed", why));
-    LOG_INFO("module", "CoA World: capital raid on {} ended, {} ({})", city.name, attackersWon ? "king slain" : "failed", why);
+    LOG_INFO("playerbots.coa", "CoA World: capital raid on {} ended, {} ({})", city.name, attackersWon ? "king slain" : "failed", why);
     g_raid = Raid();
 }
 
@@ -369,7 +369,7 @@ bool Start(CityDef const& city, std::string& error)
     BorrowedSay(BOT_OWNER_RAID_ATTACK, 0, "craid_rally", { { "city", city.name } }, 3);
     Push("warn", g_raid.assaultAt);
     LogEvent("capitalraid", "", Acore::StringFormat("{} attackers and {} defenders for a raid on {}", attackers, defenders, city.name));
-    LOG_INFO("module", "CoA World: capital raid on {}: {} attackers, {} defenders, level {}+", city.name, attackers, defenders,
+    LOG_INFO("playerbots.coa", "CoA World: capital raid on {}: {} attackers, {} defenders, level {}+", city.name, attackers, defenders,
              minLevel);
     return true;
 }
@@ -554,7 +554,7 @@ public:
         std::string error;
         CityDef const& city = CITIES[urand(0, CITIES.size() - 1)];
         if (!Start(city, error))
-            LOG_INFO("module", "CoA World: no automatic capital raid on {}: {}", city.name, error);
+            LOG_INFO("playerbots.coa", "CoA World: no automatic capital raid on {}: {}", city.name, error);
     }
 
 private:

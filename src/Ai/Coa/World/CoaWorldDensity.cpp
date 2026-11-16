@@ -155,7 +155,7 @@ namespace
         settings.nearRange = float(std::clamp<uint32>(sConfigMgr->GetOption<uint32>(key("NearRange"), 800, false), 100, 5000));
         settings.rotation = sConfigMgr->GetOption<bool>("AiPlayerbot.EnablePeriodicOnlineOffline", false, false);
         if (settings.enabled && !settings.rotation)
-            LOG_WARN("module", "CoA World: AiPlayerbot.CoaWorld.Density needs AiPlayerbot.EnablePeriodicOnlineOffline = 1 "
+            LOG_WARN("server.loading", "CoA World: AiPlayerbot.CoaWorld.Density needs AiPlayerbot.EnablePeriodicOnlineOffline = 1 "
                 "(a pool of bots larger than those online); it does nothing without it.");
     }
 }

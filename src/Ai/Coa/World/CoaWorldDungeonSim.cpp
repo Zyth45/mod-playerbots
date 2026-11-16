@@ -337,7 +337,7 @@ namespace
                 if (settings.announce)
                     Announce(run, group.front());
 
-                LOG_INFO("module", "CoA World: simulated {} run for {} ({} bots gathering)", dungeon->name,
+                LOG_INFO("playerbots.coa", "CoA World: simulated {} run for {} ({} bots gathering)", dungeon->name,
                     team == TEAM_ALLIANCE ? "the Alliance" : "the Horde", run.members.size());
                 _runs.push_back(std::move(run));
                 return true;
@@ -515,7 +515,7 @@ namespace
             run.until = now + minutes * MINUTE;
             run.enteredAt = now;
             run.insideUntil = run.until;
-            LOG_INFO("module", "CoA World: {} bots entered {} for {} minutes", inside.size(), run.dungeon->name, minutes);
+            LOG_DEBUG("playerbots.coa", "CoA World: {} bots entered {} for {} minutes", inside.size(), run.dungeon->name, minutes);
         }
 
         // Back at the door: the experience, money and loot of the run, rolled once from the bosses'
