@@ -290,6 +290,11 @@ bool IsGuildStockEnabled()
     return settings.guildStock;
 }
 
+uint32 GuildStockStacks()
+{
+    return settings.stacks;
+}
+
 bool IsEnabled()
 {
     return settings.enabled;
