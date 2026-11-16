@@ -27,6 +27,23 @@ int main()
     assert(BuyerCandidate(0, 10, 7) == 7);
     assert(BuyerCandidate(5, 2, 3) == 1);
     assert(BuyerCandidate(0, 0, 3) == 0);
+    // 3.1.4 player matches the house: a player's Bronze Bar at 2176 under the house's 2177 sells at its price; a bot's,
+    // or with the key off, or with no house auction, the usual cap.
+    assert(PlayerMatchPay(true, true, 2177, 1500) == 2177);
+    assert(MaterialBuyerTakes(2176 * 10, 10, PlayerMatchPay(true, true, 2177, 1500)));
+    assert(!MaterialBuyerTakes(2178 * 10, 10, PlayerMatchPay(true, true, 2177, 1500)));
+    assert(PlayerMatchPay(true, false, 2177, 1500) == 1500);
+    assert(PlayerMatchPay(false, true, 2177, 1500) == 1500);
+    assert(PlayerMatchPay(true, true, 0, 1500) == 1500);
+    // The 24-hour rule: bought from the house at t, refused until t + 24 h; never bought, never refused.
+    assert(BoughtFromHouseRecently(1000, 1000) && BoughtFromHouseRecently(1000, 1000 + 86399));
+    assert(!BoughtFromHouseRecently(1000, 1000 + 86400) && !BoughtFromHouseRecently(0, 5000));
+    // Per account and item: the same account's other item, or another account's same item, is not held.
+    assert(HouseSaleKey(1, 2841) != HouseSaleKey(1, 2842) && HouseSaleKey(1, 2841) != HouseSaleKey(2, 2841));
+    // The daily caps still hold for a player matched to the house: the 11th auction, or over 50 gold, refused.
+    assert(!AccountMaySell(10, 0, 2176 * 10, 10, 500000) && !AccountMaySell(3, 490000, 21760, 10, 500000));
+    // The loop it closes: buy the house's cheapest (0.85 V), list under the next (1.25 V): 0.34 V an item.
+    assert(1250 * 95 / 100 - 850 == 337);
     // 3.1.4 fairness: looking at a material is free up to 40 a cycle; any other look uses one of the 3 candidates.
     // Account A's 17 refused stacks and 20 too dear: account B's 10 still looked at in the same cycle.
     {

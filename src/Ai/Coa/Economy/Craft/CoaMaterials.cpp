@@ -14,6 +14,7 @@
 #include "CoaAuctionHouseBot.h"
 #include "CoaEconomyRules.h"
 #include "CoaSellable.h"
+#include "CharacterCache.h"
 #include "Config.h"
 #include "Creature.h"
 #include "Item.h"
@@ -58,6 +59,8 @@ namespace
         uint32 buyMinListings = 8;
         uint32 buyMaxSharePercent = 25;
         uint32 buyPerDay = 10;
+        bool buyPlayerMatch = true;      // 3.1.4: a player's lot at or under the house's cheapest ask
+        uint32 buyPlayerMinListings = 3; // 3.1.4: auctions of the item needed then
     };
     Settings settings;
 
@@ -283,6 +286,9 @@ void LoadSettings()
     settings.buyMaxSharePercent = std::min<uint32>(100,
         CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.GuildStock.Buy.MaxSharePercent", 25));
     settings.buyPerDay = CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.GuildStock.Buy.PerDay", 10);
+    settings.buyPlayerMatch = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.GuildStock.Buy.PlayerMatchesHouse", true);
+    settings.buyPlayerMinListings = std::max<uint32>(1,
+        CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.GuildStock.Buy.PlayerMinListings", 3));
 }
 
 bool IsGuildStockEnabled()
@@ -527,6 +533,8 @@ bool BuyStock(Player* bot, ObjectGuid auctioneer, Creature* npc, uint64 budget)
     GuildDay* day = settings.guildStock ? &GuildDayOf(bot) : nullptr;
     AuctionEntry const* best = nullptr;
     uint64 bestPerItem = 0;
+    bool bestFromPlayer = false;
+    std::unordered_map<uint32, uint64> houseCheapest;  // 3.1.4: item -> the house's cheapest ask now (lazy)
     uint32 scanned = 0;
     for (auto const& entry : house->GetAuctions())
     {
@@ -536,19 +544,33 @@ bool BuyStock(Player* bot, ObjectGuid auctioneer, Creature* npc, uint64 budget)
         if (!auction || !auction->buyout || auction->buyout > budget || auction->owner == bot->GetGUID() ||
             auction->bidder == bot->GetGUID() || !reagents.count(auction->item_template))
             continue;
-        if (day && !CoaEconomyRules::GuildMayBuy(listings[auction->item_template], day->perItem[auction->item_template],
-                                                 day->total, settings.buyMinListings, settings.buyMaxSharePercent,
-                                                 settings.buyPerDay))
-            continue;
         Item* item = sAuctionMgr->GetAItem(auction->item_guid);
         ItemTemplate const* proto = sObjectMgr->GetItemTemplate(auction->item_template);
         if (!item || !proto || !item->GetCount())
             continue;
+        uint64 const perItem = auction->buyout / item->GetCount();
+        // 3.1.4: a player's lot at or under the house's cheapest ask (ArtisanMatchesPlayer), with 3 auctions of it.
+        bool playerMatch = false;
+        if (settings.buyPlayerMatch && !auctionbot->SoldByBots(auction->owner))
+        {
+            auto cheapest = houseCheapest.find(proto->ItemId);
+            if (cheapest == houseCheapest.end())
+                cheapest = houseCheapest.emplace(proto->ItemId, auctionbot->HouseCheapestNow(house, proto->ItemId)).first;
+            uint32 const sellerAccount = sCharacterCache->GetCharacterAccountIdByGuid(auction->owner);
+            playerMatch = CoaEconomyRules::ArtisanMatchesPlayer(true, true, perItem, cheapest->second,
+                                                                 auctionbot->BoughtFromBotsRecently(sellerAccount, proto->ItemId));
+        }
+        if (day && !CoaEconomyRules::GuildMayBuy(listings[auction->item_template], day->perItem[auction->item_template],
+                                                 day->total,
+                                                 CoaEconomyRules::StockMinListings(playerMatch, settings.buyMinListings,
+                                                                                   settings.buyPlayerMinListings),
+                                                 settings.buyMaxSharePercent, settings.buyPerDay, playerMatch))
+            continue;
         if (!CoaEconomyRules::KeepsInStock(bot->GetItemCount(proto->ItemId) + item->GetCount(), proto->GetMaxStackSize(),
                                            settings.maxStacks))
             continue;
-        uint64 const perItem = auction->buyout / item->GetCount();
-        if (!CoaEconomyRules::StockBargain(perItem, Artisans::MarketPrice(proto->ItemId), settings.buyBelowPercent))
+        if (!playerMatch &&
+            !CoaEconomyRules::StockBargain(perItem, Artisans::MarketPrice(proto->ItemId), settings.buyBelowPercent))
             continue;
         // 3.1.4 guard: nothing an NPC vendor sells (unlimited stock, or a limited one worth over 10 gold a day), at a
         // price that would pay to buy it there and list it here.
@@ -558,6 +580,7 @@ bool BuyStock(Player* bot, ObjectGuid auctioneer, Creature* npc, uint64 budget)
         {
             best = auction;
             bestPerItem = perItem;
+            bestFromPlayer = playerMatch || !auctionbot->SoldByBots(auction->owner);
         }
     }
     if (!best)
@@ -571,8 +594,9 @@ bool BuyStock(Player* bot, ObjectGuid auctioneer, Creature* npc, uint64 budget)
     {
         ++day->total;
         ++day->perItem[bought];
-        LOG_INFO("playerbots.coa", "CoaEconomy: {} bought item {} for its stock (guild {}: {} today)", bot->GetName(),
-                 bought, bot->GetGuildId(), day->total);
+        LOG_INFO("playerbots.coa", "CoaEconomy: {} bought item {} for its stock from a {} at {} copper an item "
+                 "(guild {}: {} today)", bot->GetName(), bought, bestFromPlayer ? "player" : "bot", bestPerItem,
+                 bot->GetGuildId(), day->total);
     }
     return true;
 }
