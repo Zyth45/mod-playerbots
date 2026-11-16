@@ -546,6 +546,9 @@ public:
 
     void OnUpdate(uint32 diff) override
     {
+        if (sPlayerbotAIConfig.coaStartupCheckOnly)  // AiPlayerbot.StartupCheckOnly: no bot, nothing to update
+            return;
+
         PlayerbotWorldThreadProcessor::instance().Update(diff);
         sRandomPlayerbotMgr.UpdateAI(diff);  // World thread only
         sRandomPlayerbotMgr.CoaReleaseOrphanGroups();
@@ -625,6 +628,9 @@ public:
 
     void OnPlayerbotUpdate(uint32 /*diff*/) override
     {
+        if (sPlayerbotAIConfig.coaStartupCheckOnly)
+            return;
+
         sRandomPlayerbotMgr.UpdateSessions();  // Per-bot updates only
     }
 

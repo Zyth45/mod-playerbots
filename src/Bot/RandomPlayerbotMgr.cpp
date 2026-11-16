@@ -29,7 +29,7 @@
 #include "ChannelMgr.h"
 #include "CharacterCache.h"
 #include "CityDuels.h"
-#include "CoaBotRacePolicy.h"
+#include "CoaBotRaces.h"
 #include "CoaMissionMgr.h"
 #include "DBCStores.h"
 #include "DBCStructure.h"
@@ -885,8 +885,7 @@ uint32 RandomPlayerbotMgr::AddRandomBots()
 
         for (auto const& charInfo : allCharacters)
         {
-            if (!IsCoaBotRaceAllowed(charInfo.rRace, sPlayerbotAIConfig.customRacesForBots,
-                                    sPlayerbotAIConfig.excludedBotRaces))
+            if (!CoaBotRaces::Allowed(charInfo.rRace))
                 continue;
 
             if (IsAlliance(charInfo.rRace))
@@ -1910,8 +1909,7 @@ bool RandomPlayerbotMgr::ProcessBot(uint32 bot)
 
     CharacterCacheEntry const* character = sCharacterCache->GetCharacterCacheByGuid(botGUID);
     uint32 const race = player ? player->getRace() : character ? character->Race : 0;
-    if (!race || !IsCoaBotRaceAllowed(race, sPlayerbotAIConfig.customRacesForBots,
-                                    sPlayerbotAIConfig.excludedBotRaces))
+    if (!race || !CoaBotRaces::Allowed(race))
     {
         SetEventValue(bot, "add", 0, 0);
         currentBots.erase(bot);
@@ -2481,7 +2479,7 @@ void RandomPlayerbotMgr::PrepareAddclassCache()
                     Field* fields = results->Fetch();
                     ObjectGuid guid = ObjectGuid(HighGuid::Player, fields[0].Get<uint32>());
                     uint32 race = fields[1].Get<uint32>();
-                    bool isAlliance = race == 1 || race == 3 || race == 4 || race == 7 || race == 11;
+                    bool isAlliance = IsAlliance(uint8(race));  // added races too (ChrRaces, AiPlayerbot.BotRace.<id>)
                     addclassCache[GetTeamClassIdx(isAlliance, claz)].insert(guid);
                     collected++;
                 } while (results->NextRow());

@@ -82,6 +82,12 @@
 # Enable or disable Playerbots module
 AiPlayerbot.Enabled = 1
 
+# Startup check: the module loads its settings, data and AI contexts, then creates, deletes, renames and logs in no
+# bot, and its world updates do nothing. For a server that qualifies a build before opening it. CoA.ValidationMode = 1
+# does the same.
+# Default: 0 (off)
+AiPlayerbot.StartupCheckOnly = 0
+
 # Enable randombot system
 AiPlayerbot.RandomBotAutologin = 1
 
@@ -1580,6 +1586,22 @@ AiPlayerbot.AltLootMasterDistance = 30
 # patched client. 65, 80, 81 and 82 showed no crash as bots (Sethrak only crashes when played, at its first login).
 # Default: "32,72,77,97"
 AiPlayerbot.CrashingBotRaces = "32,72,77,97"
+
+# How random bots use a race, one line per race id, for a server that adds races (CoA Bots 3.1.5). Without a line,
+# a race keeps the module's own rules. Fields, all optional, separated by spaces:
+#   bots=1|0        1: random bots use the race even without CoACustomRaces.BotsEnable; 0: never. ExcludedBotRaces and
+#                   CrashingBotRaces above always win.
+#   gender=male|female|any   a race with one usable model; any: a coin even where the module keeps one gender.
+#   side=alliance|horde|dbc  the side of an added race (dbc: ChrRaces.dbc, the default). Base races keep theirs.
+#   look=full|simple         simple: the first face and hair variant only and no facial hair (missing textures).
+#   names=human|orc|dwarf|nightelf|undead|tauren|gnome|troll|bloodelf|draenei|generic   the name pool.
+#   classes=1,2,5            the classes bots of the race may have (default: every class of playercreateinfo).
+# A line for a race this server does not have, or with an unknown field or value, is ignored as a whole with an
+# error at startup. The start position, the race mask and the racials come from the core's data. Restart after
+# a change.
+# Example:
+# AiPlayerbot.BotRace.85 = "bots=1 gender=female side=horde look=simple names=orc"
+# AiPlayerbot.BotRace.96 = "gender=male side=alliance"
 
 # Authored combat rotations for the Conquest of Azeroth specializations.
 # Off: CoA bots are driven by the runtime classifier alone, which picks a spell
