@@ -114,6 +114,7 @@ void PlayerbotAIConfig::LoadCoaLiveConfig()
     coaLiveHealRequest = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaLive.HealRequest.Enable", true);
     coaLiveCcRequest = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaLive.CcRequest.Enable", true);
     coaLiveTauntRequest = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaLive.TauntRequest.Enable", true);
+    coaLiveWhisperEscape = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaLive.WhisperEscape.Enable", true);
     coaKeySpells = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaKeySpells.Enable", true);
     coaQuestLog = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaQuestLog.Enable", true);
     coaCursedFormUpkeep = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaCursedFormUpkeep", true);

@@ -4086,6 +4086,17 @@ AiPlayerbot.CoaLive.CcRequest.Enable = 1
 
 AiPlayerbot.CoaLive.TauntRequest.Enable = 1
 
+#    AiPlayerbot.CoaLive.WhisperEscape.Enable
+#        Description: A random bot chatting by whisper with a real player answers 5 to 8 whispers, then gives an
+#                     excuse that fits what it is doing ("sorry, dungeon queue popped", "bg just popped", "kinda busy
+#                     rn", "gotta go afk") and answers that player no more for 20 to 40 minutes. The talk starts again
+#                     after 10 minutes without a whisper. Lines of the bank 3_1_4 or later; with no excuse line, the
+#                     talk goes on as before. Off: the bot answers every whisper, as before.
+#        Default:     1 - on
+#                     0 - off
+
+AiPlayerbot.CoaLive.WhisperEscape.Enable = 1
+
 #    AiPlayerbot.CoaKeySpells.Enable
 #        Description: The SquidBots addon's key spells bar, for any bot of the player's group: the bot's spells with
 #                     a cooldown of 30 seconds or more and their cooldown left ("keyspells"), and the spells whose
