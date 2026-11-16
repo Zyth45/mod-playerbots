@@ -1,0 +1,1210 @@
+{
+ "format": 1,
+ "module": "SquidBots (mod-playerbots for Conquest of Azeroth)",
+ "version": "3.1.5",
+ "tag": "v3.1.5",
+ "commit": "7bb17265",
+ "previous_version": "3.1.3",
+ "notes": "sql: every file of data/sql, applied per database in the stages base, updates, custom, each in name order (create: the database itself; archive: kept for history, never applied). A published file never changes; a change comes as a new file. large: over 30 MB, also attached to the release. new_keys / changed_defaults: playerbots.conf.dist against the previous release; a key missing from a server's playerbots.conf takes the default of the code, equal to the .dist. optional_core_headers: headers the module uses when the core has them, with a fallback otherwise: the module builds on the official core without any of them. commit = the commit the files were read from; the build itself is identified by its tag.",
+ "settings_file": "conf/playerbots.conf.settings.json",
+ "sql": [
+  {
+   "database": "characters",
+   "stage": "base",
+   "path": "data/sql/characters/base/playerbots_arena_team_names.sql",
+   "sha256": "c95698da81313764acd8e0c0bed7cb33526f494a0213e518c908e556ff8264fb",
+   "size": 7891,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "characters",
+   "stage": "base",
+   "path": "data/sql/characters/base/playerbots_guild_names.sql",
+   "sha256": "cc898c89d15da98c89ebe18fb46c208d546628b54ee66ddb89751c12f37bfdc5",
+   "size": 11156,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "characters",
+   "stage": "base",
+   "path": "data/sql/characters/base/playerbots_names.sql",
+   "sha256": "183edef3053aec99e153d39cabf36d5248a0c2a98a86d242a7b7578f4ab207a2",
+   "size": 2101794,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "characters",
+   "stage": "updates",
+   "path": "data/sql/characters/updates/2025_09_25_01_playerbots_guild_tabard_fix.sql",
+   "sha256": "a0e3e83bff3bfb265670cf23c4181f974422ed94c1b0fd689e9f75cf462eaa05",
+   "size": 312,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "base",
+   "path": "data/sql/playerbots/base/ai_playerbot_texts.sql",
+   "sha256": "f8d9756ce074099175a6a4423e96c04aa6925c2c0833708ce75a57da076c1a10",
+   "size": 540229,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "base",
+   "path": "data/sql/playerbots/base/ai_playerbot_texts_chance.sql",
+   "sha256": "6cf69c74695f3fff91947f167f1698d6cdd5a8d5de2daa98028203dea2932282",
+   "size": 567,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "base",
+   "path": "data/sql/playerbots/base/playerbots_account_keys.sql",
+   "sha256": "e35cdde22b850718639ab4442f5038cc0fb096853aae20baac87b6d5a309ea84",
+   "size": 259,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "base",
+   "path": "data/sql/playerbots/base/playerbots_account_links.sql",
+   "sha256": "9c3343d276f3d1af7dfd7c78b3530605530cbc6817852fbe9ca31ded610e8b39",
+   "size": 362,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "base",
+   "path": "data/sql/playerbots/base/playerbots_account_type.sql",
+   "sha256": "3fcd9c190213acbc566155f5259b0db6e34592c47f6320f795349222502066ee",
+   "size": 449,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "base",
+   "path": "data/sql/playerbots/base/playerbots_custom_strategy.sql",
+   "sha256": "593dbe1a4dabf7288e7240c0630964c0d37a7e1288ef985aaf9807076b6f03ca",
+   "size": 831,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "base",
+   "path": "data/sql/playerbots/base/playerbots_db_store.sql",
+   "sha256": "bcbf7e2daa2518ddadff0d4fe29c0e82a94a62989ee6a1d7785a283db11ad7af",
+   "size": 297,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "base",
+   "path": "data/sql/playerbots/base/playerbots_dungeon_suggestion_abbrevation.sql",
+   "sha256": "1ddb3ed494cbae26a38feac55922c0433d7ef5336a9933a3e2624a2f33a77fe5",
+   "size": 723,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "base",
+   "path": "data/sql/playerbots/base/playerbots_dungeon_suggestion_definition.sql",
+   "sha256": "088e3d2b2a9a053e68a44d3ffc379ade4084c768a497791732557e2d6e34c2d7",
+   "size": 6928,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "base",
+   "path": "data/sql/playerbots/base/playerbots_dungeon_suggestion_strategy.sql",
+   "sha256": "03f7cc96157dc2a21c3dbf9768634fe6dae9f13c288ff9da950f2247fba1f3e9",
+   "size": 1037,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "base",
+   "path": "data/sql/playerbots/base/playerbots_enchants.sql",
+   "sha256": "4d61c364208ebc2e66e97da5e50d522fcc1e7c0e123792f1a97e63717d3b8039",
+   "size": 13514,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "base",
+   "path": "data/sql/playerbots/base/playerbots_equip_cache.sql",
+   "sha256": "5500b27cfa0d901ac5438b05b9a6882cc261286a746f4565152bb240f86734ba",
+   "size": 369,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "base",
+   "path": "data/sql/playerbots/base/playerbots_guild_tasks.sql",
+   "sha256": "84c010f8521c5afddb582dc6b86304e881fbe276cacaa85bd5c058f75e76ee60",
+   "size": 485,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "base",
+   "path": "data/sql/playerbots/base/playerbots_item_info_cache.sql",
+   "sha256": "d40c398f6cbfbbafdd751b133580b10768e8efa682528db26b6bf4b5b76466ae",
+   "size": 2114,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "base",
+   "path": "data/sql/playerbots/base/playerbots_preferred_mounts.sql",
+   "sha256": "fbd61d48bd4b2939d30539651e52dab2f37f8595a4d7429eb426424ddd05f2e9",
+   "size": 360,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "base",
+   "path": "data/sql/playerbots/base/playerbots_random_bots.sql",
+   "sha256": "e4d8981adca3f33ea7a875e61a8a65abce0c9d0fd36abc30913ccd67ed7d8d8b",
+   "size": 476,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "base",
+   "path": "data/sql/playerbots/base/playerbots_rarity_cache.sql",
+   "sha256": "9dcbdace7bd386489b0439fe0639ff689d92fdcd766eff3a46cc0387324b9b56",
+   "size": 284,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "base",
+   "path": "data/sql/playerbots/base/playerbots_rnditem_cache.sql",
+   "sha256": "6c3b5bdc46a8edf04c694addbf03bf621882c69e2d4ee3073af78f25992f8c68",
+   "size": 315,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "base",
+   "path": "data/sql/playerbots/base/playerbots_speech.sql",
+   "sha256": "cac557be6cb9c0bf887cb421ac4b051d26fede9c28d9a926739c373a36355c11",
+   "size": 15137,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "base",
+   "path": "data/sql/playerbots/base/playerbots_speech_probability.sql",
+   "sha256": "33eda298fe1b60f0570dde63cdcbf200dc05ca3c33295cdd2a2999736fc8e252",
+   "size": 378,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "base",
+   "path": "data/sql/playerbots/base/playerbots_tele_cache.sql",
+   "sha256": "6024de05040fc479cbd8cc3cfe0c184a668d03f357fb8d87507a869c8fbd7644",
+   "size": 362,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "base",
+   "path": "data/sql/playerbots/base/playerbots_travelnode.sql",
+   "sha256": "7cc36729eb05d224d93beaab38028faa2566db6012e361642658dc0c07ebb179",
+   "size": 263384,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "base",
+   "path": "data/sql/playerbots/base/playerbots_travelnode_link.sql",
+   "sha256": "93cb9e3582609fe9c910fcda4c810eef2095ca6544a0b84224cd25fb13bdf916",
+   "size": 719409,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "base",
+   "path": "data/sql/playerbots/base/playerbots_travelnode_path.sql",
+   "sha256": "d5100d3675bf278a9f311bbf161e587306217980146e137e06df9509e176f2cb",
+   "size": 69645879,
+   "large": true,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "base",
+   "path": "data/sql/playerbots/base/playerbots_weightscale_data.sql",
+   "sha256": "ed1585c50ff11d814cc9b1c4fcd2b769a43e4f511f174f52bd3601cca0390f71",
+   "size": 7191,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "base",
+   "path": "data/sql/playerbots/base/playerbots_weightscales.sql",
+   "sha256": "4c4bd99b620c7b0da851c6e0dc56b1aa915a4414f40b80f4d1f6e6925604be72",
+   "size": 1111,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "base",
+   "path": "data/sql/playerbots/base/updates.sql",
+   "sha256": "05007b1e118bedf24fff0e333c04057c48a633219802e488d828fcdece6dffed",
+   "size": 1785,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "base",
+   "path": "data/sql/playerbots/base/updates_include.sql",
+   "sha256": "55ef28a9f5aff22a26cc59824c5d56a585778424456127609128f625c8811aca",
+   "size": 1979,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "base",
+   "path": "data/sql/playerbots/base/version_db_playerbots.sql",
+   "sha256": "2a54b6268969178e7339ab602069072a19c27a17d9255a1e1cbc2ee712c04cbb",
+   "size": 1586,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "create",
+   "path": "data/sql/playerbots/create/create_mysql.sql",
+   "sha256": "14bd650b74a45e25f86602495ff6ee5926237c6faab76401d599be2b729c9223",
+   "size": 256,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "create",
+   "path": "data/sql/playerbots/create/drop_mysql.sql",
+   "sha256": "e7047baa67caf53e1eb8a37efa9b11f8a63933cba97ccf100e69a5c5ad8a26b8",
+   "size": 282,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "create",
+   "path": "data/sql/playerbots/create/drop_mysql_8.sql",
+   "sha256": "d27dc58dd2161addec1ba09fa902c81b7483cad9f16d3ad09aef7094430a4155",
+   "size": 139,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "custom",
+   "path": "data/sql/playerbots/custom/playerbots_coa_rotations.sql",
+   "sha256": "7dbfab473f2b810f9e29ce6290ace289a087b14a8997a450053514e458124bf2",
+   "size": 933067,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "custom",
+   "path": "data/sql/playerbots/custom/playerbots_coa_wcr_builds.sql",
+   "sha256": "18bc9d8c3df983b718ff86b5e820e0605cf61a83b7e0cc5704c9cf140bde72d4",
+   "size": 1115,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "custom",
+   "path": "data/sql/playerbots/custom/playerbots_coa_wcr_builds_data.sql",
+   "sha256": "de70f9e29f24eb525227c7f1cb6710f6d8cf9a75ac54e56c1056c31abf25c86c",
+   "size": 91728,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "custom",
+   "path": "data/sql/playerbots/custom/playerbots_coa_wcr_enchants.sql",
+   "sha256": "e6e578356f88999f5c99c5096b51204ec82b033ebc4db40904674e424e0f177b",
+   "size": 980,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "custom",
+   "path": "data/sql/playerbots/custom/playerbots_coa_wcr_enchants_data.sql",
+   "sha256": "220da4515f0bddf2e900bf87c0f4b0d374c58e31073cddefaaa00e5a573ff0ab",
+   "size": 20593,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "custom",
+   "path": "data/sql/playerbots/custom/zz_coa_fr_texts_3_0.sql",
+   "sha256": "5f2400aa6f7e092e9c00c88abd84efafa4e6f9cad3b4f37284bb60c334720cac",
+   "size": 1985,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "custom",
+   "path": "data/sql/playerbots/custom/zz_coa_live_3_0.sql",
+   "sha256": "43322cd25fadcf8e396e547f9e736109c1bf6b98ad7f8288d80cea4d5b41c8ee",
+   "size": 25058,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "custom",
+   "path": "data/sql/playerbots/custom/zz_coa_live_3_0_01.sql",
+   "sha256": "2f7bcc5cc1af4e7d8dab7b5371bdb36e0d283930935e4b73104f07c387bb7552",
+   "size": 24769,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "custom",
+   "path": "data/sql/playerbots/custom/zz_coa_live_3_0_02.sql",
+   "sha256": "945f85989653715e0a6a5e8eb79c94b112b705073a0897636be8ee9ddf3f703c",
+   "size": 48578,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "custom",
+   "path": "data/sql/playerbots/custom/zz_coa_live_3_0_03.sql",
+   "sha256": "540619836d4bf968eb439dfaf6cc2b4d79b6c4f7831bf2cd078857e7dce7f633",
+   "size": 66819,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "custom",
+   "path": "data/sql/playerbots/custom/zz_coa_live_3_0_04.sql",
+   "sha256": "28af818d2b9777fffc568c481a0d4178012ed47b24cb2d12eb015a42298278ff",
+   "size": 74007,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "custom",
+   "path": "data/sql/playerbots/custom/zz_coa_live_3_0_05.sql",
+   "sha256": "12ea6f692f0712a7112839bd47d2e358b337ba926b28b872df323a2b94bca940",
+   "size": 81002,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "custom",
+   "path": "data/sql/playerbots/custom/zz_coa_live_3_0_06.sql",
+   "sha256": "1bb326e3edbad10f4990e2303889270512a1401110521fad529d1d182d21f49d",
+   "size": 85829,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "custom",
+   "path": "data/sql/playerbots/custom/zz_coa_live_3_0_07.sql",
+   "sha256": "77ba167e94fb59b3a2f6a070e1e095cb28b6bbfd7bb27c8557e56f9f63194665",
+   "size": 89574,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "custom",
+   "path": "data/sql/playerbots/custom/zz_coa_live_3_0_08.sql",
+   "sha256": "61c7fb0165730d26e4bae360a4795f3a65312bce58c553ddc91689a622232737",
+   "size": 96381,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "custom",
+   "path": "data/sql/playerbots/custom/zz_coa_live_3_0_09_night.sql",
+   "sha256": "875bffa47fcaef81f7e92803b4ecbe4737e30b546f97eea22b37bb483db6c125",
+   "size": 3987449,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "custom",
+   "path": "data/sql/playerbots/custom/zz_coa_live_3_0_10.sql",
+   "sha256": "bb934800826c0e7a2607678e7c0f1428796458cb62ecb1838f517a04043d291f",
+   "size": 102618,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "custom",
+   "path": "data/sql/playerbots/custom/zz_coa_live_3_0_11.sql",
+   "sha256": "60fde701fae82b6609430c97b1f8921de65faea6e70d39aab3e188f219165566",
+   "size": 105782,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "custom",
+   "path": "data/sql/playerbots/custom/zz_coa_live_3_0_12.sql",
+   "sha256": "bde4e5d82c3247e612acdd595624f49aa3a4604f8483d60f5c3ee3dfe76c9e99",
+   "size": 109313,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "custom",
+   "path": "data/sql/playerbots/custom/zz_coa_live_3_0_13.sql",
+   "sha256": "1bed72331c3bfff5a00c260a91c2ea5f5bc3e5d7af54a036ba42f3a67df15423",
+   "size": 7516,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "custom",
+   "path": "data/sql/playerbots/custom/zz_coa_live_3_0_14.sql",
+   "sha256": "83d889725960d4e9c472c5953211f978b5a2bf7b9c575a1699ae356f1eec1f0f",
+   "size": 111228,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "custom",
+   "path": "data/sql/playerbots/custom/zz_coa_live_3_0_15.sql",
+   "sha256": "cf493cd8e5e8d0a72422a13e8edb4d75385a0e6c93b01125cab6b7c74a1449ab",
+   "size": 117120,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "custom",
+   "path": "data/sql/playerbots/custom/zz_coa_live_3_0_16_night_ascii.sql",
+   "sha256": "3f8bfe755544aad0ac7be97aca33c009fd70a75d5886ae85ffe3a4d8c708d49b",
+   "size": 2010,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "custom",
+   "path": "data/sql/playerbots/custom/zz_coa_live_3_0_17_night.sql",
+   "sha256": "43e22aa1c53605777ef5873b7ecc331e2f1df931e23fc845a376f63d68a67424",
+   "size": 3802811,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "custom",
+   "path": "data/sql/playerbots/custom/zz_coa_live_3_0_18.sql",
+   "sha256": "0dbadd4adc88a3f2564ca19c4d2624f9664906de15ffddc408d3de4dae732853",
+   "size": 125655,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "custom",
+   "path": "data/sql/playerbots/custom/zz_coa_live_3_0_19.sql",
+   "sha256": "6fc3db099f0454d139497e939b3431c9c1bab77de8f5c57908a0fa06a38dfe86",
+   "size": 141014,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "custom",
+   "path": "data/sql/playerbots/custom/zz_coa_live_3_0_20.sql",
+   "sha256": "010c2f53709f6e68326456f6e599ee82218edf33cbc8d07364126fb60b1a8ba8",
+   "size": 145089,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "custom",
+   "path": "data/sql/playerbots/custom/zz_coa_live_3_0_21.sql",
+   "sha256": "051d5371c7af758ea98abd2225601d9eadd911d63e4c48456cd837a104de151d",
+   "size": 215767,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "custom",
+   "path": "data/sql/playerbots/custom/zz_coa_live_3_0_22.sql",
+   "sha256": "3e3392860d455aa5b5ba05381cf0e2734e976421fe0f5997f3a57752f14fa2ac",
+   "size": 284105,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "custom",
+   "path": "data/sql/playerbots/custom/zz_coa_live_3_0_23.sql",
+   "sha256": "6b4d3f3f010c3069c6f0da681adcbb5b89c18ca08babc9d314761b9a0267eaa8",
+   "size": 281605,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "custom",
+   "path": "data/sql/playerbots/custom/zz_coa_live_3_0_24.sql",
+   "sha256": "210b64c515621c15a15ecf813a6c62434c751a9426f7c2a2be79cf9622720735",
+   "size": 282474,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "custom",
+   "path": "data/sql/playerbots/custom/zz_coa_live_3_0_25.sql",
+   "sha256": "7e241bfd08a16c2845508fb2c1d6a243186c7dfe9ecdf2208dfef824ac369078",
+   "size": 298263,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "custom",
+   "path": "data/sql/playerbots/custom/zz_coa_live_3_0_26.sql",
+   "sha256": "e425aab9c44de640269af83d84d5f6d8abf0a54596ad203bfb888701ffba34cf",
+   "size": 305039,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "custom",
+   "path": "data/sql/playerbots/custom/zz_coa_live_3_0_27.sql",
+   "sha256": "59273cafe9eacd419f3349021de6ce48a898542e4ff120fb1ed84ed8c2243e50",
+   "size": 331634,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "custom",
+   "path": "data/sql/playerbots/custom/zz_coa_live_3_0_28.sql",
+   "sha256": "d8ebcb9672d324234d9e91a330aa763cf3e854036b0343698010818f4c45da22",
+   "size": 383942,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "custom",
+   "path": "data/sql/playerbots/custom/zz_coa_live_3_0_29.sql",
+   "sha256": "f6f9bf9aac5a255e8121af2231cb461f6b772f742a3745cfe1b57c0996b9087c",
+   "size": 383792,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "custom",
+   "path": "data/sql/playerbots/custom/zz_coa_live_3_0_30.sql",
+   "sha256": "f44d5ff72c2a76fa4fa6f5031303e65e60051086c45cba45353bc2cb2c56698d",
+   "size": 384130,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "custom",
+   "path": "data/sql/playerbots/custom/zz_coa_rotation_corrections.sql",
+   "sha256": "737c1da35e69414e5159f53e4b4fd77b282bb4f613b0edd836ff1a0194696fc2",
+   "size": 33544,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "custom",
+   "path": "data/sql/playerbots/custom/zz_coa_rotation_corrections_1_7.sql",
+   "sha256": "2f26d0a9a158658384204347a70d6188b5d973bbdd8e764afc95b000140a1c21",
+   "size": 11291,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "custom",
+   "path": "data/sql/playerbots/custom/zz_coa_rotation_corrections_1_8.sql",
+   "sha256": "10f299d6ce727af2d6d6b393d6f3b241ff24e3a326b609439dc7f453c48ca6f6",
+   "size": 223808,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "custom",
+   "path": "data/sql/playerbots/custom/zz_coa_rotation_corrections_1_9.sql",
+   "sha256": "4e0c574c63b0a64200e376166b4f8d9f35ccf32517d06bea06a990be02a0d9b9",
+   "size": 223632,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "custom",
+   "path": "data/sql/playerbots/custom/zz_coa_rotation_corrections_1_9_flameweaving.sql",
+   "sha256": "077878b331c4f716f0e4d3e44928e554bba5572e1f64c0cbf8ddd603a583a44c",
+   "size": 2400,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "custom",
+   "path": "data/sql/playerbots/custom/zz_coa_rotation_corrections_2_0.sql",
+   "sha256": "2be88743a7497f3672e6998ea425f7d4c284915318fc0fd8915f761ecc9c01ee",
+   "size": 47727,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "custom",
+   "path": "data/sql/playerbots/custom/zz_coa_rotation_corrections_2_1.sql",
+   "sha256": "8f77e3910e0b1fdc6d1aac01b6f9cc936702cf296bac2f2cbe3d0b16a3fb4282",
+   "size": 6558,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "custom",
+   "path": "data/sql/playerbots/custom/zz_coa_rotation_corrections_2_1_1.sql",
+   "sha256": "b171565c01d7d906dc688ac8a5b3925bd20a43315dc0c4383f5fe73f4555c452",
+   "size": 3890,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "custom",
+   "path": "data/sql/playerbots/custom/zz_coa_rotation_corrections_2_1_1_b.sql",
+   "sha256": "f4609fdd56ba031adcc1ab4ac37d7d3a736e4ba70a900d6bdc1f6fc7b430cc8f",
+   "size": 9029,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "custom",
+   "path": "data/sql/playerbots/custom/zz_coa_rotation_corrections_2_2_2_peak_posture.sql",
+   "sha256": "188e4d9d48d94fefb6a8795a3a0b1cb3545bb1ef0c5e66ee0a3fe8e477ddf1b4",
+   "size": 1715,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "custom",
+   "path": "data/sql/playerbots/custom/zz_coa_rotation_corrections_2_2_2_time_out.sql",
+   "sha256": "ff05cdcd3aaa0e8a5d281b78c184dbc2dcbf5d2c2f88624a0097af935531a9c5",
+   "size": 1828,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "custom",
+   "path": "data/sql/playerbots/custom/zz_coa_rotation_corrections_2_3.sql",
+   "sha256": "e29be8ec43e23c2296268d09f8856ba61e99f3db6d0cf752ca7d74a64e86914c",
+   "size": 4182,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "custom",
+   "path": "data/sql/playerbots/custom/zz_coa_rotation_corrections_2_4.sql",
+   "sha256": "c890b3fea1fb9594bc768022c5ee4df971638e50ec406598b2c8df341ac769a7",
+   "size": 13382,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "custom",
+   "path": "data/sql/playerbots/custom/zz_coa_rotation_corrections_2_5.sql",
+   "sha256": "fd72a94a0179b361b2f300eaaf910c4cb9765edec8ad6db889e7be7419839295",
+   "size": 5318,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "custom",
+   "path": "data/sql/playerbots/custom/zz_coa_rotation_corrections_2_7.sql",
+   "sha256": "2dcb40f1348cbef337a6b072009c5b625fd746fdc67b9bfc77102f56e9e1f71a",
+   "size": 14589,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "custom",
+   "path": "data/sql/playerbots/custom/zz_coa_rotation_corrections_2_8.sql",
+   "sha256": "8255080a5cd700d760fbba85c6e6f334e2044aa2aa59e86d923c3b8e94dea926",
+   "size": 947,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "custom",
+   "path": "data/sql/playerbots/custom/zz_coa_rotation_corrections_2_8_1.sql",
+   "sha256": "90d3a58ab16b5742fe84db88dad40c144e419a15e23de2d5c70184f4fae67a1e",
+   "size": 2871,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "custom",
+   "path": "data/sql/playerbots/custom/zz_coa_soul_3_0.sql",
+   "sha256": "154f3364a4b3a1c3e78a03401717f087734d078acd2e970748078e9485b0f18a",
+   "size": 1094,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "updates",
+   "path": "data/sql/playerbots/updates/2024_08_07_00.sql",
+   "sha256": "6c2aeec7989b4d54743ade1681f913a43edaa63443b1acab39ace00f5e490577",
+   "size": 164229,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "updates",
+   "path": "data/sql/playerbots/updates/2024_11_25_00.sql",
+   "sha256": "9ad4468df0bbe0b0142322699bba96f37c3e3ba9998bebcb977886402e7ba2ec",
+   "size": 293,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "updates",
+   "path": "data/sql/playerbots/updates/2025_02_24_00.sql",
+   "sha256": "725150d69eb8d0df1edb8e0424aaf2761691101564a241fe2669042176876fbe",
+   "size": 245,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "updates",
+   "path": "data/sql/playerbots/updates/2025_03_03_00.sql",
+   "sha256": "934a4d791dfbe1f1ddcbd9ac103f3651d0410a52c954e98cbe3f5d8969043855",
+   "size": 1221,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "updates",
+   "path": "data/sql/playerbots/updates/2025_04_26_00.sql",
+   "sha256": "6daf04daf7169b97094e0934680aee49881c8c5798113811e5241a6c99956f78",
+   "size": 828,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "updates",
+   "path": "data/sql/playerbots/updates/2025_05_05_00_accountlinking.sql",
+   "sha256": "93e5e2ee1a625d0d81a62255c7a407eccd09e918cdf555c9ea521e0c80447cec",
+   "size": 618,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "updates",
+   "path": "data/sql/playerbots/updates/2025_05_09_00.sql",
+   "sha256": "7dd127d43cf24b0fe165ef77f224afb0684d476ea3be29c8642b32a812d6a315",
+   "size": 646,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "updates",
+   "path": "data/sql/playerbots/updates/2025_07_01_00_account_type.sql",
+   "sha256": "53ad180977fc9f6deb897d9e88e72028ae766299b8b1932743417fd422e00d1b",
+   "size": 523,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "updates",
+   "path": "data/sql/playerbots/updates/2025_09_16_00.sql",
+   "sha256": "58b70af243db98066084d5ab2d8e630505bd766ea209c5e86bfb88a8d4d65cc2",
+   "size": 103507,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "updates",
+   "path": "data/sql/playerbots/updates/2025_09_17_00_paladin_buff_reagent_texts.sql",
+   "sha256": "db188a620046fef5caa0074500f8e585ce491c32986344c35e2aba5015df0dde",
+   "size": 1886,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "updates",
+   "path": "data/sql/playerbots/updates/2025_09_18_00_ai_playerbot_french_texts.sql",
+   "sha256": "3e57e5bd53f2ad3fe79bc71149e10ab53cea8d6150c94ce2858bc2374d430cb3",
+   "size": 88380,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "updates",
+   "path": "data/sql/playerbots/updates/2025_09_28_00_netherspite_beam_blocker_texts.sql",
+   "sha256": "febc0984fdfa03184df43e5411f949052efba5c7d7c8f76d1d04c8c0e2cbcf11",
+   "size": 1544,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "updates",
+   "path": "data/sql/playerbots/updates/2025_10_09_00_ai_playerbot_texts_fix.sql",
+   "sha256": "e0ba712f2557711bc365333f3385fde0e783b34f436b5e9e1dd94914a32680c9",
+   "size": 867751,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "updates",
+   "path": "data/sql/playerbots/updates/2025_10_27_00_ai_playerbot_german_texts.sql",
+   "sha256": "c16983dc65f5ed60abf666313480961f51f714d2321faf184a0561922c0c5d59",
+   "size": 169139,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "updates",
+   "path": "data/sql/playerbots/updates/2025_11_25_00_ai_playerbot_pet_action_texts.sql",
+   "sha256": "54d6140ec7b6f0343492c30fd845d1db4340474d734b4823202f158f0e210e01",
+   "size": 10144,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "updates",
+   "path": "data/sql/playerbots/updates/2025_12_27_ai_playerbot_fishing_text.sql",
+   "sha256": "16035604e02045df8f938281da3af8a20f8b989b5d9c947b52e758de409bfdc6",
+   "size": 735,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "updates",
+   "path": "data/sql/playerbots/updates/2026_01_31_00_ai_playerbot_multi_pvp_text_variables.sql",
+   "sha256": "7a7bd9896663270482b3452dc0e9b9bb8ee8e2d6b59a84efd31f37ebac7fd35b",
+   "size": 3986,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "updates",
+   "path": "data/sql/playerbots/updates/2026_02_13_00_ai_playerbot_texts.sql",
+   "sha256": "cdfbbdad15b5ac920dd1b2a77435a4a246046348371a1376ce01b11b2bbccb62",
+   "size": 123,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "updates",
+   "path": "data/sql/playerbots/updates/2026_03_14_00_ai_playerbot_wait_for_attack_texts.sql",
+   "sha256": "8140a4106a547734bbdc1543368e208b8dcb0a45be69f75ba4d5185e7127dfe9",
+   "size": 4373,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "updates",
+   "path": "data/sql/playerbots/updates/2026_03_26_ai_playerbot_logout_texts.sql",
+   "sha256": "b63388a89e0b4db5111931ec42b38c4835ea4b9bacb82c7f31f9276a95036375",
+   "size": 1916,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "updates",
+   "path": "data/sql/playerbots/updates/2026_03_28_00_ai_playerbot_focus_heal_texts.sql",
+   "sha256": "26da7354fb0e8894a9fb6fd3954331a9d78790412f203d110234e4e7184ea01a",
+   "size": 10451,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "updates",
+   "path": "data/sql/playerbots/updates/2026_04_12_00_ai_playerbot_pull_texts.sql",
+   "sha256": "1e54e85b0628b6b643635aba58aa7ad095b39995aef65ec8b821292422d4ff09",
+   "size": 3759,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "updates",
+   "path": "data/sql/playerbots/updates/2026_04_28_00_playerbots_bis_gear.sql",
+   "sha256": "54730140f6f566503507539110c2d8789ca2e453fe9f31d75af5c6d531fe7c8e",
+   "size": 731339,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "updates",
+   "path": "data/sql/playerbots/updates/2026_04_28_01_ai_playerbot_bis_texts.sql",
+   "sha256": "fe245ec17fb8ddc43702bbd08c0d70045219976474abef54d03548e206048f8a",
+   "size": 9922,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "updates",
+   "path": "data/sql/playerbots/updates/2026_05_08_00_ai_playerbot_rpg_status_texts.sql",
+   "sha256": "f53bf552506dd575b79d4dbd4a678cbefa84fb48fac37404772e67918035fca7",
+   "size": 8466,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "updates",
+   "path": "data/sql/playerbots/updates/2026_05_19_00_ai_playerbot_audit_texts.sql",
+   "sha256": "603b0770ed17d31cf8a790af63384f5eb48cc9566dfc309a2cd7cf744759f07e",
+   "size": 62563,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "updates",
+   "path": "data/sql/playerbots/updates/2026_05_22_00_ai_playerbot_send_mail_disabled_text.sql",
+   "sha256": "9ae57be367d48173a159801eb40d39fc034e940ae0d7aac63686613401ed5910",
+   "size": 734,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "updates",
+   "path": "data/sql/playerbots/updates/2026_06_13_00_ai_playerbot_missing_group_buff_reagent.sql",
+   "sha256": "0a35ab02d755f2d7e5d91ca7ee19fbb9324f7848602958f6b88d55adef6dc4fa",
+   "size": 918,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "updates",
+   "path": "data/sql/playerbots/updates/2026_06_19_00_ai_playerbot_cache_cleanup.sql",
+   "sha256": "cfb5ed9ca71da7bbcdb2b48e13f4c6705fd50523fa799bfbec5b5099a555c5a1",
+   "size": 249,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "updates",
+   "path": "data/sql/playerbots/updates/2026_07_05_00_ai_playerbot_korean_texts.sql",
+   "sha256": "c252bbceef11f074171c6dc37e3e64144a97e50c2d21c9f0a8483230a3c539f3",
+   "size": 205026,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "updates",
+   "path": "data/sql/playerbots/updates/2026_07_26_00_ai_playerbot_autogear_texts.sql",
+   "sha256": "ce5848824824d8ed3afbd5b018a554505835e6e271b2c40eb3b49d35fe71035f",
+   "size": 12592,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "updates",
+   "path": "data/sql/playerbots/updates/2026_11_08_00_coa_economy_market.sql",
+   "sha256": "eb871ad7089bd0e03d9fec62c20d33c0eb162868006f508be3ae31bb0f2ebfb1",
+   "size": 608,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "updates",
+   "path": "data/sql/playerbots/updates/2026_11_08_01_coa_world_server_first.sql",
+   "sha256": "55fd71ad182253806e34ed0e4091b270e43e0e7f6706e7b2c514fec24a4aea81",
+   "size": 723,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "updates",
+   "path": "data/sql/playerbots/updates/2026_11_09_01_coa_world_guild_log.sql",
+   "sha256": "db90977789a5f02725d9046a773793ee52b789b4bf8a74ecf42dfc2ab328feac",
+   "size": 800,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "updates",
+   "path": "data/sql/playerbots/updates/2026_11_09_10_coa_economy_clock.sql",
+   "sha256": "c3516515517a2ae44539501d84ec99e3922f5833f4a2d709fd2d0ce36870005d",
+   "size": 387,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "updates",
+   "path": "data/sql/playerbots/updates/2026_11_09_11_coa_economy_orders.sql",
+   "sha256": "485dadedd18c3a3b15ac1a92c948356994b67f0989f7f83ef7d450accaffa905",
+   "size": 863,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "updates",
+   "path": "data/sql/playerbots/updates/2026_11_15_01_coa_world_guild_log_bot.sql",
+   "sha256": "ed2bb83a6e0b5a3959b176adf5d67ddeda4b27e3017c980e259dad729e3c1982",
+   "size": 291,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "world",
+   "stage": "base",
+   "path": "data/sql/world/base/charsections_dbc.sql",
+   "sha256": "54caffcb60e1a9db751b62822fb6de9be9e953ee179ce4e3143598983fcae5df",
+   "size": 550,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "world",
+   "stage": "base",
+   "path": "data/sql/world/base/emotetextsound_dbc.sql",
+   "sha256": "bdc736aa06d88f9cfbc7a122483ae9bac48b09cfdffa5d2d1aec3972bd6a49d2",
+   "size": 359,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "world",
+   "stage": "base",
+   "path": "data/sql/world/base/playerbots_rpg_races.sql",
+   "sha256": "e140ed72c8f0734ccec472e218fe9f3ec979275be83ae0d9aa0512461ca91d80",
+   "size": 23201,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "world",
+   "stage": "updates",
+   "path": "data/sql/world/updates/2025_08_27_03.sql",
+   "sha256": "04e46a7118be1aca683ce55791d5a1d8dbc59894b5bb8d18e67690d15bc53e29",
+   "size": 5377,
+   "large": false,
+   "immutable": true
+  }
+ ],
+ "new_keys": [
+  "AiPlayerbot.BotRace.<id>",
+  "AiPlayerbot.StartupCheckOnly"
+ ],
+ "changed_defaults": [],
+ "optional_core_headers": [
+  "AscensionCompanionLoot.h",
+  "AscensionIncarnation.h"
+ ],
+ "tested_with": {}
+}
