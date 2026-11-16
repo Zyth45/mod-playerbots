@@ -22,6 +22,35 @@ int main()
     assert(OrderedItem("|cffffffff|Hitem:1:0|h[Make Anyone Need]|h|r") == 0);
     assert(OrderedItem("need |Hitem:0:0|h[x]|h|r") == 0);
 
+    // French, with and without accents, the count before or after the link (Silver Bar = Barre d'argent).
+    std::string const barre = "|cffffffff|Hitem:2842:0:0:0:0:0:0:0:20|h[Barre d'argent]|h|r";
+    assert(OrderedItem("besoin de 20 " + barre) == 2842);
+    assert(OrderedQty("besoin de 20 " + barre) == 20);
+    assert(OrderedItem("j'ai besoin de " + barre + " x5 svp") == 2842);
+    assert(OrderedQty("j'ai besoin de " + barre + " x5 svp") == 5);
+    assert(OrderedItem("je cherche " + barre) == 2842);
+    assert(OrderedItem("Je recherche 10 " + barre) == 2842);
+    assert(OrderedItem("qui peut faire " + barre + " ?") == 2842);
+    assert(OrderedItem("qui peut fabriquer " + barre) == 2842);
+    assert(OrderedItem("quelqu'un a " + barre + " ?") == 2842);
+    assert(OrderedItem("Quelqu\xE2\x80\x99un aurait " + barre + " ?") == 2842);  // typographic apostrophe
+    assert(OrderedItem("il me faut 5 " + barre) == 2842);
+    assert(OrderedQty("il me faut 5 " + barre) == 5);
+    assert(OrderedItem("qqn peut me crafter " + barre) == 2842);
+    assert(OrderedItem("qui aurait " + barre + " ?") == 2842);
+    // A plain French line with a link: nothing.
+    assert(OrderedItem("regarde " + barre) == 0);
+    assert(OrderedItem("j'ai eu " + barre) == 0);
+    assert(OrderedItem("j'ai fabriqu\xC3\xA9 " + barre + " !") == 0);
+    assert(OrderedItem("trop bien " + barre + " enfin") == 0);
+    assert(OrderedItem("je vends " + barre) == 0);
+    assert(OrderedItem("c'est qui a eu " + barre + " ?") == 0);
+    assert(OrderedItem("quelqu'un m'a donn\xC3\xA9 " + barre) == 0);
+    // French without a link: nothing.
+    assert(OrderedItem("besoin d'aide pour la qu\xC3\xAAte") == 0);
+    // Accents: "fabriquér" reads as "fabriquer", "QUI PEUT" as "qui peut".
+    assert(OrderedItem("qui pourrait FABRIQU\xC3\x89R " + barre) == 2842);
+
     // Materials at vendor price, else four times the vendor's buying price.
     assert(ReagentPrice(100, 25) == 100);
     assert(ReagentPrice(0, 25) == 100);
