@@ -14,7 +14,7 @@
 #include <string>
 #include <vector>
 
-// How random bots use each race (CoA Bots 3.1.5). A server that adds races describes them in its playerbots.conf, one
+// How random bots use each race (CoA Bots 3.1.4). A server that adds races describes them in its playerbots.conf, one
 // line per race, without touching the module's code:
 //   AiPlayerbot.BotRace.85 = "bots=1 gender=female side=horde look=simple names=orc classes=1,2,5"
 // Every field is optional; a field left out keeps the module's own rule, so a server without these lines behaves

@@ -1593,7 +1593,7 @@ AiPlayerbot.AltLootMasterDistance = 30
 # Default: "32,72,77,97"
 AiPlayerbot.CrashingBotRaces = "32,72,77,97"
 
-# How random bots use a race, one line per race id, for a server that adds races (CoA Bots 3.1.5). Without a line,
+# How random bots use a race, one line per race id, for a server that adds races (CoA Bots 3.1.4). Without a line,
 # a race keeps the module's own rules. Fields, all optional, separated by spaces:
 #   bots=1|0        1: random bots use the race even without CoACustomRaces.BotsEnable; 0: never. ExcludedBotRaces and
 #                   CrashingBotRaces above always win.
