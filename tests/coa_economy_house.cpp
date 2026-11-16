@@ -27,6 +27,9 @@ int main()
     assert(BuyerCandidate(0, 10, 7) == 7);
     assert(BuyerCandidate(5, 2, 3) == 1);
     assert(BuyerCandidate(0, 0, 3) == 0);
+    // 3.1.4 BuyFromBots: off (default), a random bot's material is never bought; a player's is; on, both.
+    assert(MaterialBuyerSkips(false, true) && !MaterialBuyerSkips(false, false));
+    assert(!MaterialBuyerSkips(true, true) && !MaterialBuyerSkips(true, false));
     // 3.1.4 player matches the house: a player's Bronze Bar at 2176 under the house's 2177 sells at its price; a bot's,
     // or with the key off, or with no house auction, the usual cap.
     assert(PlayerMatchPay(true, true, 2177, 1500) == 2177);

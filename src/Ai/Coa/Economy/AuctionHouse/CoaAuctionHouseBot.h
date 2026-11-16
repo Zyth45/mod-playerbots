@@ -384,7 +384,8 @@ private:
     uint32 MaterialBuyerPricePercent = 90;
     uint32 MaterialBuyerPerAccountPerDay = 10;
     uint32 MaterialBuyerGoldPerAccountPerDay = 50;
-    bool MaterialBuyerPlayerMatchesHouse = true;  // a player's stack at or under the house's cheapest ask sells
+    bool MaterialBuyerPlayerMatchesHouse = true;
+    bool MaterialBuyerBuyFromBots = false;  // 3.1.4: a random bot's material auction is not the house's to buy  // a player's stack at or under the house's cheapest ask sells
     // (account << 32 | item) -> when that account last bought that item from the house (BoughtFromHouseRecently)
     std::unordered_map<uint64, uint32> BoughtFromHouse;
     // account -> (day, auctions bought, copper paid)
