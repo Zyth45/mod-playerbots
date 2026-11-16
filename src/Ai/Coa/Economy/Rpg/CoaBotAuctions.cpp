@@ -248,7 +248,7 @@ namespace
             packet << auctioneer << uint32(1) << item->GetGUID() << uint32(item->GetCount())
                    << uint32(bid) << uint32(buyout) << uint32(settings.durationMinutes);
             if (surplusItems.count(item))
-                LOG_INFO("playerbots", "CoaEconomy: {} listed surplus {} x{} for {} copper", bot->GetName(),
+                LOG_INFO("playerbots.coa", "CoaEconomy: {} listed surplus {} x{} for {} copper", bot->GetName(),
                          item->GetEntry(), item->GetCount(), buyout);
             bot->GetSession()->HandleAuctionSellItem(packet);
         }

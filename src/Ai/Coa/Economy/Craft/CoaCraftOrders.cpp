@@ -186,7 +186,7 @@ namespace
               CoaLive::SayLine(bot, "craft_quote_addon", slots, from->GetGUID(), true)))
             return false;
         pendingQuotes[bot->GetGUID().GetCounter()] = PendingQuote{from->GetGUID(), itemId, price, now + QuoteSeconds};
-        LOG_INFO("playerbots", "CoaEconomy: {} quoted {} item {} for {} copper (whisper)", bot->GetName(),
+        LOG_INFO("playerbots.coa", "CoaEconomy: {} quoted {} item {} for {} copper (whisper)", bot->GetName(),
                  from->GetName(), itemId, price);
         return true;
     }

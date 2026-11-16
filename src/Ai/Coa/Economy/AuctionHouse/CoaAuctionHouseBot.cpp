@@ -1581,7 +1581,7 @@ void AuctionHouseBot::LoadVendorBuyPrices()
             ++floorSold;
             floorUnlimited += found->second.unlimited ? 1 : 0;
         }
-    LOG_INFO("playerbots", "CoaEconomy: vendor guard loaded {} items sold by NPC vendors ({} of the {} floor materials, "
+    LOG_INFO("server.loading", "CoaEconomy: vendor guard loaded {} items sold by NPC vendors ({} of the {} floor materials, "
              "{} of them in unlimited stock)", vendorBuyPrices.size(), floorSold,
              CoaEconomyRules::MaterialFloorItems().size(), floorUnlimited);
 }
@@ -1688,7 +1688,7 @@ uint32 AuctionHouseBot::ListMaterialFloor(std::vector<Player*> const& AHBPlayers
     }
     CharacterDatabase.CommitTransaction(trans);
     if (debug_Out && listed)
-        LOG_INFO("module", "AHSeller: material floor, {} stacks listed in house {}", listed, config->GetAHID());
+        LOG_INFO("playerbots.coa", "AHSeller: material floor, {} stacks listed in house {}", listed, config->GetAHID());
     return listed;
 }
 
@@ -2253,7 +2253,7 @@ void AuctionHouseBot::AddNewAuctionBuyerBotBid(std::vector<Player*> AHBPlayers, 
                 if (refusedLogged[auction->Id] != buyDay)
                 {
                     refusedLogged[auction->Id] = buyDay;
-                    LOG_INFO("playerbots", "CoaEconomy: house refused material {} x{} from account {} for {} copper: "
+                    LOG_INFO("playerbots.coa", "CoaEconomy: house refused material {} x{} from account {} for {} copper: "
                              "daily cap ({} auctions, {} copper bought today)", prototype->ItemId, auction->itemCount,
                              sellerAccount, auction->buyout, std::get<1>(sold), std::get<2>(sold));
                 }
@@ -2457,7 +2457,7 @@ void AuctionHouseBot::AddNewAuctionBuyerBotBid(std::vector<Player*> AHBPlayers, 
                 auto& sold = MaterialBuyerSoldToday[sellerAccount];
                 ++std::get<1>(sold);
                 std::get<2>(sold) += price;
-                LOG_INFO("playerbots", "CoaEconomy: house bought material {} x{} from seller {} (account {}) for {} copper (house {})",
+                LOG_INFO("playerbots.coa", "CoaEconomy: house bought material {} x{} from seller {} (account {}) for {} copper (house {})",
                          prototype->ItemId, auction->itemCount, auction->owner.GetCounter(), sellerAccount, price,
                          config->GetAHID());
             }
