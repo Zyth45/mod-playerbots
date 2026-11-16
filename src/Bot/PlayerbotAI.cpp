@@ -5,6 +5,7 @@
  */
 
 #include "PlayerbotAI.h"
+#include "CoaBotRaces.h"
 #include "CoaKeySpells.h"
 
 #include "CoaLive.h"
@@ -5347,8 +5348,9 @@ bool IsAlliance(uint8 race)
     if (race <= RACE_DRAENEI)
         return false;
 
+    // The server's AiPlayerbot.BotRace.<id> line may set the side of an added race (side=alliance or side=horde).
     ChrRacesEntry const* entry = sChrRacesStore.LookupEntry(race);
-    return entry && entry->TeamID == 7;
+    return CoaBotRace::IsAllianceWith(CoaBotRaces::Get(race), race, entry && entry->TeamID == 7);
 }
 
 Player* PlayerbotAI::FindNewMaster()

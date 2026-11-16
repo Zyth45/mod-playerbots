@@ -19,7 +19,11 @@ if (MSVC AND TARGET modules AND NOT TARGET modules-playerbots)
     endif()
   endforeach()
 
-  if (_coa_pb_sources)
+  # A core that already spreads the module's .cpp files over libraries of its own (modules-part-N) leaves only
+  # headers here: no library is made then, an add_library without any source would stop the configure.
+  set(_coa_pb_cpp ${_coa_pb_sources})
+  list(FILTER _coa_pb_cpp INCLUDE REGEX "[.](cpp|cc|cxx)$")
+  if (_coa_pb_cpp)
     set_property(TARGET modules PROPERTY SOURCES ${_coa_pb_others})
     get_target_property(_coa_pb_includes modules INCLUDE_DIRECTORIES)
     get_target_property(_coa_pb_links modules LINK_LIBRARIES)

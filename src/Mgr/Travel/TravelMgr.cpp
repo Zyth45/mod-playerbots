@@ -4887,7 +4887,8 @@ void TravelMgr::PrepareDestinationCache()
 
             for (int32 l = 1; l <= 5; l++)
             {
-                if ((1 << (i - 1)) & sRaceMgr->GetAllianceRaceMask())
+                // IsAlliance, not the race mask: the shift is undefined past race 32 and the mask knows no added race.
+                if (IsAlliance(uint8(i)))
                     allianceHubsPerLevelCache[(uint8)l].push_back(pos);
                 else
                     hordeHubsPerLevelCache[(uint8)l].push_back(pos);

@@ -7,6 +7,7 @@
 #include "PlayerbotAIConfig.h"
 #include "BisListMgr.h"
 #include "CoaBotNames.h"
+#include "CoaBotRaces.h"
 #include "CoaLive.h"
 #include "CoaSpecialization.h"
 #include "Config.h"
@@ -867,6 +868,8 @@ bool PlayerbotAIConfig::Initialize()
         sConfigMgr->GetOption<std::string>("AiPlayerbot.CrashingBotRaces", "32,72,77,97", false),
         excludedBotRaces);
     customRacesForBots = sConfigMgr->GetOption<bool>("CoACustomRaces.BotsEnable", false, false);
+    // How bots use each race, written by the server for the races it adds (AiPlayerbot.BotRace.<id>, CoaBotRaces.h).
+    CoaBotRaces::Load();
     coaSpecRotations = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaSpecRotations", true);
     coaHealerManaReserve = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaHealerManaReserve", 35);
     coaCasterManaReserve = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaCasterManaReserve", 15);
@@ -1042,23 +1045,35 @@ bool PlayerbotAIConfig::Initialize()
     LoadCoaEconomyConfig();
     LoadCoaCombatConfig();
 
-    RandomPlayerbotFactory::CreateRandomBots();
-    if (World::IsStopped())
+    // Startup check (AiPlayerbot.StartupCheckOnly, or CoA.ValidationMode set by a server's qualification tool): the
+    // module loads its data and its contexts, but creates, deletes, renames and logs in no bot, and the world updates
+    // below do nothing. For a server that qualifies a build before opening it.
+    if (coaStartupCheckOnly)
     {
-        return true;
+        randomBotAutologin = false;
+        botAutologin = false;
+        LOG_INFO("server.loading", "Playerbots: startup check only, no bot is created or logged in.");
     }
-    ApplyCoaBotSurnames();
-
-    // Assign account types after accounts are created
-    sRandomPlayerbotMgr.AssignAccountTypes();
-
-    if (sPlayerbotAIConfig.enabled)
+    else
     {
-        sRandomPlayerbotMgr.Init();
-    }
+        RandomPlayerbotFactory::CreateRandomBots();
+        if (World::IsStopped())
+        {
+            return true;
+        }
+        ApplyCoaBotSurnames();
 
-    PlayerbotGuildMgr::instance().Init();
-    sRandomPlayerbotMgr.InitArenaTeams();
+        // Assign account types after accounts are created
+        sRandomPlayerbotMgr.AssignAccountTypes();
+
+        if (sPlayerbotAIConfig.enabled)
+        {
+            sRandomPlayerbotMgr.Init();
+        }
+
+        PlayerbotGuildMgr::instance().Init();
+        sRandomPlayerbotMgr.InitArenaTeams();
+    }
     sRandomItemMgr.Init();
     sRandomItemMgr.InitAfterAhBot();
     sBisListMgr->LoadAll();

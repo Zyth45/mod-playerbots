@@ -6,7 +6,7 @@
 
 #include "PlayerbotMgr.h"
 #include "CoaSpecialization.h"
-#include "CoaBotRacePolicy.h"
+#include "CoaBotRaces.h"
 #include "CoaBotControlRules.h"
 #include "BroadcastHelper.h"
 #include "ChannelMgr.h"
@@ -141,8 +141,7 @@ void PlayerbotHolder::AddPlayerBot(ObjectGuid playerGuid, uint32 masterAccountId
     if (!masterAccountId)
     {
         CharacterCacheEntry const* character = sCharacterCache->GetCharacterCacheByGuid(playerGuid);
-        if (!character || !IsCoaBotRaceAllowed(character->Race, sPlayerbotAIConfig.customRacesForBots,
-                                             sPlayerbotAIConfig.excludedBotRaces))
+        if (!character || !CoaBotRaces::Allowed(character->Race))
             return;
     }
 
@@ -260,8 +259,7 @@ void PlayerbotHolder::HandlePlayerBotLoginCallback(PlayerbotLoginQueryHolder con
     if (!holder.GetMasterAccountId())
     {
         CharacterCacheEntry const* character = sCharacterCache->GetCharacterCacheByGuid(holder.GetGuid());
-        if (!character || !IsCoaBotRaceAllowed(character->Race, sPlayerbotAIConfig.customRacesForBots,
-                                             sPlayerbotAIConfig.excludedBotRaces))
+        if (!character || !CoaBotRaces::Allowed(character->Race))
         {
             PlayerbotHolder::botLoading.erase(holder.GetGuid());
             return;
