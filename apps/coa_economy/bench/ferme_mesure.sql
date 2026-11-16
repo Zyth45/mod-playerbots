@@ -22,5 +22,5 @@ SELECT 'professions' AS what, COUNT(DISTINCT c.guid) AS bots,
 FROM characters c JOIN acore_auth.account u ON u.id = c.account LEFT JOIN character_skills s ON s.guid = c.guid
 WHERE u.username LIKE 'RNDBOT%';
 -- 4. Random bots' gold (copper), all and online.
-SELECT 'bot_gold' AS what, COUNT(*) AS bots, SUM(money) AS copper, SUM(online) AS online
+SELECT 'bot_gold' AS what, COUNT(*) AS bots, SUM(c.money) AS copper, SUM(c.online) AS online
 FROM characters c JOIN acore_auth.account u ON u.id = c.account WHERE u.username LIKE 'RNDBOT%';
