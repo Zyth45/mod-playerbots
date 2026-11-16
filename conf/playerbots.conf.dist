@@ -5440,6 +5440,17 @@ AiPlayerbot.CoaEconomy.AHBot.Enable = 1
 #    EmptyOldAuctions  1 = do it at the next start if not done yet, 0 = never (default). Read at start-up.
 AiPlayerbot.CoaEconomy.AHBot.EmptyOldAuctions = 0
 
+# Auction house bot, floor of common crafting materials: the house seller keeps about ninety common materials of
+# levels 1 to 60 on offer in the Alliance and Horde houses (cloth, ore, bars, stone, herbs, leather, hides, elemental
+# and enchanting materials). For each one with fewer than Stacks auctions (players' and bots' counted), it lists full
+# stacks at the market price, never under the lowest price per item another seller asks; nothing when the offer is
+# already there. Inside its quota (AuctionHouseBot.*.MaxItems); a new realm's launch curve holds back what nobody can
+# reach yet. Read again by ".reload config" and ".ahbot reload".
+#    Enable  1 = on (default), 0 = off.
+#    Stacks  Auctions of each material the house makes sure of, 1 to 5 (default 2).
+AiPlayerbot.CoaEconomy.AHBot.MaterialFloor.Enable = 1
+AiPlayerbot.CoaEconomy.AHBot.MaterialFloor.Stacks = 2
+
 # Auction house bot, CoA sellable filter: the bot only lists goods a CoA player could really sell.
 # Read again by ".ahbot reload". Each rule below only counts when Filter.Enable = 1.
 #    Enable            1 = on (default), 0 = off.
@@ -5682,6 +5693,31 @@ AiPlayerbot.CoaEconomy.Materials.PerVisit = 5
 AiPlayerbot.CoaEconomy.Artisans.Stock.Enable = 1
 AiPlayerbot.CoaEconomy.Artisans.Stock.MaxStacks = 2
 AiPlayerbot.CoaEconomy.Artisans.Stock.BuyBelowPercent = 90
+
+# Guild stock: bots keep a little of what they gather and make, for a guildmate's order (a player who asks their guild
+# for 20 bars may get 5 from a member's stock, free, and the rest crafted or bought). Gatherers keep Kinds kinds of
+# their level band (one cloth for everyone, then ore and bars for a miner, herbs for a herbalist, leather for a
+# skinner), artisans one stack of each intermediate they make from their own materials (bars, bolts of cloth, cured
+# leather). Up to Stacks stacks of each, bags and bank together; full stacks beyond the first go to the bank at an
+# auction house visit. An artisan's stock purchases at the auction house stay within the guild's daily share: only an
+# item with at least Buy.MinListings auctions, never more than Buy.MaxSharePercent of them for one guild, and at
+# most Buy.PerDay purchases a day for the whole guild, so players always find materials. Needs BotAuctions.
+#    Enable               1 = on (default), 0 = off. Read at start-up (restart to change it).
+#    Kinds                Kinds of gathered materials kept by a gatherer, 1 to 6 (default 3).
+#    Stacks               Stacks kept of each, bags and bank, 1 to 5 (default 2).
+#    Bank                 1 = full stacks beyond the first go to the bank (default), 0 = bags only.
+#    CraftsPerVisit       Intermediates made per auction house visit, 0 to 10 (default 2).
+#    Buy.MinListings      Auctions of an item needed before a bot buys it for its stock (default 8).
+#    Buy.MaxSharePercent  Most of an item's auctions one guild buys in a day, in percent (default 25).
+#    Buy.PerDay           Stock purchases a day for a whole guild (default 10).
+AiPlayerbot.CoaEconomy.GuildStock.Enable = 1
+AiPlayerbot.CoaEconomy.GuildStock.Kinds = 3
+AiPlayerbot.CoaEconomy.GuildStock.Stacks = 2
+AiPlayerbot.CoaEconomy.GuildStock.Bank = 1
+AiPlayerbot.CoaEconomy.GuildStock.CraftsPerVisit = 2
+AiPlayerbot.CoaEconomy.GuildStock.Buy.MinListings = 8
+AiPlayerbot.CoaEconomy.GuildStock.Buy.MaxSharePercent = 25
+AiPlayerbot.CoaEconomy.GuildStock.Buy.PerDay = 10
 
 # Artisans' rare recipes: bots learn only what profession trainers teach, so no artisan ever made the recipes players
 # find (Lionheart Helm, Flarecore Robe...). With this on, an artisan also knows a few of the recipes of its professions

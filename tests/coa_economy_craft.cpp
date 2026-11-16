@@ -86,6 +86,19 @@ int main()
     assert(KeepsInStock(1, 0, 1));
     assert(StockBargain(90, 100, 90) && !StockBargain(91, 100, 90) && !StockBargain(1, 0, 90));
 
+    // Guild stock: what a gatherer keeps, its kinds, the intermediates, the guild's share of the house.
+    assert(GathererKeeps(7, 5, false, false, false) && !GathererKeeps(7, 7, false, true, true));
+    assert(GathererKeeps(7, 7, true, false, false) && GathererKeeps(7, 9, false, true, false));
+    assert(GathererKeeps(7, 6, false, false, true) && !GathererKeeps(7, 12, true, true, true) && !GathererKeeps(4, 5, true, true, true));
+    assert((PickStockKinds({ { 2770, 10 }, { 2771, 20 }, { 2772, 30 }, { 3858, 40 } }, 24, 2) == std::vector<std::uint32_t>{ 2771, 2772 }));
+    assert((PickStockKinds({ { 7, 25 }, { 3, 15 } }, 20, 3) == std::vector<std::uint32_t>{ 3, 7 }));
+    assert(PickStockKinds({ { 1, 1 } }, 20, 0).empty());
+    assert(IsIntermediate(197, 7, 5) && IsIntermediate(165, 7, 6) && IsIntermediate(186, 7, 7));
+    assert(!IsIntermediate(197, 4, 5) && !IsIntermediate(164, 7, 7) && !IsIntermediate(197, 7, 6));
+    assert(GuildMayBuy(8, 0, 0, 8, 25, 10) && GuildMayBuy(7, 1, 1, 6, 25, 10) && !GuildMayBuy(6, 2, 2, 6, 25, 10));
+    assert(!GuildMayBuy(7, 0, 0, 8, 25, 10) && !GuildMayBuy(20, 0, 10, 8, 25, 10) && !GuildMayBuy(20, 0, 0, 8, 25, 0));
+    assert(!GuildMayBuy(3, 0, 0, 1, 25, 10) && GuildMayBuy(4, 0, 0, 1, 25, 10));
+
     // Auctions on game time: a night off moves every end by the night; a restart or an unknown past moves nothing.
     assert(AuctionPause(1000, 1000 + 8 * 3600, 300, 30 * 86400) == 8 * 3600);
     assert(AuctionPause(1000, 1200, 300, 30 * 86400) == 0);
@@ -167,6 +180,21 @@ int main()
     // An artisan's quote: whispered to "can you make X?" (the deal waits on it), never on the addon's request (its card
     // shows the price; a whisper per item clicked came late, for an item never ordered).
     assert(QuoteWhispered(false) && !QuoteWhispered(true));
+
+    // A whisper naming an item the artisan makes asks for its quote: a price, trade or craft word, or the link alone.
+    {
+        std::string const cloak = "|cff1eff00|hitem:14134:0:0:0:0:0:0:0:40|h[cloak of fire]|h|r";
+        assert(StripItemLinks("how much for " + cloak + "?") == "how much for ?");
+        assert(StripItemLinks("|hitem:2589:0|h[linen cloth]|h") == "");
+        for (std::string const& ask : { "how much for " + cloak, "price for " + cloak, cloak, cloak + "?",
+                                        "wts? " + cloak, "can you craft " + cloak, "do you have " + cloak,
+                                        cloak + " pst", "combien pour " + cloak, "prix " + cloak + " ?",
+                                        "tu le vends " + cloak, std::string("\xc3\xa7" "a co\xc3\xbbte ") + cloak })
+            assert(AsksCraftQuote(ask));
+        for (std::string const& other : { "look at my " + cloak, "where did you get " + cloak, "lol " + cloak,
+                                          "nice " + cloak + " grats", std::string("hi") })
+            assert(!AsksCraftQuote(other));
+    }
     // Never cooking (185) nor first aid (129): "[X Bot] has earned the achievement [Lunch Lady]!" in bursts.
     assert(!RareRecipeProfession(185) && !RareRecipeProfession(129) && !RareRecipeProfession(0));
     assert(RareRecipeProfession(164) && RareRecipeProfession(333) && RareRecipeProfession(171) &&

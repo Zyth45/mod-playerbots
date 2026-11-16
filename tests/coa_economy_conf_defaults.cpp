@@ -55,6 +55,16 @@ int main()
     assert(table.at("AiPlayerbot.CoaEconomy.Chatter.TradeWindow.Enable") == "1");
     assert(table.at("AiPlayerbot.CoaEconomy.Chatter.TradeWindow.MinutesPerPlayer") == "5");
     assert(table.at("AiPlayerbot.CoaEconomy.PriceScalePercent") == "60");
+    assert(table.at("AiPlayerbot.CoaEconomy.AHBot.MaterialFloor.Enable") == "1");
+    assert(table.at("AiPlayerbot.CoaEconomy.AHBot.MaterialFloor.Stacks") == "2");
+    assert(table.at("AiPlayerbot.CoaEconomy.GuildStock.Enable") == "1");
+    assert(table.at("AiPlayerbot.CoaEconomy.GuildStock.Kinds") == "3");
+    assert(table.at("AiPlayerbot.CoaEconomy.GuildStock.Stacks") == "2");
+    assert(table.at("AiPlayerbot.CoaEconomy.GuildStock.Bank") == "1");
+    assert(table.at("AiPlayerbot.CoaEconomy.GuildStock.CraftsPerVisit") == "2");
+    assert(table.at("AiPlayerbot.CoaEconomy.GuildStock.Buy.MinListings") == "8");
+    assert(table.at("AiPlayerbot.CoaEconomy.GuildStock.Buy.MaxSharePercent") == "25");
+    assert(table.at("AiPlayerbot.CoaEconomy.GuildStock.Buy.PerDay") == "10");
     assert(table.at("AiPlayerbot.CoaEconomy.LaunchCurve.LaunchPremiumPercent") == "0");
     assert(table.at("AiPlayerbot.CoaEconomy.LaunchCurve.Enable") == "1");
     assert(table.at("AiPlayerbot.CoaEconomy.BotLevelGold") ==

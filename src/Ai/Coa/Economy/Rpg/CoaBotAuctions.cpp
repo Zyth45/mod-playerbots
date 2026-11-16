@@ -330,6 +330,8 @@ namespace
 
         // Ore smelted or prospected, gear disenchanted, when what comes out is worth more (Materials).
         Materials::Process(bot, botAI);
+        // Guild stock: intermediates from the bot's own materials, and the extra full stacks to its bank.
+        Materials::TendGuildStock(bot);
 
         // An artisan makes a piece worth more than its materials and puts it up with its loot.
         Item* crafted = nullptr;

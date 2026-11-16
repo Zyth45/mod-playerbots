@@ -46,6 +46,27 @@ int main()
         assert(HouseSellerCount(owners, sellers) == 3);
         assert(HouseSellerCount(owners, std::set<std::uint32_t>{}) == 0);
         assert(HouseSellerCount(std::vector<std::uint32_t>{}, sellers) == 0);
+
+        // Material floor: what is missing up to the floor, within the quota room; nothing once offered.
+        assert(FloorStacksToList(0, 2, 100) == 2);
+        assert(FloorStacksToList(1, 2, 100) == 1);
+        assert(FloorStacksToList(2, 2, 100) == 0);
+        assert(FloorStacksToList(7, 2, 100) == 0);
+        assert(FloorStacksToList(0, 2, 1) == 1);
+        assert(FloorStacksToList(0, 2, 0) == 0);
+        // Never under another seller's lowest price per item; the market price when nobody else sells.
+        assert(FloorUnitPrice(400, 0) == 400);
+        assert(FloorUnitPrice(400, 350) == 400);
+        assert(FloorUnitPrice(400, 900) == 900);
+        // The faction houses only.
+        assert(FloorServesHouse(2) && FloorServesHouse(6) && !FloorServesHouse(7) && !FloorServesHouse(1));
+        // The list: Silver Bar and Linen Cloth in it, no duplicate, about ninety materials.
+        {
+            auto const& floor = MaterialFloorItems();
+            std::set<std::uint32_t> const unique(floor.begin(), floor.end());
+            assert(unique.size() == floor.size() && floor.size() >= 80 && floor.size() <= 100);
+            assert(unique.count(2842) && unique.count(2589));
+        }
     }
     // Bots' auctions per item and house: an upgrade kit at most 3 ("2-3 OK, not 50"), anything else at most 10.
     assert(IsUpgradeKit(0, 6) && !IsUpgradeKit(0, 5) && !IsUpgradeKit(7, 6) && !IsUpgradeKit(4, 6));
