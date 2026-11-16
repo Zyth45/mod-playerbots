@@ -5534,8 +5534,9 @@ AiPlayerbot.CoaEconomy.AHBot.MaterialFloor.Stacks = 2
 # house asks itself (Buyer.ArbitrageMarginPercent). A player who farms and lists near the house price sells to the
 # bots. Read again by ".reload config" and ".ahbot reload".
 # Guards: it buys a farmer's stack at its own buyout only (never a bid, never more than asked), nothing beyond the
-# realm's launch curve, and nothing an NPC vendor sells at 75 % of the vendor price or more (no gold from buying at a
-# vendor to sell to the house; this guard holds for every item the house buys). One account, all its characters
+# realm's launch curve, and nothing an NPC vendor sells in unlimited stock at 75 % of the vendor price or more (no
+# gold from buying at a vendor to sell to the house; this guard holds for every item the house buys). A limited vendor
+# stock (a few a day) is paid the normal price, unless buying all of it each day would bring over 10 gold a day. One account, all its characters
 # together, sells it at most PerAccountPerDay auctions and GoldPerAccountPerDay gold of materials a day.
 #    Enable                1 = on (default), 0 = off.
 #    PricePercent          Share of the house's value it pays per item, 10 to 100 (default 90).

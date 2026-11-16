@@ -544,8 +544,9 @@ bool BuyStock(Player* bot, ObjectGuid auctioneer, Creature* npc, uint64 budget)
         uint64 const perItem = auction->buyout / item->GetCount();
         if (!CoaEconomyRules::StockBargain(perItem, Artisans::MarketPrice(proto->ItemId), settings.buyBelowPercent))
             continue;
-        // 3.1.4 guard: nothing an NPC vendor sells, at a price that would pay to buy it there and list it here.
-        if (CoaEconomyRules::VendorSafeCap(perItem, auctionbot->GetVendorBuyPrice(proto->ItemId)) < perItem)
+        // 3.1.4 guard: nothing an NPC vendor sells (unlimited stock, or a limited one worth over 10 gold a day), at a
+        // price that would pay to buy it there and list it here.
+        if (auctionbot->VendorGuardCap(proto->ItemId, perItem) < perItem)
             continue;
         if (!best || perItem < bestPerItem)
         {

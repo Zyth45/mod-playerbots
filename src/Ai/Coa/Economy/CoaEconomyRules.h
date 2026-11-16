@@ -410,6 +410,23 @@ inline std::uint64_t VendorSafeCap(std::uint64_t perItem, std::uint64_t vendorBu
     return vendorBuyPrice ? std::min(perItem, vendorBuyPrice * VendorSafePercent / 100) : perItem;
 }
 
+// 3.1.4 guard, which vendor goods it holds for: an item an NPC vendor sells in unlimited stock (maxcount 0) always;
+// one sold in limited stock only when buying all the vendors' stock of a day (itemsPerDay) and selling it at payPerItem
+// (the house's 5 % cut taken, the best reputation discount given) would bring more than maxCopperPerDay. Farmers are
+// paid the normal price for the rest (a herbalist's Dreamfoil: 2 a day at its vendor).
+constexpr std::uint64_t VendorAbuseCopperPerDay = 10 * 10000;  // 10 gold
+inline bool VendorGuardApplies(bool unlimited, std::uint64_t itemsPerDay, std::uint64_t payPerItem,
+                               std::uint64_t vendorBuyPrice, std::uint64_t maxCopperPerDay = VendorAbuseCopperPerDay)
+{
+    if (!vendorBuyPrice)
+        return false;
+    if (unlimited)
+        return true;
+    std::uint64_t const net = payPerItem * 95 / 100;
+    std::uint64_t const cost = vendorBuyPrice * 80 / 100;
+    return net > cost && itemsPerDay * (net - cost) > maxCopperPerDay;
+}
+
 // 3.1.4: the most the house buyer pays per item for a farmer's material: pricePercent of the house's value, under
 // marginPercent of the lowest price the house asks itself (buying from the house to sell back loses), under the
 // vendor guard. 0 = it does not buy.

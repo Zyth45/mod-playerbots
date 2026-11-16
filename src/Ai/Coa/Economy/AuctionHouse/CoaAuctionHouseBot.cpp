@@ -1560,26 +1560,45 @@ void AuctionHouseBot::LoadVendorBuyPrices()
 {
     vendorBuyPrices.clear();
     QueryResult result = WorldDatabase.Query(
-        "SELECT t.entry, MIN(t.BuyPrice) FROM npc_vendor v JOIN item_template t ON t.entry = v.item "
+        "SELECT t.entry, CAST(MIN(t.BuyPrice) AS UNSIGNED), CAST(MIN(v.maxcount) AS UNSIGNED), "
+        "CAST(SUM(CASE WHEN v.maxcount > 0 THEN v.maxcount * 86400 DIV GREATEST(v.incrtime, 1) ELSE 0 END) AS UNSIGNED) "
+        "FROM npc_vendor v JOIN item_template t ON t.entry = v.item "
         "WHERE v.ExtendedCost = 0 AND t.BuyPrice > 0 GROUP BY t.entry");
-    if (!result)
-        return;
-    do
-    {
-        Field* fields = result->Fetch();
-        vendorBuyPrices[fields[0].Get<uint32>()] = fields[1].Get<uint32>();
-    } while (result->NextRow());
+    if (result)
+        do
+        {
+            Field* fields = result->Fetch();
+            VendorStock& stock = vendorBuyPrices[fields[0].Get<uint32>()];
+            stock.price = uint32(std::min<uint64>(fields[1].Get<uint64>(), UINT32_MAX));
+            stock.unlimited = fields[2].Get<uint64>() == 0;
+            stock.perDay = fields[3].Get<uint64>();
+        } while (result->NextRow());
     uint32 floorSold = 0;
+    uint32 floorUnlimited = 0;
     for (uint32 itemId : CoaEconomyRules::MaterialFloorItems())
-        floorSold += vendorBuyPrices.count(itemId) ? 1 : 0;
-    LOG_INFO("playerbots", "CoaEconomy: vendor guard loaded {} items sold by NPC vendors ({} of the {} floor materials)",
-             vendorBuyPrices.size(), floorSold, CoaEconomyRules::MaterialFloorItems().size());
+        if (auto found = vendorBuyPrices.find(itemId); found != vendorBuyPrices.end())
+        {
+            ++floorSold;
+            floorUnlimited += found->second.unlimited ? 1 : 0;
+        }
+    LOG_INFO("playerbots", "CoaEconomy: vendor guard loaded {} items sold by NPC vendors ({} of the {} floor materials, "
+             "{} of them in unlimited stock)", vendorBuyPrices.size(), floorSold,
+             CoaEconomyRules::MaterialFloorItems().size(), floorUnlimited);
 }
 
 uint64 AuctionHouseBot::GetVendorBuyPrice(uint32 itemId) const
 {
     auto found = vendorBuyPrices.find(itemId);
-    return found == vendorBuyPrices.end() ? 0 : found->second;
+    return found == vendorBuyPrices.end() ? 0 : found->second.price;
+}
+
+uint64 AuctionHouseBot::VendorGuardCap(uint32 itemId, uint64 payPerItem) const
+{
+    auto found = vendorBuyPrices.find(itemId);
+    if (found == vendorBuyPrices.end() ||
+        !CoaEconomyRules::VendorGuardApplies(found->second.unlimited, found->second.perDay, payPerItem, found->second.price))
+        return payPerItem;
+    return CoaEconomyRules::VendorSafeCap(payPerItem, found->second.price);
 }
 
 // The common crafting materials (CoaEconomyRules::MaterialFloorItems) always on offer in the faction houses: a full
@@ -2274,13 +2293,12 @@ void AuctionHouseBot::AddNewAuctionBuyerBotBid(std::vector<Player*> AHBPlayers, 
         // (ArbitrageMarginPercent) and under an NPC vendor's price.
         if (material)
             willingToSpendPerItemPrice = CoaEconomyRules::MaterialBuyerPay(willingToSpendPerItemPrice,
-                MaterialBuyerPricePercent, GetHouseLowestBuyoutPerItem(prototype), HumanBuyer.ArbitrageMarginPercent,
-                GetVendorBuyPrice(prototype->ItemId));
+                MaterialBuyerPricePercent, GetHouseLowestBuyoutPerItem(prototype), HumanBuyer.ArbitrageMarginPercent, 0);
         else
             willingToSpendPerItemPrice = (uint64)((float)willingToSpendPerItemPrice * BuyingBotAcceptablePriceModifier);
-        // 3.1.4 guard, every item: nothing an NPC vendor sells is bought at a price that pays (VendorSafePercent).
-        willingToSpendPerItemPrice = CoaEconomyRules::VendorSafeCap(willingToSpendPerItemPrice,
-                                                                    GetVendorBuyPrice(prototype->ItemId));
+        // 3.1.4 guard, every item: nothing an NPC vendor sells in unlimited stock (or in a limited stock worth over
+        // 10 gold a day) is bought at a price that pays (VendorGuardCap).
+        willingToSpendPerItemPrice = VendorGuardCap(prototype->ItemId, willingToSpendPerItemPrice);
 
         // No arbitrage: the house never pays more than a share of the lowest price it asks itself,
         // so buying from the house to sell back to it can never pay
