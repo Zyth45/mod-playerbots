@@ -3129,11 +3129,15 @@ bool OnWhisper(Player* from, Player* to, std::string const& msg)
             Map* map = to->GetMap();
             ReactOptions escape;
             escape.force = true;
-            if (React(to,
-                      CoaWhisperTalk::EscapeSituation(to->GetLevel(), map && map->Instanceable(), to->IsInCombat(),
-                                                      to->GetGroup() != nullptr, rng.between(0, 1) == 1),
-                      from, scope, escape))
+            char const* const excuse =
+                CoaWhisperTalk::EscapeSituation(to->GetLevel(), map && map->Instanceable(), to->IsInCombat(),
+                                                to->GetGroup() != nullptr, rng.between(0, 1) == 1);
+            if (React(to, excuse, from, scope, escape))
+            {
+                LOG_INFO("playerbots", "CoaLive: {} ends its whisper talk with {} ({}), then stays silent for them",
+                         to->GetName(), from->GetName(), excuse);
                 return true;
+            }
             // No excuse line in the bank (or the chat is off): the talk goes on as before.
             std::lock_guard<std::mutex> guard(liveLock);
             whisperTalks[key] = CoaWhisperTalk::Pair();
