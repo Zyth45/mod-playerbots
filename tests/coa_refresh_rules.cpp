@@ -7,7 +7,8 @@ int main()
     // Default (1): the bags of a geared bot are emptied as before; 0 keeps them.
     assert(CoaRefreshClearsInventory(false, true));
     assert(!CoaRefreshClearsInventory(false, false));
-    // A self-found bot keeps what it looted whatever the option.
+    // A bot that keeps its bags (a self-found bot, or any bot of a realm with AiPlayerbot.CoaSelfFound = 1, at any
+    // level: PlayerbotFactory::KeepsBags) keeps what it looted whatever the option.
     assert(!CoaRefreshClearsInventory(true, true));
     assert(!CoaRefreshClearsInventory(true, false));
     // Empty bags: the whole target is added.
