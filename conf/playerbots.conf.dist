@@ -5992,10 +5992,10 @@ AiPlayerbot.CoaCombat.BreathGuard.Enable = 1
 #     Description: Stuck combat breaker outside a Dungeon Clear run. A grouped bot in a dungeon or raid, in combat
 #                  with nothing hitting it, no target, and nothing reachable coming for it, has its combat cleared
 #                  after the timeout below. Never during a raid boss encounter. Always on inside a Dungeon Clear run.
-#     Default:     0 - (Disabled)
-#                  1 - (Enabled)
+#     Default:     1 - (Enabled, since 3.1.6)
+#                  0 - (Disabled)
 
-AiPlayerbot.CoaCombat.StuckCombat.Enable = 0
+AiPlayerbot.CoaCombat.StuckCombat.Enable = 1
 
 # AiPlayerbot.CoaCombat.StuckCombat.TimeoutSeconds
 #     Description: How long (seconds, 0-120) the stuck combat must last before it is cleared. 0 disables the breaker,
@@ -6008,18 +6008,18 @@ AiPlayerbot.CoaCombat.StuckCombat.TimeoutSeconds = 15
 #     Description: Combat purge outside a Dungeon Clear run. A few known creatures hold a party in a combat that can
 #                  never end (Shadowfang Keep: [DND] Vial Bunny; Dire Maul West: Crystal Totem). After 60 s their
 #                  combat is cleared and the bots stop targeting them. Always on inside a Dungeon Clear run.
-#     Default:     0 - (Disabled)
-#                  1 - (Enabled)
+#     Default:     1 - (Enabled, since 3.1.6)
+#                  0 - (Disabled)
 
-AiPlayerbot.CoaCombat.CombatPurge.Enable = 0
+AiPlayerbot.CoaCombat.CombatPurge.Enable = 1
 # AiPlayerbot.CoaCombat.SunkenTemple.Enable
 #     Description: Sunken Temple, Avatar of Hakkar, outside a Dungeon Clear run: the bots peel a channelling Hakkari
 #                  Suppressor, loot Hakkari Blood from the Bloodkeepers and douse the four Eternal Flames. Always on
 #                  inside a Dungeon Clear run.
-#     Default:     0 - (Disabled)
-#                  1 - (Enabled)
+#     Default:     1 - (Enabled, since 3.1.6)
+#                  0 - (Disabled)
 
-AiPlayerbot.CoaCombat.SunkenTemple.Enable = 0
+AiPlayerbot.CoaCombat.SunkenTemple.Enable = 1
 # AiPlayerbot.CoaCombat.Telegraph.Enable
 #     Description: The bots step out of a ground marker that announces a hit (CoA kits' "Dest Area" markers, for
 #                  example Targorr the Dread's Berserker Leap in the Stockade), melee on the boss included, inside
@@ -6048,10 +6048,10 @@ AiPlayerbot.CoaCombat.OffTank.Enable = 0
 #     Description: Item set bonuses and raid tokens count in the bots' choice of gear. A set piece is worth the set
 #                  bonus it unlocks with the pieces already worn (and swapping it out costs that bonus); a raid token
 #                  is rolled Need only when one of the pieces it gives the bot's class is an upgrade.
-#     Default:     0 - (Disabled)
-#                  1 - (Enabled)
+#     Default:     1 - (Enabled, since 3.1.6)
+#                  0 - (Disabled)
 
-AiPlayerbot.CoaCombat.GearScore.Enable = 0
+AiPlayerbot.CoaCombat.GearScore.Enable = 1
 # AiPlayerbot.CoaCombat.LootNeedWaitSeconds
 #     Description: Only with AiPlayerbot.LootNeedRollLevel = 2 ("Bots need items"). A bot that wants an item waits
 #                  for the real players who may roll on it to vote first, and never rolls Need against a player's
@@ -6075,20 +6075,20 @@ AiPlayerbot.CoaCombat.MoltenCore.Enable = 1
 #     Description: The CoA Combat fixes to the bots' Blackwing Lair strategy: tank swaps on Firemaw (Scorched) and
 #                  Ebonroc (Shadow of Ebonroc), the raid behind Chromaggus and the Red affliction cured first, no
 #                  area spells near Nefarian's Dominion clones. The stock strategy is unchanged when this is 0.
-#     Default:     0 - (Disabled)
-#                  1 - (Enabled)
+#     Default:     1 - (Enabled, since 3.1.6)
+#                  0 - (Disabled)
 
-AiPlayerbot.CoaCombat.BlackwingLair.Enable = 0
+AiPlayerbot.CoaCombat.BlackwingLair.Enable = 1
 
 #
 # AiPlayerbot.CoaCombat.ZulGurub.Enable
 #     Description: The CoA Combat fixes to the bots' Zul'Gurub strategy: Mandokir's CoA gaze, Hakkar's CoA heart and
 #                  the poison pools during Blood Siphon, kill orders on Thekal's zealots and Jin'do's totems, the
 #                  prey of Gri'lek runs. The stock strategy is unchanged when this is 0.
-#     Default:     0 - (Disabled)
-#                  1 - (Enabled)
+#     Default:     1 - (Enabled, since 3.1.6)
+#                  0 - (Disabled)
 
-AiPlayerbot.CoaCombat.ZulGurub.Enable = 0
+AiPlayerbot.CoaCombat.ZulGurub.Enable = 1
 
 #
 # AiPlayerbot.CoaCombat.AhnQiraj.Enable
@@ -6096,19 +6096,19 @@ AiPlayerbot.CoaCombat.ZulGurub.Enable = 0
 #                  everyone inside an active obelisk's shelter against Ossirian's Fury of the Sands, Sartura's
 #                  Phantom Dancers killed first and kept at a distance. The stock strategies are unchanged when this
 #                  is 0.
-#     Default:     0 - (Disabled)
-#                  1 - (Enabled)
+#     Default:     1 - (Enabled, since 3.1.6)
+#                  0 - (Disabled)
 
-AiPlayerbot.CoaCombat.AhnQiraj.Enable = 0
+AiPlayerbot.CoaCombat.AhnQiraj.Enable = 1
 
 #
 # AiPlayerbot.CoaCombat.LootNeedMinUpgradePct
 #     Description: Only where bots may roll Need (AiPlayerbot.LootNeedRollLevel = 2). A bot keeps its Need on a
 #                  weapon or a piece of armor only when it scores at least this many percent above the piece it
 #                  wears in that slot (gear score); a smaller upgrade is rolled Greed. An empty slot always counts.
-#     Default:     0 - (Off: any upgrade is a Need)
+#     Default:     10 (since 3.1.6; 0: any upgrade is a Need)
 
-AiPlayerbot.CoaCombat.LootNeedMinUpgradePct = 0
+AiPlayerbot.CoaCombat.LootNeedMinUpgradePct = 10
 
 #
 # AiPlayerbot.CoaCombat.LootNeedEpicOnly
@@ -6125,10 +6125,10 @@ AiPlayerbot.CoaCombat.LootNeedEpicOnly = 0
 #                  that deals all its damage at once after 60 s (more than a damage dealer's health in mythic). Every
 #                  bot that can remove a curse removes it first, and the melee damage dealers keep out of the
 #                  casters' 5 yd. Works in a group led by a player and in Dungeon Clear runs.
-#     Default:     0 - (Disabled)
-#                  1 - (Enabled)
+#     Default:     1 - (Enabled, since 3.1.6)
+#                  0 - (Disabled)
 
-AiPlayerbot.CoaCombat.CallOfTheGrave.Enable = 0
+AiPlayerbot.CoaCombat.CallOfTheGrave.Enable = 1
 
 #
 # AiPlayerbot.CoaCombat.PlayerLed.Enable
@@ -6136,10 +6136,10 @@ AiPlayerbot.CoaCombat.CallOfTheGrave.Enable = 0
 #                  opened the "Main Tank" bar is the main tank of the bots' raid strategies (before the raid frame's
 #                  main tank and the first bot tank), and the bots stand down on a boss by its own boss flags when no
 #                  Dungeon Clear run is going.
-#     Default:     0 - (Disabled)
-#                  1 - (Enabled)
+#     Default:     1 - (Enabled, since 3.1.6)
+#                  0 - (Disabled)
 
-AiPlayerbot.CoaCombat.PlayerLed.Enable = 0
+AiPlayerbot.CoaCombat.PlayerLed.Enable = 1
 
 # AiPlayerbot.CoaCombat.BenchKeyOnly
 #     Description: Bench only, leave at 0. With 1, the breath guard, the stuck combat breaker, the combat purge and

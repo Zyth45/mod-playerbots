@@ -28,7 +28,7 @@ class Player;
 // script) is never touched.
 //
 // It acts for the members of a Dungeon Clear run, as before, unless the run's hook says otherwise; outside a run when
-// AiPlayerbot.CoaCombat.StuckCombat.Enable is 1 (0 by default).
+// AiPlayerbot.CoaCombat.StuckCombat.Enable is 1 (1 by default since 3.1.6).
 inline constexpr char const* CoaStuckCombatGuard = "stuck combat breaker";
 
 namespace CoaStuckCombat

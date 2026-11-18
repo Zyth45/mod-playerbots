@@ -22,7 +22,7 @@ class Player;
 // target bar on its entry is armed for the same window.
 //
 // It acts for the members of a Dungeon Clear run, as before, and outside a run when
-// AiPlayerbot.CoaCombat.CombatPurge.Enable is 1 (0 by default). Never during a raid encounter (the boss stand-down).
+// AiPlayerbot.CoaCombat.CombatPurge.Enable is 1 (1 by default since 3.1.6). Never during a raid encounter (the boss stand-down).
 namespace CoaCombatPurge
 {
     // World thread: advances every bot's clock by `diffMs` and purges for the ones past the window.
