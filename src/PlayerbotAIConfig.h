@@ -753,6 +753,10 @@ public:
     // CoA Live 3.1.6
     bool coaPetPassiveOnStay = true;  // AiPlayerbot.CoaPetPassiveOnStay: "stay" sets the bot's pets passive
     bool coaHearthWithMaster = true;  // AiPlayerbot.CoaHearthWithMaster: the master's bots hearth with him
+    uint32 coaLiveCityPostChancePct = 25;   // AiPlayerbot.CoaLive.City.PostChancePct: a long post at a station
+    uint32 coaLiveCityPostMinMinutes = 20;  // AiPlayerbot.CoaLive.City.PostMinMinutes
+    uint32 coaLiveCityPostMaxMinutes = 60;  // AiPlayerbot.CoaLive.City.PostMaxMinutes
+    uint32 coaLiveCityFishingPct = 10;      // AiPlayerbot.CoaLive.City.FishingPct: a stop at the city's water
     // ---- end of CoA Live ----
 
     // ---- CoA World (LoadCoaWorldConfig, CoaWorldConfig.cpp) ----

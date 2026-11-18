@@ -3200,6 +3200,31 @@ bool IsFishing(Player* bot)
     return fishingUntil.count(bot->GetGUID().GetRawValue()) != 0;
 }
 
+bool FishInCity(Player* bot, PlayerbotAI* botAI)
+{
+    if (!bot || !botAI || !ImmersionEnabled() || !IsRandom(bot) || botAI->HasGameClientMaster() || !bot->IsAlive() ||
+        bot->IsInCombat() || bot->GetGroup() || !bot->HasSkill(SKILL_FISHING))
+        return false;
+    {
+        std::lock_guard<std::mutex> guard(liveLock);
+        if (fishingUntil.count(bot->GetGUID().GetRawValue()) ||
+            !CoaImmersion::FishingRoom(uint32(fishingUntil.size()), onlineRandomBots.load(std::memory_order_relaxed),
+                                       sPlayerbotAIConfig.coaLiveImmersionFishingPerThousand))
+            return false;
+    }
+    WorldPosition water = FindWaterRadial(bot, bot->GetPositionX(), bot->GetPositionY(), bot->GetPositionZ(),
+                                          bot->GetMap(), bot->GetPhaseMask(), 10.0f, 60.0f, 10.0f);
+    if (!water.IsValid())
+        return false;
+    // As Fish: the "new rpg" rests while the fishing strategy works, and Fish stops it at the end.
+    botAI->rpgInfo.ChangeToRest();
+    botAI->ChangeStrategy("+master fishing", BOT_STATE_NON_COMBAT);
+    uint64 const nowMs = GameTime::GetGameTimeMS().count();
+    std::lock_guard<std::mutex> guard(liveLock);
+    fishingUntil[bot->GetGUID().GetRawValue()] = nowMs + CoaImmersion::FishingMs(rng.between);
+    return true;
+}
+
 bool IsGathering(Player* bot)
 {
     if (!bot)

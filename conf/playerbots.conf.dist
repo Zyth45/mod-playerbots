@@ -3700,13 +3700,36 @@ AiPlayerbot.CoaLive.Social.InviteCooldownMinutes = 60
 #        Description: City Life. A random bot visiting a capital (AiPlayerbot.RpgStatusProbWeight.GoCity)
 #                     now and then takes a station instead of a plain NPC: it sits at the inn, has a
 #                     word with a banker or an auctioneer, hammers at an anvil or a forge, strikes a
-#                     training dummy, and stays a few minutes (3 bots per station at most), so that
-#                     capitals look full. Works without AiPlayerbot.CoaLive.Enable.
-#                     Read again by ".reload config".
+#                     training dummy, reads its mail at a mailbox, sits on a bench or a chair, and stays
+#                     a few minutes (3 bots per station at most, one per seat), so that capitals look
+#                     full. It never takes the same kind of stop twice in a row.
+#                     Works without AiPlayerbot.CoaLive.Enable. Read again by ".reload config".
 #        Default:     1 - on
 #                     0 - off
 
 AiPlayerbot.CoaLive.City.Enable = 1
+
+#    AiPlayerbot.CoaLive.City.PostChancePct
+#    AiPlayerbot.CoaLive.City.PostMinMinutes
+#    AiPlayerbot.CoaLive.City.PostMaxMinutes
+#        Description: Long posts of City Life: at the inn, a seat, a forge or a dummy, this many stops in a
+#                     hundred last PostMinMinutes to PostMaxMinutes instead of a few minutes, and the city
+#                     visit lasts as long as the post, so that one meets the same faces at the same places.
+#                     PostChancePct = 0: no long post (as before 3.1.6).
+#        Default:     25, 20, 60
+
+AiPlayerbot.CoaLive.City.PostChancePct = 25
+AiPlayerbot.CoaLive.City.PostMinMinutes = 20
+AiPlayerbot.CoaLive.City.PostMaxMinutes = 60
+
+#    AiPlayerbot.CoaLive.City.FishingPct
+#        Description: City Life: this many stops in a hundred, a bot that knows fishing goes fishing at the
+#                     water of the city (within 60 yards) instead, for 4 to 15 minutes, and its visit ends
+#                     there. Needs AiPlayerbot.CoaLive.Immersion.Enable, and counts in its cap
+#                     (FishingPerThousand). 0: no fishing in the cities (as before 3.1.6).
+#        Default:     10
+
+AiPlayerbot.CoaLive.City.FishingPct = 10
 
 #    AiPlayerbot.CoaLive.Sheath.Enable
 #        Description: Bots draw their weapon in a fight (the ranged one for a ranged bot) and put it

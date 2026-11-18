@@ -73,6 +73,9 @@ uint32 OfflineSeconds();
 bool SessionsEnabled();
 // The bot is at the water (Immersion), for world.json.
 bool IsFishing(Player* bot);
+// City Life (3.1.6): a random bot on a city visit goes fishing at the water of the city (within 60 yd), with the
+// Immersion cap (AiPlayerbot.CoaLive.Immersion.FishingPerThousand). True when it does.
+bool FishInCity(Player* bot, PlayerbotAI* botAI);
 // A random bot on a gathering trip (herbs, ore) of CoA Live Immersion (world.json).
 bool IsGathering(Player* bot);
 
