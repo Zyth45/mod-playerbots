@@ -6,6 +6,7 @@
 
 #include "PetsAction.h"
 #include "CoaPet.h"
+#include "CoaPetStay.h"
 #include "CharmInfo.h"
 #include "Creature.h"
 #include "CreatureAI.h"
@@ -510,6 +511,10 @@ bool SetPetStanceAction::Execute(Event /*event*/)
         if (charmInfo)
             charmInfo->SetPlayerReactState(react);
     }
+
+    // CoA: a pet called while its bot stays goes passive too, as the ones it had when told to stay.
+    if (botAI->HasStrategy("stay", BOT_STATE_NON_COMBAT))
+        CoaPetStay::Apply(bot, true);
 
     // If debug is enabled in config, inform the master of the new stance
     if (sPlayerbotAIConfig.petChatCommandDebug == 1)

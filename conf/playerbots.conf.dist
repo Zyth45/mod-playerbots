@@ -4170,6 +4170,24 @@ AiPlayerbot.CoaQuestLog.Enable = 1
 
 AiPlayerbot.CoaCursedFormUpkeep = 1
 
+#    AiPlayerbot.CoaPetPassiveOnStay
+#        Description: A bot told "stay" sets its pets and guardians passive, so they do not run off to fight
+#                     while it holds its place; "follow" gives each one back the stance it had before.
+#        Default:     1 - on
+#                     0 - off, the pets keep their stance (as before 3.1.6)
+
+AiPlayerbot.CoaPetPassiveOnStay = 1
+
+#    AiPlayerbot.CoaHearthWithMaster
+#        Description: When a player uses his hearthstone, his bots standing within 30 yards of him, out of combat
+#                     and with their own hearthstone ready, cast theirs with him. When he is gone, their
+#                     hearthstone goes on cooldown and they arrive a moment after him, next to him. A bot whose
+#                     hearthstone is on cooldown stays where it is.
+#        Default:     1 - on
+#                     0 - off, the bots stay where they are (as before 3.1.6)
+
+AiPlayerbot.CoaHearthWithMaster = 1
+
 # Bots' minimum and maximum level when teleporting in and out of a zone, according to the new RPG strategy
 # Format: AiPlayerbot.ZoneBracket.zoneID = minLevel,maxLevel
 #

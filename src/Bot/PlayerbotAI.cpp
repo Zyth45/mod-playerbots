@@ -11,6 +11,7 @@
 #include "CoaLive.h"
 #include "CoaChatRules.h"
 #include "CoaPet.h"
+#include "CoaHearthWithMaster.h"
 #include "CurrentTargetValue.h"
 
 #include <set>
@@ -430,6 +431,9 @@ void PlayerbotAI::UpdateAI(uint32 elapsed, bool minimal)
         YieldThread(bot, GetReactDelay());
         return;
     }
+
+    // The hearthstone used with the master (AiPlayerbot.CoaHearthWithMaster): before the cast wait below.
+    CoaHearthWithMaster::Tick(this);
 
     // Handle a spell that is still in its preparing phase (including channeled spells).
     Spell* currentSpell = bot->GetCurrentSpell(CURRENT_GENERIC_SPELL);

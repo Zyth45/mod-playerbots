@@ -122,6 +122,8 @@ void PlayerbotAIConfig::LoadCoaLiveConfig()
     coaStartupCheckOnly = sConfigMgr->GetOption<bool>("AiPlayerbot.StartupCheckOnly", false, false) ||
                           sConfigMgr->GetOption<bool>("CoA.ValidationMode", false, false);
     coaCapsAddon = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaCaps.Addon", true);
+    coaPetPassiveOnStay = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaPetPassiveOnStay", true);
+    coaHearthWithMaster = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaHearthWithMaster", true);
     // Shared with the other CoA data files (in the .dist once).
     coaLiveDataDir = sConfigMgr->GetOption<std::string>("AiPlayerbot.CoaDataDir", "", false);
     coaLiveDataFiles = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaDataFiles", true, false);

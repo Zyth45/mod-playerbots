@@ -750,6 +750,9 @@ public:
     bool coaCursedFormUpkeep;      // AiPlayerbot.CoaCursedFormUpkeep: a Bloodmage Eternal tank keeps its Cursed Form
     bool coaStartupCheckOnly = false;  // AiPlayerbot.StartupCheckOnly (or CoA.ValidationMode): load, no bot at all
     bool coaCapsAddon = true;      // AiPlayerbot.CoaCaps.Addon: the addon's "CAPS?" (is Dungeon Clear built in)
+    // CoA Live 3.1.6
+    bool coaPetPassiveOnStay = true;  // AiPlayerbot.CoaPetPassiveOnStay: "stay" sets the bot's pets passive
+    bool coaHearthWithMaster = true;  // AiPlayerbot.CoaHearthWithMaster: the master's bots hearth with him
     // ---- end of CoA Live ----
 
     // ---- CoA World (LoadCoaWorldConfig, CoaWorldConfig.cpp) ----
