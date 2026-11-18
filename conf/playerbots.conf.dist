@@ -1517,19 +1517,19 @@ AiPlayerbot.RandomBotGroupNearby = 0
 
 # Bots without a real player as master (alone, or led by another bot) only take to the air
 # while no real player can see them. Seen in the air, they glide down and land (no fall).
-# Default: 0 (off, bots fly as usual)
-AiPlayerbot.FlyOnlyOutOfSight = 0
+# Default: 1 (on); 0 lets them take off anywhere, as before 3.1.5
+AiPlayerbot.FlyOnlyOutOfSight = 1
 
 # A bot stuck on its way somewhere teleports to it only while no real player can see it. While one can,
 # it waits without walking and teleports as soon as nobody watches; still watched 2 minutes later, it gives
 # that target up and picks another.
-# Default: 0 (off, bots teleport when stuck as usual)
-AiPlayerbot.TeleportOnlyOutOfSight = 0
+# Default: 1 (on); 0 lets a stuck bot teleport in sight, as before 3.1.5
+AiPlayerbot.TeleportOnlyOutOfSight = 1
 
 # Bots walking up to an NPC or object stop at talking distance instead of anywhere up to it, so they
 # don't stand inside it.
-# Default: 0 (off, as usual)
-AiPlayerbot.StandOffObjects = 0
+# Default: 1 (on); 0 lets them walk up to anywhere within reach, as before 3.1.5
+AiPlayerbot.StandOffObjects = 1
 
 # Randombots will pick quests on their own and try to complete them
 # Default: 1 (enabled)

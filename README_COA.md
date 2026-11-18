@@ -19,7 +19,7 @@ The release notes of each 3.x version are in [`changelog.d/`](changelog.d), one 
 to 2.9.4 is in [CHANGELOG_COA.md](CHANGELOG_COA.md). [`squidbots-release.json`](squidbots-release.json) lists, for
 each release, every SQL file with its sha256, the new options and the components released together.
 
-3.1.5 adds three options contributed by stefanw1337, all **off by default** and not verified in game yet:
+3.1.5 adds three options contributed by stefanw1337, all **on by default** (set one to 0 in `playerbots.conf` to turn it off) and not verified in game yet:
 `AiPlayerbot.FlyOnlyOutOfSight`, `AiPlayerbot.TeleportOnlyOutOfSight` and `AiPlayerbot.StandOffObjects`.
 
 ## Install
