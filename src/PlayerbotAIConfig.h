@@ -760,6 +760,10 @@ public:
     bool coaMute = true;       // AiPlayerbot.CoaMute.Enable: the addon's Mute button (CoaBotMute)
     bool coaGiveToAlt = true;  // AiPlayerbot.CoaGiveToAlt.Enable: "give" an item from an alt to another (CoaAltGive)
     bool coaTrust = true;      // AiPlayerbot.CoaTrust.Enable: the trust of a player in his bots (CoaTrust)
+    uint32 coaTrustKill = 1;        // AiPlayerbot.CoaTrust.Kill: points for a monster killed together
+    uint32 coaTrustBoss = 25;       // AiPlayerbot.CoaTrust.Boss: for a boss outside a raid
+    uint32 coaTrustRaidBoss = 100;  // AiPlayerbot.CoaTrust.RaidBoss: for a raid boss
+    std::string coaTrustRanks = "0,100,500,1500,4000,10000";  // AiPlayerbot.CoaTrust.Ranks: where each rank starts
     // ---- end of CoA Live ----
 
     // ---- CoA World (LoadCoaWorldConfig, CoaWorldConfig.cpp) ----

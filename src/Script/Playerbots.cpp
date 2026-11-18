@@ -4,6 +4,7 @@
  * or (at your option) any later version.
  */
 
+#include "CoaBotMute.h"
 #include "CoaTrust.h"
 #include "CoaWorldGuilds.h"
 #include "CoaWorldAiBudget.h"
@@ -541,7 +542,8 @@ public:
 
         if (sPlayerbotAIConfig.coaBossKnowledge)
             CoaBossKnowledge::Load();
-        CoaTrust::Load();  // the trust of the players in their bots (AiPlayerbot.CoaTrust.Enable), table coa_trust
+        CoaTrust::Load();
+        CoaBotMute::Load();  // the players who muted their bots (AiPlayerbot.CoaMute.Enable), table playerbots_coa_mute  // the trust of the players in their bots (AiPlayerbot.CoaTrust.Enable), table playerbots_coa_trust
 
         LOG_INFO("server.loading", "Playerbots World Thread Processor initialized");
     }

@@ -4212,10 +4212,10 @@ AiPlayerbot.CoaPetPassiveOnStay = 1
 AiPlayerbot.CoaHearthWithMaster = 1
 
 #    AiPlayerbot.CoaMute.Enable
-#        Description: The Mute button of the SquidBots addon: a player silences the chatter of his own bots
-#                     (alts or recruited, "mute on|off"). A muted bot says no living chat line, whispers nothing
-#                     unasked and says no random line; it still answers its master's orders and questions.
-#                     The mute lasts while the bot keeps that master.
+#        Description: The Mute button of the SquidBots addon: a player silences the chatter of all his bots at
+#                     once, alts and recruited ("mute on|off"), kept between sessions (table playerbots_coa_mute).
+#                     A muted bot says no living chat line, whispers nothing unasked and says no random line; it
+#                     still answers its master's orders and questions.
 #        Default:     1 - on
 #                     0 - off, the button is greyed
 
@@ -4236,11 +4236,25 @@ AiPlayerbot.CoaGiveToAlt.Enable = 1
 #                     bar: +1 for a monster killed together, +25 for a boss, +100 for a raid boss (the bot and
 #                     its master both there). Ranks: stranger, acquaintance (100), companion (500), friend (1500),
 #                     trusted (4000), sworn (10000). Shown only: no rank opens or locks anything. Kept in the
-#                     table coa_trust of the playerbots database.
+#                     table playerbots_coa_trust of the playerbots database.
 #        Default:     1 - on
 #                     0 - off, the scores stop growing and the addon hides the bar
 
 AiPlayerbot.CoaTrust.Enable = 1
+
+#    AiPlayerbot.CoaTrust.Kill
+#    AiPlayerbot.CoaTrust.Boss
+#    AiPlayerbot.CoaTrust.RaidBoss
+#    AiPlayerbot.CoaTrust.Ranks
+#        Description: The trust gained for a monster, a boss (dungeon or world) and a raid boss killed together
+#                     (0: none), and where each of the six ranks starts (stranger, acquaintance, companion,
+#                     friend, trusted, sworn): six rising numbers from 0. A wrong list keeps the default ranks.
+#        Default:     1, 25, 100, 0,100,500,1500,4000,10000
+
+AiPlayerbot.CoaTrust.Kill = 1
+AiPlayerbot.CoaTrust.Boss = 25
+AiPlayerbot.CoaTrust.RaidBoss = 100
+AiPlayerbot.CoaTrust.Ranks = 0,100,500,1500,4000,10000
 
 # Bots' minimum and maximum level when teleporting in and out of a zone, according to the new RPG strategy
 # Format: AiPlayerbot.ZoneBracket.zoneID = minLevel,maxLevel

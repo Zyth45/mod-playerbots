@@ -40,6 +40,17 @@ uint32 ScoreOf(uint32 player, uint32 bot)
     return it == scores.end() ? 0 : it->second;
 }
 
+// The gains and the rank starts of playerbots.conf (AiPlayerbot.CoaTrust.*); a wrong rank list keeps the defaults.
+CoaTrustRules::Settings SettingsOf()
+{
+    CoaTrustRules::Settings s;
+    s.kill = sPlayerbotAIConfig.coaTrustKill;
+    s.boss = sPlayerbotAIConfig.coaTrustBoss;
+    s.raidBoss = sPlayerbotAIConfig.coaTrustRaidBoss;
+    CoaTrustRules::ParseRanks(sPlayerbotAIConfig.coaTrustRanks, s.from);
+    return s;
+}
+
 bool IsHumanPlayer(Player* player)
 {
     return player && player->GetSession() && !player->GetSession()->IsBot();
@@ -51,7 +62,7 @@ void CoaTrust::Load()
     std::lock_guard<std::mutex> guard(trustLock);
     scores.clear();
     changed.clear();
-    if (QueryResult result = PlayerbotsDatabase.Query("SELECT `player`, `bot`, `score` FROM `coa_trust`"))
+    if (QueryResult result = PlayerbotsDatabase.Query("SELECT `player`, `bot`, `score` FROM `playerbots_coa_trust`"))
     {
         do
         {
@@ -71,7 +82,13 @@ void CoaTrust::OnKill(Player* player, Unit* victim)
         return;
     Map* map = creature->GetMap();
     bool const boss = creature->IsDungeonBoss() || creature->isWorldBoss();
-    uint32 const gain = CoaTrustRules::Gain(boss, map && map->IsRaid());
+    CoaTrustRules::Settings s;
+    s.kill = sPlayerbotAIConfig.coaTrustKill;
+    s.boss = sPlayerbotAIConfig.coaTrustBoss;
+    s.raidBoss = sPlayerbotAIConfig.coaTrustRaidBoss;
+    uint32 const gain = CoaTrustRules::Gain(s, boss, map && map->IsRaid());
+    if (!gain)
+        return;
 
     std::vector<uint64> keys;
     for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
@@ -109,7 +126,7 @@ void CoaTrust::Flush(uint32_t diff, bool now)
         changed.clear();
     }
     for (auto const& [key, score] : rows)
-        PlayerbotsDatabase.Execute("REPLACE INTO `coa_trust` (`player`, `bot`, `score`) VALUES ({}, {}, {})",
+        PlayerbotsDatabase.Execute("REPLACE INTO `playerbots_coa_trust` (`player`, `bot`, `score`) VALUES ({}, {}, {})",
                                    uint32(key >> 32), uint32(key & 0xFFFFFFFF), score);
 }
 
@@ -127,6 +144,6 @@ bool CoaTrust::Command(PlayerbotAI* botAI, std::string const& command, std::stri
         return true;
     }
     CoaAltAddon::SendToMaster(botAI,
-                              CoaTrustRules::Line(ScoreOf(master->GetGUID().GetCounter(), bot->GetGUID().GetCounter())));
+                              CoaTrustRules::Line(SettingsOf(), ScoreOf(master->GetGUID().GetCounter(), bot->GetGUID().GetCounter())));
     return true;
 }

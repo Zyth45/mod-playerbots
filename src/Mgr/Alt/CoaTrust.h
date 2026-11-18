@@ -15,7 +15,7 @@ class PlayerbotAI;
 class Unit;
 
 // CoA 3.1.6 (AiPlayerbot.CoaTrust.Enable): the trust of a player in each of his bots, alts or recruited. It grows
-// with the monsters killed together, more for a boss (CoaTrustRules), and is kept in the table coa_trust of the
+// with the monsters killed together, more for a boss (CoaTrustRules), and is kept in the table playerbots_coa_trust of the
 // playerbots database. Shown only, in the addon's Info tab: "trust" whispered on SQBA by the bot's master, answered
 // with the line of CoaTrustRules::Line. No rank opens or locks anything.
 namespace CoaTrust

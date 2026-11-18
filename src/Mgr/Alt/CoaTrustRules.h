@@ -10,46 +10,77 @@
 #include <cstdint>
 #include <sstream>
 #include <string>
+#include <vector>
 
 // CoA 3.1.6, the trust of a player in each of his bots (CoaTrust), shown in the Info tab of the SquidBots addon as a
-// named rank and a bar. Shown only: no rank opens or locks anything. Pure rules: the gains and the ranks.
+// named rank and a bar. Shown only: no rank opens or locks anything. Pure rules: the gains and the ranks, both set in
+// playerbots.conf (AiPlayerbot.CoaTrust.*).
 namespace CoaTrustRules
 {
-constexpr uint32_t KILL = 1;         // a monster killed together
-constexpr uint32_t DUNGEON_BOSS = 25;
-constexpr uint32_t RAID_BOSS = 100;
+constexpr uint32_t RANK_COUNT = 6;
+// English keys, translated by the addon.
+constexpr char const* RANK_KEYS[RANK_COUNT] = {"stranger", "acquaintance", "companion", "friend", "trusted", "sworn"};
 
-// The points of a kill: a boss of a raid, a boss elsewhere (a dungeon, a world boss), or any other monster.
-inline uint32_t Gain(bool boss, bool raid) { return boss ? (raid ? RAID_BOSS : DUNGEON_BOSS) : KILL; }
-
-struct Rank
+struct Settings
 {
-    char const* key;  // English key, translated by the addon
-    uint32_t from;    // the score where it starts
+    uint32_t kill = 1;        // a monster killed together
+    uint32_t boss = 25;       // a boss outside a raid (a dungeon, a world boss)
+    uint32_t raidBoss = 100;  // a boss of a raid
+    uint32_t from[RANK_COUNT] = {0, 100, 500, 1500, 4000, 10000};  // where each rank starts
 };
 
-constexpr Rank RANKS[] = {
-    {"stranger", 0}, {"acquaintance", 100}, {"companion", 500}, {"friend", 1500}, {"trusted", 4000}, {"sworn", 10000},
-};
-constexpr uint32_t RANK_COUNT = sizeof(RANKS) / sizeof(RANKS[0]);
+// The points of a kill: a boss of a raid, a boss elsewhere, or any other monster.
+inline uint32_t Gain(Settings const& s, bool boss, bool raid) { return boss ? (raid ? s.raidBoss : s.boss) : s.kill; }
 
-inline uint32_t RankIndex(uint32_t score)
+// The rank starts from a list "0,100,500,1500,4000,10000": six numbers, the first 0, each above the one before.
+// False (and from untouched) otherwise.
+inline bool ParseRanks(std::string const& text, uint32_t (&from)[RANK_COUNT])
+{
+    std::vector<uint32_t> values;
+    std::istringstream in(text);
+    for (std::string part; std::getline(in, part, ',');)
+    {
+        size_t const start = part.find_first_not_of(' ');
+        if (start == std::string::npos)
+            return false;
+        uint64_t value = 0;
+        for (size_t i = start; i < part.size() && part[i] != ' '; ++i)
+        {
+            if (part[i] < '0' || part[i] > '9')
+                return false;
+            value = value * 10 + uint64_t(part[i] - '0');
+            if (value > UINT32_MAX)
+                return false;
+        }
+        values.push_back(uint32_t(value));
+    }
+    if (values.size() != RANK_COUNT || values[0] != 0)
+        return false;
+    for (uint32_t i = 1; i < RANK_COUNT; ++i)
+        if (values[i] <= values[i - 1])
+            return false;
+    for (uint32_t i = 0; i < RANK_COUNT; ++i)
+        from[i] = values[i];
+    return true;
+}
+
+inline uint32_t RankIndex(Settings const& s, uint32_t score)
 {
     uint32_t i = 0;
-    while (i + 1 < RANK_COUNT && score >= RANKS[i + 1].from)
+    while (i + 1 < RANK_COUNT && score >= s.from[i + 1])
         ++i;
     return i;
 }
 
 // The addon line: "TRUST\t<rank>\t<score>\t<rank start>\t<next rank start>\t<next rank>". At the last rank, the bar
 // is full: the end is the score itself and the next rank is "-".
-inline std::string Line(uint32_t score)
+inline std::string Line(Settings const& s, uint32_t score)
 {
-    uint32_t const i = RankIndex(score);
+    uint32_t const i = RankIndex(s, score);
     bool const last = i + 1 >= RANK_COUNT;
     std::ostringstream out;
-    out << "TRUST\t" << RANKS[i].key << "\t" << score << "\t" << RANKS[i].from << "\t"
-        << (last ? score : RANKS[i + 1].from) << "\t" << (last ? "-" : RANKS[i + 1].key);
+    out << "TRUST\t" << RANK_KEYS[i] << "\t" << score << "\t" << s.from[i] << "\t" << (last ? score : s.from[i + 1])
+        << "\t" << (last ? "-" : RANK_KEYS[i + 1]);
     return out.str();
 }
 

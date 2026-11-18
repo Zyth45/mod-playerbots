@@ -13,14 +13,17 @@ class Player;
 class PlayerbotAI;
 
 // CoA 3.1.6, the Mute button of the SquidBots addon (AiPlayerbot.CoaMute.Enable): a player silences the chatter of
-// his own bots, alts or recruited. "mute on|off" (or "mute" alone: the state) whispered on SQBA by the bot's master,
-// answered "MUTE\t<0|1>". A muted bot says no CoA Live line, whispers nothing unasked and says no random line; it
-// still answers its master's orders and questions. The mute lasts while the bot keeps that master (not saved).
+// all his bots at once, alts and recruited, and it stays so between sessions (table playerbots_coa_mute). "mute
+// on|off" (or "mute" alone: the state) whispered on SQBA by the master to any of his bots, answered "MUTE\t<0|1>".
+// A muted bot says no living chat line (CoA Live, World, Economy), whispers nothing unasked and says no random line;
+// it still answers its master's orders and questions.
 namespace CoaBotMute
 {
+// Loads the table (world start).
+void Load();
 // The command of the queue (CoaAltBags::Command): true when it was "mute".
 bool Command(PlayerbotAI* botAI, std::string const& command, std::string const& arg);
-// The bot was muted by its present master.
+// The bot's master muted his bots.
 bool IsMuted(Player* bot);
 }  // namespace CoaBotMute
 

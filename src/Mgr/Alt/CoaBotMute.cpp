@@ -7,31 +7,57 @@
 #include "CoaBotMute.h"
 
 #include "CoaAltAddon.h"
+#include "DatabaseEnv.h"
 #include "Player.h"
 #include "PlayerbotAI.h"
 #include "PlayerbotAIConfig.h"
 #include "Playerbots.h"
+#include "WorldSession.h"
 #include <atomic>
 #include <mutex>
-#include <unordered_map>
+#include <unordered_set>
 
 namespace
 {
-// Bot -> the master who muted it. Read by every chatting bot: a count spares the lock while nobody is muted.
+// The masters who muted their bots. Read by every chatting bot: a count spares the lock while nobody did.
 std::mutex muteLock;
-std::unordered_map<ObjectGuid::LowType, ObjectGuid::LowType> mutedBy;
+std::unordered_set<ObjectGuid::LowType> mutedMasters;
 std::atomic<uint32> mutedCount{0};
 
-void Set(Player* bot, Player* master, bool on)
+bool MasterMuted(ObjectGuid::LowType master)
 {
     std::lock_guard<std::mutex> guard(muteLock);
+    return mutedMasters.count(master) != 0;
+}
+
+void Set(ObjectGuid::LowType master, bool on)
+{
+    {
+        std::lock_guard<std::mutex> guard(muteLock);
+        bool const changed = on ? mutedMasters.insert(master).second : mutedMasters.erase(master) > 0;
+        mutedCount.store(uint32(mutedMasters.size()), std::memory_order_relaxed);
+        if (!changed)
+            return;
+    }
     if (on)
-        mutedBy[bot->GetGUID().GetCounter()] = master->GetGUID().GetCounter();
+        PlayerbotsDatabase.Execute("REPLACE INTO `playerbots_coa_mute` (`player`) VALUES ({})", master);
     else
-        mutedBy.erase(bot->GetGUID().GetCounter());
-    mutedCount.store(uint32(mutedBy.size()), std::memory_order_relaxed);
+        PlayerbotsDatabase.Execute("DELETE FROM `playerbots_coa_mute` WHERE `player` = {}", master);
 }
 }  // namespace
+
+void CoaBotMute::Load()
+{
+    std::lock_guard<std::mutex> guard(muteLock);
+    mutedMasters.clear();
+    if (QueryResult result = PlayerbotsDatabase.Query("SELECT `player` FROM `playerbots_coa_mute`"))
+    {
+        do
+            mutedMasters.insert(result->Fetch()[0].Get<uint32>());
+        while (result->NextRow());
+    }
+    mutedCount.store(uint32(mutedMasters.size()), std::memory_order_relaxed);
+}
 
 bool CoaBotMute::IsMuted(Player* bot)
 {
@@ -39,11 +65,9 @@ bool CoaBotMute::IsMuted(Player* bot)
         return false;
     PlayerbotAI* botAI = GET_PLAYERBOT_AI(bot);
     Player* master = botAI ? botAI->GetMaster() : nullptr;
-    if (!master)
+    if (!master || master == bot || !master->GetSession() || master->GetSession()->IsBot())
         return false;
-    std::lock_guard<std::mutex> guard(muteLock);
-    auto const it = mutedBy.find(bot->GetGUID().GetCounter());
-    return it != mutedBy.end() && it->second == master->GetGUID().GetCounter();
+    return MasterMuted(master->GetGUID().GetCounter());
 }
 
 bool CoaBotMute::Command(PlayerbotAI* botAI, std::string const& command, std::string const& arg)
@@ -55,7 +79,7 @@ bool CoaBotMute::Command(PlayerbotAI* botAI, std::string const& command, std::st
     if (!bot || !master)
         return true;
     if (sPlayerbotAIConfig.coaMute && (arg == "on" || arg == "off"))
-        Set(bot, master, arg == "on");
+        Set(master->GetGUID().GetCounter(), arg == "on");
     CoaAltAddon::SendToMaster(botAI, std::string("MUTE\t") + (IsMuted(bot) ? "1" : "0"));
     return true;
 }
