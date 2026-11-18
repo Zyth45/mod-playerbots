@@ -45,25 +45,9 @@
 #include "Timer.h"
 #include "TravelMgr.h"
 #include "G3D/Vector2.h"
-#include "MapReference.h"
+#include "CoaRealPlayerSight.h"
 #include <atomic>
 #include <ctime>
-
-namespace
-{
-// With AiPlayerbot.TeleportOnlyOutOfSight, a stuck bot only teleports where no real player can watch it happen.
-bool WatchedByRealPlayer(Player* bot)
-{
-    for (MapReference const& ref : bot->GetMap()->GetPlayers())
-    {
-        Player* player = ref.GetSource();
-        if (player && player != bot && player->GetSession() && !player->GetSession()->IsBot() &&
-            player->HaveAtClient(bot))
-            return true;
-    }
-    return false;
-}
-}
 
 QuestStatusData const* NewRpgBaseAction::GetQuestStatusData(uint32 questId) const
 {
@@ -141,11 +125,16 @@ bool NewRpgBaseAction::MoveFarTo(WorldPosition dest)
         // No meaningful progress toward dest for `stuckTime`: fall
         // back to teleporting directly so the bot can get on with
         // its RPG objective instead of oscillating indefinitely.
-        if (sPlayerbotAIConfig.teleportOnlyOutOfSight && WatchedByRealPlayer(bot))
+        if (sPlayerbotAIConfig.teleportOnlyOutOfSight && CoaRealPlayerSight::SeenByRealPlayer(bot))
         {
-            // Seen: give the target up instead, so the bot picks something it can walk to.
-            LOG_DEBUG("playerbots", "[New RPG] {} gives up a target it cannot reach while a player watches",
+            // Seen: wait without walking, still counted as stuck, so it teleports the moment nobody watches. Seen
+            // for 2 more minutes: give the target up. The progress mark is reset too, so a target picked again
+            // starts a fresh 90 s count instead of a give-up at once.
+            if (GetMSTimeDiffToNow(botAI->rpgInfo.stuckTs) < stuckTime + 2 * MINUTE * IN_MILLISECONDS)
+                return true;
+            LOG_DEBUG("playerbots.coa", "[New RPG] {} gives up a target it cannot reach while a player watches",
                       bot->GetName());
+            botAI->rpgInfo.nearestMoveFarDis = FLT_MAX;
             botAI->rpgInfo.stuckTs = getMSTime();
             botAI->rpgInfo.stuckAttempts = 0;
             botAI->rpgInfo.ChangeToIdle();
