@@ -898,10 +898,14 @@ void PlayerbotFactory::Randomize(bool incremental)
         if (!selfFound && (!sPlayerbotAIConfig.equipAndSpecPersistence ||
             level < uint32(sPlayerbotAIConfig.equipAndSpecPersistenceLevel) || level < oldLevel))
         {
-            ClearAllItems();
+            // Above the self-found range of a self-found realm the gear is rebuilt, the bags stay.
+            if (KeepsBags())
+                ClearEquippedItems();
+            else
+                ClearAllItems();
         }
     }
-    if (!selfFound)
+    if (!KeepsBags())
         ClearInventory();
     bot->RemoveAllSpellCooldown();
     UnbindInstance();
@@ -1152,7 +1156,7 @@ void PlayerbotFactory::Refresh()
     //     InitEquipment(true);
     // }
     InitAttunementQuests();
-    if (CoaRefreshClearsInventory(SelfFound(), sPlayerbotAIConfig.refreshClearsInventory))
+    if (CoaRefreshClearsInventory(KeepsBags(), sPlayerbotAIConfig.refreshClearsInventory))
         ClearInventory();
     InitAmmo();
     InitFood();
@@ -4589,7 +4593,7 @@ void PlayerbotFactory::InitInstanceQuests()
     bot->GiveLevel(level);
 
     // Self-found: InitQuests already took the reward items back, the bags hold what the bot found.
-    if (!SelfFound())
+    if (!KeepsBags())
         ClearInventory();
     bot->SetUInt32Value(PLAYER_XP, currentXP);
 }
@@ -4616,6 +4620,14 @@ void PlayerbotFactory::ClearAllItems()
 {
     DestroyItemsVisitor visitor(bot);
     IterateItems(&visitor, ITERATE_ALL_ITEMS);
+}
+
+bool PlayerbotFactory::KeepsBags() const { return SelfFound() || sPlayerbotAIConfig.coaSelfFound; }
+
+void PlayerbotFactory::ClearEquippedItems()
+{
+    DestroyItemsVisitor visitor(bot);
+    IterateItems(&visitor, ITERATE_ITEMS_IN_EQUIP);
 }
 
 void PlayerbotFactory::InitAmmo()

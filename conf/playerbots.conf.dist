@@ -4592,7 +4592,9 @@ AiPlayerbot.MinRandomBotTeleportInterval = 600
 AiPlayerbot.MaxRandomBotTeleportInterval = 2400
 
 # Whether a random bot's bags are emptied at each random teleport (the refresh, every 600 to 2400 seconds above).
-# Self-found bots always keep their bags. Food and potions are only topped up, so kept bags never pile them up.
+# No effect on a self-found realm (AiPlayerbot.CoaSelfFound = 1): there the bags are never emptied, at any level,
+# and the bots sell their surplus at vendors; self-found bots elsewhere keep theirs too. Food and potions are only
+# topped up, so kept bags never pile them up.
 #    0 - keep the bags: meant for when bots sell their loot at vendors
 #    1 - empty the bags at each refresh
 # Default: 1 (enabled)

@@ -245,6 +245,7 @@ private:
     void InitTalentsByTemplate(uint32 specNo);
     void InitQuests(std::list<uint32>& questMap, bool withRewardItem = true);
     void ClearInventory();
+    void ClearEquippedItems();  // the worn gear only, the bags kept (KeepsBags)
     void ClearAllItems();
     void ResetQuests();
 
@@ -277,6 +278,9 @@ private:
     EnchantContainer::const_iterator GetEnchantContainerEnd() { return m_EnchantContainer.end(); }
     // Self-found by the realm's level range or as one of the self-found random bots.
     bool SelfFound() const { return SelfFoundAt(level) || IsSelfFoundBot(bot); }
+    // The bags are never emptied on a self-found realm (AiPlayerbot.CoaSelfFound = 1, any level) nor for a
+    // self-found bot: it sells what it has too much of at vendors and makes do (user, 19/11).
+    bool KeepsBags() const;
 
     uint32 level;
     uint32 itemQuality;
