@@ -8,6 +8,9 @@
 #include "CoaKeySpells.h"
 #include "CoaQuickAsk.h"
 #include "CoaQuestTab.h"
+#include "CoaBotMute.h"
+#include "CoaAltGive.h"
+#include "CoaTrust.h"
 
 #include "Bag.h"
 #include "CoaAltAddon.h"
@@ -468,7 +471,8 @@ bool Command(PlayerbotAI* botAI, std::string const& command, std::string const& 
     bool const slots = command == "bagslots" || command == "bagequip";
     bool const check = command == "bagcheck";
     if (CoaKeySpells::Command(botAI, command, arg) || CoaQuickAsk::Command(botAI, command, arg) ||
-        CoaQuestTab::Command(botAI, command, arg))
+        CoaQuestTab::Command(botAI, command, arg) || CoaBotMute::Command(botAI, command, arg) ||
+        CoaTrust::Command(botAI, command, arg) || CoaAltGive::Command(botAI, command, arg))
         return true;
     if (!compare && !slots && !check && command != "bags" && command != "sell" && command != "destroy")
         return false;
@@ -521,7 +525,8 @@ bool Enqueue(PlayerbotAI* botAI, std::string const& request)
     std::string const command = request.substr(0, request.find(' '));
     if (command != "cmp" && command != "bags" && command != "sell" && command != "destroy" && command != "bagslots" &&
         command != "bagequip" && command != "bagcheck" && command != "keyspells" && command != "keepcd" &&
-        command != "qa" && command != "qastate" && command != "qlog" && command != "turnin" && command != "qplan")
+        command != "qa" && command != "qastate" && command != "qlog" && command != "turnin" && command != "qplan" &&
+        command != "mute" && command != "trust" && command != "give")
         return false;
     if (!botAI)
         return true;

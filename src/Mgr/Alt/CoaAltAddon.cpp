@@ -5,6 +5,7 @@
  */
 
 #include "CoaAltAddon.h"
+#include "CoaBotMute.h"
 #include "CoaQuestTab.h"
 #include "CoaAltBags.h"
 
@@ -378,8 +379,10 @@ bool OnAddonWhisper(Player* from, Player* receiver, std::string const& msg)
         return true;
     }
     // The key spells bar too (contract of 14/11), and its quick asks Heal / CC / Taunt please (15/11).
+    // And the Info tab's trust and the Mute button, for any bot of the player (3.1.6).
     if (command == "keyspells" || command.rfind("keyspells ", 0) == 0 || command.rfind("keepcd ", 0) == 0 ||
-        command == "qastate" || command.rfind("qa ", 0) == 0)
+        command == "qastate" || command.rfind("qa ", 0) == 0 || command == "trust" || command == "mute" ||
+        command.rfind("mute ", 0) == 0)
     {
         MarkSeen(from);
         CoaAltBags::Enqueue(botAI, command);
@@ -402,7 +405,9 @@ bool OnAddonWhisper(Player* from, Player* receiver, std::string const& msg)
         }
         std::ostringstream out;
         out << "HELLO\t" << PROTOCOL << "\t" << (sPlayerbotAIConfig.catchUpQuestChains ? 1 : 0) << "\t"
-            << (sPlayerbotAIConfig.altChatToAddon ? 1 : 0) << "\t1\t" << (sPlayerbotAIConfig.coaAltBags ? 1 : 0);
+            << (sPlayerbotAIConfig.altChatToAddon ? 1 : 0) << "\t1\t" << (sPlayerbotAIConfig.coaAltBags ? 1 : 0)
+            << "\t" << (sPlayerbotAIConfig.coaGiveToAlt ? 1 : 0) << "\t" << (CoaBotMute::IsMuted(receiver) ? 1 : 0)
+            << "\t" << (sPlayerbotAIConfig.coaTrust ? 1 : 0);
         Send(receiver, from, out.str());
         CoaEnchanter::SendStatus(botAI);
         return true;

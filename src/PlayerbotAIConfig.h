@@ -757,6 +757,9 @@ public:
     uint32 coaLiveCityPostMinMinutes = 20;  // AiPlayerbot.CoaLive.City.PostMinMinutes
     uint32 coaLiveCityPostMaxMinutes = 60;  // AiPlayerbot.CoaLive.City.PostMaxMinutes
     uint32 coaLiveCityFishingPct = 10;      // AiPlayerbot.CoaLive.City.FishingPct: a stop at the city's water
+    bool coaMute = true;       // AiPlayerbot.CoaMute.Enable: the addon's Mute button (CoaBotMute)
+    bool coaGiveToAlt = true;  // AiPlayerbot.CoaGiveToAlt.Enable: "give" an item from an alt to another (CoaAltGive)
+    bool coaTrust = true;      // AiPlayerbot.CoaTrust.Enable: the trust of a player in his bots (CoaTrust)
     // ---- end of CoA Live ----
 
     // ---- CoA World (LoadCoaWorldConfig, CoaWorldConfig.cpp) ----

@@ -5,6 +5,7 @@
  */
 
 #include "CoaLive.h"
+#include "CoaBotMute.h"
 #include "CoaQuickAsk.h"
 
 #include "CoaSafeMove.h"
@@ -297,6 +298,9 @@ bool React(Player* bot, std::string const& situation, Player* subject, std::stri
            ReactOptions const& opt = {})
 {
     if (!bot || !bot->IsInWorld())
+        return false;
+    // Muted by its master (AiPlayerbot.CoaMute.Enable): only what a player asked.
+    if (!opt.asked && CoaBotMute::IsMuted(bot))
         return false;
 
     std::shared_ptr<Bank const> current;

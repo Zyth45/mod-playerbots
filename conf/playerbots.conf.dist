@@ -4211,6 +4211,37 @@ AiPlayerbot.CoaPetPassiveOnStay = 1
 
 AiPlayerbot.CoaHearthWithMaster = 1
 
+#    AiPlayerbot.CoaMute.Enable
+#        Description: The Mute button of the SquidBots addon: a player silences the chatter of his own bots
+#                     (alts or recruited, "mute on|off"). A muted bot says no living chat line, whispers nothing
+#                     unasked and says no random line; it still answers its master's orders and questions.
+#                     The mute lasts while the bot keeps that master.
+#        Default:     1 - on
+#                     0 - off, the button is greyed
+
+AiPlayerbot.CoaMute.Enable = 1
+
+#    AiPlayerbot.CoaGiveToAlt.Enable
+#        Description: "Give to alt" of the SquidBots addon: an alt gives items of its bags to another alt of the
+#                     same player, bag to bag ("give <itemId> <count> <alt>"). Both alts in their master's group,
+#                     never a recruited bot. Items bound to a character are refused; bound to the account is fine.
+#                     An alt gone offline in between gets the items by mail.
+#        Default:     1 - on
+#                     0 - off, the addon greys it
+
+AiPlayerbot.CoaGiveToAlt.Enable = 1
+
+#    AiPlayerbot.CoaTrust.Enable
+#        Description: The trust of a player in each of his bots, shown in the addon's Info tab as a rank and a
+#                     bar: +1 for a monster killed together, +25 for a boss, +100 for a raid boss (the bot and
+#                     its master both there). Ranks: stranger, acquaintance (100), companion (500), friend (1500),
+#                     trusted (4000), sworn (10000). Shown only: no rank opens or locks anything. Kept in the
+#                     table coa_trust of the playerbots database.
+#        Default:     1 - on
+#                     0 - off, the scores stop growing and the addon hides the bar
+
+AiPlayerbot.CoaTrust.Enable = 1
+
 # Bots' minimum and maximum level when teleporting in and out of a zone, according to the new RPG strategy
 # Format: AiPlayerbot.ZoneBracket.zoneID = minLevel,maxLevel
 #

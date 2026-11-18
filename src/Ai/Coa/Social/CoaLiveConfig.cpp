@@ -127,6 +127,9 @@ void PlayerbotAIConfig::LoadCoaLiveConfig()
     coaLiveCityPostChancePct = std::min<uint32>(sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaLive.City.PostChancePct", 25), 100);
     coaLiveCityPostMinMinutes = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaLive.City.PostMinMinutes", 20);
     coaLiveCityPostMaxMinutes = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaLive.City.PostMaxMinutes", 60);
+    coaMute = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaMute.Enable", true);
+    coaGiveToAlt = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaGiveToAlt.Enable", true);
+    coaTrust = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaTrust.Enable", true);
     coaLiveCityFishingPct = std::min<uint32>(sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaLive.City.FishingPct", 10), 100);
     // Shared with the other CoA data files (in the .dist once).
     coaLiveDataDir = sConfigMgr->GetOption<std::string>("AiPlayerbot.CoaDataDir", "", false);

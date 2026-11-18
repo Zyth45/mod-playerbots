@@ -12,6 +12,8 @@
 #include "CoaChatRules.h"
 #include "CoaPet.h"
 #include "CoaHearthWithMaster.h"
+#include "CoaBotMute.h"
+#include "CoaAltGive.h"
 #include "CurrentTargetValue.h"
 
 #include <set>
@@ -799,6 +801,8 @@ void PlayerbotAI::UpdateAIInternal([[maybe_unused]] uint32 elapsed, bool minimal
 
     HandleCommands();
     CoaAltBags::Drain(this);
+    // Items given by another alt of the master, stored here (AiPlayerbot.CoaGiveToAlt.Enable).
+    CoaAltGive::Tick(this);
 
     // logout if logout timer is ready or if instant logout is possible
     if (bot->GetSession()->isLogingOut())
@@ -3799,6 +3803,9 @@ bool PlayerbotAI::TellError(std::string const text, PlayerbotSecurityLevel secur
 // greetings reach a real master.
 bool PlayerbotAI::MasterWantsThis()
 {
+    // Muted by its master (AiPlayerbot.CoaMute.Enable): only the answers to his commands, no greeting.
+    if (CoaBotMute::IsMuted(bot))
+        return time(nullptr) - lastCommandAt <= 10;
     if (sPlayerbotAIConfig.botsWhisperPublic || greeting)
         return true;
     Player* master = GetMaster();

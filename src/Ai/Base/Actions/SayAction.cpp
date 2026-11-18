@@ -5,6 +5,7 @@
  */
 
 #include "SayAction.h"
+#include "CoaBotMute.h"
 #include "AiFactory.h"
 #include "Event.h"
 #include "PlayerbotTextMgr.h"
@@ -148,7 +149,7 @@ bool SayAction::isUseful()
     if (!botAI->AllowActivity())
         return false;
 
-    if (botAI->HasStrategy("silent", BotState::BOT_STATE_NON_COMBAT))
+    if (botAI->HasStrategy("silent", BotState::BOT_STATE_NON_COMBAT) || CoaBotMute::IsMuted(bot))
         return false;
 
     time_t lastSaid = AI_VALUE2(time_t, "last said", qualifier);
