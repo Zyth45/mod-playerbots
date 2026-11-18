@@ -50,6 +50,16 @@ public:
 
     bool OnDatabasesLoading() override
     {
+        if (sConfigMgr->GetOption<bool>("CoAGameplayTest.Enable", false, false))
+        {
+            std::string const info = sConfigMgr->GetOption<std::string>("PlayerbotsDatabaseInfo", "", false);
+            std::size_t const separator = info.rfind(';');
+            if (separator == std::string::npos || !info.substr(separator + 1).starts_with("coa_test_"))
+            {
+                LOG_ERROR("server.playerbots", "Gameplay verification refuses a non-test Playerbots database");
+                return false;
+            }
+        }
         DatabaseLoader playerbotLoader("server.playerbots");
         playerbotLoader.SetUpdateFlags(sConfigMgr->GetOption<bool>("Playerbots.Updates.EnableDatabases", true)
                                            ? DatabaseLoader::DATABASE_PLAYERBOTS
