@@ -7,6 +7,7 @@
 #include "CoaFishingGear.h"
 
 #include "Bag.h"
+#include "CoaLive.h"
 #include "CoaMissionMgr.h"
 #include "Item.h"
 #include "Player.h"
@@ -129,13 +130,10 @@ void CoaFishingGear::Tick(PlayerbotAI* botAI)
     if (nextCheck.size() > 20000)
         nextCheck.clear();
 
-    Player* master = botAI->GetMaster();
-    bool const forPlayer = master && master != bot && master->GetSession() && !master->GetSession()->IsBot();
-    if (!bot->IsInCombat() && !bot->GetGroup() && !forPlayer)
-        return;
-    // Fishing on purpose (its master's "fish", a fishing mission): the pole stays, out of combat.
-    if (!bot->IsInCombat() &&
-        (botAI->HasStrategy("master fishing", BOT_STATE_NON_COMBAT) || sCoaMissionMgr.IsOnMission(bot)))
+    // Fishing now (its master's "fish", the shore or the city, a fishing mission): the pole stays, out of combat.
+    // Any other time (a fight, a group, a recruit, after a login or a refresh) the weapon comes back.
+    if (!bot->IsInCombat() && (botAI->HasStrategy("master fishing", BOT_STATE_NON_COMBAT) ||
+                               sCoaMissionMgr.IsOnMission(bot) || CoaLive::IsFishing(bot)))
         return;
     Restore(bot);
 }

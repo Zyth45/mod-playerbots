@@ -21,8 +21,8 @@ void BeforePole(Player* bot);
 // The pole in the main hand: the weapons kept in mind go back, else the best weapon of the bags. Nothing is created:
 // with no weapon in its bags, the bot keeps the pole. True when a weapon was put in hand.
 bool Restore(Player* bot);
-// The safety net, on the bot's update (every 2 s at most): a pole in the main hand of a bot in combat, in a group or
-// with a player for master, and not fishing for him, gives way to a weapon (Restore).
+// The safety net, on the bot's update (every 2 s at most): a pole in the main hand of a bot that is not fishing now
+// (in a fight, always) gives way to a weapon (Restore): after a group, a recruit, a login or a refresh too.
 void Tick(PlayerbotAI* botAI);
 }  // namespace CoaFishingGear
 

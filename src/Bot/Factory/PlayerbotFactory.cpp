@@ -5,6 +5,7 @@
  */
 
 #include "PlayerbotFactory.h"
+#include "CoaFishingGear.h"
 #include "Ai/Coa/Combat/Gear/CoaGearPvp.h"
 #include "CoaQuietAchievements.h"
 #include "AccountMgr.h"
@@ -4595,6 +4596,9 @@ void PlayerbotFactory::InitInstanceQuests()
 
 void PlayerbotFactory::ClearInventory()
 {
+    // A bot that fished takes its weapons back first: put away in the bags, they would be destroyed with them and
+    // the pole left in its hands (a refresh does not give gear back).
+    CoaFishingGear::Restore(bot);
     DestroyItemsVisitor visitor(bot);
 #ifdef COA_ECONOMY_GUILD_STOCK
     // CoA Economy 3.1.4: with the guild stock on, its materials stay (bounded); off, the bags are emptied as in 3.1.3.
