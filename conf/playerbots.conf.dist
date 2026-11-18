@@ -649,6 +649,13 @@ AiPlayerbot.CoaSelfFound = 0
 # Default: 59 (at 60 bots are geared as usual for the endgame)
 AiPlayerbot.CoaSelfFoundMaxLevel = 59
 
+# With AiPlayerbot.CoaSelfFound = 1, a random bot left with no weapon at all (none worn, none in its bags; a fishing
+# pole is no weapon) gets the starting weapon of its class, once in its life (table playerbots_coa_starter_weapon):
+# sold or destroyed, it never comes back. Nothing else is given. Checked at each refresh and when a bot drops its
+# fishing pole. 0: nothing is ever given (as before 3.1.6).
+# Default: 1 (enabled)
+AiPlayerbot.CoaSelfFound.StarterWeapon = 1
+
 # Self-found random bots in dungeons: share of the random bots (0 to 100 percent, picked by character whatever
 # its level, always the same ones) that wear only what they loot, earn from quests or are traded from level 10 on.
 # No gear, gems, enchantments, level roll or level bracket is given to them, and the autogear and bis commands are

@@ -5,6 +5,7 @@
  */
 
 #include "CoaBotMute.h"
+#include "CoaStarterWeapon.h"
 #include "CoaTrust.h"
 #include "CoaWorldGuilds.h"
 #include "CoaWorldAiBudget.h"
@@ -543,7 +544,8 @@ public:
         if (sPlayerbotAIConfig.coaBossKnowledge)
             CoaBossKnowledge::Load();
         CoaTrust::Load();
-        CoaBotMute::Load();  // the players who muted their bots (AiPlayerbot.CoaMute.Enable), table playerbots_coa_mute  // the trust of the players in their bots (AiPlayerbot.CoaTrust.Enable), table playerbots_coa_trust
+        CoaBotMute::Load();
+        CoaStarterWeapon::Load();  // the self-found bots that got their starting weapon once  // the players who muted their bots (AiPlayerbot.CoaMute.Enable), table playerbots_coa_mute  // the trust of the players in their bots (AiPlayerbot.CoaTrust.Enable), table playerbots_coa_trust
 
         LOG_INFO("server.loading", "Playerbots World Thread Processor initialized");
     }

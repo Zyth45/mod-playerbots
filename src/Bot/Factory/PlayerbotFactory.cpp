@@ -6,6 +6,7 @@
 
 #include "PlayerbotFactory.h"
 #include "CoaFishingGear.h"
+#include "CoaStarterWeapon.h"
 #include "Ai/Coa/Combat/Gear/CoaGearPvp.h"
 #include "CoaQuietAchievements.h"
 #include "AccountMgr.h"
@@ -1158,6 +1159,8 @@ void PlayerbotFactory::Refresh()
     InitAttunementQuests();
     if (CoaRefreshClearsInventory(KeepsBags(), sPlayerbotAIConfig.refreshClearsInventory))
         ClearInventory();
+    // A self-found bot left with no weapon at all gets its starting one, once (AiPlayerbot.CoaSelfFound.StarterWeapon).
+    CoaStarterWeapon::Ensure(bot);
     InitAmmo();
     InitFood();
     InitReagents();
@@ -2762,6 +2765,35 @@ static void StoreCoaStarterItems(Player* bot)
         if (bot->CanStoreNewItem(NULL_BAG, NULL_SLOT, dest, entry.ItemId, entry.Count) == EQUIP_ERR_OK)
             bot->StoreNewItem(dest, entry.ItemId, true, Item::GenerateItemRandomPropertyId(entry.ItemId));
     }
+}
+
+namespace
+{
+bool StarterMainHand(uint32 itemId)
+{
+    ItemTemplate const* proto = sObjectMgr->GetItemTemplate(itemId);
+    return proto && proto->Class == ITEM_CLASS_WEAPON && proto->SubClass != ITEM_SUBCLASS_WEAPON_FISHING_POLE &&
+           (proto->InventoryType == INVTYPE_WEAPON || proto->InventoryType == INVTYPE_WEAPONMAINHAND ||
+            proto->InventoryType == INVTYPE_2HWEAPON);
+}
+}  // namespace
+
+uint32 PlayerbotFactory::StarterWeaponOf(Player* bot)
+{
+    if (!bot)
+        return 0;
+    if (IsAscensionCustomClassId(bot->getClass()))
+    {
+        for (AscensionCompatData::LiveStarterItem const& entry : AscensionCompatData::LiveStarterItems)
+            if (entry.ClassId == bot->getClass() && StarterMainHand(entry.ItemId))
+                return entry.ItemId;
+        return 0;
+    }
+    if (CharStartOutfitEntry const* outfit = GetCharStartOutfitEntry(bot->getRace(), bot->getClass(), bot->getGender()))
+        for (int i = 0; i < MAX_OUTFIT_ITEMS; ++i)
+            if (outfit->ItemId[i] > 0 && StarterMainHand(uint32(outfit->ItemId[i])))
+                return uint32(outfit->ItemId[i]);
+    return 0;
 }
 
 void PlayerbotFactory::SetRandomProperty(Player* bot, Item* item, int32 randomPropertyId)

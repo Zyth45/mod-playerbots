@@ -9,6 +9,7 @@
 #include "Bag.h"
 #include "CoaLive.h"
 #include "CoaMissionMgr.h"
+#include "CoaStarterWeapon.h"
 #include "Item.h"
 #include "Player.h"
 #include "PlayerbotAI.h"
@@ -106,7 +107,8 @@ bool CoaFishingGear::Restore(Player* bot)
     if (!weapon)
         weapon = BestWeapon(bot);
     if (!weapon)
-        return false;  // nothing to hold but the pole: nothing is created
+        // Nothing to hold but the pole: nothing is created, except the starting weapon of a self-found bot, once.
+        return CoaStarterWeapon::Ensure(bot);
     CoaMissionMgr::EquipItem(bot, weapon, EQUIPMENT_SLOT_MAINHAND);
     if (IsFishingPole(MainHand(bot)))
         return false;
