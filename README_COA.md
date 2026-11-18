@@ -11,7 +11,7 @@ SquidBots is the bots module of Conquest of Azeroth servers. It runs on the offi
 - gear is weighted with the stats of the bot's specialization;
 - players find bots without GM commands: `lfg bot tank|heal|dps` in a channel, or `.playerbots coa tank|heal|dps`.
 
-**News, new versions and support: the [SquidBots Discord](https://discord.gg/vBgHuef9k).**
+**News, new versions and support: the [SquidBots Discord](https://discord.gg/DTJceaG9Ky).**
 
 ## Current version: 3.1.5
 
