@@ -5,6 +5,7 @@
  */
 
 #include "FishingAction.h"
+#include "CoaFishingGear.h"
 #include "Event.h"
 #include "FishValues.h"
 #include "GridNotifiers.h"
@@ -434,7 +435,11 @@ bool FishingAction::Execute(Event event)
 
     EquipFishingPoleAction equipAction(botAI);
     if (equipAction.isUseful())
+    {
+        // CoA: the weapons worn now come back when the fishing ends (CoaFishingGear).
+        CoaFishingGear::BeforePole(bot);
         return equipAction.Execute(event);
+    }
 
     botAI->CastSpell(FISHING_SPELL, bot);
     botAI->ChangeStrategy("+use bobber", BOT_STATE_NON_COMBAT);

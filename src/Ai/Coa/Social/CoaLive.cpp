@@ -6,6 +6,7 @@
 
 #include "CoaLive.h"
 #include "CoaBotMute.h"
+#include "CoaFishingGear.h"
 #include "CoaQuickAsk.h"
 
 #include "CoaSafeMove.h"
@@ -836,6 +837,7 @@ void Fish(Player* bot, PlayerbotAI* botAI)
                                    info.GetStatus() == RPG_REST))
         {
             botAI->ChangeStrategy("-master fishing", BOT_STATE_NON_COMBAT);
+            CoaFishingGear::Restore(bot);  // the weapons back in hand
             if (info.GetStatus() == RPG_REST)
                 info.ChangeToIdle();
             std::lock_guard<std::mutex> guard(liveLock);

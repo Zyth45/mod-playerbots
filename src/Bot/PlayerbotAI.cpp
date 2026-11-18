@@ -14,6 +14,7 @@
 #include "CoaHearthWithMaster.h"
 #include "CoaBotMute.h"
 #include "CoaAltGive.h"
+#include "CoaFishingGear.h"
 #include "CurrentTargetValue.h"
 
 #include <set>
@@ -579,6 +580,8 @@ void PlayerbotAI::UpdateAI(uint32 elapsed, bool minimal)
     CoaLootCompanionTick(this);
     // The alt's class and craft books, used by themselves ("pet auto on", CoA Pets).
     CoaPet::Tick(this);
+    // A fishing pole left in hand gives way to a weapon in a fight or a group (CoaFishingGear).
+    CoaFishingGear::Tick(this);
     // The CoA talents left by a capped rebuild (AiPlayerbot.CoaLive.TalentsPerUpdate).
     CoaTalentsTick(bot);
     // The level-up maintenance spread over the next updates (AiPlayerbot.CoaLive.MaintenanceSpread).
