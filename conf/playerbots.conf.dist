@@ -656,6 +656,18 @@ AiPlayerbot.CoaSelfFoundMaxLevel = 59
 # Default: 1 (enabled)
 AiPlayerbot.CoaSelfFound.StarterWeapon = 1
 
+# Diagnostic of the bots' odd moves (3.1.7), for a bench: each bot is sampled every SampleMs and a JSON line is
+# written to File (relative to the world server's folder) when it stands in the air (more than 2.5 yards above the
+# floor under it, not flying, falling or swimming), on a roof outdoors, crosses a wall between two samples, moves
+# far faster than it can run, teleports, or jumps more than 2 yards in height on the ground; with its last move
+# (action, path type and points, target). The fixed NPCs of a capital far from home and the oversized creatures of a
+# capital are written too. One line per bot and per kind every ThrottleSeconds. Nothing in the game changes.
+# Default: 0 (off)
+AiPlayerbot.CoaMoveAudit = 0
+AiPlayerbot.CoaMoveAudit.SampleMs = 300
+AiPlayerbot.CoaMoveAudit.ThrottleSeconds = 10
+AiPlayerbot.CoaMoveAudit.File = "coa_move_audit.jsonl"
+
 # Self-found random bots in dungeons: share of the random bots (0 to 100 percent, picked by character whatever
 # its level, always the same ones) that wear only what they loot, earn from quests or are traded from level 10 on.
 # No gear, gems, enchantments, level roll or level bracket is given to them, and the autogear and bis commands are
