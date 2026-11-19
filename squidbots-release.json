@@ -1417,7 +1417,7 @@
    "name": "SquidBots addon",
    "kind": "client addon",
    "required": false,
-   "tag": "v3.1.4",
+   "tag": "v3.1.6",
    "repository": "https://github.com/Zyth45/squidbots-addon"
   },
   {
