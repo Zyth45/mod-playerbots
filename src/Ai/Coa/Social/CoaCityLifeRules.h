@@ -223,6 +223,20 @@ inline bool IsResident(uint64_t guid)
 }
 
 inline uint32_t StayMs(uint64_t guid, uint32_t cityStayMs) { return IsResident(guid) ? cityStayMs * 3 : cityStayMs; }
+// 3.1.6 trial: using a chair puts the bot on the chair itself, wherever it stands. From the street, a chair of an
+// upper floor, a balcony or a stall's roof within reach lifted the bot up there ("bots that fly"). A seat is taken only
+// on the bot's own floor (height gap at most SEAT_MAX_DZ), close by and in sight; else the bot only stands by it.
+constexpr float SEAT_PICK_MAX_DZ = 2.5f;  // a seat this far above or below the bot is not a candidate
+constexpr float SEAT_MAX_DZ = 1.5f;       // at arrival: the chair's height against the bot's
+constexpr float SEAT_MAX_DIST = 4.0f;     // at arrival: 2D distance to the chair
+
+inline bool SeatPickable(float botZ, float seatZ) { return std::fabs(seatZ - botZ) <= SEAT_PICK_MAX_DZ; }
+
+inline bool SeatUsable(float botX, float botY, float botZ, float seatX, float seatY, float seatZ, bool inSight)
+{
+    float const dx = seatX - botX, dy = seatY - botY;
+    return inSight && std::fabs(seatZ - botZ) <= SEAT_MAX_DZ && dx * dx + dy * dy <= SEAT_MAX_DIST * SEAT_MAX_DIST;
+}
 }  // namespace CoaCityLife
 
 #endif

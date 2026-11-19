@@ -116,7 +116,10 @@ struct StationObjectCheck
     WorldObject const* origin;
     bool operator()(GameObject* go) const
     {
-        return go->isSpawned() && StationOfObject(go->GetGoType(), FocusOf(go)) != Station::None &&
+        Station const kind = go->isSpawned() ? StationOfObject(go->GetGoType(), FocusOf(go)) : Station::None;
+        // A seat only on the bot's own floor: never a chair upstairs, on a balcony or on a roof.
+        return kind != Station::None &&
+               (kind != Station::Seat || SeatPickable(origin->GetPositionZ(), go->GetPositionZ())) &&
                origin->IsWithinDistInMap(go, SEARCH_RANGE);
     }
 };
@@ -249,10 +252,18 @@ void OnReach(PlayerbotAI* botAI, WorldObject* object)
             std::max<uint32>(info.cityStayMs, GetMSTimeDiffToNow(info.startT) + stayMs + MINUTE * IN_MILLISECONDS);
     if (kind == Station::Seat)
     {
-        // Sat on the seat itself, the way a player clicks a chair.
-        if (GameObject* seat = object->ToGameObject())
+        // Sat on the seat itself, the way a player clicks a chair. Using a chair puts the bot on it wherever it
+        // stands: only next to it, on its floor and in sight, else the bot would be lifted onto a roof or a balcony.
+        GameObject* seat = object->ToGameObject();
+        if (seat && SeatUsable(bot->GetPositionX(), bot->GetPositionY(), bot->GetPositionZ(), seat->GetPositionX(),
+                               seat->GetPositionY(), seat->GetPositionZ(), bot->IsWithinLOSInMap(seat)))
         {
             seat->Use(bot);
+            return;
+        }
+        if (seat)
+        {
+            bot->SetFacingToObject(object);  // out of reach: stands by it, never lifted onto it
             return;
         }
     }

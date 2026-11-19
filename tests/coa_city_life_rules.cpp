@@ -101,5 +101,13 @@ int main()
         uint32_t const bank = StayOrPostMs(Station::Bank, 100, 20, 60, between);
         assert(bank >= 40000 && bank <= 120000);
     }
+    // 3.1.6 trial, "bots that fly": a chair is used only on the bot's floor, close by and in sight.
+    assert(SeatPickable(99.0f, 100.0f));
+    assert(!SeatPickable(99.0f, 105.0f));  // a chair upstairs or on a stall's roof: not a candidate
+    assert(!SeatPickable(105.0f, 99.0f));
+    assert(SeatUsable(0.0f, 0.0f, 99.0f, 2.0f, 1.0f, 99.5f, true));
+    assert(!SeatUsable(0.0f, 0.0f, 99.0f, 2.0f, 1.0f, 103.0f, true));  // within reach but 4 yards up: never lifted
+    assert(!SeatUsable(0.0f, 0.0f, 99.0f, 2.0f, 1.0f, 99.5f, false));  // behind a wall
+    assert(!SeatUsable(0.0f, 0.0f, 99.0f, 5.0f, 0.0f, 99.0f, true));   // too far
     return 0;
 }
