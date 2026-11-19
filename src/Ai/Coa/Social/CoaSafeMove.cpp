@@ -40,4 +40,11 @@ bool MovePoint(Player* bot, float x, float y, float z, bool allowSwim)
     bot->GetMotionMaster()->MovePoint(0, x, y, z, FORCED_MOVEMENT_NONE, 0.0f, 0.0f, true, false);
     return true;
 }
+bool CanWalkTo(Player* bot, float x, float y, float z)
+{
+    if (!bot || !bot->IsInWorld())
+        return false;
+    PathGenerator path(bot);
+    return path.CalculatePath(x, y, z, false) && Walkable(uint32(path.GetPathType()), false);
+}
 }  // namespace CoaSafeMove

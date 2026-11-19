@@ -512,6 +512,15 @@ bool NewRpgWanderNpcAction::Execute(Event /*event*/)
     {
         if (MoveWorldObjectTo(data.npcOrGo))
             return true;
+        // CoA Live City Life (3.1.6): a station no walkable path leads to (inside a building, off the mesh) is given
+        // up for another stop, never reached in a straight line through the walls.
+        if (!IsWaitingForLastMove(MovementPriority::MOVEMENT_NORMAL) && CoaCityLife::Holds(botAI, data.npcOrGo))
+        {
+            CoaCityLife::Leave(botAI);
+            data.npcOrGo = ObjectGuid();
+            data.lastReach = 0;
+            return true;
+        }
         // NPC pathing failed (random offset in a wall, mmap hiccup, etc).
         // Take a small random step so the next tick retries from a
         // different spot instead of staring at the NPC from afar.

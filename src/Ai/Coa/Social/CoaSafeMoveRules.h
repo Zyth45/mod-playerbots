@@ -28,6 +28,14 @@ inline bool Walkable(uint32_t type, bool waterLine)
         return false;
     return !(type & NOT_USING_PATH) || waterLine;
 }
+// 3.1.6 trial: in a capital, a random bot walked through walls. The generic move asks the core for a path, and the
+// core goes in a straight line when it finds none (no path, or a path of two points). A random bot of its own (no
+// real player's group), out of combat, on a normal move in a capital goes only where a whole path leads.
+inline bool CityPathChecked(bool randomBot, bool realMaster, bool inCombat, bool generatePath, bool capital,
+                            bool normalPriority)
+{
+    return randomBot && !realMaster && !inCombat && generatePath && capital && normalPriority;
+}
 }  // namespace CoaSafeMove
 
 #endif

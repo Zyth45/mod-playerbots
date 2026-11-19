@@ -326,6 +326,15 @@ bool InRoom(PlayerbotAI* botAI, WorldObject* object)
     return bot->IsWithinDist(object, ROOM_KEEP);
 }
 
+bool Holds(PlayerbotAI* botAI, ObjectGuid station)
+{
+    if (!Enabled() || !botAI || station.IsEmpty())
+        return false;
+    std::lock_guard<std::mutex> guard(cityLock);
+    auto const it = holding.find(botAI->GetBot()->GetGUID().GetRawValue());
+    return it != holding.end() && it->second.station == station;
+}
+
 void Leave(PlayerbotAI* botAI)
 {
     // Off: no lock on every NPC left. A station held when it was turned off frees itself after HOLD_MS.

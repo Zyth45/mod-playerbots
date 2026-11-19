@@ -28,6 +28,8 @@ void OnReach(PlayerbotAI* botAI, WorldObject* object);
 uint32 WhileStaying(PlayerbotAI* botAI, WorldObject* object, uint32 defaultMs);
 // The stay is over: the bot stands up and frees the station.
 void Leave(PlayerbotAI* botAI);
+// True when the bot holds that station now (3.1.6: a station no path leads to is given up).
+bool Holds(PlayerbotAI* botAI, ObjectGuid station);
 // A bot that stepped from its auctioneer into the room still stays at its station (within ROOM_KEEP yards).
 bool InRoom(PlayerbotAI* botAI, WorldObject* object);
 // The length of a city visit: the residents (a tenth of the random bots) stay three times as long.

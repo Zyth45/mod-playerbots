@@ -15,5 +15,15 @@ int main()
     // A straight line: only a swim toward a shore in sight.
     assert(!Walkable(NORMAL | NOT_USING_PATH, false) && Walkable(NORMAL | NOT_USING_PATH, true));
     assert(!Walkable(NOPATH | NOT_USING_PATH, true));
+    // 3.1.6 trial: a random bot of its own on a normal move in a capital goes only where a whole path leads.
+    assert(CityPathChecked(true, false, false, true, true, true));
+    assert(!CityPathChecked(false, false, false, true, true, true));  // a player's alt: left alone
+    assert(!CityPathChecked(true, true, false, true, true, true));    // in a real player's group
+    assert(!CityPathChecked(true, false, true, true, true, true));    // in a fight
+    assert(!CityPathChecked(true, false, false, false, true, true));  // flying or swimming
+    assert(!CityPathChecked(true, false, false, true, false, true));  // out of a capital
+    assert(!CityPathChecked(true, false, false, true, true, false));  // a forced move (flee)
+    // The path types of the trial: no path or a cut path is never walked (the straight line through the wall).
+    assert(!Walkable(NOPATH, false) && !Walkable(NORMAL | INCOMPLETE, false) && !Walkable(SHORTCUT, false));
     return 0;
 }

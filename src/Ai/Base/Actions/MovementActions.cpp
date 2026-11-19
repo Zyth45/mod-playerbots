@@ -17,6 +17,10 @@
 #include "FleeManager.h"
 #include "GameObject.h"
 #include "CoaRealPlayerSight.h"
+#include "CoaSafeMove.h"
+#include "CoaSafeMoveRules.h"
+#include "DBCStores.h"
+#include "RandomPlayerbotMgr.h"
 #include "LastMovementValue.h"
 #include "LootObjectStack.h"
 #include "Map.h"
@@ -340,6 +344,17 @@ bool MovementAction::MoveTo(uint32 mapId, float x, float y, float z, bool /*idle
     }
 
     bool generatePath = !bot->IsFlying() && !bot->isSwimming();
+    // CoA (3.1.6 trial): with no path found, the core moves in a straight line through walls. In a capital, a random
+    // bot of its own goes only where a whole path on the navmesh leads (CoaSafeMove::CityPathChecked).
+    if (!bot->GetVehicle() && bot->GetMapId() == mapId && !bot->GetMap()->Instanceable())
+    {
+        AreaTableEntry const* zone = sAreaTableStore.LookupEntry(bot->GetZoneId());
+        if (CoaSafeMove::CityPathChecked(sRandomPlayerbotMgr.IsRandomBot(bot), botAI->HasGameClientMaster(),
+                                         bot->IsInCombat(), generatePath, zone && (zone->flags & AREA_FLAG_CAPITAL),
+                                         priority <= MovementPriority::MOVEMENT_NORMAL) &&
+            !CoaSafeMove::CanWalkTo(bot, x, y, z))
+            return false;
+    }
     bool disableMoveSplinePath =
         sPlayerbotAIConfig.disableMoveSplinePath >= 2 ||
         (sPlayerbotAIConfig.disableMoveSplinePath == 1 && bot->InBattleground());
