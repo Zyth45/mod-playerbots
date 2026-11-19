@@ -1,10 +1,10 @@
 {
  "format": 1,
  "module": "SquidBots (mod-playerbots for Conquest of Azeroth)",
- "version": "3.1.5",
- "tag": "v3.1.5",
- "commit": "6a29ee14",
- "previous_version": "3.1.4",
+ "version": "3.1.6",
+ "tag": "v3.1.6",
+ "commit": "6bd23989",
+ "previous_version": "3.1.5",
  "notes": "sql: every file of data/sql, applied per database in the stages base, updates, custom, each in name order (create: the database itself; archive: kept for history, never applied). A published file never changes; a change comes as a new file. large: over 30 MB, also attached to the release. new_keys / changed_defaults: playerbots.conf.dist against the previous release; a key missing from a server's playerbots.conf takes the default of the code, equal to the .dist. components: the parts of a full SquidBots install and the tags released together (empty tag: not given for this release). races: the keys a race page writes and the module's own race defaults. optional_core_headers: headers the module uses when the core has them, with a fallback otherwise: the module builds on the official core without any of them. commit = the commit the files were read from; the build itself is identified by its tag.",
  "settings_file": "conf/playerbots.conf.settings.json",
  "sql": [
@@ -1179,6 +1179,33 @@
    "immutable": true
   },
   {
+   "database": "playerbots",
+   "stage": "updates",
+   "path": "data/sql/playerbots/updates/2026_11_19_01_coa_trust.sql",
+   "sha256": "16f79d96f4c121b5990ef5b2b4f34d8cd266d8cc9ac14e39b80c0ef0b4b64218",
+   "size": 544,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "updates",
+   "path": "data/sql/playerbots/updates/2026_11_19_02_coa_mute.sql",
+   "sha256": "7e5f8431a320de25a45ae7d0e97a12f63f54cb93939c0be7cb94083594263d74",
+   "size": 387,
+   "large": false,
+   "immutable": true
+  },
+  {
+   "database": "playerbots",
+   "stage": "updates",
+   "path": "data/sql/playerbots/updates/2026_11_19_03_coa_starter_weapon.sql",
+   "sha256": "8353b0a030e7b34d3da78e08a9814e1a9fcc85cbe37448fec8f2bd1bc30fd5e5",
+   "size": 497,
+   "large": false,
+   "immutable": true
+  },
+  {
    "database": "world",
    "stage": "base",
    "path": "data/sql/world/base/charsections_dbc.sql",
@@ -1216,11 +1243,73 @@
   }
  ],
  "new_keys": [
-  "AiPlayerbot.FlyOnlyOutOfSight",
-  "AiPlayerbot.StandOffObjects",
-  "AiPlayerbot.TeleportOnlyOutOfSight"
+  "AiPlayerbot.CoaGiveToAlt.Enable",
+  "AiPlayerbot.CoaHearthWithMaster",
+  "AiPlayerbot.CoaLive.City.FishingPct",
+  "AiPlayerbot.CoaLive.City.PostChancePct",
+  "AiPlayerbot.CoaLive.City.PostMaxMinutes",
+  "AiPlayerbot.CoaLive.City.PostMinMinutes",
+  "AiPlayerbot.CoaMute.Enable",
+  "AiPlayerbot.CoaPetPassiveOnStay",
+  "AiPlayerbot.CoaSelfFound.StarterWeapon",
+  "AiPlayerbot.CoaTrust.Boss",
+  "AiPlayerbot.CoaTrust.Enable",
+  "AiPlayerbot.CoaTrust.Kill",
+  "AiPlayerbot.CoaTrust.RaidBoss",
+  "AiPlayerbot.CoaTrust.Ranks"
  ],
- "changed_defaults": [],
+ "changed_defaults": [
+  {
+   "key": "AiPlayerbot.CoaCombat.AhnQiraj.Enable",
+   "before": "0",
+   "now": "1"
+  },
+  {
+   "key": "AiPlayerbot.CoaCombat.BlackwingLair.Enable",
+   "before": "0",
+   "now": "1"
+  },
+  {
+   "key": "AiPlayerbot.CoaCombat.CallOfTheGrave.Enable",
+   "before": "0",
+   "now": "1"
+  },
+  {
+   "key": "AiPlayerbot.CoaCombat.CombatPurge.Enable",
+   "before": "0",
+   "now": "1"
+  },
+  {
+   "key": "AiPlayerbot.CoaCombat.GearScore.Enable",
+   "before": "0",
+   "now": "1"
+  },
+  {
+   "key": "AiPlayerbot.CoaCombat.LootNeedMinUpgradePct",
+   "before": "0",
+   "now": "10"
+  },
+  {
+   "key": "AiPlayerbot.CoaCombat.PlayerLed.Enable",
+   "before": "0",
+   "now": "1"
+  },
+  {
+   "key": "AiPlayerbot.CoaCombat.StuckCombat.Enable",
+   "before": "0",
+   "now": "1"
+  },
+  {
+   "key": "AiPlayerbot.CoaCombat.SunkenTemple.Enable",
+   "before": "0",
+   "now": "1"
+  },
+  {
+   "key": "AiPlayerbot.CoaCombat.ZulGurub.Enable",
+   "before": "0",
+   "now": "1"
+  }
+ ],
  "optional_core_headers": [
   "AscensionCompanionLoot.h",
   "AscensionIncarnation.h",
@@ -1314,7 +1403,7 @@
    "name": "SquidBots module (mod-playerbots)",
    "kind": "server module",
    "required": true,
-   "tag": "v3.1.5",
+   "tag": "v3.1.6",
    "repository": "https://github.com/Zyth45/mod-playerbots"
   },
   {
