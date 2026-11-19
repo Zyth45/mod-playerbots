@@ -8,6 +8,7 @@
 
 #include "Bag.h"
 #include "CoaAltAddon.h"
+#include "CoaAltGiveRules.h"
 #include "DatabaseEnv.h"
 #include "Group.h"
 #include "Item.h"
@@ -125,10 +126,10 @@ bool CoaAltGive::Command(PlayerbotAI* botAI, std::string const& command, std::st
     if (!bot || !master)
         return true;
 
-    std::istringstream in(arg);
-    uint32 itemId = 0, count = 0;
-    std::string name;
-    in >> itemId >> count >> name;
+    // The name is the rest of the line: a CoA name may hold a space ("Alt Mining"), read as "Alt" by a single >>.
+    CoaAltGiveRules::Give const give = CoaAltGiveRules::Parse(arg);
+    uint32 const itemId = give.itemId, count = give.count;
+    std::string const& name = give.name;
     if (!sPlayerbotAIConfig.coaGiveToAlt)
         return Error(botAI, itemId, "off"), true;
     if (!itemId || !count || name.empty())
