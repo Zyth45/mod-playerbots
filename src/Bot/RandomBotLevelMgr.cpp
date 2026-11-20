@@ -13,6 +13,7 @@
 #include "CharacterCache.h"
 #include "Group.h"
 #include "CoaMissionMgr.h"
+#include "CoaLevelBracketRules.h"
 #include "DatabaseEnv.h"
 #include "LFGMgr.h"
 #include "Log.h"
@@ -758,6 +759,15 @@ void RandomBotLevelMgr::RunLevelBracketsDistribution()
             }
         }
 
+        // CoA 3.2: a bracket weighs its width in levels (CoaLevelBracketRules): 50-54 and 55-59 no longer get two
+        // shares between them, the max level alone keeps a full one.
+        for (uint8 i = 0; i < _numRanges; ++i)
+        {
+            allianceWeights[i] *= CoaLevelBracketRules::WidthFactor(_allianceRanges[i].lower, _allianceRanges[i].upper,
+                                                                    sPlayerbotAIConfig.randomBotMaxLevel);
+            hordeWeights[i] *= CoaLevelBracketRules::WidthFactor(_hordeRanges[i].lower, _hordeRanges[i].upper,
+                                                                 sPlayerbotAIConfig.randomBotMaxLevel);
+        }
         ApplyBracketWeights(_allianceRanges, allianceWeights);
         ApplyBracketWeights(_hordeRanges, hordeWeights);
 
