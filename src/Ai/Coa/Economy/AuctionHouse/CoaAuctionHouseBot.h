@@ -363,7 +363,8 @@ private:
     // Per auction house: auction id -> game time (seconds) from which the buyer may look at it.
     std::map<uint32, std::unordered_map<uint32, uint32>> HumanBuyerEligibleAt;
     // While true, CalculateItemValue takes the low end of every random range (the house's lowest asking price).
-    bool PriceRollLowest = false;
+    // Per thread: the guild stock asks the house's lowest price from the bots' map threads (3.1.7 race review).
+    static thread_local bool PriceRollLowest;
     uint32 PriceRoll(uint32 low, uint32 high) const { return PriceRollLowest ? low : urand(low, high); }
     uint64 GetHouseLowestBuyoutPerItem(ItemTemplate const* itemProto);
     void LoadHumanBuyerSettings();

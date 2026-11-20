@@ -568,6 +568,10 @@ void RecordCraft(uint32 skillId, uint32 itemId, uint32 count, int64 profit)
     if (!enabled)
         return;
     uint32 const now = Now();
+    // A bot crafts its guild stock at a vendor stop, on its map thread: two bots on two maps at once (3.1.7, the race
+    // review after the HasStockWork freeze). The world thread reads the list between the map updates.
+    static std::mutex craftLock;
+    std::lock_guard<std::mutex> guard(craftLock);
     Forget(crafts, now);
     crafts.push_back({now, skillId, itemId, count, profit});
 }
