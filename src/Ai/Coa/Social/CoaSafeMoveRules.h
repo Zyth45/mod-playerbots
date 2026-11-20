@@ -66,10 +66,14 @@ inline bool DropsToFloor(float z, float floorZ, bool outdoors, bool waterBelow)
 constexpr float ARRIVAL_RINGS[] = {10.0f, 15.0f, 20.0f, 25.0f, 30.0f, 35.0f, 40.0f};
 constexpr uint32_t ARRIVAL_DIRECTIONS = 16;
 constexpr float ARRIVAL_MAX_DZ = 6.0f;
+// The bench after the fix (20/11): one arrival of the Stormwind bank was a roof by the door, 4.7 yards over the
+// terrain. The arrival stands on the terrain itself: its ground no more than ARRIVAL_ON_TERRAIN over the map's grid.
+constexpr float ARRIVAL_ON_TERRAIN = 1.0f;
 
-inline bool ArrivalOk(float groundZ, float bankerZ, bool outdoors, bool water)
+inline bool ArrivalOk(float groundZ, float bankerZ, bool outdoors, bool water, float gridZ)
 {
-    return groundZ > -100000.0f && outdoors && !water && std::fabs(groundZ - bankerZ) <= ARRIVAL_MAX_DZ;
+    return groundZ > -100000.0f && gridZ > -100000.0f && outdoors && !water &&
+           std::fabs(groundZ - bankerZ) <= ARRIVAL_MAX_DZ && groundZ - gridZ <= ARRIVAL_ON_TERRAIN;
 }
 
 inline bool CityPathChecked(bool randomBot, bool realMaster, bool inCombat, bool generatePath, bool capital,

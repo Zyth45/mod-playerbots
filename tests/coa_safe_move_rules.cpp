@@ -33,11 +33,12 @@ int main()
     assert(!DropsToFloor(185.9f, 185.18f, true, false));     // on its floor (a platform, a tower: its own floor)
     assert(!DropsToFloor(204.0f, 185.18f, true, false));     // too high to be that case: left alone
     // 3.1.8: a teleport to a banker arrives outdoors around the bank, on ground near the banker's floor.
-    assert(ArrivalOk(98.0f, 99.7f, true, false));
-    assert(!ArrivalOk(98.0f, 99.7f, false, false));   // inside a building
-    assert(!ArrivalOk(98.0f, 99.7f, true, true));     // in water (the canals)
-    assert(!ArrivalOk(110.0f, 99.7f, true, false));   // a roof or a terrace far above
-    assert(!ArrivalOk(-200000.0f, 99.7f, true, false));
+    assert(ArrivalOk(98.0f, 99.7f, true, false, 97.9f));
+    assert(!ArrivalOk(98.0f, 99.7f, false, false, 97.9f));   // inside a building
+    assert(!ArrivalOk(98.0f, 99.7f, true, true, 97.9f));     // in water (the canals)
+    assert(!ArrivalOk(110.0f, 99.7f, true, false, 97.9f));   // a roof or a terrace far above
+    assert(!ArrivalOk(-200000.0f, 99.7f, true, false, 97.9f));
+    assert(!ArrivalOk(103.6f, 99.7f, true, false, 98.9f));  // the roof by the bank door (bench of 20/11)
     assert(CityPathChecked(true, false, false, true, true, true));
     assert(!CityPathChecked(false, false, false, true, true, true));  // a player's alt: left alone
     assert(!CityPathChecked(true, true, false, true, true, true));    // in a real player's group

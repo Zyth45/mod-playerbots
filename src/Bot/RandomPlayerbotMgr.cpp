@@ -2319,7 +2319,7 @@ WorldLocation BankArrival(WorldLocation const& banker)
                     PositionFullTerrainStatus there;
                     map->GetFullTerrainStatusForPosition(PHASEMASK_NORMAL, x, y, z + 0.5f, 2.0f, there);
                     bool const water = there.liquidInfo.Status != LIQUID_MAP_NO_WATER;
-                    if (CoaSafeMove::ArrivalOk(z, banker.GetPositionZ(), there.outdoors, water))
+                    if (CoaSafeMove::ArrivalOk(z, banker.GetPositionZ(), there.outdoors, water, map->GetGridHeight(x, y)))
                     {
                         arrival = WorldLocation(banker.GetMapId(), x, y, z, banker.GetOrientation());
                         found = true;
