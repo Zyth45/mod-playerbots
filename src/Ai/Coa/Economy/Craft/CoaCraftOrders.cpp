@@ -18,6 +18,7 @@
 #include "Config.h"
 #include "GameTime.h"
 #include "Item.h"
+#include "Log.h"
 #include "ObjectMgr.h"
 #include "Player.h"
 #include "ObjectAccessor.h"
@@ -64,6 +65,12 @@ namespace
     std::unordered_map<ObjectGuid::LowType, PendingQuote> pendingQuotes;
     constexpr uint32 QuoteSeconds = 5 * MINUTE;
 
+    // World thread only: the crafted piece an artisan offers in Trade (CoA Live keeps the offer 15 minutes); a whisper
+    // naming it goes to that offer, not to a new quote.
+    struct TradeOffer { uint32 itemId = 0; uint32 expires = 0; };
+    std::unordered_map<ObjectGuid::LowType, TradeOffer> tradeOffers;
+    constexpr uint32 TradeOfferSeconds = 15 * MINUTE;
+
     void LoadSettings()
     {
         enabled = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.CraftOrders.Enable", true, false);
@@ -108,7 +115,7 @@ namespace
         if (!crafted)
         {
             Data::RecordOrder(from->GetName(), bot->GetName(), recipe.itemId, price, "busy", recipe.skillId);
-            return CoaLive::SayLine(bot, "wh_craft_busy", slots, from->GetGUID()), true;
+            return CoaLive::SayLine(bot, "wh_craft_busy", slots, from->GetGUID(), true), true;
         }
         lastOrder[bot->GetGUID().GetCounter()] = uint32(GameTime::GetGameTime().count());
 
@@ -116,11 +123,11 @@ namespace
         slots["profession"] = Artisans::ProfessionLink(bot, recipe.skillId);
         slots["recipe"] = Artisans::RecipeLink(bot, recipe);
         if (quoteFirst)
-            CoaLive::SayLine(bot, "wh_craft_quote", slots, from->GetGUID());
+            CoaLive::SayLine(bot, "wh_craft_quote", slots, from->GetGUID(), true);
         if (CoaLive::MailCod(bot, from, crafted->GetGUID(), price))
         {
             Data::RecordOrder(from->GetName(), bot->GetName(), recipe.itemId, price, "mailed", recipe.skillId);
-            CoaLive::SayLine(bot, "wh_craft_cod", slots, from->GetGUID());
+            CoaLive::SayLine(bot, "wh_craft_cod", slots, from->GetGUID(), true);
         }
         return true;
     }
@@ -151,7 +158,7 @@ namespace
         if (!known || from->GetTeamId() != bot->GetTeamId())
         {
             Data::RecordOrder(from->GetName(), bot->GetName(), itemId, 0, "refused");
-            return CoaLive::SayLine(bot, "wh_craft_cannot", slots, from->GetGUID()), true;
+            return CoaLive::SayLine(bot, "wh_craft_cannot", slots, from->GetGUID(), true), true;
         }
 
         uint32 const now = uint32(GameTime::GetGameTime().count());
@@ -159,7 +166,7 @@ namespace
         if (last && now < last + orderCooldownSeconds)
         {
             Data::RecordOrder(from->GetName(), bot->GetName(), itemId, 0, "busy", recipe.skillId);
-            return CoaLive::SayLine(bot, "wh_craft_busy", slots, from->GetGUID()), true;
+            return CoaLive::SayLine(bot, "wh_craft_busy", slots, from->GetGUID(), true), true;
         }
 
         uint32 const price = Quote(bot, recipe);
@@ -171,21 +178,49 @@ namespace
         slots["price"] = ChatHelper::formatMoney(price);
         slots["qty"] = "1";
         slots["profession"] = Artisans::ProfessionLink(bot, recipe.skillId);
-        if (!CoaEconomyRules::QuoteWhispered(false) || !CoaLive::SayLine(bot, "craft_quote_addon", slots, from->GetGUID()))
+        // A quote the player asked for is always said (no chance roll): the deal waits on it.
+        // wh_craft_ask: the whispered quote (mats on the artisan, "say yes and I mail it COD"); the panel's
+        // craft_quote_addon lines while the bank has none.
+        if (!CoaEconomyRules::QuoteWhispered(false) ||
+            !(CoaLive::SayLine(bot, "wh_craft_ask", slots, from->GetGUID(), true) ||
+              CoaLive::SayLine(bot, "craft_quote_addon", slots, from->GetGUID(), true)))
             return false;
         pendingQuotes[bot->GetGUID().GetCounter()] = PendingQuote{from->GetGUID(), itemId, price, now + QuoteSeconds};
+        LOG_INFO("playerbots.coa", "CoaEconomy: {} quoted {} item {} for {} copper (whisper)", bot->GetName(),
+                 from->GetName(), itemId, price);
         return true;
+    }
+
+    // A whisper of another intent ("how much for [item]", "price [item]", "wts?", the link alone) to an artisan that
+    // knows how to make the item: the artisan's quote instead of the seller's answer ("everything I sell is on the
+    // AH"). Not when the bot offers that very piece in Trade (CoA Live's offer answers), nor for an item it cannot
+    // make (the usual answer stays).
+    bool AsksQuote(Player* from, Player* bot, std::string const& lowered, std::string const& intent)
+    {
+        if (!enabled || !Artisans::IsEnabled() || intent == "craft" || from->GetTeamId() != bot->GetTeamId())
+            return false;
+        uint32 const itemId = LinkedItem(lowered);
+        if (!itemId || !CoaEconomyRules::AsksCraftQuote(lowered))
+            return false;
+        auto const offer = tradeOffers.find(bot->GetGUID().GetCounter());
+        if (offer != tradeOffers.end() && offer->second.itemId == itemId &&
+            uint32(GameTime::GetGameTime().count()) < offer->second.expires)
+            return false;
+        for (Artisans::Recipe const& candidate : Artisans::KnownRecipes(bot))
+            if (candidate.itemId == itemId)
+                return OnCraftWhisper(from, bot, lowered, "craft");
+        return false;
     }
 
     // Any whisper to an artisan that quoted this player: a clear yes crafts and mails the piece at the price quoted,
     // a no or another item forgets the quote; anything else gets the usual answer and the quote stays.
-    bool OnQuoteAnswer(Player* from, Player* bot, std::string const& lowered, std::string const& /*intent*/)
+    bool OnQuoteAnswer(Player* from, Player* bot, std::string const& lowered, std::string const& intent)
     {
-        if (!enabled || !from || !bot || pendingQuotes.empty())
+        if (!enabled || !from || !bot)
             return false;
         auto it = pendingQuotes.find(bot->GetGUID().GetCounter());
         if (it == pendingQuotes.end() || it->second.buyer != from->GetGUID())
-            return false;
+            return AsksQuote(from, bot, lowered, intent);
         PendingQuote const quote = it->second;
         uint32 const now = uint32(GameTime::GetGameTime().count());
         uint32 const linked = LinkedItem(lowered);
@@ -193,7 +228,7 @@ namespace
         if (now >= quote.expires || (linked && linked != quote.itemId) || CoaLive::DeclinesDeal(normalized))
         {
             pendingQuotes.erase(it);
-            return false;
+            return AsksQuote(from, bot, lowered, intent);
         }
         if (!CoaLive::ConfirmsDeal(normalized, lowered, quote.itemId))
             return false;
@@ -205,7 +240,7 @@ namespace
             if (recipe.itemId == quote.itemId)
                 return Deliver(from, bot, recipe, quote.price, slots, false);
         Data::RecordOrder(from->GetName(), bot->GetName(), quote.itemId, 0, "refused");
-        return CoaLive::SayLine(bot, "wh_craft_cannot", slots, from->GetGUID()), true;
+        return CoaLive::SayLine(bot, "wh_craft_cannot", slots, from->GetGUID(), true), true;
     }
 
     bool IsCapital(uint32 zoneId)
@@ -346,7 +381,11 @@ bool OfferInTrade(Player* bot, Item* crafted, unsigned long long price)
         }
 
     if (CoaLive::SayOffer(bot, "trade_craft", crafted->GetGUID(), uint32(std::min<unsigned long long>(price, MAX_MONEY_AMOUNT)), slots))
+    {
+        tradeOffers[bot->GetGUID().GetCounter()] =
+            TradeOffer{crafted->GetEntry(), uint32(GameTime::GetGameTime().count()) + TradeOfferSeconds};
         return true;
+    }
 
     // No offer this time (rules, chance): maybe a word that it takes orders; the piece goes to the auction house.
     CoaLive::SayLine(bot, "trade_craft_lfw", slots);

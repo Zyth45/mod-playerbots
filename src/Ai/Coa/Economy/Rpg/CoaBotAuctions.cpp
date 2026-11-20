@@ -188,6 +188,7 @@ namespace
                     Item* crafted, Item* held)
     {
         std::vector<Item*> loot;
+        std::unordered_set<Item*> surplusItems;  // 3.1.4: stock materials beyond the stock, logged when listed
         std::unordered_set<uint32> const stock = Materials::StockReagents(bot);
 
         // Auctions per item already in this house: a bot adds one only while there are fewer than MaxPerItem of it
@@ -219,12 +220,19 @@ namespace
             // Never its ammunition, the consumables it uses, a vendor good or an item CoA does not have.
             if (!Sellable::BotMayList(item->GetTemplate(), false))
                 return;
-            // An artisan keeps the reagents of its recipes (Artisans.Stock).
+            // An artisan keeps the reagents of its recipes (Artisans.Stock), and the guild stock its kinds.
             if (Materials::KeepsInStock(bot, item, stock))
                 return;
-            if (botAI->GetAiObjectContext()->GetValue<ItemUsage>("item usage", item->GetEntry())->Get() == ITEM_USAGE_AH &&
+            // 3.1.4: beyond that stock, a material of its stock is surplus, sold whatever its use for a profession.
+            bool const surplus = stock.count(item->GetEntry()) != 0;
+            if ((surplus || botAI->GetAiObjectContext()->GetValue<ItemUsage>("item usage", item->GetEntry())->Get() ==
+                                ITEM_USAGE_AH) &&
                 underCap(item))
+            {
                 loot.push_back(item);
+                if (surplus)
+                    surplusItems.insert(item);
+            }
         });
         if (crafted && !loot.empty() && loot.front() == crafted && !Sellable::BotMayList(crafted->GetTemplate(), true))
             loot.erase(loot.begin());
@@ -239,6 +247,9 @@ namespace
             WorldPacket packet(CMSG_AUCTION_SELL_ITEM);
             packet << auctioneer << uint32(1) << item->GetGUID() << uint32(item->GetCount())
                    << uint32(bid) << uint32(buyout) << uint32(settings.durationMinutes);
+            if (surplusItems.count(item))
+                LOG_INFO("playerbots.coa", "CoaEconomy: {} listed surplus {} x{} for {} copper", bot->GetName(),
+                         item->GetEntry(), item->GetCount(), buyout);
             bot->GetSession()->HandleAuctionSellItem(packet);
         }
         return uint32(loot.size());
@@ -326,10 +337,13 @@ namespace
             return;
 
         Traits const traits = TraitsFor(bot->GetGUID());
+        LOG_DEBUG("playerbots.coa", "CoaEconomy: {} visits the auctioneer", bot->GetName());
         CollectAuctionMail(bot);
 
         // Ore smelted or prospected, gear disenchanted, when what comes out is worth more (Materials).
         Materials::Process(bot, botAI);
+        // Guild stock: intermediates from the bot's own materials, and the extra full stacks to its bank.
+        Materials::TendGuildStock(bot);
 
         // An artisan makes a piece worth more than its materials and puts it up with its loot.
         Item* crafted = nullptr;

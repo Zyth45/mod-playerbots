@@ -9,7 +9,7 @@
 #include "ArenaTeamMgr.h"
 #include "CharacterCache.h"
 #include "CoaBotNames.h"
-#include "CoaBotRacePolicy.h"
+#include "CoaBotRaces.h"
 #include "CoaReborn.h"
 #include "CoaWildcard.h"
 #include "ObjectAccessor.h"
@@ -85,13 +85,12 @@ Player* RandomPlayerbotFactory::CreateRandomBot(WorldSession* session, uint8 cls
         // 97) are left out unless that module lets bots have them, and any race can be excluded by id. The mask
         // above cannot reach most of them: shifting by 32 or more is undefined and on x86 wrapped onto a base
         // race's bit.
-        if (!IsCoaBotRaceAllowed(race, sPlayerbotAIConfig.customRacesForBots,
-                                sPlayerbotAIConfig.excludedBotRaces))
+        if (!CoaBotRaces::Allowed(race))
             continue;
 
         // Try to get 50/50 faction distribution for random bot population balance.
         // Without this check, races from the faction with more class options would dominate.
-        if (alliance == IsAlliance(race))
+        if (alliance == IsAlliance(race) && CoaBotRace::ClassAllowed(CoaBotRaces::Get(race), cls))
         {
             if (IsValidRaceClassCombination(race, cls, sWorld->getIntConfig(CONFIG_EXPANSION)))
                 raceOptions.push_back(race);
@@ -105,18 +104,17 @@ Player* RandomPlayerbotFactory::CreateRandomBot(WorldSession* session, uint8 cls
     }
 
     const uint8 race = raceOptions[urand(0, raceOptions.size() - 1)];
-    // Added races with a male model only (the core's IsAscensionMaleOnlyRace, same list as the client's creation
-    // screen): a female of these races has no body in the client, or wears gear stretched across the screen.
-    // Broken (22) too, from the races' author (CoA Custom README); the core leaves it out since Eunoia's Broken.
-    // Earthen (68, 69): a client crashed drawing earthendwarffemale.m2 among bots (15/10), so their bots stay male.
-    // Ogre (53): its female shows the male model. Alpha Goblin (57): its male has no head (a missing texture shown
-    // as a checker square), so its bots are female.
-    bool const maleOnly = race == 15 || race == 17 || race == 18 || (race >= 22 && race <= 26) || race == 32 ||
-                          race == 50 || race == 53 || race == 68 || race == 69 || race == 83 ||
-                          race == 97;
-    bool const femaleOnly = race == 57;
-    const uint8 gender = femaleOnly ? GENDER_FEMALE : (maleOnly || urand(0, 1)) ? GENDER_MALE : GENDER_FEMALE;
-    const auto raceAndGender = CombineRaceAndGender(race, gender);
+    // Races with one usable model: the server's AiPlayerbot.BotRace.<id> line first, then the module's list
+    // (CoaBotRace::DefaultGender: the core's male-only races of CoA Custom, Broken 22, Earthen 68/69 whose female
+    // crashed a client on 15/10, Ogre 53, Alpha Goblin 57 female), then the core's own male-only races when it
+    // declares them.
+    CoaBotRace::Profile const& raceProfile = CoaBotRaces::Get(race);
+    CoaBotRace::Gender const oneGender = CoaBotRace::ResolveGender(raceProfile, race, CoaBotRaces::CoreMaleOnly(race));
+    const uint8 gender = oneGender == CoaBotRace::Gender::Female ? GENDER_FEMALE
+                         : (oneGender == CoaBotRace::Gender::Male || urand(0, 1)) ? GENDER_MALE
+                                                                                  : GENDER_FEMALE;
+    const auto raceAndGender =
+        CombineRaceAndGender(raceProfile.namesRace ? raceProfile.namesRace : race, gender);
 
     std::string name;
     if (!nameCache.empty())
@@ -170,6 +168,10 @@ Player* RandomPlayerbotFactory::CreateRandomBot(WorldSession* session, uint8 cls
             continue;
 
         if (!wantsDeathKnightLook && (charSection->Flags & SECTION_FLAG_DEATH_KNIGHT))
+            continue;
+
+        // look=simple in the race's line: the first variant only, for races whose other variants lack textures.
+        if (!CoaBotRace::KeepSection(raceProfile.look, uint8(charSection->GenType), uint8(charSection->Type)))
             continue;
 
         switch (charSection->GenType)

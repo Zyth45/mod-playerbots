@@ -3,8 +3,7 @@
 > status of the CoA bots are in **[README_COA.md](README_COA.md)**.
 
 > [!NOTE]
-> **Development continues on the CoA Modding Community Discord: https://discord.gg/XTn28skRN** (news, new versions and
-> support for the CoA bots).
+> **News, new versions and support for the CoA bots: the SquidBots Discord, https://discord.gg/DTJceaG9Ky**
 
 <p align="center">
     <a href="https://github.com/mod-playerbots/mod-playerbots/blob/master/README.md">English</a>

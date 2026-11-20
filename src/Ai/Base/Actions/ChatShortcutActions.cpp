@@ -5,6 +5,7 @@
  */
 
 #include "ChatShortcutActions.h"
+#include "CoaPetStay.h"
 #include "Event.h"
 #include "Formations.h"
 #include "PlayerbotTextMgr.h"
@@ -110,6 +111,7 @@ bool FollowChatShortcutAction::Execute(Event /*event*/)
     }
     */
 
+    CoaPetStay::Apply(bot, false);
     botAI->TellMaster(PlayerbotTextMgr::instance().GetBotTextOrDefault(
         "following", "Following", {}));
     return true;
@@ -127,6 +129,7 @@ bool StayChatShortcutAction::Execute(Event /*event*/)
 
     SetReturnPosition(bot->GetPositionX(), bot->GetPositionY(), bot->GetPositionZ());
     SetStayPosition(bot->GetPositionX(), bot->GetPositionY(), bot->GetPositionZ());
+    CoaPetStay::Apply(bot, true);
 
     botAI->TellMaster(PlayerbotTextMgr::instance().GetBotTextOrDefault(
         "staying", "Staying", {}));

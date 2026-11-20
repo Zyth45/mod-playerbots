@@ -352,12 +352,245 @@ std::uint32_t HouseSellerCount(Owners const& owners, Sellers const& sellers)
     return count;
 }
 
+// ---- Material floor (AuctionHouse/CoaAuctionHouseBot, AHBot.MaterialFloor.*) ----
+
+// The common crafting materials of levels 1 to 60 the house always offers: cloth, ore, bars, stone, herbs, leather and
+// hides, elemental materials, enchanting materials.
+inline std::vector<std::uint32_t> const& MaterialFloorItems()
+{
+    static std::vector<std::uint32_t> const items = {
+        // Cloth
+        2589, 2592, 4306, 4338, 14047,
+        // Ore, bars, stone
+        2770, 2771, 2775, 2772, 3858, 7911, 10620,
+        2840, 2841, 2842, 3576, 3575, 3577, 3859, 3860, 6037, 12359,
+        2835, 2836, 2838, 7912, 12365,
+        // Herbs
+        2447, 765, 2449, 785, 2450, 2452, 3820, 2453, 3369, 3355, 3356, 3357, 3818, 3821, 3358, 3819, 4625,
+        8831, 8836, 8838, 8839, 8845, 8846, 13464, 13463, 13465, 13466, 13467,
+        // Leather and hides
+        2318, 783, 2319, 4232, 4234, 4235, 4304, 8169, 8170, 8171,
+        // Elemental
+        7067, 7068, 7069, 7070, 7075, 7076, 7077, 7078, 7079, 7080, 7081, 7082,
+        // Enchanting
+        10940, 10938, 10939, 10998, 11083, 11082, 11134, 11135, 11137, 11174, 11175, 11176, 16202, 16203, 16204,
+    };
+    return items;
+}
+
+// Stacks the house lists of a floor material: what is missing to reach the floor, nothing when players and bots
+// already offer that many stacks, never more than the room left in the house seller's quota.
+inline std::uint32_t FloorStacksToList(std::uint32_t listedStacks, std::uint32_t floorStacks, std::uint32_t quotaRoom)
+{
+    if (listedStacks >= floorStacks)
+        return 0;
+    return std::min(floorStacks - listedStacks, quotaRoom);
+}
+
+// The house's price per item of a floor material: its market price, never under the lowest price per item another
+// seller asks (the floor does not undercut players).
+inline std::uint64_t FloorUnitPrice(std::uint64_t marketPerItem, std::uint64_t lowestOtherPerItem)
+{
+    return std::max(marketPerItem, lowestOtherPerItem);
+}
+
+// 3.1.4: what the house buyer pays per item for a common crafting material another seller lists (a farmer's
+// stack): pricePercent of the house's own value, never above the arbitrage cap applied after it.
+inline std::uint64_t MaterialBuyerPrice(std::uint64_t houseValuePerItem, std::uint32_t pricePercent)
+{
+    return houseValuePerItem * pricePercent / 100;
+}
+
+// 3.1.4 guard: an item an NPC vendor sells (any stock, limited or not) is never bought above this share of the vendor
+// price. With the best reputation discount (20 %) and the house's cut (5 %), buying it at a vendor to sell it to the
+// house always loses: 0.95 x 75 % = 71 % < 80 %.
+constexpr std::uint32_t VendorSafePercent = 75;
+inline std::uint64_t VendorSafeCap(std::uint64_t perItem, std::uint64_t vendorBuyPrice)
+{
+    return vendorBuyPrice ? std::min(perItem, vendorBuyPrice * VendorSafePercent / 100) : perItem;
+}
+
+// 3.1.4 guard, which vendor goods it holds for: an item an NPC vendor sells in unlimited stock (maxcount 0) always;
+// one sold in limited stock only when buying all the vendors' stock of a day (itemsPerDay) and selling it at payPerItem
+// (the house's 5 % cut taken, the best reputation discount given) would bring more than maxCopperPerDay. Farmers are
+// paid the normal price for the rest (a herbalist's Dreamfoil: 2 a day at its vendor).
+constexpr std::uint64_t VendorAbuseCopperPerDay = 10 * 10000;  // 10 gold
+inline bool VendorGuardApplies(bool unlimited, std::uint64_t itemsPerDay, std::uint64_t payPerItem,
+                               std::uint64_t vendorBuyPrice, std::uint64_t maxCopperPerDay = VendorAbuseCopperPerDay)
+{
+    if (!vendorBuyPrice)
+        return false;
+    if (unlimited)
+        return true;
+    std::uint64_t const net = payPerItem * 95 / 100;
+    std::uint64_t const cost = vendorBuyPrice * 80 / 100;
+    return net > cost && itemsPerDay * (net - cost) > maxCopperPerDay;
+}
+
+// 3.1.4: the most the house buyer pays per item for a farmer's material: pricePercent of the house's value, under
+// marginPercent of the lowest price the house asks itself (buying from the house to sell back loses), under the
+// vendor guard. 0 = it does not buy.
+inline std::uint64_t MaterialBuyerPay(std::uint64_t houseValuePerItem, std::uint32_t pricePercent,
+                                      std::uint64_t houseLowestPerItem, std::uint32_t marginPercent,
+                                      std::uint64_t vendorBuyPrice)
+{
+    std::uint64_t pay = MaterialBuyerPrice(houseValuePerItem, pricePercent);
+    if (houseLowestPerItem)
+        pay = std::min(pay, houseLowestPerItem * marginPercent / 100);
+    return VendorSafeCap(pay, vendorBuyPrice);
+}
+
+// 3.1.4: a farmer's auction is bought at its own buyout, only when that buyout is within what the buyer pays for the
+// stack; no bid, no buyout = no purchase. The buyer never pays more than asked, nor anything for a dearer one.
+inline bool MaterialBuyerTakes(std::uint64_t buyout, std::uint32_t count, std::uint64_t payPerItem)
+{
+    return buyout && count && payPerItem && buyout <= payPerItem * count;
+}
+
+// 3.1.4: one account (all its characters) sells the house buyer at most perDay auctions of materials and goldCopper
+// a day (0 = no cap).
+inline bool AccountMaySell(std::uint32_t soldToday, std::uint64_t paidToday, std::uint64_t price, std::uint32_t perDay,
+                           std::uint64_t goldCopper)
+{
+    if (perDay && soldToday >= perDay)
+        return false;
+    return !goldCopper || paidToday + price <= goldCopper;
+}
+
+// 3.1.4: which candidate the house buyer looks at next: one of the first `materials` (the crafting materials, put
+// first) while any is left, else any of them. `roll` is any random number.
+inline std::size_t BuyerCandidate(std::size_t materials, std::size_t total, std::uint32_t roll)
+{
+    if (!total)
+        return 0;
+    return materials ? roll % std::min(materials, total) : roll % total;
+}
+
+// 3.1.4 (player's decision, 16/11): a player's material (not a bot's) is bought at its own price when that price per
+// item is at most the cheapest price the house asks for it right now (an Auctionator undercut sells); with no house
+// auction of it, the usual cap (usualPay). Bots keep the usual cap: no gold for 1,300 bot accounts.
+inline std::uint64_t PlayerMatchPay(bool enabled, bool playerSeller, std::uint64_t houseCheapestNow, std::uint64_t usualPay)
+{
+    return enabled && playerSeller && houseCheapestNow ? houseCheapestNow : usualPay;
+}
+
+// 3.1.4: the house does not buy from an account, for 24 hours, an item that account bought from the house (buy its
+// cheapest stack, list it under the next one: up to 0.34 x the value an item otherwise).
+constexpr std::uint32_t HouseRebuyHoldSeconds = 24 * 3600;
+// Kept in memory only (emptied by a restart), at most this many (account, item) entries; the stale ones go first.
+constexpr std::size_t HouseSalesMax = 20000;
+inline std::uint64_t HouseSaleKey(std::uint32_t account, std::uint32_t item)
+{
+    return (std::uint64_t(account) << 32) | item;
+}
+inline bool BoughtFromHouseRecently(std::uint32_t boughtAt, std::uint32_t now, std::uint32_t hold = HouseRebuyHoldSeconds)
+{
+    return boughtAt && now >= boughtAt && now < boughtAt + hold;
+}
+
+// 3.1.4 (16/11, measured on a player's realm: about 8,000 gold a day paid to bots): the material buyer rewards
+// players who farm; a random bot's material auction is left to players, other bots and vendors unless buyFromBots.
+inline bool MaterialBuyerSkips(bool buyFromBots, bool randomBotSeller)
+{
+    return randomBotSeller && !buyFromBots;
+}
+
+// 3.1.4: a look at a farmer's material does not use one of the buyer's candidates of the cycle (3), only a purchase
+// does, up to maxMaterialLooks looks a cycle: every seller's materials are looked at, none starves behind auctions
+// refused for their price or their account's day.
+constexpr std::uint32_t MaterialLooksPerCycle = 40;
+inline bool BuyerLookUsesSlot(bool material, std::uint32_t materialLooks, std::uint32_t maxMaterialLooks = MaterialLooksPerCycle)
+{
+    return !material || materialLooks > maxMaterialLooks;
+}
+
+// The floor serves the faction houses only (Alliance 2 and Horde 6), not the neutral one (Booty Bay, Gadgetzan...).
+inline bool FloorServesHouse(std::uint32_t houseId)
+{
+    return houseId == 2 || houseId == 6;
+}
+
 // An artisan's quote is whispered (craft_quote_addon) when a player asked it by whisper ("can you make X?": the
 // whisper is the quote, and the deal waits on it); never when the addon asked, whose card shows the price: every item
 // clicked in its list asked a quote, and their whispers came late, one for an item never ordered.
 inline bool QuoteWhispered(bool fromAddon)
 {
     return !fromAddon;
+}
+
+// A whisper without its item links ("|cff...|Hitem:...|h[Name]|h|r" and the bare "|Hitem:...|h[Name]|h"), lower
+// case kept: "how much for |c..[cloak of fire]|h|r?" -> "how much for ?".
+inline std::string StripItemLinks(std::string const& text)
+{
+    std::string out;
+    out.reserve(text.size());
+    for (std::size_t i = 0; i < text.size();)
+    {
+        if (text[i] == '|' && i + 1 < text.size())
+        {
+            char const c = char(text[i + 1] | 0x20);
+            if (c == 'c' && i + 10 <= text.size())
+            {
+                i += 10;
+                continue;
+            }
+            if (c == 'r')
+            {
+                i += 2;
+                continue;
+            }
+            if (c == 'h')
+            {
+                std::size_t const name = text.find("|h[", i + 2);
+                std::size_t const nameH = name == std::string::npos ? text.find("|H[", i + 2) : name;
+                std::size_t const end = nameH == std::string::npos ? std::string::npos : text.find("]|", nameH + 3);
+                if (end == std::string::npos)
+                    break;
+                i = end + 3;
+                continue;
+            }
+        }
+        out += text[i++];
+    }
+    return out;
+}
+
+// A whisper to an artisan naming an item it knows how to make asks for its quote (the craft panel's price, COD):
+// the link alone ("[Cloak of Fire]", "[Cloak of Fire]?"), or a word of price, trade or craft around it ("how much
+// for", "price", "wts?", "can you craft", "do you have", "combien", "prix"...). Anything else ("look at my [x]",
+// "where did you get [x]") keeps its usual answer. Takes the whisper in lower case.
+inline bool AsksCraftQuote(std::string const& lowered)
+{
+    std::string const text = StripItemLinks(lowered);
+    static char const* const words[] = {
+        "price", "prices", "cost", "costs", "much", "wts", "wtb", "craft", "crafts", "crafting", "make", "made",
+        "sell", "selling", "buy", "buying", "have", "got", "need", "want", "lf", "lfw", "pst", "available", "quote",
+        "cod", "order", "stock", "combien", "prix", "coute", "co\xc3\xbbte", "ach\xc3\xa8te", "vends", "vend", "achete", "fabriquer", "fabriques",
+        "faire", "fais", "dispo", "veux", "besoin", "commande"};
+    bool anyWord = false;
+    std::string word;
+    auto matches = [&]() {
+        for (char const* w : words)
+            if (word == w)
+                return true;
+        return false;
+    };
+    for (std::size_t i = 0; i <= text.size(); ++i)
+    {
+        char const c = i < text.size() ? text[i] : ' ';
+        if ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || (unsigned char)c >= 0x80)
+        {
+            word += c;
+            continue;
+        }
+        if (word.empty())
+            continue;
+        anyWord = true;
+        if (matches())
+            return true;
+        word.clear();
+    }
+    return !anyWord;
 }
 
 // A line paced by a gap (seconds): allowed when never said yet, or when the gap since the last one is over. Used for
@@ -429,9 +662,136 @@ inline bool KeepsInStock(std::uint32_t held, std::uint32_t stackSize, std::uint3
     return held <= std::max<std::uint32_t>(1, stackSize) * maxStacks;
 }
 
+// 3.1.4 guild stock in the bank: how many more items of one kind go from the bags to the bot's own bank. The stock is
+// `stacks` full stacks in all; an artisan keeps `keepInBags` of its reagents in the bags to craft with, the rest of
+// the stock lies in the bank. What is held beyond the stock is surplus, sold at the auction house (KeepsInStock).
+inline std::uint32_t BankRoom(std::uint32_t inBags, std::uint32_t inBank, std::uint32_t stackSize, std::uint32_t stacks,
+                              std::uint32_t keepInBags)
+{
+    std::uint32_t const total = std::max<std::uint32_t>(1, stackSize) * stacks;
+    std::uint32_t const keep = std::min(keepInBags, total);
+    std::uint32_t const target = total - keep;
+    std::uint32_t const spare = inBags > keep ? inBags - keep : 0;
+    std::uint32_t const room = inBank < target ? target - inBank : 0;
+    return std::min(spare, room);
+}
+
+// 3.1.4 (player's decision, 16/11): a bot artisan takes a player's lot (not a bot's nor the house's) for its stock
+// when its price per item is at most the house's cheapest ask of the item right now, even over BuyBelowPercent;
+// never one that account bought from the bots or the house in the last 24 hours (no loop).
+inline bool ArtisanMatchesPlayer(bool enabled, bool playerSeller, std::uint64_t perItem, std::uint64_t houseCheapestNow,
+                                 bool boughtFromBotsRecently)
+{
+    return enabled && playerSeller && houseCheapestNow && perItem <= houseCheapestNow && !boughtFromBotsRecently;
+}
+
+// The auctions of an item its house needs before a bot artisan buys one: MinListings, or PlayerMinListings for a
+// player's lot matched to the house (the floor's 2 stacks and the player's one make 3).
+inline std::uint32_t StockMinListings(bool playerMatch, std::uint32_t minListings, std::uint32_t playerMinListings)
+{
+    return playerMatch ? playerMinListings : minListings;
+}
+
 inline bool StockBargain(std::uint64_t pricePerItem, std::uint64_t marketPerItem, std::uint32_t buyBelowPercent)
 {
     return marketPerItem && pricePerItem * 100 <= marketPerItem * buyBelowPercent;
+}
+
+// Guild stock (CoaEconomy.GuildStock.*): gatherers keep a little of what they gather, in their bags and their bank,
+// for a guildmate's order. Trade goods (class 7) by subclass: cloth (5) for everyone, leather (6) for a skinner,
+// metal and stone (7) for a miner, herbs (9) for a herbalist.
+// 3.1.4: when a random bot's bags are emptied (refresh, RefreshClearsInventory), a material of its guild stock stays,
+// up to stacks + 1 full stacks of it (the stock and one of surplus for the auction house); the rest is emptied as
+// before. Guild stock off: nothing stays (3.1.3). keptSoFar: items of it already kept in this emptying.
+inline bool RefreshKeepsStock(bool guildStock, bool isStock, std::uint32_t keptSoFar, std::uint32_t count,
+                              std::uint32_t stackSize, std::uint32_t stacks)
+{
+    if (!guildStock || !isStock)
+        return false;
+    return keptSoFar + count <= std::max<std::uint32_t>(1, stackSize) * (stacks + 1);
+}
+
+inline bool GathererKeeps(std::uint32_t itemClass, std::uint32_t subClass, bool mining, bool herbalism, bool skinning)
+{
+    if (itemClass != 7)
+        return false;
+    return subClass == 5 || (subClass == 6 && skinning) || (subClass == 7 && mining) || (subClass == 9 && herbalism);
+}
+
+// The kinds a gatherer keeps: those of its level band, the closest item level to its own first (the smaller id on a
+// tie, so the choice holds from one visit to the next), at most `kinds`. Candidates: (item id, item level).
+// 3.1.4: the kinds a gatherer keeps are first those it holds (most held first), then the closest to its level: a
+// level 60 miner holding Mithril Ore keeps Mithril, not only Thorium it has not gathered (the bench of 16/11 saw
+// only Runecloth banked). candidates: (item, item level, held).
+struct StockCandidate
+{
+    std::uint32_t item;
+    std::uint32_t itemLevel;
+    std::uint32_t held;
+};
+inline std::vector<std::uint32_t> PickHeldStockKinds(std::vector<StockCandidate> candidates, std::uint32_t level,
+                                                 std::uint32_t kinds)
+{
+    auto distance = [level](std::uint32_t itemLevel) { return itemLevel > level ? itemLevel - level : level - itemLevel; };
+    std::sort(candidates.begin(), candidates.end(), [&](StockCandidate const& a, StockCandidate const& b) {
+        if ((a.held > 0) != (b.held > 0))
+            return a.held > 0;
+        if (a.held != b.held)
+            return a.held > b.held;
+        std::uint32_t const da = distance(a.itemLevel), db = distance(b.itemLevel);
+        return da != db ? da < db : a.item < b.item;
+    });
+    std::vector<std::uint32_t> out;
+    for (StockCandidate const& c : candidates)
+    {
+        if (out.size() >= kinds)
+            break;
+        out.push_back(c.item);
+    }
+    return out;
+}
+
+inline std::vector<std::uint32_t> PickStockKinds(std::vector<std::pair<std::uint32_t, std::uint32_t>> candidates,
+                                                 std::uint32_t level, std::uint32_t kinds)
+{
+    auto distance = [level](std::uint32_t itemLevel) { return itemLevel > level ? itemLevel - level : level - itemLevel; };
+    std::sort(candidates.begin(), candidates.end(), [&](auto const& a, auto const& b) {
+        std::uint32_t const da = distance(a.second), db = distance(b.second);
+        return da != db ? da < db : a.first < b.first;
+    });
+    std::vector<std::uint32_t> out;
+    for (auto const& c : candidates)
+    {
+        if (out.size() >= kinds)
+            break;
+        out.push_back(c.first);
+    }
+    return out;
+}
+
+// An intermediate an artisan keeps a stack of for its guild: a bolt of cloth (tailoring 197), a cured leather
+// (leatherworking 165), a bar (mining 186: smelting), all trade goods of their subclass.
+inline bool IsIntermediate(std::uint32_t skillId, std::uint32_t itemClass, std::uint32_t subClass)
+{
+    if (itemClass != 7)
+        return false;
+    return (skillId == 197 && subClass == 5) || (skillId == 165 && subClass == 6) || (skillId == 186 && subClass == 7);
+}
+
+// The guild's purchases of materials at the auction house, a day: only an item with at least minListings auctions,
+// never more than maxSharePercent of them for the guild (players keep the rest), and no more than perDay purchases
+// for the whole guild. listings: the item's auctions now; boughtOfItem / boughtToday: the guild's today.
+// firstOfItemFree (3.1.4, a player's lot): the guild's first lot of an item a day is not held by the share (25 % of
+// 3 auctions is under one lot); the next ones are.
+inline bool GuildMayBuy(std::uint32_t listings, std::uint32_t boughtOfItem, std::uint32_t boughtToday,
+                        std::uint32_t minListings, std::uint32_t maxSharePercent, std::uint32_t perDay,
+                        bool firstOfItemFree = false)
+{
+    if (!perDay || boughtToday >= perDay || listings < std::max<std::uint32_t>(1, minListings))
+        return false;
+    if (firstOfItemFree && boughtOfItem == 0)
+        return true;
+    return std::uint64_t(boughtOfItem + 1) * 100 <= std::uint64_t(listings + boughtOfItem) * maxSharePercent;
 }
 
 inline bool WantsVendor(bool rpgSellOn, std::uint32_t bagUsedPercent, std::uint32_t thresholdPercent, bool canSell)

@@ -1,0 +1,3 @@
+### Self-found realms never empty the bots' bags
+On a self-found realm (`AiPlayerbot.CoaSelfFound = 1`) a bot's bags are never emptied, at any level: not at a refresh, nor when the bot is rebuilt above the self-found range (only its worn gear is replaced there). The bots sell their surplus at vendors. `AiPlayerbot.RefreshClearsInventory` has no effect on such a realm.
+A random bot of a self-found realm left with no weapon at all (a fishing pole is no weapon) gets the starting weapon of its class once in its life (`AiPlayerbot.CoaSelfFound.StarterWeapon`, new table `playerbots_coa_starter_weapon`). Nothing else is given; sold or destroyed, it never comes back.

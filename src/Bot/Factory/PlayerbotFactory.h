@@ -90,6 +90,9 @@ public:
     // quest item, BiS command) gets none from the core: RollRandomProperty rolls it as the core does at a vendor.
     static void SetRandomProperty(Player* bot, Item* item, int32 randomPropertyId);
     static void RollRandomProperty(Player* bot, Item* item);
+    // The main hand weapon of the bot's starting outfit (CoA kit for a CoA class, CharStartOutfit otherwise), 0 if
+    // none (CoaStarterWeapon).
+    static uint32 StarterWeaponOf(Player* bot);
     // A random bot whose level went down after it got its gear loses the equipped items whose required level is
     // above its own (alts are players' characters: never touched). Returns how many.
     static uint32 UnequipAboveLevel(Player* bot);
@@ -245,6 +248,7 @@ private:
     void InitTalentsByTemplate(uint32 specNo);
     void InitQuests(std::list<uint32>& questMap, bool withRewardItem = true);
     void ClearInventory();
+    void ClearEquippedItems();  // the worn gear only, the bags kept (KeepsBags)
     void ClearAllItems();
     void ResetQuests();
 
@@ -277,6 +281,9 @@ private:
     EnchantContainer::const_iterator GetEnchantContainerEnd() { return m_EnchantContainer.end(); }
     // Self-found by the realm's level range or as one of the self-found random bots.
     bool SelfFound() const { return SelfFoundAt(level) || IsSelfFoundBot(bot); }
+    // The bags are never emptied on a self-found realm (AiPlayerbot.CoaSelfFound = 1, any level) nor for a
+    // self-found bot: it sells what it has too much of at vendors and makes do (user, 19/11).
+    bool KeepsBags() const;
 
     uint32 level;
     uint32 itemQuality;

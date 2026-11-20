@@ -533,6 +533,9 @@ public:
     bool autoLearnQuestSpells;
     bool autoTeleportForLevel;
     bool randomBotGroupNearby;
+    bool flyOnlyOutOfSight;
+    bool teleportOnlyOutOfSight;
+    bool standOffObjects;
     int32 enableRandomBotTrading;
     uint32 tweakValue;  // Debugging config
 
@@ -741,9 +744,27 @@ public:
     bool coaLiveHealRequest;       // AiPlayerbot.CoaLive.HealRequest.Enable: "heal please", the healers bring it to full
     bool coaLiveCcRequest;         // AiPlayerbot.CoaLive.CcRequest.Enable: "cc please", one bot CCs the player's target
     bool coaLiveTauntRequest;      // AiPlayerbot.CoaLive.TauntRequest.Enable: "taunt please", the tank taunts it
+    bool coaLiveWhisperEscape;     // AiPlayerbot.CoaLive.WhisperEscape.Enable: a long whisper talk ends on an excuse
     bool coaKeySpells;             // AiPlayerbot.CoaKeySpells.Enable: the addon's key spells bar (keyspells, keepcd)
     bool coaQuestLog;              // AiPlayerbot.CoaQuestLog.Enable: the addon's group Quests tab (qlog, turnin)
     bool coaCursedFormUpkeep;      // AiPlayerbot.CoaCursedFormUpkeep: a Bloodmage Eternal tank keeps its Cursed Form
+    bool coaStartupCheckOnly = false;  // AiPlayerbot.StartupCheckOnly (or CoA.ValidationMode): load, no bot at all
+    bool coaCapsAddon = true;      // AiPlayerbot.CoaCaps.Addon: the addon's "CAPS?" (is Dungeon Clear built in)
+    // CoA Live 3.1.6
+    bool coaPetPassiveOnStay = true;  // AiPlayerbot.CoaPetPassiveOnStay: "stay" sets the bot's pets passive
+    bool coaHearthWithMaster = true;  // AiPlayerbot.CoaHearthWithMaster: the master's bots hearth with him
+    uint32 coaLiveCityPostChancePct = 25;   // AiPlayerbot.CoaLive.City.PostChancePct: a long post at a station
+    uint32 coaLiveCityPostMinMinutes = 20;  // AiPlayerbot.CoaLive.City.PostMinMinutes
+    uint32 coaLiveCityPostMaxMinutes = 60;  // AiPlayerbot.CoaLive.City.PostMaxMinutes
+    uint32 coaLiveCityFishingPct = 10;      // AiPlayerbot.CoaLive.City.FishingPct: a stop at the city's water
+    bool coaSelfFoundStarterWeapon = true;  // AiPlayerbot.CoaSelfFound.StarterWeapon: once, for a bot with none
+    bool coaMute = true;       // AiPlayerbot.CoaMute.Enable: the addon's Mute button (CoaBotMute)
+    bool coaGiveToAlt = true;  // AiPlayerbot.CoaGiveToAlt.Enable: "give" an item from an alt to another (CoaAltGive)
+    bool coaTrust = true;      // AiPlayerbot.CoaTrust.Enable: the trust of a player in his bots (CoaTrust)
+    uint32 coaTrustKill = 1;        // AiPlayerbot.CoaTrust.Kill: points for a monster killed together
+    uint32 coaTrustBoss = 25;       // AiPlayerbot.CoaTrust.Boss: for a boss outside a raid
+    uint32 coaTrustRaidBoss = 100;  // AiPlayerbot.CoaTrust.RaidBoss: for a raid boss
+    std::string coaTrustRanks = "0,100,500,1500,4000,10000";  // AiPlayerbot.CoaTrust.Ranks: where each rank starts
     // ---- end of CoA Live ----
 
     // ---- CoA World (LoadCoaWorldConfig, CoaWorldConfig.cpp) ----

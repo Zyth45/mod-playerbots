@@ -86,6 +86,78 @@ int main()
     assert(KeepsInStock(1, 0, 1));
     assert(StockBargain(90, 100, 90) && !StockBargain(91, 100, 90) && !StockBargain(1, 0, 90));
 
+    // Guild stock: what a gatherer keeps, its kinds, the intermediates, the guild's share of the house.
+    assert(GathererKeeps(7, 5, false, false, false) && !GathererKeeps(7, 7, false, true, true));
+    assert(GathererKeeps(7, 7, true, false, false) && GathererKeeps(7, 9, false, true, false));
+    assert(GathererKeeps(7, 6, false, false, true) && !GathererKeeps(7, 12, true, true, true) && !GathererKeeps(4, 5, true, true, true));
+    assert((PickStockKinds({ { 2770, 10 }, { 2771, 20 }, { 2772, 30 }, { 3858, 40 } }, 24, 2) == std::vector<std::uint32_t>{ 2771, 2772 }));
+    assert((PickStockKinds({ { 7, 25 }, { 3, 15 } }, 20, 3) == std::vector<std::uint32_t>{ 3, 7 }));
+    assert(PickStockKinds({ { 1, 1 } }, 20, 0).empty());
+    assert(IsIntermediate(197, 7, 5) && IsIntermediate(165, 7, 6) && IsIntermediate(186, 7, 7));
+    assert(!IsIntermediate(197, 4, 5) && !IsIntermediate(164, 7, 7) && !IsIntermediate(197, 7, 6));
+    // 3.1.4 bank: a gatherer banks all of its stock (2 stacks of 20); an artisan keeps one stack in the bags; nothing
+    // beyond the stock; a full bank takes nothing more.
+    assert(BankRoom(8, 0, 20, 2, 0) == 8);
+    assert(BankRoom(50, 0, 20, 2, 0) == 40);
+    assert(BankRoom(8, 0, 20, 2, 20) == 0);
+    assert(BankRoom(30, 0, 20, 2, 20) == 10);
+    assert(BankRoom(10, 40, 20, 2, 0) == 0);
+    assert(BankRoom(5, 0, 20, 1, 40) == 0);
+    // 3.1.4: held kinds first (most held first), then the closest to the level.
+    {
+        std::vector<StockCandidate> ore = {{10620, 50, 0}, {3858, 40, 12}, {2772, 30, 30}, {12359, 50, 0}};
+        assert((PickHeldStockKinds(ore, 60, 2) == std::vector<std::uint32_t>{2772, 3858}));
+        assert((PickHeldStockKinds(ore, 60, 3) == std::vector<std::uint32_t>{2772, 3858, 10620}));
+        std::vector<StockCandidate> none = {{10620, 50, 0}, {3858, 40, 0}};
+        assert((PickHeldStockKinds(none, 60, 1) == std::vector<std::uint32_t>{10620}));
+    }
+    // 3.1.4 refresh: guild stock off, nothing stays (3.1.3); on, a stock material stays up to Stacks + 1 stacks.
+    for (std::uint32_t kept : {0u, 20u, 60u})
+        assert(!RefreshKeepsStock(false, true, kept, 20, 20, 2));
+    assert(!RefreshKeepsStock(true, false, 0, 1, 20, 2));
+    {
+        // 5 stacks of Runecloth in the bags, Stacks 2: 3 stay (60 items), 2 go.
+        std::uint32_t kept = 0, stayed = 0;
+        for (int n = 0; n < 5; ++n)
+            if (RefreshKeepsStock(true, true, kept, 20, 20, 2))
+            {
+                kept += 20;
+                ++stayed;
+            }
+        assert(stayed == 3 && kept == 60);
+        // Partial stacks fill up to the bound: 15 + 15 + 15 + 15 = 60 stays, the fifth 15 goes.
+        kept = 0;
+        stayed = 0;
+        for (int n = 0; n < 5; ++n)
+            if (RefreshKeepsStock(true, true, kept, 15, 20, 2))
+            {
+                kept += 15;
+                ++stayed;
+            }
+        assert(stayed == 4 && kept == 60);
+        // Default Kinds 3 x (Stacks 2 + 1) = 9 full stacks at most.
+        assert(3 * (60 / 20) == 9);
+    }
+    // 3.1.4 artisans and players: a player's lot 1 copper under the house's cheapest is taken, even over BuyBelowPercent;
+    // over it, a bot's lot, no house auction, a buy-back within 24 h or the key off: no; 3 auctions are then enough.
+    assert(ArtisanMatchesPlayer(true, true, 2176, 2177, false));
+    assert(!ArtisanMatchesPlayer(true, true, 2178, 2177, false));
+    assert(!ArtisanMatchesPlayer(true, false, 2176, 2177, false));
+    assert(!ArtisanMatchesPlayer(true, true, 2176, 0, false));
+    assert(!ArtisanMatchesPlayer(true, true, 2176, 2177, true));
+    assert(!ArtisanMatchesPlayer(false, true, 2176, 2177, false));
+    assert(StockMinListings(true, 8, 3) == 3 && StockMinListings(false, 8, 3) == 8);
+    // 25 % of 3 auctions is under one lot: the guild's first lot of the item a day is free of the share, not the next.
+    assert(!GuildMayBuy(3, 0, 0, StockMinListings(true, 8, 3), 25, 10));
+    assert(GuildMayBuy(3, 0, 0, StockMinListings(true, 8, 3), 25, 10, true));
+    assert(!GuildMayBuy(3, 1, 1, StockMinListings(true, 8, 3), 25, 10, true));
+    assert(!GuildMayBuy(3, 0, 0, StockMinListings(false, 8, 3), 25, 10));
+    assert(!GuildMayBuy(4, 0, 10, StockMinListings(true, 8, 3), 25, 10, true));  // the guild's 10 a day still hold
+    assert(!GuildMayBuy(2, 0, 0, StockMinListings(true, 8, 3), 25, 10, true));   // and the 3 auctions
+    assert(GuildMayBuy(8, 0, 0, 8, 25, 10) && GuildMayBuy(7, 1, 1, 6, 25, 10) && !GuildMayBuy(6, 2, 2, 6, 25, 10));
+    assert(!GuildMayBuy(7, 0, 0, 8, 25, 10) && !GuildMayBuy(20, 0, 10, 8, 25, 10) && !GuildMayBuy(20, 0, 0, 8, 25, 0));
+    assert(!GuildMayBuy(3, 0, 0, 1, 25, 10) && GuildMayBuy(4, 0, 0, 1, 25, 10));
+
     // Auctions on game time: a night off moves every end by the night; a restart or an unknown past moves nothing.
     assert(AuctionPause(1000, 1000 + 8 * 3600, 300, 30 * 86400) == 8 * 3600);
     assert(AuctionPause(1000, 1200, 300, 30 * 86400) == 0);
@@ -167,6 +239,21 @@ int main()
     // An artisan's quote: whispered to "can you make X?" (the deal waits on it), never on the addon's request (its card
     // shows the price; a whisper per item clicked came late, for an item never ordered).
     assert(QuoteWhispered(false) && !QuoteWhispered(true));
+
+    // A whisper naming an item the artisan makes asks for its quote: a price, trade or craft word, or the link alone.
+    {
+        std::string const cloak = "|cff1eff00|hitem:14134:0:0:0:0:0:0:0:40|h[cloak of fire]|h|r";
+        assert(StripItemLinks("how much for " + cloak + "?") == "how much for ?");
+        assert(StripItemLinks("|hitem:2589:0|h[linen cloth]|h") == "");
+        for (std::string const& ask : { "how much for " + cloak, "price for " + cloak, cloak, cloak + "?",
+                                        "wts? " + cloak, "can you craft " + cloak, "do you have " + cloak,
+                                        cloak + " pst", "combien pour " + cloak, "prix " + cloak + " ?",
+                                        "tu le vends " + cloak, std::string("\xc3\xa7" "a co\xc3\xbbte ") + cloak })
+            assert(AsksCraftQuote(ask));
+        for (std::string const& other : { "look at my " + cloak, "where did you get " + cloak, "lol " + cloak,
+                                          "nice " + cloak + " grats", std::string("hi") })
+            assert(!AsksCraftQuote(other));
+    }
     // Never cooking (185) nor first aid (129): "[X Bot] has earned the achievement [Lunch Lady]!" in bursts.
     assert(!RareRecipeProfession(185) && !RareRecipeProfession(129) && !RareRecipeProfession(0));
     assert(RareRecipeProfession(164) && RareRecipeProfession(333) && RareRecipeProfession(171) &&

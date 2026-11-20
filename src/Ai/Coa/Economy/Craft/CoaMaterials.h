@@ -7,10 +7,14 @@
 #ifndef COA_ECONOMY_MATERIALS_H
 #define COA_ECONOMY_MATERIALS_H
 
+// The guild stock API below (IsGuildStockEnabled, IsStockItem, StockCount, StockItems) is here.
+#define COA_ECONOMY_GUILD_STOCK 1
+
 #include "Define.h"
 #include "ObjectGuid.h"
 
 #include <unordered_set>
+#include <vector>
 
 class Creature;
 class Item;
@@ -36,8 +40,28 @@ namespace CoaEconomy::Materials
     // Kept from the sale: one of those reagents, while the bot holds no more than Stock.MaxStacks stacks of it.
     bool KeepsInStock(Player* bot, Item* item, std::unordered_set<uint32> const& reagents);
 
-    // Buys one lot of a stock reagent below Stock.BuyBelowPercent of its market price, within budget (buyout).
+    // Buys one lot of a stock reagent below Stock.BuyBelowPercent of its market price, within budget (buyout). With
+    // the guild stock: only within the guild's daily share of the house (CoaEconomyRules::GuildMayBuy).
     bool BuyStock(Player* bot, ObjectGuid auctioneer, Creature* npc, uint64 budget);
+
+    // Guild stock (CoaEconomy.GuildStock.*, on by default): gatherers keep a few kinds of what they gather (cloth
+    // for all, ore and bars, herbs, leather), artisans a stack of the intermediates they make (bars, bolts, cured
+    // leather), in their bags and their bank, for a guildmate's order.
+    bool IsGuildStockEnabled();
+    // GuildStock.Stacks: full stacks of each material the stock keeps (1 to 5).
+    uint32 GuildStockStacks();
+    // At an auction house visit: makes intermediates from the materials held (up to GuildStock.CraftsPerVisit),
+    // then puts the full stacks of stock beyond the first in the bank. Returns the items moved or made.
+    uint32 TendGuildStock(Player* bot);
+    // 3.1.4: the bot has guild stock to put in its bank or surplus to sell: a reason to visit an auctioneer (RpgTrade).
+    // Looked at once a minute per bot at most.
+    bool HasStockWork(Player* bot);
+
+    // For CoA World (guild orders): an item the bot keeps in stock, and how many it holds, bags and bank.
+    bool IsStockItem(Player* bot, uint32 entry);
+    uint32 StockCount(Player* bot, uint32 entry);
+    // The stacks of that item, bags first, then the bank (to mail some to a guildmate: split what is needed).
+    std::vector<Item*> StockItems(Player* bot, uint32 entry);
 }
 
 void AddSC_coa_economy_materials();

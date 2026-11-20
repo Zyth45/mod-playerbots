@@ -1,0 +1,3 @@
+### Bots put their fishing pole away
+A bot that went fishing takes back the weapon and the shield it wore as soon as it stops. A bot in a fight, in a group or recruited by a player with a fishing pole in hand takes its best weapon from its bags. On self-found realms, nothing gave the weapon back: a tank recruited from the shore kept its pole and held no aggro. A bot with no weapon in its bags keeps the pole; nothing is created.
+Before a refresh empties its bags, a bot that fished puts its weapons back in hand, so they are no longer destroyed with the bags. Any bot that is not fishing now drops a pole left in its hands, after a login or a refresh too.

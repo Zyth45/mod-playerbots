@@ -73,6 +73,9 @@ uint32 OfflineSeconds();
 bool SessionsEnabled();
 // The bot is at the water (Immersion), for world.json.
 bool IsFishing(Player* bot);
+// City Life (3.1.6): a random bot on a city visit goes fishing at the water of the city (within 60 yd), with the
+// Immersion cap (AiPlayerbot.CoaLive.Immersion.FishingPerThousand). True when it does.
+bool FishInCity(Player* bot, PlayerbotAI* botAI);
 // A random bot on a gathering trip (herbs, ore) of CoA Live Immersion (world.json).
 bool IsGathering(Player* bot);
 
@@ -92,7 +95,8 @@ std::string SystemLine(Player* reader, std::string const& situation,
 
 // SayLine to one player: a whisper line (channel 6) of the situation goes to "to". False when "to" is not online.
 // force: no chance roll and no scope limit (the bot's cooldown kept), for a line a deal waits on (CoA Economy: the
-// artisan's "sent, COD 12g" and its thanks).
+// artisan's "sent, COD 12g" and its thanks). A forced line to a real player answers what they asked: it is whispered
+// even with the chat off (AiPlayerbot.CoaLive.Chat.Enable = 0), like "heal please"; CoA Live off, nothing.
 bool SayLine(Player* bot, std::string const& situation, std::unordered_map<std::string, std::string> const& slots,
              ObjectGuid to, bool force = false);
 

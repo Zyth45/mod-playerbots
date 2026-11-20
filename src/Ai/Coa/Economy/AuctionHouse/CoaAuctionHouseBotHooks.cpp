@@ -11,6 +11,7 @@
 
 #include "CoaEconomyConf.h"
 #include "CoaEconomyData.h"
+#include "CharacterCache.h"
 #include "Chat.h"
 #include "CoaAuctionHouseBot.h"
 #include "Config.h"
@@ -115,6 +116,10 @@ public:
     {
         if (auction && IsBotCharacter(auction->owner.GetCounter()))
             CoaEconomy::Data::RecordAhBot(0, 0, profit, 0);
+        // 3.1.4: who bought what from the house or a random bot (neither buys it back from that account for 24 hours).
+        if (auction && auction->bidder && auctionbot->SoldByBots(auction->owner))
+            auctionbot->RecordHouseSale(sCharacterCache->GetCharacterAccountIdByGuid(auction->bidder),
+                                        auction->item_template);
         if (!IsBotCharacter(owner))
             return;
         sendNotification = false;

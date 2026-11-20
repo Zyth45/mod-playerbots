@@ -5,11 +5,16 @@
  */
 
 #include "PlayerbotAI.h"
+#include "CoaBotRaces.h"
 #include "CoaKeySpells.h"
 
 #include "CoaLive.h"
 #include "CoaChatRules.h"
 #include "CoaPet.h"
+#include "CoaHearthWithMaster.h"
+#include "CoaBotMute.h"
+#include "CoaAltGive.h"
+#include "CoaFishingGear.h"
 #include "CurrentTargetValue.h"
 
 #include <set>
@@ -430,6 +435,9 @@ void PlayerbotAI::UpdateAI(uint32 elapsed, bool minimal)
         return;
     }
 
+    // The hearthstone used with the master (AiPlayerbot.CoaHearthWithMaster): before the cast wait below.
+    CoaHearthWithMaster::Tick(this);
+
     // Handle a spell that is still in its preparing phase (including channeled spells).
     Spell* currentSpell = bot->GetCurrentSpell(CURRENT_GENERIC_SPELL);
     if (!currentSpell)
@@ -572,6 +580,8 @@ void PlayerbotAI::UpdateAI(uint32 elapsed, bool minimal)
     CoaLootCompanionTick(this);
     // The alt's class and craft books, used by themselves ("pet auto on", CoA Pets).
     CoaPet::Tick(this);
+    // A fishing pole left in hand gives way to a weapon in a fight or a group (CoaFishingGear).
+    CoaFishingGear::Tick(this);
     // The CoA talents left by a capped rebuild (AiPlayerbot.CoaLive.TalentsPerUpdate).
     CoaTalentsTick(bot);
     // The level-up maintenance spread over the next updates (AiPlayerbot.CoaLive.MaintenanceSpread).
@@ -794,6 +804,8 @@ void PlayerbotAI::UpdateAIInternal([[maybe_unused]] uint32 elapsed, bool minimal
 
     HandleCommands();
     CoaAltBags::Drain(this);
+    // Items given by another alt of the master, stored here (AiPlayerbot.CoaGiveToAlt.Enable).
+    CoaAltGive::Tick(this);
 
     // logout if logout timer is ready or if instant logout is possible
     if (bot->GetSession()->isLogingOut())
@@ -3794,6 +3806,9 @@ bool PlayerbotAI::TellError(std::string const text, PlayerbotSecurityLevel secur
 // greetings reach a real master.
 bool PlayerbotAI::MasterWantsThis()
 {
+    // Muted by its master (AiPlayerbot.CoaMute.Enable): only the answers to his commands, no greeting.
+    if (CoaBotMute::IsMuted(bot))
+        return time(nullptr) - lastCommandAt <= 10;
     if (sPlayerbotAIConfig.botsWhisperPublic || greeting)
         return true;
     Player* master = GetMaster();
@@ -5347,8 +5362,9 @@ bool IsAlliance(uint8 race)
     if (race <= RACE_DRAENEI)
         return false;
 
+    // The server's AiPlayerbot.BotRace.<id> line may set the side of an added race (side=alliance or side=horde).
     ChrRacesEntry const* entry = sChrRacesStore.LookupEntry(race);
-    return entry && entry->TeamID == 7;
+    return CoaBotRace::IsAllianceWith(CoaBotRaces::Get(race), race, entry && entry->TeamID == 7);
 }
 
 Player* PlayerbotAI::FindNewMaster()

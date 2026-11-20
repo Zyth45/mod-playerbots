@@ -29,6 +29,8 @@ enum class Station : uint8_t
     Dummy,    // a training dummy: strikes it
     Beg,      // a beggar kneeling by a banker or an auctioneer
     Vendor,   // a buyer at a merchant
+    Mail,     // a mailbox: reads its mail (3.1.6)
+    Seat,     // a chair or a bench of the city: sits on it (3.1.6)
 };
 
 struct Candidate
@@ -58,6 +60,19 @@ inline Station StationOfCreature(uint32_t npcFlags, std::string const& name)
 // A spell focus game object: 1 anvil, 3 forge.
 inline Station StationOfFocus(uint32_t focusId) { return focusId == 1 || focusId == 3 ? Station::Forge : Station::None; }
 
+// A game object seen in a capital: a spell focus (StationOfFocus), a chair or bench (type 7), a mailbox (type 19).
+inline Station StationOfObject(uint32_t goType, uint32_t focusId)
+{
+    constexpr uint32_t CHAIR = 7, SPELL_FOCUS = 8, MAILBOX = 19;
+    if (goType == SPELL_FOCUS)
+        return StationOfFocus(focusId);
+    if (goType == CHAIR)
+        return Station::Seat;
+    if (goType == MAILBOX)
+        return Station::Mail;
+    return Station::None;
+}
+
 inline uint32_t Weight(Station s)
 {
     switch (s)
@@ -69,6 +84,8 @@ inline uint32_t Weight(Station s)
         case Station::Dummy: return 15;
         case Station::Beg: return 5;
         case Station::Vendor: return 15;
+        case Station::Mail: return 10;
+        case Station::Seat: return 10;
         default: return 0;
     }
 }
@@ -76,25 +93,33 @@ inline uint32_t Weight(Station s)
 constexpr uint32_t MAX_BOTS_PER_STATION = 3;
 constexpr uint32_t MAX_BEGGARS_PER_STATION = 1;  // one beggar at a door, never a queue of them
 
-inline uint32_t MaxBots(Station s) { return s == Station::Beg ? MAX_BEGGARS_PER_STATION : MAX_BOTS_PER_STATION; }
+inline uint32_t MaxBots(Station s)
+{
+    if (s == Station::Beg || s == Station::Seat)  // one beggar at a door, one bot on a seat
+        return 1;
+    return s == Station::Mail ? 2 : MAX_BOTS_PER_STATION;
+}
 constexpr uint32_t CHANCE_PCT = 60;  // a pick of the next stop is a station rather than any NPC
 
-// The station for the next stop: weighted by kind, never a full one (MAX_BOTS_PER_STATION), 0 when none fits.
+// The station for the next stop: weighted by kind, never a full one (MaxBots), 0 when none fits. A bot does not
+// take the same kind twice in a row (avoid: the kind of its last stop), unless nothing else fits.
 // between(lo, hi) is an inclusive random draw.
-inline uint64_t Pick(std::vector<Candidate> const& candidates, std::function<uint32_t(uint32_t, uint32_t)> const& between)
+inline uint64_t Pick(std::vector<Candidate> const& candidates, std::function<uint32_t(uint32_t, uint32_t)> const& between,
+                     Station avoid = Station::None)
 {
+    auto weightOf = [avoid](Candidate const& c) -> uint32_t
+    { return c.botsThere < MaxBots(c.station) && c.station != avoid ? Weight(c.station) : 0; };
     uint32_t total = 0;
     for (Candidate const& c : candidates)
-        if (c.botsThere < MaxBots(c.station))
-            total += Weight(c.station);
+        total += weightOf(c);
     if (!total)
-        return 0;
+        return avoid == Station::None ? 0 : Pick(candidates, between, Station::None);
     uint32_t roll = between(0, total - 1);
     for (Candidate const& c : candidates)
     {
-        if (c.botsThere >= MaxBots(c.station))
+        uint32_t const w = weightOf(c);
+        if (!w)
             continue;
-        uint32_t const w = Weight(c.station);
         if (roll < w)
             return c.guid;
         roll -= w;
@@ -114,8 +139,30 @@ inline uint32_t StayMs(Station s, std::function<uint32_t(uint32_t, uint32_t)> co
         case Station::Auction:
         case Station::Vendor: return between(40, 120) * 1000;
         case Station::Beg: return between(2 * 60, 6 * 60) * 1000;
+        case Station::Mail: return between(30, 90) * 1000;
+        case Station::Seat: return between(3 * 60, 10 * 60) * 1000;
         default: return 0;
     }
+}
+
+// A long post (3.1.6): now and then a bot settles at the inn, a seat, a forge or a dummy for a long while, so
+// that one sees the same faces at the same places. The kinds that can be one:
+inline bool CanBePost(Station s)
+{
+    return s == Station::Inn || s == Station::Seat || s == Station::Forge || s == Station::Dummy;
+}
+
+// The stay at a station, with chancePct in a hundred of a long post of minMinutes to maxMinutes (in any order).
+inline uint32_t StayOrPostMs(Station s, uint32_t chancePct, uint32_t minMinutes, uint32_t maxMinutes,
+                             std::function<uint32_t(uint32_t, uint32_t)> const& between)
+{
+    if (CanBePost(s) && chancePct && maxMinutes && between(1, 100) <= chancePct)
+    {
+        uint32_t const lo = std::max<uint32_t>(std::min(minMinutes, maxMinutes), 1);
+        uint32_t const hi = std::max(minMinutes, maxMinutes);
+        return between(lo * 60, hi * 60) * 1000;
+    }
+    return StayMs(s, between);
 }
 
 // The one-shot emote played every few seconds while staying (0: none, the pose holds), and how often (ms).
@@ -138,6 +185,7 @@ inline Pose PoseOf(Station s)
         case Station::Beg: return {false, BEG, 12000};
         case Station::Forge: return {false, ATTACK1H, 2500};
         case Station::Dummy: return {false, ATTACK_UNARMED, 1800};
+        case Station::Seat: return {true, 0, 0};
         default: return {};
     }
 }
@@ -175,6 +223,20 @@ inline bool IsResident(uint64_t guid)
 }
 
 inline uint32_t StayMs(uint64_t guid, uint32_t cityStayMs) { return IsResident(guid) ? cityStayMs * 3 : cityStayMs; }
+// 3.1.6 trial: using a chair puts the bot on the chair itself, wherever it stands. From the street, a chair of an
+// upper floor, a balcony or a stall's roof within reach lifted the bot up there ("bots that fly"). A seat is taken only
+// on the bot's own floor (height gap at most SEAT_MAX_DZ), close by and in sight; else the bot only stands by it.
+constexpr float SEAT_PICK_MAX_DZ = 2.5f;  // a seat this far above or below the bot is not a candidate
+constexpr float SEAT_MAX_DZ = 1.5f;       // at arrival: the chair's height against the bot's
+constexpr float SEAT_MAX_DIST = 4.0f;     // at arrival: 2D distance to the chair
+
+inline bool SeatPickable(float botZ, float seatZ) { return std::fabs(seatZ - botZ) <= SEAT_PICK_MAX_DZ; }
+
+inline bool SeatUsable(float botX, float botY, float botZ, float seatX, float seatY, float seatZ, bool inSight)
+{
+    float const dx = seatX - botX, dy = seatY - botY;
+    return inSight && std::fabs(seatZ - botZ) <= SEAT_MAX_DZ && dx * dx + dy * dy <= SEAT_MAX_DIST * SEAT_MAX_DIST;
+}
 }  // namespace CoaCityLife
 
 #endif

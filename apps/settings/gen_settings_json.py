@@ -2,7 +2,7 @@
 """Writes conf/playerbots.conf.settings.json: the options of playerbots.conf that matter to a server owner (bot
 count, levels, gear, players' own bots, the Conquest of Azeroth options, the ones support asks to change), with a
 title, a one-line description, their group, type, default and range, for tools that edit playerbots.conf.
-Run it from the repository root at each release:
+Run it at each release (apps/release/make_release_files.py runs it with the release manifest):
 
     python apps/settings/gen_settings_json.py --version 1.8 --tag v1.8 --since-rev <commit of the previous release> --since-version 1.7
 
@@ -26,6 +26,9 @@ GROUPS = {
     'combat': 'Combat',
     'activities': 'Activities: dungeons, PvP, cities',
     'chat': 'Chat',
+    'live': 'Bots that feel like players (CoA Live)',
+    'world': 'A world that moves (CoA World)',
+    'economy': 'Economy and auction house (CoA Economy)',
     'other': 'Other',
 }
 
@@ -52,8 +55,8 @@ SETTINGS = [
      'Comma-separated race ids of the custom races module, added to the always-excluded crashing races below. Only '
      'matters when CoACustomRaces.BotsEnable = 1; bots already created keep their race.'),
     ('CrashingBotRaces', 'population', 'Custom races that crash the client',
-     'Always excluded from bots, on top of the list above. Default 65, 72, 77, 80, 81 (Test Race, Skyborne, '
-     'Darkfallen), per the custom races module author.'),
+     'Always excluded from bots, on top of the list above. Default 32, 72, 77, 97 (Thin Human and Saberon crash a '
+     'client that sees them, Skyborne has no model), from a race by race client test.'),
     ('CoaBotSurname', 'population', 'Bot surname',
      'Random bots carry the surname "Bot" (1), so players tell them from real players at a glance, no surname (0), '
      'or a family name of their own (2).'),
@@ -176,6 +179,66 @@ SETTINGS = [
      'Bots under pressure hide behind the arena pillars (Nagrand, Blade’s Edge, Ruins of Lordaeron, Dalaran, Ring of Valor).'),
     ('CoaDuelOpening', 'activities', 'Duel opening positions',
      'During a duel countdown bots take a distance that suits them: close for melee, about 20 yards for ranged.'),
+    ('StartupCheckOnly', 'other', 'Startup check only',
+     'The server loads the module and its data, then creates, deletes and logs in no bot. For qualifying a build '
+     'before opening it; CoA.ValidationMode = 1 does the same.'),
+    ('DeleteRandomBotAccounts', 'other', 'Delete all random bots at the next start',
+     'Every random bot account and character is deleted at the next start. Set it back to 0 right after that start.'),
+    ('DeleteRandomBotGuilds', 'other', 'Delete random bot guilds at start',
+     'Random bot guilds are deleted at start, and none is made while it stays on. Back to 0 to resume.'),
+    ('DeleteRandomBotArenaTeams', 'other', 'Delete random bot arena teams at start',
+     'Random bot arena teams are deleted at start, and none is made while it stays on. Back to 0 to resume.'),
+    ('CoaStatusIntervalSeconds', 'other', 'Dashboard status interval (seconds)',
+     'Seconds between two snapshots of the dashboard status file.'),
+
+    ('CoaLive.Enable', 'live', 'Bots react like people',
+     'Random bots greet a player passing by, cheer a level up, bow after a duel and answer, with the lines and emotes '
+     'of the CoA Live bank (English and French).'),
+    ('CoaLive.Chat.Enable', 'live', 'Bot chat',
+     "The bots' written chat: zone, world, Trade, LFG, guild, party and say lines, greetings and answers to whispers. "
+     'Off: they write none of these lines; emotes stay.'),
+    ('CoaLive.City.Enable', 'live', 'City life',
+     'A bot visiting a capital takes a station now and then: it sits at the inn, talks to a banker or an auctioneer, '
+     'works at an anvil or a forge.'),
+    ('CoaLive.Social.Enable', 'live', 'Helpful bots',
+     'A free bot of your faction passing by may raise you when you lie dead, or help in a fight you are losing.'),
+    ('CoaLive.Immersion.Enable', 'live', 'Fishing and idle life',
+     'A bot idling near water now and then goes to the shore and fishes a while.'),
+    ('CoaLive.Sessions.Enable', 'live', 'Bots come and go',
+     'Each bot stays online for a session of a believable length, then logs out while another takes its place.'),
+    ('CoaWorld.Guilds.Enable', 'world', 'Living bot guilds',
+     'Bot guilds balanced between the sides, with a message of the day, guild chat and calls for members.'),
+    ('CoaWorld.Invasions.Enable', 'world', 'Invasions',
+     'Live invasions announced to the players of their level band, in waves, with a boss and a reward.'),
+    ('CoaWorld.WorldPvp.Enable', 'world', 'World PvP of the bots',
+     'The posts of contested zones send their fighters at each other now and then, and bots defend their capital.'),
+    ('CoaWorld.CapitalRaid.Enable', 'world', 'Capital raids',
+     "A faction raid of bots marches on the other side's capital to kill its leader."),
+    ('CoaWorld.DungeonSim.Enable', 'world', 'Bots run dungeons on their own',
+     'When no real player waits in the Dungeon Finder, five free bots gather and run a classic dungeon of their level.'),
+    ('CoaWorld.Leveling.Enable', 'world', 'Credible levelling routes',
+     'A bot sent to a place of its level goes to a zone its side levels in at that level.'),
+    ('CoaWorld.Density.Enable', 'world', 'Bots where the players are',
+     'For large bot counts with the bot rotation on: the bots online are drawn near the real players.'),
+    ('CoaWorld.Events.Enable', 'world', 'Event log for the dashboard',
+     'events.jsonl for the SquidBots dashboard: invasions, gold rushes, server firsts, guild news.'),
+    ('CoaEconomy.AHBot.Enable', 'economy', 'Auction house bot',
+     'SquidBots runs the auction house bot (seller and buyer); its settings are the AuctionHouseBot.* keys of '
+     'mod_ahbot.conf. Set 0 if another auction house bot module is built in. Restart to change it.'),
+    ('CoaEconomy.BotAuctions.Enable', 'economy', 'Bots sell at the auction house',
+     'Random bots list their loot and crafts at the auction house when they visit it.'),
+    ('CoaEconomy.Artisans.Enable', 'economy', 'Bot artisans',
+     'Bots with a profession craft pieces worth more than their materials and sell them.'),
+    ('CoaEconomy.CraftOrders.Enable', 'economy', 'Craft orders from players',
+     'A player can ask a bot artisan for a piece by whisper; the bot quotes a price and crafts it.'),
+    ('CoaEconomy.Market.Enable', 'economy', 'Learned market prices',
+     'Prices follow the sales seen at the auction house, not only a fixed formula.'),
+    ('CoaCombat.MoltenCore.Enable', 'combat', 'Molten Core fixes',
+     "The CoA Combat fixes to the bots' Molten Core strategy, encounter by encounter."),
+    ('CoaCombat.OffTank.Enable', 'combat', 'Automatic off-tank',
+     'In a group with two tanks, the off-tank picks up the loose adds and never taunts what the other tank holds.'),
+    ('CoaCombat.PlayerLed.Enable', 'combat', 'A player leads the bots',
+     "The player who opened the Main Tank bar is the bots' main tank in dungeons and raids, without Dungeon Clear."),
     ('CoaPvpRecovery', 'activities', 'PvP recovery',
      'In duels, arenas and battlegrounds a cornered bot can crowd control its attacker, then break away; bandage when safe (CoaPvpBandage).'),
 ]
@@ -189,7 +252,7 @@ CHOICES = {'BotTextLocale': [(-1, "Auto (players' client language)"), (0, 'Engli
 
 # Commented out in the .dist, read anyway; and CoA options whose name does not start with Coa.
 COMMENTED = {'AiPlayerbot.ExcludedBotRaces'}
-COA_ALSO = {'ExcludedBotRaces', 'CrashingBotRaces', 'GatherOnlySkillUp'}
+COA_ALSO = {'ExcludedBotRaces', 'CrashingBotRaces', 'GatherOnlySkillUp', 'StartupCheckOnly'}
 KEY = re.compile(r'^((?:AiPlayerbot|Playerbots|PlayerbotsDatabase)[\w.]*)\s*=\s*(.*?)\s*$')
 OPTION = re.compile(r'(?:std::(min|max)<[\w:]+>\(\s*(-?[\d.]+)f?\s*,\s*)?'
                     r'sConfigMgr->GetOption<([\w:]+)>\(\s*"([\w.]+)"\s*,\s*([^;]*?)\)\s*(\))?\s*;')
@@ -309,14 +372,14 @@ def main():
         'file': 'configs/modules/playerbots.conf',
         'notes': 'The options a server owner usually changes, not all of playerbots.conf.dist. default = value in '
                  'playerbots.conf.dist; default_if_missing = what the code uses when the key is absent; min/max '
-                 'where the code or the meaning bounds the value; coa = option of the Conquest of Azeroth fork; '
+                 'where the code or the meaning bounds the value; coa = option added for Conquest of Azeroth; '
                  f'new_in / changed_in compare with {a.since_version or "the previous release"}. Every option '
                  'needs a world server restart, except those whose description in the .dist says ".reload config". '
                  'commit = the commit the options were read from; the build itself is identified by its tag.',
         'groups': GROUPS,
         'settings': settings,
     }
-    OUT.write_text(json.dumps(doc, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
+    OUT.write_text(json.dumps(doc, ensure_ascii=False, indent=1) + '\n', encoding='utf-8', newline='\n')
     print(f'{OUT.relative_to(ROOT)}: {len(settings)} options, {sum(s["coa"] for s in settings)} CoA, '
           f'{sum("new_in" in s for s in settings)} new, {sum("changed_in" in s for s in settings)} changed')
 

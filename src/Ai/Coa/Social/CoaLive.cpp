@@ -5,6 +5,8 @@
  */
 
 #include "CoaLive.h"
+#include "CoaBotMute.h"
+#include "CoaFishingGear.h"
 #include "CoaQuickAsk.h"
 
 #include "CoaSafeMove.h"
@@ -26,6 +28,7 @@
 #include "CoaGreetReplyRules.h"
 #include "CoaDungeonChatRules.h"
 #include "CoaPlayerReplyRules.h"
+#include "CoaWhisperTalkRules.h"
 #include "SpellInfo.h"
 #include "SpellMgr.h"
 #include "GroupScript.h"
@@ -107,6 +110,8 @@ constexpr uint32 GREET_PLAYER_CD_S = 3600;  // a bot greets the same player once
 constexpr size_t QUEUE_MAX = 4096;
 
 std::mutex liveLock;
+// The whisper talks of the random bots with real players (CoaWhisperTalk), by bot and player; under liveLock.
+std::unordered_map<uint64, CoaWhisperTalk::Pair> whisperTalks;
 
 // The zones where a real player is, refreshed by the world thread every second: a bot's look (about every 5 s)
 // stops at once in any other zone, so 2 000 bots cost a set lookup each, not a grid search.
@@ -151,6 +156,7 @@ struct Pending
     ObjectGuid codItem;  // an item of the bot's bags mailed to the subject, cash on delivery
     uint32 cod = 0;
     std::string sayChannel;  // said in this public channel (its name) instead of the line's channel
+    bool asked = false;      // an answer the player asked for (ReactOptions::asked)
 };
 
 // A Trade announce that a real player may answer (spec: never an announce that leads nowhere).
@@ -284,6 +290,7 @@ struct ReactOptions
     bool sayParty = false;                         // said in party chat, whatever the line's channel
     bool sayWhisper = false;                       // whispered to the subject, whatever the line's channel
     uint32 emote = 0;                              // a text emote played with the line (said aloud only)
+    bool asked = false;  // an answer a real player asked for (a craft quote): whispered even with the chat off
     std::string avoidLead;                         // draw again a line naming this first (a second class answer)
     struct Said { uint64 dueMs = 0; std::string lead; } * said = nullptr;  // filled when the line is queued
 };
@@ -292,6 +299,9 @@ bool React(Player* bot, std::string const& situation, Player* subject, std::stri
            ReactOptions const& opt = {})
 {
     if (!bot || !bot->IsInWorld())
+        return false;
+    // Muted by its master (AiPlayerbot.CoaMute.Enable): only what a player asked.
+    if (!opt.asked && CoaBotMute::IsMuted(bot))
         return false;
 
     std::shared_ptr<Bank const> current;
@@ -395,6 +405,7 @@ bool React(Player* bot, std::string const& situation, Player* subject, std::stri
         p.channel = CH_WHISPER;
     if (opt.emote)
         p.emote = opt.emote;
+    p.asked = opt.asked;
     if (opt.said)
     {
         opt.said->dueMs = p.dueMs;
@@ -562,7 +573,10 @@ void Play(Due isDue)
                                   : nullptr;
 
         // Chat off (AiPlayerbot.CoaLive.Chat.Enable = 0): no text, the rest of the line still happens.
-        CoaChat::Parts const parts = CoaChat::PartsOf(sPlayerbotAIConfig.coaLiveChatEnable);
+        // An answer a real player asked for by whisper is a function, not chat (as "heal please"): it is whispered.
+        CoaChat::Parts parts = CoaChat::PartsOf(sPlayerbotAIConfig.coaLiveChatEnable);
+        if (p.asked && p.channel == CH_WHISPER)
+            parts.text = true;
         if (parts.emote && p.emote && p.channel == CH_NEAR)
         {
             if (parts.emoteText)
@@ -823,6 +837,7 @@ void Fish(Player* bot, PlayerbotAI* botAI)
                                    info.GetStatus() == RPG_REST))
         {
             botAI->ChangeStrategy("-master fishing", BOT_STATE_NON_COMBAT);
+            CoaFishingGear::Restore(bot);  // the weapons back in hand
             if (info.GetStatus() == RPG_REST)
                 info.ChangeToIdle();
             std::lock_guard<std::mutex> guard(liveLock);
@@ -3096,6 +3111,45 @@ bool OnWhisper(Player* from, Player* to, std::string const& msg)
         }
     }
 
+    // A long talk ends on an excuse that fits what the bot is doing, then the bot is silent a while for that player
+    // (AiPlayerbot.CoaLive.WhisperEscape.Enable). A deal or a handled intent above is never cut.
+    std::string const scope = "w" + std::to_string(to->GetGUID().GetCounter());
+    uint64 const nowMs = GameTime::GetGameTimeMS().count();
+    uint64 const key = (uint64(to->GetGUID().GetCounter()) << 32) | from->GetGUID().GetCounter();
+    if (ChatFeature(sPlayerbotAIConfig.coaLiveWhisperEscape))
+    {
+        CoaWhisperTalk::Step step;
+        {
+            std::lock_guard<std::mutex> guard(liveLock);
+            if (whisperTalks.size() > CoaWhisperTalk::PRUNE_ABOVE)
+                for (auto it = whisperTalks.begin(); it != whisperTalks.end();)
+                    it = CoaWhisperTalk::Stale(it->second, nowMs) ? whisperTalks.erase(it) : std::next(it);
+            step = CoaWhisperTalk::Next(whisperTalks[key], nowMs,
+                                        rng.between(CoaWhisperTalk::MIN_ANSWERS, CoaWhisperTalk::MAX_ANSWERS),
+                                        rng.between(CoaWhisperTalk::SILENCE_MIN_MS, CoaWhisperTalk::SILENCE_MAX_MS));
+        }
+        if (step == CoaWhisperTalk::Step::Silent)
+            return true;
+        if (step == CoaWhisperTalk::Step::Escape)
+        {
+            Map* map = to->GetMap();
+            ReactOptions escape;
+            escape.force = true;
+            char const* const excuse =
+                CoaWhisperTalk::EscapeSituation(to->GetLevel(), map && map->Instanceable(), to->IsInCombat(),
+                                                to->GetGroup() != nullptr, rng.between(0, 1) == 1);
+            if (React(to, excuse, from, scope, escape))
+            {
+                LOG_INFO("playerbots.coa", "CoaLive: {} ends its whisper talk with {} ({}), then stays silent for them",
+                         to->GetName(), from->GetName(), excuse);
+                return true;
+            }
+            // No excuse line in the bank (or the chat is off): the talk goes on as before.
+            std::lock_guard<std::mutex> guard(liveLock);
+            whisperTalks[key] = CoaWhisperTalk::Pair();
+        }
+    }
+
     std::string situation = "wh_" + intent;
     bool invite = false;
     if (intent == "group")
@@ -3125,11 +3179,20 @@ bool OnWhisper(Player* from, Player* to, std::string const& msg)
         situation = place.empty() ? "wh_where_unknown" : "wh_where_known";
     }
 
+    // "ça va" answered by "ça va": a "fine" this time (CoaWhisperTalk::Answered).
+    {
+        std::lock_guard<std::mutex> guard(liveLock);
+        if (whisperTalks.size() > CoaWhisperTalk::PRUNE_ABOVE)
+            for (auto it = whisperTalks.begin(); it != whisperTalks.end();)
+                it = CoaWhisperTalk::Stale(it->second, nowMs) ? whisperTalks.erase(it) : std::next(it);
+        situation = CoaWhisperTalk::Answered(whisperTalks[key], situation, nowMs);
+    }
+
     ReactOptions opt;
     opt.invite = invite;
     if (!place.empty())
         opt.extra["place"] = place;
-    React(to, situation, from, "w" + std::to_string(to->GetGUID().GetCounter()), opt);
+    React(to, situation, from, scope, opt);
     return true;
 }
 
@@ -3141,6 +3204,31 @@ bool IsFishing(Player* bot)
         return false;
     std::lock_guard<std::mutex> guard(liveLock);
     return fishingUntil.count(bot->GetGUID().GetRawValue()) != 0;
+}
+
+bool FishInCity(Player* bot, PlayerbotAI* botAI)
+{
+    if (!bot || !botAI || !ImmersionEnabled() || !IsRandom(bot) || botAI->HasGameClientMaster() || !bot->IsAlive() ||
+        bot->IsInCombat() || bot->GetGroup() || !bot->HasSkill(SKILL_FISHING))
+        return false;
+    {
+        std::lock_guard<std::mutex> guard(liveLock);
+        if (fishingUntil.count(bot->GetGUID().GetRawValue()) ||
+            !CoaImmersion::FishingRoom(uint32(fishingUntil.size()), onlineRandomBots.load(std::memory_order_relaxed),
+                                       sPlayerbotAIConfig.coaLiveImmersionFishingPerThousand))
+            return false;
+    }
+    WorldPosition water = FindWaterRadial(bot, bot->GetPositionX(), bot->GetPositionY(), bot->GetPositionZ(),
+                                          bot->GetMap(), bot->GetPhaseMask(), 10.0f, 60.0f, 10.0f);
+    if (!water.IsValid())
+        return false;
+    // As Fish: the "new rpg" rests while the fishing strategy works, and Fish stops it at the end.
+    botAI->rpgInfo.ChangeToRest();
+    botAI->ChangeStrategy("+master fishing", BOT_STATE_NON_COMBAT);
+    uint64 const nowMs = GameTime::GetGameTimeMS().count();
+    std::lock_guard<std::mutex> guard(liveLock);
+    fishingUntil[bot->GetGUID().GetRawValue()] = nowMs + CoaImmersion::FishingMs(rng.between);
+    return true;
 }
 
 bool IsGathering(Player* bot)
@@ -3168,13 +3256,19 @@ bool SayLine(Player* bot, std::string const& situation, std::unordered_map<std::
 bool SayLine(Player* bot, std::string const& situation, std::unordered_map<std::string, std::string> const& slots,
              ObjectGuid to, bool force)
 {
-    if (!ChatFeature(true) || !bot)  // AiPlayerbot.CoaLive.Chat.Enable = 0: no line
+    if (!bot)
         return false;
     Player* subject = to ? ObjectAccessor::FindConnectedPlayer(to) : nullptr;
     if (to && !subject)
         return false;
+    // A forced whisper to a real player answers what they asked (a craft quote): it goes out with the chat off too,
+    // like "heal please" (AiPlayerbot.CoaLive.Chat.Enable = 0 silences talk, not answers).
+    bool const asked = force && subject && IsRealPlayer(subject);
+    if (asked ? !Enabled() : !ChatFeature(true))
+        return false;
     ReactOptions opt;
     opt.force = force;
+    opt.asked = asked;
     opt.extra.insert(slots.begin(), slots.end());
     return React(bot, situation, subject, situation + "@w" + std::to_string(bot->GetGUID().GetCounter()), opt);
 }

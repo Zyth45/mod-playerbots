@@ -12,11 +12,12 @@
 // What a random bot's refresh (at each random teleport) does with its bags, apart from the game objects, so that
 // tests/coa_refresh_rules.cpp can check it.
 
-// Whether the refresh empties the bags first: never for a self-found bot (it keeps what it looted), otherwise as
-// AiPlayerbot.RefreshClearsInventory says (0 keeps the bags, for realms where bots sell their loot at vendors).
-inline bool CoaRefreshClearsInventory(bool selfFound, bool refreshClearsInventory)
+// Whether the refresh empties the bags first: never for a bot that keeps its bags (a self-found bot, or any bot of a
+// self-found realm: it keeps what it looted and sells its surplus), otherwise as AiPlayerbot.RefreshClearsInventory
+// says (0 keeps the bags, for realms where bots sell their loot at vendors).
+inline bool CoaRefreshClearsInventory(bool keepsBags, bool refreshClearsInventory)
 {
-    return !selfFound && refreshClearsInventory;
+    return !keepsBags && refreshClearsInventory;
 }
 
 // How many items the refresh adds to bring what the bot holds up to the target: kept bags never pile up food or

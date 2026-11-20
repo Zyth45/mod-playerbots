@@ -18,7 +18,7 @@ struct ItemTemplate;
 // STABLE API, read by other sessions (CoA Economie: which upgrade a bot buys at the auction house). The signatures and
 // the meaning below do not change without telling them; the inside may.
 //
-// With AiPlayerbot.CoaCombat.GearScore.Enable at 0 (the default), ItemScore is the stock score (the one the item usage
+// With AiPlayerbot.CoaCombat.GearScore.Enable at 0 (1 by default since 3.1.6), ItemScore is the stock score (the one the item usage
 // compares with) and tokens keep their stock roll; at 1, set bonuses and tokens count.
 namespace CoaGearScore
 {

@@ -27,10 +27,13 @@
 #include "Random.h"
 
 #include <map>
+#include <tuple>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 struct AuctionEntry;
+struct AuctionHouseEntry;
 class AuctionHouseObject;
 class Player;
 class WorldSession;
@@ -372,6 +375,35 @@ private:
     double RarityRareRate = 0.01;
     void LoadRaritySettings();
     double GetRarityPriceFactor(uint32 itemId) const;
+
+    // CoA Economy: the floor of common crafting materials (AiPlayerbot.CoaEconomy.AHBot.MaterialFloor.*).
+    bool MaterialFloorEnabled = true;
+    uint32 MaterialFloorStacks = 2;
+    // 3.1.4: the house buyer takes the common crafting materials other sellers list (MaterialBuyer.*).
+    bool MaterialBuyerEnabled = true;
+    uint32 MaterialBuyerPricePercent = 90;
+    uint32 MaterialBuyerPerAccountPerDay = 10;
+    uint32 MaterialBuyerGoldPerAccountPerDay = 50;
+    bool MaterialBuyerPlayerMatchesHouse = true;
+    bool MaterialBuyerBuyFromBots = false;  // 3.1.4: a random bot's material auction is not the house's to buy  // a player's stack at or under the house's cheapest ask sells
+    // (account << 32 | item) -> when that account last bought that item from the house (BoughtFromHouseRecently)
+    std::unordered_map<uint64, uint32> BoughtFromHouse;
+    // account -> (day, auctions bought, copper paid)
+    std::unordered_map<uint32, std::tuple<uint32, uint32, uint64>> MaterialBuyerSoldToday;
+    // 3.1.4 guard: item -> what NPC vendors sell of it (no extended cost): lowest price, unlimited stock anywhere,
+    // items a day of all limited stocks (maxcount x a day / incrtime).
+    struct VendorStock
+    {
+        uint32 price = 0;
+        bool unlimited = false;
+        uint64 perDay = 0;
+    };
+    std::unordered_map<uint32, VendorStock> vendorBuyPrices;
+    void LoadVendorBuyPrices();
+    void LoadMaterialFloorSettings();
+    uint32 ListMaterialFloor(std::vector<Player*> const& AHBPlayers, FactionSpecificAuctionHouseConfig* config,
+        AuctionHouseObject* auctionHouse, AuctionHouseEntry const* ahEntry, std::unordered_set<uint32> const& sellers,
+        uint32 room);
     void FilterHumanBuyerCandidates(uint32 houseId, std::vector<uint32>& possibleBids, AuctionHouseObject* auctionHouse);
 
     AuctionHouseBot();
@@ -395,6 +427,21 @@ public:
     // CoA Economy: the house's lowest asking price for one item (0 while the house bot is off). SquidBots that
     // sell at the auction house price from it, so the house and the bots share one price model.
     uint64 GetReferencePricePerItem(ItemTemplate const* itemProto);
+    // 3.1.4: the lowest price an NPC vendor sells this item for (0 = no vendor sells it).
+    uint64 GetVendorBuyPrice(uint32 itemId) const;
+    // 3.1.4: an account bought an item from the house (CoaAhBotAuctionHooks): the house does not buy it back from
+    // that account for 24 hours.
+    void RecordHouseSale(uint32 buyerAccount, uint32 itemId);
+    // 3.1.4: that account bought this item from the house or a random bot in the last 24 hours.
+    bool BoughtFromBotsRecently(uint32 account, uint32 itemId) const;
+    // 3.1.4: the seller is the house (its characters) or a random bot account.
+    bool IsHouseCharacter(uint32 guidLow) const;
+    bool SoldByBots(ObjectGuid owner) const;
+    // 3.1.4: the house's cheapest price per item of this item in that house right now (0 = none listed).
+    uint64 HouseCheapestNow(AuctionHouseObject* house, uint32 itemId) const;
+    // 3.1.4 guard: what a buyer pays per item at most, payPerItem or under the vendor price when the guard holds for
+    // the item (CoaEconomyRules::VendorGuardApplies: unlimited stock, or a limited stock worth over 10 gold a day).
+    uint64 VendorGuardCap(uint32 itemId, uint64 payPerItem) const;
     uint32 GetRandomStackValue(std::string configKeyString, uint32 defaultValue);
     uint32 GetRandomStackIncrementValue(std::string configKeyString, uint32 defaultValue);
     void SetCyclesBetweenBuyOrSell();

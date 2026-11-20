@@ -509,7 +509,7 @@ namespace CoaWorld
                         { "place", slot.Site().name }, { "zone", slot.Site().zone },
                         { "minutes", std::to_string(settings.warning) } }, text), true);
 
-                LOG_INFO("module", "CoA World: {} announced at {} (level {}), in {} minutes", slot.plan->name,
+                LOG_INFO("playerbots.coa", "CoA World: {} announced at {} (level {}), in {} minutes", slot.plan->name,
                     slot.Site().name, slot.level, settings.warning);
             }
 
@@ -647,7 +647,7 @@ namespace CoaWorld
                 Map* map = sMapMgr->CreateBaseMap(site.mapId);
                 if (!map || map->Instanceable())
                 {
-                    LOG_ERROR("module", "CoA World: {} has no map {}", slot.plan->name, site.mapId);
+                    LOG_ERROR("playerbots.coa", "CoA World: {} has no map {}", slot.plan->name, site.mapId);
                     return false;
                 }
 
@@ -695,7 +695,7 @@ namespace CoaWorld
                         { "place", site.name }, { "zone", site.zone } }, text), true);
 
                 RecruitBots(slot);
-                LOG_INFO("module", "CoA World: {} started at {} (level {}, {} bots budget)", slot.plan->name, site.name,
+                LOG_INFO("playerbots.coa", "CoA World: {} started at {} (level {}, {} bots budget)", slot.plan->name, site.name,
                     slot.level, slot.botBudget);
                 LogEvent("invasion", "", Acore::StringFormat("{} started at {} (level {})", slot.plan->name, site.name,
                     slot.level));
@@ -802,7 +802,7 @@ namespace CoaWorld
 
                 ReleaseBots(slot.Owner(), settings.botsReturnHome);
                 Despawn(slot);
-                LOG_INFO("module", "CoA World: {} ended ({})", slot.plan->name, won ? "won" : "lost or stopped");
+                LOG_INFO("playerbots.coa", "CoA World: {} ended ({})", slot.plan->name, won ? "won" : "lost or stopped");
                 LogEvent("invasion", "", Acore::StringFormat("{} at {} {}", slot.plan->name,
                     slot.Site().name, won ? "won" : "ended"));
                 AddonPush(slot, "end");

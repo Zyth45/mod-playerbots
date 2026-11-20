@@ -64,6 +64,11 @@ void CoaGroupTank::SetProvider(Provider provider)
     ActiveRunLeader = std::move(provider);
 }
 
+bool CoaGroupTank::HasProvider()
+{
+    return bool(ActiveRunLeader);
+}
+
 Player* CoaGroupTank::Reference(Player const* member)
 {
     if (!member || !member->IsInWorld())

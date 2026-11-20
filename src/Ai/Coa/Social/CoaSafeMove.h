@@ -15,6 +15,8 @@ namespace CoaSafeMove
 // go in a straight line through walls). allowSwim: a straight swim is allowed when the bot is in water and sees
 // the point (out of water toward the shore).
 bool MovePoint(Player* bot, float x, float y, float z, bool allowSwim = false);
+// True when the core would follow a path to the point, not a straight line through walls (no move made).
+bool CanWalkTo(Player* bot, float x, float y, float z);
 }  // namespace CoaSafeMove
 
 #endif

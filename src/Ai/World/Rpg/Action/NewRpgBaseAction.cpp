@@ -45,6 +45,7 @@
 #include "Timer.h"
 #include "TravelMgr.h"
 #include "G3D/Vector2.h"
+#include "CoaRealPlayerSight.h"
 #include <atomic>
 #include <ctime>
 
@@ -124,6 +125,21 @@ bool NewRpgBaseAction::MoveFarTo(WorldPosition dest)
         // No meaningful progress toward dest for `stuckTime`: fall
         // back to teleporting directly so the bot can get on with
         // its RPG objective instead of oscillating indefinitely.
+        if (sPlayerbotAIConfig.teleportOnlyOutOfSight && CoaRealPlayerSight::SeenByRealPlayer(bot))
+        {
+            // Seen: wait without walking, still counted as stuck, so it teleports the moment nobody watches. Seen
+            // for 2 more minutes: give the target up. The progress mark is reset too, so a target picked again
+            // starts a fresh 90 s count instead of a give-up at once.
+            if (GetMSTimeDiffToNow(botAI->rpgInfo.stuckTs) < stuckTime + 2 * MINUTE * IN_MILLISECONDS)
+                return true;
+            LOG_DEBUG("playerbots.coa", "[New RPG] {} gives up a target it cannot reach while a player watches",
+                      bot->GetName());
+            botAI->rpgInfo.nearestMoveFarDis = FLT_MAX;
+            botAI->rpgInfo.stuckTs = getMSTime();
+            botAI->rpgInfo.stuckAttempts = 0;
+            botAI->rpgInfo.ChangeToIdle();
+            return false;
+        }
         botAI->rpgInfo.stuckTs = getMSTime();
         botAI->rpgInfo.stuckAttempts = 0;
         AreaTableEntry const* entry = sAreaTableStore.LookupEntry(bot->GetZoneId());
@@ -243,6 +259,12 @@ bool NewRpgBaseAction::MoveWorldObjectTo(ObjectGuid guid, float distance)
                 (M_PI * irand(-25, 25) / 100.0);  // 45 degrees infront of target (leading it's movement)
 
     float rnd = rand_norm();
+    if (sPlayerbotAIConfig.standOffObjects)
+    {
+        // Stop at talking distance instead of anywhere up to it: 0 yards walked bots into the NPC.
+        float const reach = bot->GetCombatReach() + (object->ToUnit() ? object->ToUnit()->GetCombatReach() : 0.0f);
+        rnd = distance > 0.0f ? std::max(0.5f + 0.5f * rnd, std::min(1.0f, reach / distance)) : rnd;
+    }
     x += cos(angle) * distance * rnd;
     y += sin(angle) * distance * rnd;
     if (!object->GetMap()->CheckCollisionAndGetValidCoords(object, object->GetPositionX(), object->GetPositionY(),

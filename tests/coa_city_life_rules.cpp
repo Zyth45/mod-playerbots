@@ -68,5 +68,46 @@ int main()
     assert(!IntoRoom(0.0f, 0.0f, 3.0f, 0.0f, 6.0f, 0.0f, x, y));
     // Closer to the middle than the auctioneer, from any side.
     assert(IntoRoom(10.0f, 10.0f, 0.0f, 0.0f, 5.0f, -3.0f, x, y) && x * x + y * y < 200.0f);
+
+    // 3.1.6: mailboxes and seats, one bot per seat, two at a mailbox.
+    assert(StationOfObject(19, 0) == Station::Mail && StationOfObject(7, 0) == Station::Seat);
+    assert(StationOfObject(8, 1) == Station::Forge && StationOfObject(8, 2) == Station::None);
+    assert(StationOfObject(3, 0) == Station::None);
+    assert(MaxBots(Station::Seat) == 1 && MaxBots(Station::Mail) == 2);
+    assert(PoseOf(Station::Seat).sit && !PoseOf(Station::Mail).sit && !PoseOf(Station::Mail).emote);
+    for (int i = 0; i < 200; ++i)
+    {
+        uint32_t const mail = StayMs(Station::Mail, between), seat = StayMs(Station::Seat, between);
+        assert(mail >= 30000 && mail <= 90000 && seat >= 180000 && seat <= 600000);
+    }
+
+    // Not the same kind twice in a row, unless nothing else fits.
+    for (int i = 0; i < 200; ++i)
+        assert(Pick({{Station::Inn, 1, 0}, {Station::Bank, 2, 0}}, between, Station::Inn) == 2);
+    assert(Pick({{Station::Inn, 1, 0}}, between, Station::Inn) == 1);
+    assert(Pick({{Station::Inn, 1, 3}}, between, Station::Bank) == 0);
+
+    // Long posts: only at the inn, a seat, a forge or a dummy; 20 to 60 minutes at 100 %, none at 0 %.
+    assert(CanBePost(Station::Inn) && CanBePost(Station::Seat) && CanBePost(Station::Forge) &&
+           CanBePost(Station::Dummy) && !CanBePost(Station::Bank) && !CanBePost(Station::Mail));
+    for (int i = 0; i < 200; ++i)
+    {
+        uint32_t const post = StayOrPostMs(Station::Inn, 100, 20, 60, between);
+        assert(post >= 20 * 60000 && post <= 60 * 60000);
+        uint32_t const swapped = StayOrPostMs(Station::Forge, 100, 60, 20, between);
+        assert(swapped >= 20 * 60000 && swapped <= 60 * 60000);
+        uint32_t const none = StayOrPostMs(Station::Inn, 0, 20, 60, between);
+        assert(none >= 180000 && none <= 480000);
+        uint32_t const bank = StayOrPostMs(Station::Bank, 100, 20, 60, between);
+        assert(bank >= 40000 && bank <= 120000);
+    }
+    // 3.1.6 trial, "bots that fly": a chair is used only on the bot's floor, close by and in sight.
+    assert(SeatPickable(99.0f, 100.0f));
+    assert(!SeatPickable(99.0f, 105.0f));  // a chair upstairs or on a stall's roof: not a candidate
+    assert(!SeatPickable(105.0f, 99.0f));
+    assert(SeatUsable(0.0f, 0.0f, 99.0f, 2.0f, 1.0f, 99.5f, true));
+    assert(!SeatUsable(0.0f, 0.0f, 99.0f, 2.0f, 1.0f, 103.0f, true));  // within reach but 4 yards up: never lifted
+    assert(!SeatUsable(0.0f, 0.0f, 99.0f, 2.0f, 1.0f, 99.5f, false));  // behind a wall
+    assert(!SeatUsable(0.0f, 0.0f, 99.0f, 5.0f, 0.0f, 99.0f, true));   // too far
     return 0;
 }

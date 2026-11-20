@@ -9,6 +9,7 @@
 #include "CoaSafeMove.h"
 #include "CellImpl.h"
 #include "CoaCityLifeRules.h"
+#include "CoaLive.h"
 #include "Creature.h"
 #include "DBCStores.h"
 #include "GameObject.h"
@@ -37,12 +38,20 @@ struct Holding
     uint32 stayMs = 0;
     uint64 lastEmoteMs = 0;
     uint64 sinceMs = 0;  // a bot that never got there (another activity, a fight) frees it after HOLD_MS
+    uint64 untilMs = 0;  // held until then: sinceMs + HOLD_MS, longer for a long post once reached
     bool inRoom = false;  // stepped from its auctioneer into the room (IntoRoom)
 };
 constexpr uint64 HOLD_MS = 15 * MINUTE * IN_MILLISECONDS;
+constexpr uint64 POST_MARGIN_MS = 5 * MINUTE * IN_MILLISECONDS;  // a long post is held this much past its end
 
 std::mutex cityLock;
 std::unordered_map<uint64, Holding> holding;  // bot -> its station (map threads)
+std::unordered_map<uint64, Station> lastKind;  // bot -> the kind of its last stop, not taken twice in a row
+
+uint32 FocusOf(GameObject const* go)
+{
+    return go->GetGoType() == GAMEOBJECT_TYPE_SPELL_FOCUS ? go->GetGOInfo()->spellFocus.focusId : 0;
+}
 
 std::function<uint32_t(uint32_t, uint32_t)> const between = [](uint32_t lo, uint32_t hi) { return urand(lo, hi); };
 
@@ -107,8 +116,11 @@ struct StationObjectCheck
     WorldObject const* origin;
     bool operator()(GameObject* go) const
     {
-        return go->GetGoType() == GAMEOBJECT_TYPE_SPELL_FOCUS && origin->IsWithinDistInMap(go, SEARCH_RANGE) &&
-               StationOfFocus(go->GetGOInfo()->spellFocus.focusId) != Station::None;
+        Station const kind = go->isSpawned() ? StationOfObject(go->GetGoType(), FocusOf(go)) : Station::None;
+        // A seat only on the bot's own floor: never a chair upstairs, on a balcony or on a roof.
+        return kind != Station::None &&
+               (kind != Station::Seat || SeatPickable(origin->GetPositionZ(), go->GetPositionZ())) &&
+               origin->IsWithinDistInMap(go, SEARCH_RANGE);
     }
 };
 
@@ -117,8 +129,7 @@ Station KindOf(WorldObject* object)
     if (Creature* c = object->ToCreature())
         return StationOfCreature(c->GetNpcFlags(), c->GetName());
     if (GameObject* go = object->ToGameObject())
-        return go->GetGoType() == GAMEOBJECT_TYPE_SPELL_FOCUS ? StationOfFocus(go->GetGOInfo()->spellFocus.focusId)
-                                                               : Station::None;
+        return StationOfObject(go->GetGoType(), FocusOf(go));
     return Station::None;
 }
 }  // namespace
@@ -135,6 +146,12 @@ ObjectGuid ChooseStation(PlayerbotAI* botAI)
         !InCapital(bot) || urand(1, 100) > CHANCE_PCT)
         return ObjectGuid::Empty;
 
+    // A stop at the water of the city instead (3.1.6, AiPlayerbot.CoaLive.City.FishingPct): the CoA Live
+    // fishing, with its cap. The visit ends with it.
+    if (sPlayerbotAIConfig.coaLiveCityFishingPct && urand(1, 100) <= sPlayerbotAIConfig.coaLiveCityFishingPct &&
+        CoaLive::FishInCity(bot, botAI))
+        return ObjectGuid::Empty;
+
     std::list<Creature*> creatures;
     StationCreatureCheck creatureCheck{bot};
     Acore::CreatureListSearcher<StationCreatureCheck> creatureSearcher(bot, creatures, creatureCheck);
@@ -148,11 +165,13 @@ ObjectGuid ChooseStation(PlayerbotAI* botAI)
     std::lock_guard<std::mutex> guard(cityLock);
     if (holding.size() > 4096)
         for (auto it = holding.begin(); it != holding.end();)
-            it = nowMs >= it->second.sinceMs + HOLD_MS ? holding.erase(it) : std::next(it);
+            it = nowMs >= it->second.untilMs ? holding.erase(it) : std::next(it);
+    if (lastKind.size() > 20000)
+        lastKind.clear();
     std::unordered_map<ObjectGuid, uint32> held;    // station -> bots holding it (one pass)
     std::unordered_map<ObjectGuid, uint32> begging; // station -> beggars at it
     for (auto const& [bot, h] : holding)
-        if (nowMs < h.sinceMs + HOLD_MS)
+        if (nowMs < h.untilMs)
             ++(h.kind == Station::Beg ? begging : held)[h.station];
     auto botsAt = [&held](ObjectGuid station)
     {
@@ -184,12 +203,13 @@ ObjectGuid ChooseStation(PlayerbotAI* botAI)
     }
     for (GameObject* go : objects)
     {
-        candidates.push_back({StationOfFocus(go->GetGOInfo()->spellFocus.focusId), go->GetGUID().GetRawValue(),
-                              botsAt(go->GetGUID())});
+        Station const kind = StationOfObject(go->GetGoType(), FocusOf(go));
+        candidates.push_back({kind, go->GetGUID().GetRawValue(), botsAt(go->GetGUID())});
         guids[go->GetGUID().GetRawValue()] = go->GetGUID();
-        kinds[go->GetGUID().GetRawValue()] = Station::Forge;
+        kinds[go->GetGUID().GetRawValue()] = kind;
     }
-    uint64 const picked = Pick(candidates, between);
+    auto const last = lastKind.find(bot->GetGUID().GetRawValue());
+    uint64 const picked = Pick(candidates, between, last == lastKind.end() ? Station::None : last->second);
     if (!picked)
         return ObjectGuid::Empty;
     // Held from now, so that the next bot sees it fuller.
@@ -197,6 +217,7 @@ ObjectGuid ChooseStation(PlayerbotAI* botAI)
     h = Holding();
     h.station = guids[picked];
     h.sinceMs = nowMs;
+    h.untilMs = nowMs + HOLD_MS;
     h.kind = kinds[picked];
     return h.station;
 }
@@ -207,6 +228,7 @@ void OnReach(PlayerbotAI* botAI, WorldObject* object)
         return;
     Player* bot = botAI->GetBot();
     Station kind = Station::None;
+    uint32 stayMs = 0;
     {
         std::lock_guard<std::mutex> guard(cityLock);
         auto it = holding.find(bot->GetGUID().GetRawValue());
@@ -215,8 +237,35 @@ void OnReach(PlayerbotAI* botAI, WorldObject* object)
         if (it->second.kind == Station::None)
             it->second.kind = KindOf(object);
         kind = it->second.kind;
-        it->second.stayMs = StayMs(kind, between);
-        it->second.lastEmoteMs = GameTime::GetGameTimeMS().count();
+        stayMs = StayOrPostMs(kind, sPlayerbotAIConfig.coaLiveCityPostChancePct,
+                              sPlayerbotAIConfig.coaLiveCityPostMinMinutes,
+                              sPlayerbotAIConfig.coaLiveCityPostMaxMinutes, between);
+        it->second.stayMs = stayMs;
+        uint64 const nowMs = GameTime::GetGameTimeMS().count();
+        it->second.lastEmoteMs = nowMs;
+        it->second.untilMs = std::max<uint64>(it->second.untilMs, nowMs + stayMs + POST_MARGIN_MS);
+    }
+    // A long post outlasts the city visit: the visit waits for it.
+    NewRpgInfo& info = botAI->rpgInfo;
+    if (info.cityStayMs)
+        info.cityStayMs =
+            std::max<uint32>(info.cityStayMs, GetMSTimeDiffToNow(info.startT) + stayMs + MINUTE * IN_MILLISECONDS);
+    if (kind == Station::Seat)
+    {
+        // Sat on the seat itself, the way a player clicks a chair. Using a chair puts the bot on it wherever it
+        // stands: only next to it, on its floor and in sight, else the bot would be lifted onto a roof or a balcony.
+        GameObject* seat = object->ToGameObject();
+        if (seat && SeatUsable(bot->GetPositionX(), bot->GetPositionY(), bot->GetPositionZ(), seat->GetPositionX(),
+                               seat->GetPositionY(), seat->GetPositionZ(), bot->IsWithinLOSInMap(seat)))
+        {
+            seat->Use(bot);
+            return;
+        }
+        if (seat)
+        {
+            bot->SetFacingToObject(object);  // out of reach: stands by it, never lifted onto it
+            return;
+        }
     }
     bot->SetFacingToObject(object);
     if (kind == Station::Auction && StepIntoRoom(bot, object))
@@ -277,6 +326,15 @@ bool InRoom(PlayerbotAI* botAI, WorldObject* object)
     return bot->IsWithinDist(object, ROOM_KEEP);
 }
 
+bool Holds(PlayerbotAI* botAI, ObjectGuid station)
+{
+    if (!Enabled() || !botAI || station.IsEmpty())
+        return false;
+    std::lock_guard<std::mutex> guard(cityLock);
+    auto const it = holding.find(botAI->GetBot()->GetGUID().GetRawValue());
+    return it != holding.end() && it->second.station == station;
+}
+
 void Leave(PlayerbotAI* botAI)
 {
     // Off: no lock on every NPC left. A station held when it was turned off frees itself after HOLD_MS.
@@ -286,7 +344,14 @@ void Leave(PlayerbotAI* botAI)
     bool held = false;
     {
         std::lock_guard<std::mutex> guard(cityLock);
-        held = holding.erase(bot->GetGUID().GetRawValue()) > 0;
+        auto const it = holding.find(bot->GetGUID().GetRawValue());
+        if (it != holding.end())
+        {
+            held = true;
+            if (it->second.kind != Station::None)
+                lastKind[it->first] = it->second.kind;
+            holding.erase(it);
+        }
     }
     if (held && (bot->IsSitState() || bot->getStandState() == UNIT_STAND_STATE_KNEEL))
         bot->SetStandState(UNIT_STAND_STATE_STAND);

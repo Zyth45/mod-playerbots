@@ -15,31 +15,31 @@
 void PlayerbotAIConfig::LoadCoaCombatConfig()
 {
     coaCombatBreathGuardEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaCombat.BreathGuard.Enable", true);
-    coaCombatStuckCombatEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaCombat.StuckCombat.Enable", false);
+    coaCombatStuckCombatEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaCombat.StuckCombat.Enable", true);
     // Dungeon Clear's old key first: a value the player set there is kept.
     float const legacyStuckCombat = sConfigMgr->GetOption<float>("DungeonClear.StuckCombatTimeout", -1.0f, false);
     coaCombatStuckCombatTimeoutSeconds =
         legacyStuckCombat >= 0.0f
             ? legacyStuckCombat
             : sConfigMgr->GetOption<float>("AiPlayerbot.CoaCombat.StuckCombat.TimeoutSeconds", 15.0f);
-    coaCombatCombatPurgeEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaCombat.CombatPurge.Enable", false);
+    coaCombatCombatPurgeEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaCombat.CombatPurge.Enable", true);
     coaCombatCombatPurgeWindowMs = CoaCombatPurgeRule::WindowMs(
         sConfigMgr->GetOption<int64>("DungeonClear.UnreachableCombatPurgeSecs", -1, false));
-    coaCombatSunkenTempleEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaCombat.SunkenTemple.Enable", false);
+    coaCombatSunkenTempleEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaCombat.SunkenTemple.Enable", true);
     coaCombatTelegraphEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaCombat.Telegraph.Enable", false);
     coaCombatPursuitStopEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaCombat.PursuitStop.Enable", false);
     coaCombatOffTankEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaCombat.OffTank.Enable", false);
-    coaCombatGearScoreEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaCombat.GearScore.Enable", false);
+    coaCombatGearScoreEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaCombat.GearScore.Enable", true);
     coaCombatLootNeedWaitMs = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaCombat.LootNeedWaitSeconds", 20) * 1000;
     coaCombatMoltenCoreEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaCombat.MoltenCore.Enable", true);
-    coaCombatBlackwingLairEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaCombat.BlackwingLair.Enable", false);
-    coaCombatZulGurubEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaCombat.ZulGurub.Enable", false);
-    coaCombatAhnQirajEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaCombat.AhnQiraj.Enable", false);
+    coaCombatBlackwingLairEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaCombat.BlackwingLair.Enable", true);
+    coaCombatZulGurubEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaCombat.ZulGurub.Enable", true);
+    coaCombatAhnQirajEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaCombat.AhnQiraj.Enable", true);
     coaCombatLootNeedMinUpgradePct =
-        std::max(0.0f, sConfigMgr->GetOption<float>("AiPlayerbot.CoaCombat.LootNeedMinUpgradePct", 0.0f));
+        std::max(0.0f, sConfigMgr->GetOption<float>("AiPlayerbot.CoaCombat.LootNeedMinUpgradePct", 10.0f));
     coaCombatLootNeedEpicOnly = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaCombat.LootNeedEpicOnly", false);
-    coaCombatCallOfTheGraveEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaCombat.CallOfTheGrave.Enable", false);
-    coaCombatPlayerLedEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaCombat.PlayerLed.Enable", false);
+    coaCombatCallOfTheGraveEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaCombat.CallOfTheGrave.Enable", true);
+    coaCombatPlayerLedEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaCombat.PlayerLed.Enable", true);
     coaCombatBenchKeyOnly = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaCombat.BenchKeyOnly", false);
     coaCombatPullGuardSightEnable = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaCombat.PullGuardSight.Enable", true);
     coaCombatPullGuardSightStrict = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaCombat.PullGuardSight.Strict", false);

@@ -28,6 +28,26 @@ inline bool Walkable(uint32_t type, bool waterLine)
         return false;
     return !(type & NOT_USING_PATH) || waterLine;
 }
+// 3.1.6 trial: in a capital, a random bot walked through walls. The generic move asks the core for a path, and the
+// core goes in a straight line when it finds none (no path, or a path of two points). A random bot of its own (no
+// real player's group), out of combat, on a normal move in a capital goes only where a whole path leads.
+// What the core does with the path of a point move (PointMovementGenerator): it follows any path of more than two
+// points that is not NOPATH (a cut path too: INCOMPLETE, the long ones cut at the point limit, or off the mesh at an
+// end), and goes in a straight line otherwise. The straight line is the only thing refused in a capital; a path of two
+// points is a straight line too, walkable only when it is a whole path on the mesh.
+inline bool CoreStraightLine(uint32_t type, uint32_t points)
+{
+    if (type & NOPATH)
+        return true;
+    return points <= 2 && (!(type & NORMAL) || (type & (SHORTCUT | INCOMPLETE | NOT_USING_PATH | FARFROMPOLY_START |
+                                                        FARFROMPOLY_END)));
+}
+
+inline bool CityPathChecked(bool randomBot, bool realMaster, bool inCombat, bool generatePath, bool capital,
+                            bool normalPriority)
+{
+    return randomBot && !realMaster && !inCombat && generatePath && capital && normalPriority;
+}
 }  // namespace CoaSafeMove
 
 #endif

@@ -5,6 +5,7 @@
  */
 
 #include "CoaAltAction.h"
+#include "CoaBotMute.h"
 
 #include "ChatHelper.h"
 #include "CoaAltAddon.h"
@@ -80,7 +81,9 @@ bool CoaAltAction::Execute(Event event)
         CoaAltAddon::MarkSeen(master);
         std::ostringstream out;
         out << "HELLO\t" << CoaAltAddon::PROTOCOL << "\t" << (sPlayerbotAIConfig.catchUpQuestChains ? 1 : 0) << "\t"
-            << (sPlayerbotAIConfig.altChatToAddon ? 1 : 0) << "\t1\t" << (sPlayerbotAIConfig.coaAltBags ? 1 : 0);
+            << (sPlayerbotAIConfig.altChatToAddon ? 1 : 0) << "\t1\t" << (sPlayerbotAIConfig.coaAltBags ? 1 : 0)
+            << "\t" << (sPlayerbotAIConfig.coaGiveToAlt ? 1 : 0) << "\t" << (CoaBotMute::IsMuted(bot) ? 1 : 0)
+            << "\t" << (sPlayerbotAIConfig.coaTrust ? 1 : 0);
         CoaAltAddon::SendToMaster(botAI, out.str());
         CoaEnchanter::SendStatus(botAI);
         return true;
