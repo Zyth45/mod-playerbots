@@ -2057,10 +2057,14 @@ void PlayerbotAI::DoNextAction(bool min)
         // bot out of flight, out of water and transport, outdoors, over its floor (CoaSafeMove::DropsToFloor) falls.
         else if (!bot->IsInFlight() && !bot->GetTransport() && !bot->GetVehicle() && !bot->IsInWater() &&
                  !bot->IsFlying() && !bot->IsFalling() && !bot->isMoving() && bot->IsAlive() &&
-                 !bot->IsBeingTeleported() && !bot->HasAuraType(SPELL_AURA_FLY))
+                 !bot->IsBeingTeleported() && !bot->HasAuraType(SPELL_AURA_FLY) &&
+                 // Levitation and hover keep it up on purpose.
+                 !bot->HasAuraType(SPELL_AURA_HOVER) && !bot->HasUnitMovementFlag(MOVEMENTFLAG_HOVER))
         {
-            // Every 2 s per bot at most: the floor under it is a query. Per map thread, no lock.
+            // Every 2 s per bot at most: the floor under it is a query. Per map thread, no lock; bounded.
             static thread_local std::unordered_map<uint64, uint32> nextDropCheck;
+            if (nextDropCheck.size() > 4096)
+                nextDropCheck.clear();
             uint32 const nowMs = getMSTime();
             uint32& next = nextDropCheck[bot->GetGUID().GetRawValue()];
             if (!next || getMSTimeDiff(next, nowMs) < 0x80000000u)
