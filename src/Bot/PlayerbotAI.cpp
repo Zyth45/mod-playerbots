@@ -15,6 +15,7 @@
 #include "CoaBotMute.h"
 #include "CoaAltGive.h"
 #include "CoaFishingGear.h"
+#include "CoaSafeMoveRules.h"
 #include "CoaMoveAudit.h"
 #include "CurrentTargetValue.h"
 
@@ -2050,6 +2051,27 @@ void PlayerbotAI::DoNextAction(bool min)
             bot->SetDisableGravity(false);
             bot->RemoveUnitMovementFlag(MOVEMENTFLAG_FLYING);
             bot->GetMotionMaster()->MoveFall();
+        }
+        // 3.1.8 (move audit of 20/11): off a taxi without those flags, a bot still stood at the height of the path's
+        // last node, up to a few yards over the ground, for minutes (Morgan's Vigil, Darkshire, Thelsamar). A still
+        // bot out of flight, out of water and transport, outdoors, over its floor (CoaSafeMove::DropsToFloor) falls.
+        else if (!bot->IsInFlight() && !bot->GetTransport() && !bot->GetVehicle() && !bot->IsInWater() &&
+                 !bot->IsFlying() && !bot->IsFalling() && !bot->isMoving() && bot->IsAlive() &&
+                 !bot->IsBeingTeleported() && !bot->HasAuraType(SPELL_AURA_FLY))
+        {
+            // Every 2 s per bot at most: the floor under it is a query. Per map thread, no lock.
+            static thread_local std::unordered_map<uint64, uint32> nextDropCheck;
+            uint32 const nowMs = getMSTime();
+            uint32& next = nextDropCheck[bot->GetGUID().GetRawValue()];
+            if (!next || getMSTimeDiff(next, nowMs) < 0x80000000u)
+            {
+                next = nowMs + 2000;
+                float const floorZ = bot->GetFloorZ();
+                LiquidData const& liquid = bot->GetLiquidData();
+                bool const waterBelow = liquid.Level > INVALID_HEIGHT && liquid.Level >= floorZ;
+                if (CoaSafeMove::DropsToFloor(bot->GetPositionZ(), floorZ, bot->IsOutdoors(), waterBelow))
+                    bot->GetMotionMaster()->MoveFall();
+            }
         }
     }
 

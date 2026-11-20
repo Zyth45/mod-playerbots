@@ -25,6 +25,13 @@ int main()
     assert(!CoreStraightLine(NORMAL, 2));                               // a short straight walk on the mesh
     assert(CoreStraightLine(NORMAL | INCOMPLETE, 2));                   // two points, cut: the line through the wall
     assert(CoreStraightLine(SHORTCUT, 2) && CoreStraightLine(NORMAL | NOT_USING_PATH, 2));
+    // 3.1.8: a still bot off a taxi falls to its floor (Morgan's Vigil: 188.07 over 185.18), only in that case.
+    assert(DropsToFloor(188.07f, 185.18f, true, false));
+    assert(!DropsToFloor(188.07f, 185.18f, false, false));   // indoors (a floor of a building): left alone
+    assert(!DropsToFloor(188.07f, 185.18f, true, true));     // water under it
+    assert(!DropsToFloor(188.07f, -200000.0f, true, false)); // no floor found
+    assert(!DropsToFloor(185.9f, 185.18f, true, false));     // on its floor (a platform, a tower: its own floor)
+    assert(!DropsToFloor(204.0f, 185.18f, true, false));     // too high to be that case: left alone
     assert(CityPathChecked(true, false, false, true, true, true));
     assert(!CityPathChecked(false, false, false, true, true, true));  // a player's alt: left alone
     assert(!CityPathChecked(true, true, false, true, true, true));    // in a real player's group

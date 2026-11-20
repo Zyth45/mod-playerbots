@@ -43,6 +43,21 @@ inline bool CoreStraightLine(uint32_t type, uint32_t points)
                                                         FARFROMPOLY_END)));
 }
 
+// 3.1.8 (move audit of 20/11): a bot off a taxi stands at the height of the path's last node, up to a few yards over
+// the ground (Morgan's Vigil: 2.9 yards), and the server never lets a still bot fall: it hung in the air for minutes.
+// Dropped to its floor only in that exact case: outdoors (a platform or a tower has its own floor under the bot, an
+// indoor floor is left alone), no water under it, a floor found, and between DROP_MIN and DROP_MAX above it.
+constexpr float DROP_MIN = 1.5f;
+constexpr float DROP_MAX = 8.0f;
+
+inline bool DropsToFloor(float z, float floorZ, bool outdoors, bool waterBelow)
+{
+    if (floorZ <= -100000.0f || !outdoors || waterBelow)
+        return false;
+    float const above = z - floorZ;
+    return above > DROP_MIN && above <= DROP_MAX;
+}
+
 inline bool CityPathChecked(bool randomBot, bool realMaster, bool inCombat, bool generatePath, bool capital,
                             bool normalPriority)
 {
