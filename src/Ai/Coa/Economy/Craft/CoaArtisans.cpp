@@ -7,6 +7,8 @@
 #include "CoaArtisans.h"
 
 #include "CoaEconomyConf.h"
+#include "CoaGearScore.h"
+#include "CoaMissionMgr.h"
 
 #include "CoaAuctionHouseBot.h"
 #include "CoaEconomyData.h"
@@ -19,8 +21,10 @@
 #include "Config.h"
 #include "DBCStores.h"
 #include "Item.h"
+#include "Log.h"
 #include "ObjectMgr.h"
 #include "Player.h"
+#include "PlayerbotAI.h"
 #include "Random.h"
 #include "ScriptMgr.h"
 #include "SharedDefines.h"
@@ -108,9 +112,14 @@ bool IsTradableProduct(ItemTemplate const* proto)
     return IsTradable(proto);
 }
 
+bool craftForSelf = true;      // AiPlayerbot.CoaEconomy.CraftForSelf.Enable
+bool craftForSelfLog = false;  // AiPlayerbot.CoaEconomy.CraftForSelf.Log
+
 void LoadSettings()
 {
     enabled = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.Artisans.Enable", true, false);
+    craftForSelf = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.CraftForSelf.Enable", true, false);
+    craftForSelfLog = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.CraftForSelf.Log", false, false);
     minProfitPercent = CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.Artisans.MinProfitPercent", 20);
     realPrices = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.BotAuctions.RealHousePrices", true);
     realMultipliers = RealPrices::LoadMultipliers("AiPlayerbot.CoaEconomy.BotAuctions.RealPriceMultiplier");
@@ -387,6 +396,71 @@ Item* Craft(Player* bot, Recipe const& recipe)
     if (!Consume(bot, recipe, 1))
         return nullptr;
     return bot->StoreNewItem(dest, recipe.itemId, true, Item::GenerateItemRandomPropertyId(recipe.itemId));
+}
+
+Item* CraftUpgradeForSelf(Player* bot, PlayerbotAI* botAI)
+{
+    if (!craftForSelf || !bot || !botAI)
+        return nullptr;
+
+    SpellInfo const* bestSpell = nullptr;
+    uint32 bestItem = 0;
+    float bestGain = 0.0f;
+    for (auto const& [spellId, playerSpell] : bot->GetSpellMap())
+    {
+        if (!playerSpell || playerSpell->State == PLAYERSPELL_REMOVED || !playerSpell->Active)
+            continue;
+        SpellInfo const* spell = sSpellMgr->GetSpellInfo(spellId);
+        if (!spell || !ProfessionOf(spellId))
+            continue;
+        uint32 itemId = 0;
+        for (SpellEffectInfo const& effect : spell->Effects)
+            if (effect.Effect == SPELL_EFFECT_CREATE_ITEM && effect.ItemType)
+            {
+                itemId = effect.ItemType;
+                break;
+            }
+        ItemTemplate const* proto = itemId ? sObjectMgr->GetItemTemplate(itemId) : nullptr;
+        if (!proto || (proto->Class != ITEM_CLASS_WEAPON && proto->Class != ITEM_CLASS_ARMOR) ||
+            proto->RequiredLevel > bot->GetLevel() || bot->CanUseItem(proto) != EQUIP_ERR_OK)
+            continue;
+        // Only with what it holds: nothing is bought for it.
+        bool holdsAll = true;
+        for (uint8 i = 0; i < MAX_SPELL_REAGENTS && holdsAll; ++i)
+            if (spell->Reagent[i] > 0 && spell->ReagentCount[i] &&
+                bot->GetItemCount(uint32(spell->Reagent[i])) < spell->ReagentCount[i])
+                holdsAll = false;
+        if (!holdsAll)
+            continue;
+        float const gain = CoaGearScore::UpgradeGain(bot, itemId);
+        if (gain > bestGain)
+        {
+            bestGain = gain;
+            bestSpell = spell;
+            bestItem = itemId;
+        }
+    }
+    if (!bestSpell)
+        return nullptr;
+
+    ItemPosCountVec dest;
+    if (bot->CanStoreNewItem(NULL_BAG, NULL_SLOT, dest, bestItem, 1) != EQUIP_ERR_OK)
+        return nullptr;
+    for (uint8 i = 0; i < MAX_SPELL_REAGENTS; ++i)
+        if (bestSpell->Reagent[i] > 0 && bestSpell->ReagentCount[i])
+            bot->DestroyItemCount(uint32(bestSpell->Reagent[i]), bestSpell->ReagentCount[i], true);
+    Item* item = bot->StoreNewItem(dest, bestItem, true, Item::GenerateItemRandomPropertyId(bestItem));
+    if (!item)
+        return nullptr;
+    // Worn at once, where it is an upgrade.
+    uint8 const slot = botAI->FindEquipSlot(item->GetTemplate(), NULL_SLOT, true);
+    if (slot != NULL_SLOT)
+        CoaMissionMgr::EquipItem(bot, item, slot);
+    if (craftForSelfLog)
+        LOG_INFO("playerbots.loot", "craft for self: {} (level {}) made {} ({}), gain {:.1f}{}", bot->GetName(),
+                 bot->GetLevel(), bestItem, item->GetTemplate()->Name1, bestGain,
+                 slot != NULL_SLOT ? ", worn" : ", kept");
+    return item;
 }
 
 } // namespace CoaEconomy::Artisans

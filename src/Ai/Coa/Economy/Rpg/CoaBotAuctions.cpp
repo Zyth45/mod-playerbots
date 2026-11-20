@@ -344,6 +344,8 @@ namespace
         Materials::Process(bot, botAI);
         // Guild stock: intermediates from the bot's own materials, and the extra full stacks to its bank.
         Materials::TendGuildStock(bot);
+        // 3.2: the best upgrade it can make for itself with the reagents it holds, worn at once.
+        Artisans::CraftUpgradeForSelf(bot, botAI);
 
         // An artisan makes a piece worth more than its materials and puts it up with its loot.
         Item* crafted = nullptr;

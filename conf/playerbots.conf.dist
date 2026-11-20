@@ -5883,6 +5883,14 @@ AiPlayerbot.CoaEconomy.BotAuctions.RealPriceMultiplier.Epic = 6
 AiPlayerbot.CoaEconomy.Artisans.Enable = 1
 AiPlayerbot.CoaEconomy.Artisans.MinProfitPercent = 20
 
+# At an auction house visit, a bot with a profession makes for itself the best upgrade of its recipes (a weapon or a
+# piece of armour it can wear, better than the one worn by the gear score), only with the reagents it already holds
+# (nothing is bought for it), and wears it. Self-found and classic bots alike. Log: each piece made, in the
+# playerbots.loot log (BotLoot.log), for a bench.
+# Default: 1 (enabled); Log: 0 (disabled)
+AiPlayerbot.CoaEconomy.CraftForSelf.Enable = 1
+AiPlayerbot.CoaEconomy.CraftForSelf.Log = 0
+
 # Craft on order and artisans in Trade, with CoA Live's lines (bank 3_0_05 of CoA IA MIND) and COD mail. Needs
 # Artisans, and AiPlayerbot.CoaLive.Enable = 1 (without it nothing is said and no order is taken).
 # A player whispers "can you make [item]?" to a bot that knows the recipe: it quotes the market value of the piece

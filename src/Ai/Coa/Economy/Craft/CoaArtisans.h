@@ -23,6 +23,8 @@ struct ItemTemplate;
 // line (from the client data, so CoA's own professions count), that creates a tradable item. Its cost is that of
 // its reagents at market price; reagents the bot holds are used, the missing ones are paid in gold at that price
 // (the bot "buys" them), so gold leaves the economy as if it had shopped. World thread only.
+class PlayerbotAI;
+
 namespace CoaEconomy::Artisans
 {
     bool IsEnabled();
@@ -51,6 +53,11 @@ namespace CoaEconomy::Artisans
     // Crafts it: uses the reagents held, pays the missing ones, stores the product. Null when the bags are full or
     // the gold is short (nothing is taken then).
     Item* Craft(Player* bot, Recipe const& recipe);
+
+    // CoA 3.2 (AiPlayerbot.CoaEconomy.CraftForSelf.Enable, the user's go of 20/11): at an auction house visit, the
+    // bot makes the best upgrade for itself among its recipes (CoaGearScore::UpgradeGain), only with the reagents it
+    // holds (nothing is bought), and wears it. Self-found and classic bots alike. The piece made, or null.
+    Item* CraftUpgradeForSelf(Player* bot, PlayerbotAI* botAI);
 
     // What the reagents missing for `times` crafts cost at market price (the held ones are free), copper.
     uint64 MissingCost(Player* bot, Recipe const& recipe, uint32 times);

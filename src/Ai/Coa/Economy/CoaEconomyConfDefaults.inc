@@ -49,6 +49,8 @@
 {"AiPlayerbot.CoaEconomy.Chatter.AhSold.MinutesBetween", R"coa(30)coa"},
 {"AiPlayerbot.CoaEconomy.Chatter.TradeWindow.Enable", R"coa(1)coa"},
 {"AiPlayerbot.CoaEconomy.Chatter.TradeWindow.MinutesPerPlayer", R"coa(5)coa"},
+{"AiPlayerbot.CoaEconomy.CraftForSelf.Enable", R"coa(1)coa"},
+{"AiPlayerbot.CoaEconomy.CraftForSelf.Log", R"coa(0)coa"},
 {"AiPlayerbot.CoaEconomy.CraftOrders.AdvertiseMinutes", R"coa(8)coa"},
 {"AiPlayerbot.CoaEconomy.CraftOrders.Enable", R"coa(1)coa"},
 {"AiPlayerbot.CoaEconomy.CraftOrders.FeePercent", R"coa(15)coa"},
