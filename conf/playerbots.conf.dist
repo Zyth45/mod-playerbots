@@ -656,6 +656,19 @@ AiPlayerbot.CoaSelfFoundMaxLevel = 59
 # Default: 1 (enabled)
 AiPlayerbot.CoaSelfFound.StarterWeapon = 1
 
+# A self-found bot (AiPlayerbot.CoaSelfFound, or one of AiPlayerbot.CoaSelfFoundBotsPercent) lives on what it loots: at
+# a group loot roll it rolls Need on an upgrade (after the real players of the group have voted, as at
+# AiPlayerbot.LootNeedRollLevel = 2) and Greed on the rest, whatever LootNeedRollLevel and LootGreedRollLevel say;
+# never Need against a real player who rolled Need. Every other bot keeps those two keys. 0: as before 3.1.8 (the
+# self-found bots follow the two keys too: with their defaults, they pass on everything).
+# Default: 1 (enabled)
+AiPlayerbot.CoaSelfFound.Rolls = 1
+
+# Each loot vote of a bot (item, bot, vote, why) and each piece of a simulated dungeon given to a member, in the
+# playerbots.loot log (BotLoot.log of the CoA Bots launcher), at level info. For a bench.
+# Default: 0 (disabled)
+AiPlayerbot.CoaSelfFound.RollLog = 0
+
 # Diagnostic of the bots' odd moves (3.1.7), for a bench: each bot is sampled every SampleMs and a JSON line is
 # written to File (relative to the world server's folder) when it stands in the air (more than 2.5 yards above the
 # floor under it, not flying, falling or swimming), on a roof outdoors, crosses a wall between two samples, moves

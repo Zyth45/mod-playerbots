@@ -50,5 +50,22 @@ int main()
     // The threshold only judges gear: a token or a recipe keeps its Need.
     assert(KeepNeed(true, false, 0.0f, false, false, 10.0f));
 
+    // 3.1.8, AiPlayerbot.CoaSelfFound.Rolls: with the defaults (need level 1, greed off) a bot passed on everything;
+    // a self-found bot now needs its upgrade and greeds the rest, after the real players' votes.
+    using CoaRollRule::GreedFor;
+    using CoaRollRule::NeedLevelFor;
+    int const sfNeed = NeedLevelFor(1, true, true);
+    bool const sfGreed = GreedFor(false, true, true);
+    assert(sfNeed == 2 && sfGreed);
+    assert(Polite(Vote::Need, sfNeed, false, false, sfGreed) == Vote::Need);
+    assert(Polite(Vote::Greed, sfNeed, false, false, sfGreed) == Vote::Greed);
+    assert(Polite(Vote::Need, sfNeed, false, true, sfGreed) == Vote::Greed);   // never against a real player's Need
+    assert(HoldVote(Vote::Need, sfNeed, true, 1000, 15000));                   // waits for the real players first
+    // Not self-found, or the key off: the realm's keys, so the defaults still pass.
+    assert(NeedLevelFor(1, false, true) == 1 && !GreedFor(false, false, true));
+    assert(NeedLevelFor(1, true, false) == 1 && !GreedFor(false, true, false));
+    assert(Polite(Vote::Need, NeedLevelFor(1, false, true), false, false, GreedFor(false, false, true)) == Vote::Pass);
+    assert(GreedFor(true, false, false));  // a realm with greed on keeps it
+
     return 0;
 }

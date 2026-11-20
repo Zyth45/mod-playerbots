@@ -5,6 +5,7 @@
  */
 
 #include "LootRollAction.h"
+#include "PlayerbotFactory.h"
 #include "CoaGearScore.h"
 #include "CoaLive.h"
 #include "CoaRollRule.h"
@@ -196,14 +197,27 @@ bool LootRollAction::Execute(Event /*event*/)
                 }
             // At "Bots need items", a bot that wants it waits for the real players who may roll to vote first (or
             // AiPlayerbot.CoaCombat.LootNeedWaitSeconds); the action runs again on the next tick.
-            if (CoaRollRule::HoldVote(vote == NEED ? CoaRollRule::Vote::Need : CoaRollRule::Vote::Greed,
-                                      sPlayerbotAIConfig.lootNeedRollLevel, realPlayerStillToVote,
-                                      RollSeenForMs(bot, guid), sPlayerbotAIConfig.coaCombatLootNeedWaitMs))
+            // A self-found bot needs its upgrades and greeds the rest (AiPlayerbot.CoaSelfFound.Rolls, 3.1.8).
+            bool const selfFound =
+                PlayerbotFactory::SelfFoundAt(bot->GetLevel()) || PlayerbotFactory::IsSelfFoundBot(bot);
+            int const needLevel = CoaRollRule::NeedLevelFor(sPlayerbotAIConfig.lootNeedRollLevel, selfFound,
+                                                            sPlayerbotAIConfig.coaSelfFoundRolls);
+            bool const greedAllowed = CoaRollRule::GreedFor(sPlayerbotAIConfig.lootGreedRollLevel, selfFound,
+                                                            sPlayerbotAIConfig.coaSelfFoundRolls);
+            CoaRollRule::Vote const wanted = vote == NEED ? CoaRollRule::Vote::Need : CoaRollRule::Vote::Greed;
+            if (CoaRollRule::HoldVote(wanted, needLevel, realPlayerStillToVote, RollSeenForMs(bot, guid),
+                                      sPlayerbotAIConfig.coaCombatLootNeedWaitMs))
                 continue;
-            CoaRollRule::Vote const polite = CoaRollRule::Polite(
-                vote == NEED ? CoaRollRule::Vote::Need : CoaRollRule::Vote::Greed, sPlayerbotAIConfig.lootNeedRollLevel,
-                vote == NEED && RollUniqueCheck(proto, bot), realPlayerRolledNeed,
-                sPlayerbotAIConfig.lootGreedRollLevel != 0);
+            CoaRollRule::Vote const polite = CoaRollRule::Polite(wanted, needLevel,
+                                                                 vote == NEED && RollUniqueCheck(proto, bot),
+                                                                 realPlayerRolledNeed, greedAllowed);
+            if (sPlayerbotAIConfig.coaSelfFoundRollLog)
+                LOG_INFO("playerbots.loot",
+                         "roll: {} (level {}{}) item {} ({}) wanted {} voted {} (need level {}, greed {}, real player "
+                         "need {})",
+                         bot->GetName(), bot->GetLevel(), selfFound ? ", self-found" : "", proto->ItemId, proto->Name1,
+                         CoaRollRule::VoteName(wanted), CoaRollRule::VoteName(polite), needLevel,
+                         greedAllowed ? "on" : "off", realPlayerRolledNeed ? "yes" : "no");
             vote = polite == CoaRollRule::Vote::Need ? NEED : polite == CoaRollRule::Vote::Greed ? GREED : PASS;
         }
 

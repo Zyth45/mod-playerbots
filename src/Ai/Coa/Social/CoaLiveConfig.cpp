@@ -130,6 +130,8 @@ void PlayerbotAIConfig::LoadCoaLiveConfig()
     coaLiveCityPostMaxMinutes = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaLive.City.PostMaxMinutes", 60);
     coaMute = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaMute.Enable", true);
     coaSelfFoundStarterWeapon = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaSelfFound.StarterWeapon", true);
+    coaSelfFoundRolls = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaSelfFound.Rolls", true);
+    coaSelfFoundRollLog = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaSelfFound.RollLog", false);
     coaGiveToAlt = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaGiveToAlt.Enable", true);
     coaTrust = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaTrust.Enable", true);
     coaTrustKill = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaTrust.Kill", 1);
