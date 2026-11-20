@@ -379,10 +379,18 @@ private:
         if (_offersRead)
             return _offers;
         _offersRead = true;
+        // The spawn's entry column: `id` since the core's update 2026_06_16_00 (ours and the official one), `id1`
+        // before. The query named `id1` only, and the error 1054 stopped the server at the first shop (3.1.7).
+        char const* const entryColumn =
+            WorldDatabase.Query("SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND "
+                                "table_name = 'creature' AND column_name = 'id'")
+                ? "id"
+                : "id1";
         if (QueryResult result = WorldDatabase.Query(
                 "SELECT DISTINCT v.`item`, v.`ExtendedCost`, t.`faction` FROM `npc_vendor` v "
                 "JOIN `creature_template` t ON t.`entry` = v.`entry` "
-                "WHERE v.`item` > 0 AND v.`ExtendedCost` > 0 AND EXISTS (SELECT 1 FROM `creature` c WHERE c.`id1` = v.`entry`)"))
+                "WHERE v.`item` > 0 AND v.`ExtendedCost` > 0 AND EXISTS (SELECT 1 FROM `creature` c WHERE c.`{}` = v.`entry`)",
+                entryColumn))
         {
             do
             {
