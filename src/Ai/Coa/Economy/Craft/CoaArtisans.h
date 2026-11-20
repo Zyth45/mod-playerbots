@@ -59,6 +59,12 @@ namespace CoaEconomy::Artisans
     // holds (nothing is bought), and wears it. Self-found and classic bots alike. The piece made, or null.
     Item* CraftUpgradeForSelf(Player* bot, PlayerbotAI* botAI);
 
+    // CoA 3.2 (AiPlayerbot.CoaEconomy.EnchantForSelf.Enable, the user's go of 21/11): at an auction house visit, an
+    // enchanter bot puts on one piece it wears the best permanent enchantment it knows, with the reagents it holds
+    // (nothing bought), when the piece fits the enchantment, the bot's level allows it and it beats the enchantment
+    // already there (never replaced by a weaker or equal one). Self-found and classic bots alike. True when done.
+    bool EnchantForSelf(Player* bot);
+
     // What the reagents missing for `times` crafts cost at market price (the held ones are free), copper.
     uint64 MissingCost(Player* bot, Recipe const& recipe, uint32 times);
     // Uses the reagents of `times` crafts (held ones first, the rest paid in gold); the products are the caller's to

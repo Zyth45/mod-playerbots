@@ -5891,6 +5891,14 @@ AiPlayerbot.CoaEconomy.Artisans.MinProfitPercent = 20
 AiPlayerbot.CoaEconomy.CraftForSelf.Enable = 1
 AiPlayerbot.CoaEconomy.CraftForSelf.Log = 0
 
+# At an auction house visit, a bot with Enchanting puts on one piece it wears the best permanent enchantment it knows,
+# only with the reagents it already holds (nothing is bought for it), when the piece fits the enchantment and the
+# bot's level allows it, and only when it beats the enchantment already there (never a better or equal one replaced).
+# Self-found and classic bots alike. Log: each enchantment put on, in the playerbots.loot log (BotLoot.log).
+# Default: 1 (enabled); Log: 0 (disabled)
+AiPlayerbot.CoaEconomy.EnchantForSelf.Enable = 1
+AiPlayerbot.CoaEconomy.EnchantForSelf.Log = 0
+
 # Craft on order and artisans in Trade, with CoA Live's lines (bank 3_0_05 of CoA IA MIND) and COD mail. Needs
 # Artisans, and AiPlayerbot.CoaLive.Enable = 1 (without it nothing is said and no order is taken).
 # A player whispers "can you make [item]?" to a bot that knows the recipe: it quotes the market value of the piece

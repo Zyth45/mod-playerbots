@@ -346,6 +346,8 @@ namespace
         Materials::TendGuildStock(bot);
         // 3.2: the best upgrade it can make for itself with the reagents it holds, worn at once.
         Artisans::CraftUpgradeForSelf(bot, botAI);
+        // 3.2: an enchanter enchants a piece it wears, with the reagents it holds.
+        Artisans::EnchantForSelf(bot);
 
         // An artisan makes a piece worth more than its materials and puts it up with its loot.
         Item* crafted = nullptr;

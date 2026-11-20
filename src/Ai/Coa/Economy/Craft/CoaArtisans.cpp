@@ -7,6 +7,7 @@
 #include "CoaArtisans.h"
 
 #include "CoaEconomyConf.h"
+#include "CoaEnchantSelfRules.h"
 #include "CoaGearScore.h"
 #include "CoaMissionMgr.h"
 
@@ -30,6 +31,7 @@
 #include "SharedDefines.h"
 #include "SpellInfo.h"
 #include "SpellMgr.h"
+#include "StatsWeightCalculator.h"
 #include "WorldSession.h"
 
 #include <algorithm>
@@ -114,12 +116,16 @@ bool IsTradableProduct(ItemTemplate const* proto)
 
 bool craftForSelf = true;      // AiPlayerbot.CoaEconomy.CraftForSelf.Enable
 bool craftForSelfLog = false;  // AiPlayerbot.CoaEconomy.CraftForSelf.Log
+bool enchantForSelf = true;     // AiPlayerbot.CoaEconomy.EnchantForSelf.Enable
+bool enchantForSelfLog = false; // AiPlayerbot.CoaEconomy.EnchantForSelf.Log
 
 void LoadSettings()
 {
     enabled = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.Artisans.Enable", true, false);
     craftForSelf = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.CraftForSelf.Enable", true, false);
     craftForSelfLog = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.CraftForSelf.Log", false, false);
+    enchantForSelf = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.EnchantForSelf.Enable", true, false);
+    enchantForSelfLog = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.EnchantForSelf.Log", false, false);
     minProfitPercent = CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.Artisans.MinProfitPercent", 20);
     realPrices = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.BotAuctions.RealHousePrices", true);
     realMultipliers = RealPrices::LoadMultipliers("AiPlayerbot.CoaEconomy.BotAuctions.RealPriceMultiplier");
@@ -461,6 +467,81 @@ Item* CraftUpgradeForSelf(Player* bot, PlayerbotAI* botAI)
                  bot->GetLevel(), bestItem, item->GetTemplate()->Name1, bestGain,
                  slot != NULL_SLOT ? ", worn" : ", kept");
     return item;
+}
+
+bool EnchantForSelf(Player* bot)
+{
+    if (!enchantForSelf || !bot || !bot->HasSkill(SKILL_ENCHANTING))
+        return false;
+
+    StatsWeightCalculator calculator(bot);
+    Item* bestItem = nullptr;
+    SpellInfo const* bestSpell = nullptr;
+    uint32 bestEnchant = 0;
+    float bestGain = 0.0f;
+    for (auto const& [spellId, playerSpell] : bot->GetSpellMap())
+    {
+        if (!playerSpell || playerSpell->State == PLAYERSPELL_REMOVED || !playerSpell->Active)
+            continue;
+        SpellInfo const* spell = sSpellMgr->GetSpellInfo(spellId);
+        if (!spell)
+            continue;
+        uint32 enchantId = 0;
+        for (SpellEffectInfo const& effect : spell->Effects)
+            if (effect.Effect == SPELL_EFFECT_ENCHANT_ITEM && effect.MiscValue)
+            {
+                enchantId = uint32(effect.MiscValue);
+                break;
+            }
+        SpellItemEnchantmentEntry const* enchant = enchantId ? sSpellItemEnchantmentStore.LookupEntry(enchantId) : nullptr;
+        if (!enchant || enchant->slot != PERM_ENCHANTMENT_SLOT ||
+            !CoaEnchantSelfRules::Usable(bot->GetLevel(), enchant->requiredLevel, enchant->requiredSkill,
+                                         enchant->requiredSkill ? bot->GetSkillValue(enchant->requiredSkill) : 0,
+                                         enchant->requiredSkillValue))
+            continue;
+        if (enchant->EnchantmentCondition && !bot->EnchantmentFitsRequirements(enchant->EnchantmentCondition, -1))
+            continue;
+        // Only with what it holds: nothing is bought for it.
+        bool holdsAll = true;
+        for (uint8 i = 0; i < MAX_SPELL_REAGENTS && holdsAll; ++i)
+            if (spell->Reagent[i] > 0 && spell->ReagentCount[i] &&
+                bot->GetItemCount(uint32(spell->Reagent[i])) < spell->ReagentCount[i])
+                holdsAll = false;
+        if (!holdsAll)
+            continue;
+        float const score = calculator.CalculateEnchant(enchantId);
+        for (uint8 slot = EQUIPMENT_SLOT_START; slot < EQUIPMENT_SLOT_END; ++slot)
+        {
+            Item* item = bot->GetItemByPos(INVENTORY_SLOT_BAG_0, slot);
+            if (!item || !item->IsFitToSpellRequirements(spell))
+                continue;
+            uint32 const current = item->GetEnchantmentId(PERM_ENCHANTMENT_SLOT);
+            float const currentScore = current ? calculator.CalculateEnchant(current) : 0.0f;
+            if (!CoaEnchantSelfRules::Replaces(score, currentScore))
+                continue;
+            if (score - currentScore > bestGain)
+            {
+                bestGain = score - currentScore;
+                bestItem = item;
+                bestSpell = spell;
+                bestEnchant = enchantId;
+            }
+        }
+    }
+    if (!bestItem)
+        return false;
+
+    for (uint8 i = 0; i < MAX_SPELL_REAGENTS; ++i)
+        if (bestSpell->Reagent[i] > 0 && bestSpell->ReagentCount[i])
+            bot->DestroyItemCount(uint32(bestSpell->Reagent[i]), bestSpell->ReagentCount[i], true);
+    bot->ApplyEnchantment(bestItem, PERM_ENCHANTMENT_SLOT, false);
+    bestItem->SetEnchantment(PERM_ENCHANTMENT_SLOT, bestEnchant, 0, 0, bot->GetGUID());
+    bot->ApplyEnchantment(bestItem, PERM_ENCHANTMENT_SLOT, true);
+    if (enchantForSelfLog)
+        LOG_INFO("playerbots.loot", "enchant for self: {} (level {}) put enchantment {} on {} ({}), gain {:.1f}",
+                 bot->GetName(), bot->GetLevel(), bestEnchant, bestItem->GetEntry(), bestItem->GetTemplate()->Name1,
+                 bestGain);
+    return true;
 }
 
 } // namespace CoaEconomy::Artisans
