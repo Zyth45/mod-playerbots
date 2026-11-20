@@ -11,6 +11,7 @@
 // the core moves a unit in a straight line, through walls and hills, when the path to the point is not found (a
 // point inside a building, under a counter, off the mesh). Without the game objects, for the unit test.
 
+#include <cmath>
 #include <cstdint>
 
 namespace CoaSafeMove
@@ -56,6 +57,19 @@ inline bool DropsToFloor(float z, float floorZ, bool outdoors, bool waterBelow)
         return false;
     float const above = z - floorZ;
     return above > DROP_MIN && above <= DROP_MAX;
+}
+
+// 3.1.8 (move audit of 20/11): a quarter of the level teleports go to a banker (ProbTeleToBankers), its position
+// inside the bank, with the bot's home set there: 49 teleports of 44 bots into the Stormwind bank in 25 minutes. The
+// arrival is now the first point outdoors around the banker, ring after ring (ARRIVAL_RINGS yards, 16 directions),
+// on ground no more than ARRIVAL_MAX_DZ from the banker's floor; none found: the banker's spot, as before.
+constexpr float ARRIVAL_RINGS[] = {10.0f, 15.0f, 20.0f, 25.0f, 30.0f, 35.0f, 40.0f};
+constexpr uint32_t ARRIVAL_DIRECTIONS = 16;
+constexpr float ARRIVAL_MAX_DZ = 6.0f;
+
+inline bool ArrivalOk(float groundZ, float bankerZ, bool outdoors, bool water)
+{
+    return groundZ > -100000.0f && outdoors && !water && std::fabs(groundZ - bankerZ) <= ARRIVAL_MAX_DZ;
 }
 
 inline bool CityPathChecked(bool randomBot, bool realMaster, bool inCombat, bool generatePath, bool capital,

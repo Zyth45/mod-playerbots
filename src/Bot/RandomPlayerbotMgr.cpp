@@ -31,6 +31,7 @@
 #include "CityDuels.h"
 #include "CoaBotRaces.h"
 #include "CoaMissionMgr.h"
+#include "CoaSafeMoveRules.h"
 #include "DBCStores.h"
 #include "DBCStructure.h"
 #include "DatabaseEnv.h"
@@ -2280,6 +2281,59 @@ TeleportSpot SpotOf(Map* map, Player* bot, float x, float y, float z)
     teleportSpots.emplace(key, spot);
     return spot;
 }
+
+// 3.1.8 (move audit of 20/11): the arrival of a teleport to a banker, outdoors around the bank
+// (CoaSafeMove::ArrivalOk); the banker's own spot when none is found or it is outdoors already. Computed once per spot.
+std::mutex bankArrivalsLock;
+std::unordered_map<std::string, WorldLocation> bankArrivals;
+
+WorldLocation BankArrival(WorldLocation const& banker)
+{
+    std::string const key = std::to_string(banker.GetMapId()) + ":" + std::to_string(banker.GetPositionX()) + ":" +
+                            std::to_string(banker.GetPositionY()) + ":" + std::to_string(banker.GetPositionZ());
+    {
+        std::lock_guard<std::mutex> guard(bankArrivalsLock);
+        auto it = bankArrivals.find(key);
+        if (it != bankArrivals.end())
+            return it->second;
+    }
+    WorldLocation arrival = banker;
+    if (Map* map = sMapMgr->FindMap(banker.GetMapId(), 0))
+    {
+        PositionFullTerrainStatus here;
+        map->GetFullTerrainStatusForPosition(PHASEMASK_NORMAL, banker.GetPositionX(), banker.GetPositionY(),
+                                             banker.GetPositionZ() + 0.5f, 2.0f, here);
+        if (!here.outdoors)
+        {
+            bool found = false;
+            for (float const ring : CoaSafeMove::ARRIVAL_RINGS)
+            {
+                for (uint32 i = 0; i < CoaSafeMove::ARRIVAL_DIRECTIONS && !found; ++i)
+                {
+                    float const angle = 2.0f * float(M_PI) * float(i) / float(CoaSafeMove::ARRIVAL_DIRECTIONS);
+                    float const x = banker.GetPositionX() + ring * std::cos(angle);
+                    float const y = banker.GetPositionY() + ring * std::sin(angle);
+                    float const z = map->GetHeight(PHASEMASK_NORMAL, x, y, banker.GetPositionZ() + 4.0f);
+                    if (z <= INVALID_HEIGHT)
+                        continue;
+                    PositionFullTerrainStatus there;
+                    map->GetFullTerrainStatusForPosition(PHASEMASK_NORMAL, x, y, z + 0.5f, 2.0f, there);
+                    bool const water = there.liquidInfo.Status != LIQUID_MAP_NO_WATER;
+                    if (CoaSafeMove::ArrivalOk(z, banker.GetPositionZ(), there.outdoors, water))
+                    {
+                        arrival = WorldLocation(banker.GetMapId(), x, y, z, banker.GetOrientation());
+                        found = true;
+                    }
+                }
+                if (found)
+                    break;
+            }
+        }
+    }
+    std::lock_guard<std::mutex> guard(bankArrivalsLock);
+    bankArrivals.emplace(key, arrival);
+    return arrival;
+}
 }  // namespace
 
 void RandomPlayerbotMgr::RandomTeleport(Player* bot, std::vector<WorldLocation>& locs, bool hearth)
@@ -2573,6 +2627,9 @@ void RandomPlayerbotMgr::RandomTeleportForLevel(Player* bot)
         std::vector<WorldLocation> locs = sTravelMgr.GetCityLocations(bot);
         if (!locs.empty())
         {
+            // 3.1.8: outdoors around the bank, not inside it (BankArrival): the home is set there too.
+            for (WorldLocation& loc : locs)
+                loc = BankArrival(loc);
             RandomTeleport(bot, locs, true);
             return;
         }
