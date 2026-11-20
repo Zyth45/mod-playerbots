@@ -2638,6 +2638,8 @@ uint64 AuctionHouseBot::GetReferencePricePerItem(ItemTemplate const* itemProto)
     return GetHouseLowestBuyoutPerItem(itemProto);
 }
 
+thread_local bool AuctionHouseBot::PriceRollLowest = false;
+
 uint64 AuctionHouseBot::GetHouseLowestBuyoutPerItem(ItemTemplate const* itemProto)
 {
     uint64 bid = 0;

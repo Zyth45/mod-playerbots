@@ -1,0 +1,2 @@
+### No more world freeze with many bots
+With several map threads (the default of the bot realm), two bots checking their guild stock at the same moment could corrupt a shared table and freeze the whole world until the server restarted. That table and three other shared lists written by bots on different maps (guild stock crafts, trade and world channel membership, the auction house's lowest price) are now protected.
