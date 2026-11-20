@@ -514,7 +514,12 @@ bool NewRpgWanderNpcAction::Execute(Event /*event*/)
             return true;
         // CoA Live City Life (3.1.6): a station no walkable path leads to (inside a building, off the mesh) is given
         // up for another stop, never reached in a straight line through the walls.
-        if (!IsWaitingForLastMove(MovementPriority::MOVEMENT_NORMAL) && CoaCityLife::Holds(botAI, data.npcOrGo))
+        // 3.2: in a capital, any NPC whose way the city guard refuses (a dead end, a straight line) is given up too,
+        // for another one, instead of tries and small random steps for the whole wander.
+        AreaTableEntry const* zone = sAreaTableStore.LookupEntry(bot->GetZoneId());
+        bool const inCapital = zone && (zone->flags & AREA_FLAG_CAPITAL);
+        if (!IsWaitingForLastMove(MovementPriority::MOVEMENT_NORMAL) &&
+            (CoaCityLife::Holds(botAI, data.npcOrGo) || inCapital))
         {
             CoaCityLife::Leave(botAI);
             data.npcOrGo = ObjectGuid();

@@ -76,6 +76,19 @@ inline bool ArrivalOk(float groundZ, float bankerZ, bool outdoors, bool water, f
            std::fabs(groundZ - bankerZ) <= ARRIVAL_MAX_DZ && groundZ - gridZ <= ARRIVAL_ON_TERRAIN;
 }
 
+// 3.2 (the user's report of 20/11, bots standing on a ledge by the Stormwind bank, -8876.0 626.4 95.7): a path the
+// core cuts short because the target is out of reach (another island of the mesh) ends on the reachable point
+// nearest to it, here a ledge over the street with no way down; the bots walked there and stood. A path cut by the
+// point limit (a long one, DEAD_END_LIMIT_POINTS points or more) is still walked: it goes on from its end. A short
+// cut path whose end stays DEAD_END_MIN_GAP yards or more from the target is a dead end, refused in a capital.
+constexpr uint32_t DEAD_END_LIMIT_POINTS = 70;
+constexpr float DEAD_END_MIN_GAP = 5.0f;
+
+inline bool DeadEndPath(uint32_t type, uint32_t points, float endToTarget)
+{
+    return (type & INCOMPLETE) && points < DEAD_END_LIMIT_POINTS && endToTarget >= DEAD_END_MIN_GAP;
+}
+
 inline bool CityPathChecked(bool randomBot, bool realMaster, bool inCombat, bool generatePath, bool capital,
                             bool normalPriority)
 {

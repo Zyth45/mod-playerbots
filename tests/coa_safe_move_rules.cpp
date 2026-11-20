@@ -39,6 +39,11 @@ int main()
     assert(!ArrivalOk(110.0f, 99.7f, true, false, 97.9f));   // a roof or a terrace far above
     assert(!ArrivalOk(-200000.0f, 99.7f, true, false, 97.9f));
     assert(!ArrivalOk(103.6f, 99.7f, true, false, 98.9f));  // the roof by the bank door (bench of 20/11)
+    // 3.2: the ledge by the Stormwind bank, a short cut path (20 points) ending 28 yards from the NPC: a dead end.
+    assert(DeadEndPath(NORMAL | INCOMPLETE, 20, 28.0f));
+    assert(!DeadEndPath(NORMAL | INCOMPLETE, 74, 28.0f));  // cut by the point limit: goes on from its end
+    assert(!DeadEndPath(NORMAL | INCOMPLETE, 20, 2.0f));   // ends by the target
+    assert(!DeadEndPath(NORMAL, 20, 28.0f));               // a whole path
     assert(CityPathChecked(true, false, false, true, true, true));
     assert(!CityPathChecked(false, false, false, true, true, true));  // a player's alt: left alone
     assert(!CityPathChecked(true, true, false, true, true, true));    // in a real player's group

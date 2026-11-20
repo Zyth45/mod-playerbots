@@ -47,7 +47,15 @@ bool CanWalkTo(Player* bot, float x, float y, float z)
     // As the core will follow it (CoreStraightLine): a cut path is fine, only the straight line is refused. Refusing
     // every cut path (3.1.6 lot 4) trapped bots inside the bank: from in there, a long path is cut at the point limit.
     PathGenerator path(bot);
-    return path.CalculatePath(x, y, z, false) &&
-           !CoreStraightLine(uint32(path.GetPathType()), uint32(path.GetPath().size()));
+    if (!path.CalculatePath(x, y, z, false))
+        return false;
+    uint32 const type = uint32(path.GetPathType());
+    uint32 const points = uint32(path.GetPath().size());
+    if (CoreStraightLine(type, points))
+        return false;
+    // A short cut path to a target out of reach ends on a dead end (a ledge by the Stormwind bank, 3.2).
+    G3D::Vector3 const& end = path.GetActualEndPosition();
+    float const gap = std::sqrt((end.x - x) * (end.x - x) + (end.y - y) * (end.y - y) + (end.z - z) * (end.z - z));
+    return !DeadEndPath(type, points, gap);
 }
 }  // namespace CoaSafeMove
