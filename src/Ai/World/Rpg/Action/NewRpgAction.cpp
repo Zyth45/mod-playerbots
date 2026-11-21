@@ -353,7 +353,7 @@ bool NewRpgStatusUpdateAction::Execute(Event /*event*/)
         {
             if (info.HasStatusPersisted(info.cityStayMs ? info.cityStayMs : statusWanderNpcDuration))
             {
-                if (auto const* wander = std::get_if<NewRpgInfo::WanderNpc>(&info.data))
+                if (auto* wander = std::get_if<NewRpgInfo::WanderNpc>(&info.data))
                 {
                     Creature* npc = wander->npcOrGo.IsCreature() ? ObjectAccessor::GetCreature(*bot, wander->npcOrGo)
                                                                  : nullptr;
@@ -364,9 +364,10 @@ bool NewRpgStatusUpdateAction::Execute(Event /*event*/)
                     if (CoaEconomyRules::KeepsTradeGoal(trade, wander->lastReach != 0,
                                                         wander->pickedAt ? GetMSTimeDiffToNow(wander->pickedAt) : 0))
                         break;
-                    // 3.2 (BuyLog): an auctioneer the wander never got to.
-                    if (auctioneer && !wander->lastReach)
+                    // 3.2 (BuyLog): an auctioneer the wander never got to (counted here, not as left for idle).
+                    if ((auctioneer || wander->toAuctioneer) && !wander->lastReach)
                         CoaEconomy::BotAuctions::NoteWay(CoaEconomy::BotAuctions::Way::TimedOut);
+                    wander->toAuctioneer = false;
                 }
                 info.ChangeToIdle();
                 return true;
@@ -494,10 +495,14 @@ bool NewRpgWanderNpcAction::Execute(Event /*event*/)
         if (npcOrGo.IsEmpty())
             npcOrGo = ChooseNpcOrGameObjectToInteract();
         // 3.2 (BuyLog): the way to an auctioneer, counted.
+        data.toAuctioneer = false;
         if (Creature* npc = npcOrGo.IsCreature() ? ObjectAccessor::GetCreature(*bot, npcOrGo) : nullptr)
             if (npc->HasNpcFlag(UNIT_NPC_FLAG_AUCTIONEER))
+            {
+                data.toAuctioneer = true;
                 CoaEconomy::BotAuctions::NoteWay(station ? CoaEconomy::BotAuctions::Way::Station
                                                          : CoaEconomy::BotAuctions::Way::Picked);
+            }
         // No npc can be found, switch to IDLE
         if (npcOrGo.IsEmpty())
         {
@@ -531,6 +536,7 @@ bool NewRpgWanderNpcAction::Execute(Event /*event*/)
 
         // has reached the npc for more than `npcStayTime`, select the next target
         CoaCityLife::Leave(botAI);
+        data.toAuctioneer = false;
         data.npcOrGo = ObjectGuid();
         data.lastReach = 0;
     }
@@ -547,8 +553,10 @@ bool NewRpgWanderNpcAction::Execute(Event /*event*/)
         if (!IsWaitingForLastMove(MovementPriority::MOVEMENT_NORMAL) &&
             (CoaCityLife::Holds(botAI, data.npcOrGo) || inCapital))
         {
-            if (object && object->ToCreature() && object->ToCreature()->HasNpcFlag(UNIT_NPC_FLAG_AUCTIONEER))
+            // 3.2 (BuyLog): counted from the pick's flag, the NPC may be gone (out of the grid).
+            if (data.toAuctioneer)
                 CoaEconomy::BotAuctions::NoteWay(CoaEconomy::BotAuctions::Way::GivenUp);
+            data.toAuctioneer = false;
             CoaCityLife::Leave(botAI);
             // 3.2 (".squidbots why": a bot still for minutes by the Stormwind bank, WANDER_NPC with no destination):
             // it picked and gave up NPCs every tick. After a few in a row, the wander ends and it does something else.

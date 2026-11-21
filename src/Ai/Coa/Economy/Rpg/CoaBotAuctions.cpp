@@ -147,6 +147,8 @@ namespace
     {
         std::atomic<uint32> requests{0}, cooldown{0}, queueFull{0}, queued{0}, shopWants{0};
         std::atomic<uint32> sought{0}, picked{0}, station{0}, givenUp{0}, timedOut{0};
+        std::atomic<uint32> leftFor[12]{};  // 0..10: NewRpgStatus of the next activity, 11: a reset
+        std::atomic<uint32> shopChecks{0}, shopPoor{0}, shopInterval{0};
         uint32 gone = 0, busy = 0, noAi = 0, outOfReach = 0, ran = 0;
         double outOfReachYards = 0.0;
     } pathCounters;
@@ -190,6 +192,29 @@ namespace
             pathCounters.queued = 0;
             pathCounters.sought = pathCounters.picked = pathCounters.station = pathCounters.givenUp = 0;
             pathCounters.timedOut = 0;
+        }
+        if (settings.buyLog)
+        {
+            static char const* const names[12] = {"idle", "grind", "camp", "wander", "another NPC wander", "quest",
+                                                  "flight", "rest", "outdoor pvp", "city", "status 10", "reset"};
+            std::string left;
+            uint32 total = 0;
+            for (uint32 i = 0; i < 12; ++i)
+                if (uint32 const n = pathCounters.leftFor[i].exchange(0))
+                {
+                    total += n;
+                    left += (left.empty() ? "" : ", ") + std::string(names[i]) + " " + std::to_string(n);
+                }
+            LOG_INFO("playerbots.loot", "auction visits (last hour): {} wanders to an auctioneer left for another activity"
+                     " ({}); shopping checks {}: {} too poor, {} visited within the interval",
+                     total, left.empty() ? "none" : left, pathCounters.shopChecks.exchange(0),
+                     pathCounters.shopPoor.exchange(0), pathCounters.shopInterval.exchange(0));
+        }
+        else
+        {
+            for (auto& n : pathCounters.leftFor)
+                n = 0;
+            pathCounters.shopChecks = pathCounters.shopPoor = pathCounters.shopInterval = 0;
         }
         pathCounters.gone = pathCounters.busy = pathCounters.noAi = pathCounters.outOfReach = pathCounters.ran = 0;
         pathCounters.outOfReachYards = 0.0;
@@ -867,18 +892,41 @@ void NoteWay(Way way)
     }
 }
 
+void NoteLeftFor(int nextStatus)
+{
+    if (!settings.buyLog)
+        return;
+    uint32 const slot = nextStatus >= 0 && nextStatus <= 10 ? uint32(nextStatus) : 11;
+    ++pathCounters.leftFor[slot];
+}
+
+void NoteShopNo(ShopNo why)
+{
+    if (!settings.buyLog)
+        return;
+    ++(why == ShopNo::Poor ? pathCounters.shopPoor : pathCounters.shopInterval);
+}
+
 bool WantsToShop(Player* bot)
 {
     if (!settings.enabled || !settings.shopEnable || !bot)
         return false;
+    if (settings.buyLog)
+        ++pathCounters.shopChecks;
     uint64 const budget = CoaEconomyRules::BotBudget(bot->GetMoney(), settings.maxBudgetPercent, TraitsFor(bot->GetGUID()).thrift);
     if (!CoaEconomyRules::WantsToShop(budget, bot->GetLevel(), settings.shopCopperPerLevel))
+    {
+        NoteShopNo(ShopNo::Poor);
         return false;
+    }
     uint32 const now = uint32(GameTime::GetGameTime().count());
     std::lock_guard<std::mutex> guard(queueLock);
     auto found = lastVisit.find(bot->GetGUID().GetCounter());
     if (!CoaEconomyRules::ShopDue(now, found == lastVisit.end() ? 0 : found->second, settings.shopIntervalSeconds))
+    {
+        NoteShopNo(ShopNo::Interval);
         return false;
+    }
     ++pathCounters.shopWants;
     return true;
 }

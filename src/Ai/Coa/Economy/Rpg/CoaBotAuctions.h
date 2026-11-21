@@ -43,6 +43,12 @@ namespace CoaEconomy::BotAuctions
     // wander ended before the bot got there. Reached is "asked" (RequestVisit runs at every auctioneer reached).
     enum class Way { Sought, Picked, Station, GivenUp, TimedOut };
     void NoteWay(Way way);
+    // 3.2 (BuyLog): a wander heading for an auctioneer it never reached was replaced by another activity
+    // (NewRpgStatus of the next one; 99: a reset).
+    void NoteLeftFor(int nextStatus);
+    // 3.2 (BuyLog): a WantsToShop check, and why it said no.
+    enum class ShopNo { Poor, Interval };
+    void NoteShopNo(ShopNo why);
 
     // A bot's trading character, stable per character (GUID hash), each in [0, 1]:
     //   thrift   how little of its gold it spends;
