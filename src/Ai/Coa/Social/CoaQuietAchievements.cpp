@@ -29,6 +29,14 @@ std::atomic<uint32_t> quietCount{0};           // the fast way out of every pack
 std::unordered_map<uint64_t, uint64_t> loginWindows;
 std::atomic<uint32_t> windowCount{0};
 uint64_t loginWindowMs = 3 * 60 * 1000;  // AiPlayerbot.Coa.HideLoginAchievementsMinutes
+// 3.2: one announcement per random bot per gap. The decision is taken before the core announces the achievement
+// (OnPlayerBeforeAchievementComplete) and holds for the packets of that announcement (to each guild member and
+// player around), until OnPlayerAchievementComplete or MUTE_HOLD_MS. Same lock.
+uint64_t announceGapMs = 60 * 1000;  // AiPlayerbot.Coa.AchievementAnnounceGapSeconds
+constexpr uint64_t MUTE_HOLD_MS = 2000;
+std::unordered_map<uint64_t, uint64_t> lastAnnounce;  // bot guid -> when its last achievement was announced
+std::unordered_map<uint64_t, uint64_t> muted;         // bot guid -> its announcement under way is dropped until then
+std::atomic<uint32_t> mutedCount{0};
 
 uint64_t NowMs() { return uint64_t(GameTime::GetGameTimeMS().count()); }
 
@@ -37,8 +45,47 @@ bool IsQuiet(uint64_t guid)
     std::shared_lock<std::shared_mutex> guard(quietLock);
     if (quiet.count(guid))
         return true;
+    uint64_t const now = NowMs();
     auto it = loginWindows.find(guid);
-    return it != loginWindows.end() && CoaQuietAchievements::InLoginWindow(NowMs(), it->second);
+    if (it != loginWindows.end() && CoaQuietAchievements::InLoginWindow(now, it->second))
+        return true;
+    auto mute = muted.find(guid);
+    return mute != muted.end() && now < mute->second;
+}
+
+// Before the core announces an achievement of a random bot: dropped when another was announced within the gap.
+void DecideAnnounce(Player* player)
+{
+    if (!announceGapMs || !player || !sRandomPlayerbotMgr.IsRandomBot(player))
+        return;
+    uint64_t const guid = player->GetGUID().GetRawValue();
+    uint64_t const now = NowMs();
+    std::unique_lock<std::shared_mutex> guard(quietLock);
+    if (quiet.count(guid))
+        return;  // the factory or a simulated credit: silent anyway
+    auto window = loginWindows.find(guid);
+    if (window != loginWindows.end() && CoaQuietAchievements::InLoginWindow(now, window->second))
+        return;
+    uint64_t& last = lastAnnounce[guid];
+    if (CoaQuietAchievements::GapMutes(now, last, announceGapMs))
+    {
+        auto [it, fresh] = muted.try_emplace(guid, now + MUTE_HOLD_MS);
+        if (fresh)
+            mutedCount.fetch_add(1, std::memory_order_relaxed);
+        else
+            it->second = now + MUTE_HOLD_MS;
+        return;
+    }
+    last = now;
+}
+
+void EndAnnounce(Player* player)
+{
+    if (!player || !mutedCount.load(std::memory_order_relaxed))
+        return;
+    std::unique_lock<std::shared_mutex> guard(quietLock);
+    if (muted.erase(player->GetGUID().GetRawValue()))
+        mutedCount.fetch_sub(1, std::memory_order_relaxed);
 }
 
 void OpenLoginWindow(Player* player)
@@ -57,9 +104,23 @@ void OpenLoginWindow(Player* player)
 // The windows that ended (world thread, every few seconds).
 void CloseEndedWindows()
 {
+    uint64_t const now = NowMs();
+    {
+        std::unique_lock<std::shared_mutex> guard(quietLock);
+        for (auto it = muted.begin(); it != muted.end();)
+            if (now >= it->second)
+            {
+                it = muted.erase(it);
+                mutedCount.fetch_sub(1, std::memory_order_relaxed);
+            }
+            else
+                ++it;
+        if (lastAnnounce.size() > 20000)
+            for (auto it = lastAnnounce.begin(); it != lastAnnounce.end();)
+                it = now >= it->second + announceGapMs ? lastAnnounce.erase(it) : std::next(it);
+    }
     if (!windowCount.load(std::memory_order_relaxed))
         return;
-    uint64_t const now = NowMs();
     std::unique_lock<std::shared_mutex> guard(quietLock);
     for (auto it = loginWindows.begin(); it != loginWindows.end();)
     {
@@ -81,7 +142,8 @@ public:
     // Every packet of the realm passes here: out at once unless a bot is being made right now.
     bool CanPacketSend(WorldSession* /*session*/, WorldPacket const& packet) override
     {
-        if (!quietCount.load(std::memory_order_relaxed) && !windowCount.load(std::memory_order_relaxed))
+        if (!quietCount.load(std::memory_order_relaxed) && !windowCount.load(std::memory_order_relaxed) &&
+            !mutedCount.load(std::memory_order_relaxed))
             return true;
         uint16 const opcode = packet.GetOpcode();
         if (opcode != SMSG_MESSAGECHAT && opcode != SMSG_SERVER_FIRST_ACHIEVEMENT)
@@ -99,10 +161,21 @@ class CoaLoginAchievementsPlayerScript : public PlayerScript
 {
 public:
     CoaLoginAchievementsPlayerScript()
-        : PlayerScript("CoaLoginAchievementsPlayerScript", {PLAYERHOOK_ON_LOAD_FROM_DB, PLAYERHOOK_ON_LOGIN}) {}
+        : PlayerScript("CoaLoginAchievementsPlayerScript", {PLAYERHOOK_ON_LOAD_FROM_DB, PLAYERHOOK_ON_LOGIN,
+                                                            PLAYERHOOK_ON_BEFORE_ACHI_COMPLETE, PLAYERHOOK_ON_ACHI_COMPLETE}) {}
 
     void OnPlayerLoadFromDB(Player* player) override { OpenLoginWindow(player); }
     void OnPlayerLogin(Player* player) override { OpenLoginWindow(player); }
+    // 3.2: one announcement per bot per gap (the achievement itself is never refused here).
+    bool OnPlayerBeforeAchievementComplete(Player* player, AchievementEntry const* /*achievement*/) override
+    {
+        DecideAnnounce(player);
+        return true;
+    }
+    void OnPlayerAchievementComplete(Player* player, AchievementEntry const* /*achievement*/) override
+    {
+        EndAnnounce(player);
+    }
 };
 
 class CoaLoginAchievementsWorldScript : public WorldScript
@@ -115,6 +188,8 @@ public:
     {
         loginWindowMs = uint64_t(60 * 1000) *
                         sConfigMgr->GetOption<uint32>("AiPlayerbot.Coa.HideLoginAchievementsMinutes", 3, false);
+        announceGapMs = uint64_t(1000) *
+                        sConfigMgr->GetOption<uint32>("AiPlayerbot.Coa.AchievementAnnounceGapSeconds", 60, false);
     }
 
     void OnUpdate(uint32 diff) override

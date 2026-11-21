@@ -24,6 +24,7 @@
  * test runs). World thread only. Config: AiPlayerbot.CoaWorld.DungeonSim.*, off by default.
  */
 
+#include "CoaQuietAchievements.h"
 #include "CoaWorldBots.h"
 #include "CoaWorldState.h"
 #include "CoaWorldStateRules.h"
@@ -699,6 +700,7 @@ namespace
                 return;
             Reward& reward = itr->second;
             reward.given = true;
+            CoaQuietAchievements::Scope quiet(bot);  // 3.2: a simulated run's level-ups and loot are never announced
 
             if (reward.xp && bot->GetLevel() < sWorld->getIntConfig(CONFIG_MAX_PLAYER_LEVEL))
                 bot->GiveXP(reward.xp, nullptr);

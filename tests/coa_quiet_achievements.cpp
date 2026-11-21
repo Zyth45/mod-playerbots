@@ -38,5 +38,10 @@ int main()
     assert(CoaQuietAchievements::InLoginWindow(1000, 181000));
     assert(!CoaQuietAchievements::InLoginWindow(181000, 181000));
     assert(!CoaQuietAchievements::InLoginWindow(5000, 0));
+    // 3.2: one announcement per bot per gap.
+    assert(!GapMutes(1000, 0, 60000));        // none announced yet
+    assert(GapMutes(10000, 5000, 60000));     // 5 s after the last one
+    assert(!GapMutes(70000, 5000, 60000));    // the gap is over
+    assert(!GapMutes(10000, 5000, 0));        // 0: every one announced
     return 0;
 }

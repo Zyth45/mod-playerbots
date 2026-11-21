@@ -676,6 +676,17 @@
    "new_in": "3.2"
   },
   {
+   "key": "AiPlayerbot.Coa.AchievementAnnounceGapSeconds",
+   "group": "chat",
+   "title": "One bot achievement announced per (seconds)",
+   "description": "A random bot announces at most one achievement in this many seconds; the others are earned without a word. Simulated battleground and dungeon credits are never announced. Never a real player or a player's alts. 0: every achievement announced.",
+   "type": "int",
+   "default": 60,
+   "coa": true,
+   "min": 0,
+   "new_in": "3.2"
+  },
+  {
    "key": "AiPlayerbot.CoaStatusFile",
    "group": "other",
    "title": "Dashboard status file",

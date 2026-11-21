@@ -49,6 +49,14 @@ inline bool AchievementChatSender(uint8_t const* body, size_t size, uint64_t& se
 // loaded; then its achievements are announced as before. Never a real player, never a player's alt bot.
 inline bool InLoginWindow(uint64_t nowMs, uint64_t untilMs) { return nowMs < untilMs; }
 
+// CoA 3.2 (AiPlayerbot.Coa.AchievementAnnounceGapSeconds = 60): a random bot online already announced "An Honorable
+// Kill", "100", "500" and "1000 Honorable Kills" to its guild within seconds. At most one announcement per bot in
+// that gap: the others are earned without a word. lastMs 0: none announced yet.
+inline bool GapMutes(uint64_t nowMs, uint64_t lastMs, uint64_t gapMs)
+{
+    return gapMs && lastMs && nowMs < lastMs + gapMs;
+}
+
 // A SMSG_SERVER_FIRST_ACHIEVEMENT body: the name (a C string), then the player's guid.
 inline bool ServerFirstSender(uint8_t const* body, size_t size, uint64_t& sender)
 {

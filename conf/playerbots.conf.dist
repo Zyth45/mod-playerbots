@@ -702,6 +702,12 @@ AiPlayerbot.CoaWhy.Cooldown = 5
 # Default: 3
 AiPlayerbot.Coa.HideLoginAchievementsMinutes = 3
 
+# A random bot announces at most one achievement in this many seconds (guild, nearby, realm): the others are earned
+# without a word (no "1000 Honorable Kills" run in guild chat). The credits of a simulated battleground or dungeon
+# are never announced. Never a real player, never a player's alt bot. 0: every achievement announced.
+# Default: 60
+AiPlayerbot.Coa.AchievementAnnounceGapSeconds = 60
+
 # Self-found random bots in dungeons: share of the random bots (0 to 100 percent, picked by character whatever
 # its level, always the same ones) that wear only what they loot, earn from quests or are traded from level 10 on.
 # No gear, gems, enchantments, level roll or level bracket is given to them, and the autogear and bis commands are

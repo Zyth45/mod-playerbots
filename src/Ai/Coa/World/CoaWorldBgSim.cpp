@@ -22,6 +22,7 @@
  */
 
 #include "CoaWorldBgSim.h"
+#include "CoaQuietAchievements.h"
 
 #include "CoaWorldBgSimRules.h"
 #include "CoaWorldBots.h"
@@ -344,7 +345,10 @@ private:
             Player* bot = ObjectAccessor::FindPlayer(guid);
             if (!bot || !bot->IsInWorld() || bot->IsBeingTeleported())
                 continue;
-            bot->ModifyHonorPoints(int32(itr->second));
+            {
+                CoaQuietAchievements::Scope quiet(bot);  // 3.2: a simulated credit is never announced
+                bot->ModifyHonorPoints(int32(itr->second));
+            }
             match.honor.erase(itr);
             _cooldown[guid.GetCounter()] = now + settings.botCooldownMinutes * MINUTE;
             if (settings.shop)
