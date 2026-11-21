@@ -18,6 +18,7 @@
 #include "GameObject.h"
 #include "CoaRealPlayerSight.h"
 #include "CoaSafeMove.h"
+#include "CoaBotWhy.h"
 #include "CoaMoveAudit.h"
 #include "CoaSafeMoveRules.h"
 #include "DBCStores.h"
@@ -359,6 +360,9 @@ bool MovementAction::MoveTo(uint32 mapId, float x, float y, float z, bool /*idle
     // The night bench of the odd moves (AiPlayerbot.CoaMoveAudit, off by default): the path this move will get.
     if (CoaMoveAudit::Enabled())
         CoaMoveAudit::NoteMove(bot, getName().c_str(), x, y, z);
+    // ".squidbots why": the last move asked.
+    if (CoaBotWhy::Enabled())
+        CoaBotWhy::NoteMove(botAI, getName(), x, y, z);
     bool disableMoveSplinePath =
         sPlayerbotAIConfig.disableMoveSplinePath >= 2 ||
         (sPlayerbotAIConfig.disableMoveSplinePath == 1 && bot->InBattleground());

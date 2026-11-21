@@ -681,6 +681,15 @@ AiPlayerbot.CoaMoveAudit.SampleMs = 300
 AiPlayerbot.CoaMoveAudit.ThrottleSeconds = 10
 AiPlayerbot.CoaMoveAudit.File = "coa_move_audit.jsonl"
 
+# ".squidbots why" (3.2), for a game master account, on a selected bot or a bot's name (.squidbots why [name]):
+# what the bot is doing, in the chat and as one line in File (in the server's LogsDir) to send us: its name, level,
+# zone and position, its RPG status and since when, its destination and the NPC, object or quest it goes to, the
+# path the core would give it there now (NORMAL, INCOMPLETE, NOPATH...), its last move and action, how long it has
+# stood still. The bots keep their last move and where they stand still (a few numbers each).
+# Default: 1 (enabled)
+AiPlayerbot.CoaWhy.Enable = 1
+AiPlayerbot.CoaWhy.File = "squidbots_why.log"
+
 # Self-found random bots in dungeons: share of the random bots (0 to 100 percent, picked by character whatever
 # its level, always the same ones) that wear only what they loot, earn from quests or are traded from level 10 on.
 # No gear, gems, enchantments, level roll or level bracket is given to them, and the autogear and bis commands are

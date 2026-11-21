@@ -16,6 +16,7 @@
 #include "CoaAltGive.h"
 #include "CoaFishingGear.h"
 #include "CoaSafeMoveRules.h"
+#include "CoaBotWhy.h"
 #include "CoaMoveAudit.h"
 #include "CurrentTargetValue.h"
 
@@ -586,6 +587,8 @@ void PlayerbotAI::UpdateAI(uint32 elapsed, bool minimal)
     CoaFishingGear::Tick(this);
     // The night bench of the odd moves (AiPlayerbot.CoaMoveAudit, off by default): a sample of the bot.
     CoaMoveAudit::Tick(this);
+    // ".squidbots why" (AiPlayerbot.CoaWhy.Enable): where the bot stands still since when.
+    CoaBotWhy::Tick(this);
     // The CoA talents left by a capped rebuild (AiPlayerbot.CoaLive.TalentsPerUpdate).
     CoaTalentsTick(bot);
     // The level-up maintenance spread over the next updates (AiPlayerbot.CoaLive.MaintenanceSpread).
