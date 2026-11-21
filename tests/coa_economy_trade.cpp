@@ -74,5 +74,13 @@ int main()
     assert(CraftQuote(1000, 1000, 15, 0.0f) == 1092);
     std::uint64_t const patientQuote = CraftQuote(1000, 1000, 15, 1.0f);  // 1150 x 1.10, floating point
     assert(patientQuote >= 1264 && patientQuote <= 1265);
+    // 3.2: a bot goes to buy with a budget of level x 500 copper, once an hour.
+    assert(WantsToShop(10000, 20, 500));
+    assert(!WantsToShop(9999, 20, 500));
+    assert(!WantsToShop(0, 1, 0));
+    assert(WantsToShop(1, 1, 0));
+    assert(ShopDue(100, 0, 3600));
+    assert(!ShopDue(3000, 100, 3600));
+    assert(ShopDue(3700, 100, 3600));
     return 0;
 }

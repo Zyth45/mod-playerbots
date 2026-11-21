@@ -7,6 +7,7 @@
 #include "CoaCityLife.h"
 
 #include "CoaSafeMove.h"
+#include "CoaBotAuctions.h"
 #include "CellImpl.h"
 #include "CoaCityLifeRules.h"
 #include "CoaLive.h"
@@ -40,6 +41,7 @@ struct Holding
     uint64 sinceMs = 0;  // a bot that never got there (another activity, a fight) frees it after HOLD_MS
     uint64 untilMs = 0;  // held until then: sinceMs + HOLD_MS, longer for a long post once reached
     bool inRoom = false;  // stepped from its auctioneer into the room (IntoRoom)
+    bool roomTried = false;  // 3.2: the step was tried (it waits for the auction visit)
 };
 constexpr uint64 HOLD_MS = 15 * MINUTE * IN_MILLISECONDS;
 constexpr uint64 POST_MARGIN_MS = 5 * MINUTE * IN_MILLISECONDS;  // a long post is held this much past its end
@@ -268,12 +270,18 @@ void OnReach(PlayerbotAI* botAI, WorldObject* object)
         }
     }
     bot->SetFacingToObject(object);
-    if (kind == Station::Auction && StepIntoRoom(bot, object))
+    // 3.2: never while its auction visit waits for the world thread: the core's handlers refuse a bot that has walked
+    // off, and every City Life stop at an auctioneer ended in a visit that did nothing. WhileStaying steps later.
+    if (kind == Station::Auction && !CoaEconomy::BotAuctions::HasPendingVisit(bot->GetGUID()))
     {
+        bool const stepped = StepIntoRoom(bot, object);
         std::lock_guard<std::mutex> guard(cityLock);
         auto it = holding.find(bot->GetGUID().GetRawValue());
         if (it != holding.end())
-            it->second.inRoom = true;
+        {
+            it->second.roomTried = true;
+            it->second.inRoom = stepped;
+        }
     }
     if (PoseOf(kind).sit)
         bot->SetStandState(UNIT_STAND_STATE_SIT);
@@ -289,17 +297,38 @@ uint32 WhileStaying(PlayerbotAI* botAI, WorldObject* object, uint32 defaultMs)
     uint64 const now = GameTime::GetGameTimeMS().count();
     Pose pose;
     uint32 stay = 0;
+    bool stepNow = false;
     {
         std::lock_guard<std::mutex> guard(cityLock);
         auto it = holding.find(bot->GetGUID().GetRawValue());
         if (it == holding.end() || it->second.station != object->GetGUID() || !it->second.stayMs)
             return defaultMs;
+        // 3.2: the step into the room, once its auction visit has run.
+        if (it->second.kind == Station::Auction && !it->second.roomTried)
+            stepNow = it->second.roomTried = true;
         pose = PoseOf(it->second.kind);
         stay = it->second.stayMs;
         if (!pose.emote || now < it->second.lastEmoteMs + pose.everyMs)
             pose.emote = 0;
         else
             it->second.lastEmoteMs = now;
+    }
+    if (stepNow)
+    {
+        if (CoaEconomy::BotAuctions::HasPendingVisit(bot->GetGUID()))
+        {
+            std::lock_guard<std::mutex> guard(cityLock);
+            auto it = holding.find(bot->GetGUID().GetRawValue());
+            if (it != holding.end())
+                it->second.roomTried = false;  // still waiting: next update
+        }
+        else if (StepIntoRoom(bot, object))
+        {
+            std::lock_guard<std::mutex> guard(cityLock);
+            auto it = holding.find(bot->GetGUID().GetRawValue());
+            if (it != holding.end())
+                it->second.inRoom = true;
+        }
     }
     if (pose.emote && !bot->IsInCombat())
         bot->HandleEmoteCommand(pose.emote);

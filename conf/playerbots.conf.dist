@@ -5853,6 +5853,16 @@ AiPlayerbot.CoaEconomy.BotAuctions.MaxScan = 300
 # it, upgrades and bags bought, gold spent), in the playerbots.loot log (BotLoot.log).
 # Default: 0 (off)
 AiPlayerbot.CoaEconomy.BotAuctions.BuyLog = 0
+
+# 3.2: a bot with nothing to sell still goes to the auction house to buy (an upgrade, a bag), when what it may spend
+# in a visit (MaxBudgetPercent of its gold, less for a thrifty bot) reaches its level x MinCopperPerLevel and its last
+# visit is IntervalMinutes old. Before, a bot went there only to sell. BuyLog also counts the way to the visits.
+#    Enable             1 = on (default), 0 = off.
+#    MinCopperPerLevel  Least budget per level, in copper (default 500: 1 gold at level 20).
+#    IntervalMinutes    Least time between two shopping visits (default 60, at least 5).
+AiPlayerbot.CoaEconomy.BotAuctions.Shop.Enable = 1
+AiPlayerbot.CoaEconomy.BotAuctions.Shop.MinCopperPerLevel = 500
+AiPlayerbot.CoaEconomy.BotAuctions.Shop.IntervalMinutes = 60
 AiPlayerbot.CoaEconomy.BotAuctions.MaxPerItem = 10
 AiPlayerbot.CoaEconomy.BotAuctions.MaxPerUpgradeKit = 3
 

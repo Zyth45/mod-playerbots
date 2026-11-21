@@ -29,6 +29,14 @@ namespace CoaEconomy::BotAuctions
     // Map thread: the bot stands by an auctioneer. False when the visit is not queued (off, cooldown, queue full).
     bool RequestVisit(Player* bot, ObjectGuid auctioneer);
 
+    // 3.2 (BotAuctions.Shop.*): the bot has gold enough to buy an upgrade and its last visit is old enough, so it goes
+    // to an auctioneer even with nothing to sell.
+    bool WantsToShop(Player* bot);
+
+    // 3.2: its visit is queued and not run yet (City Life keeps the bot by its auctioneer meanwhile: the core's
+    // auction handlers refuse a bot more than 5.5 yards away).
+    bool HasPendingVisit(ObjectGuid bot);
+
     // A bot's trading character, stable per character (GUID hash), each in [0, 1]:
     //   thrift   how little of its gold it spends;
     //   patience how close to the market price it lists (an impatient bot undercuts more).

@@ -39,6 +39,7 @@
 #include "WorldSession.h"
 
 #include <algorithm>
+#include <atomic>
 #include <deque>
 #include <mutex>
 #include <unordered_map>
@@ -62,6 +63,9 @@ namespace
         uint32 maxPerUpgradeKit = 3;
         bool realHousePrices = false;
         bool buyLog = false;  // 3.2: BotAuctions.BuyLog
+        bool shopEnable = true;           // 3.2: BotAuctions.Shop.Enable
+        uint32 shopCopperPerLevel = 500;  // BotAuctions.Shop.MinCopperPerLevel
+        uint32 shopIntervalSeconds = 60 * MINUTE;  // BotAuctions.Shop.IntervalMinutes
         RealPrices::Multipliers multipliers;
     };
     Settings settings;
@@ -103,6 +107,11 @@ namespace
         settings.realHousePrices = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.BotAuctions.RealHousePrices", true);
         settings.multipliers = RealPrices::LoadMultipliers("AiPlayerbot.CoaEconomy.BotAuctions.RealPriceMultiplier");
         settings.buyLog = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.BotAuctions.BuyLog", false, false);
+        settings.shopEnable = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.BotAuctions.Shop.Enable", true, false);
+        settings.shopCopperPerLevel =
+            CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.BotAuctions.Shop.MinCopperPerLevel", 500, false);
+        settings.shopIntervalSeconds = std::max<uint32>(5,
+            CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.BotAuctions.Shop.IntervalMinutes", 60, false)) * MINUTE;
     }
 
     // 3.2 (BotAuctions.BuyLog): what the visits bought, self-found and classic bots apart; world thread only.
@@ -113,6 +122,14 @@ namespace
     } buyCounters;
     uint32 buySummaryAt = 0;
 
+    // 3.2 (BuyLog): the way to a visit. Requests and refusals on the map threads, the visit's exits on the world thread.
+    struct PathCounters
+    {
+        std::atomic<uint32> requests{0}, cooldown{0}, queueFull{0}, queued{0}, shopWants{0};
+        uint32 gone = 0, busy = 0, noAi = 0, outOfReach = 0, ran = 0;
+        double outOfReachYards = 0.0;
+    } pathCounters;
+
     void BuySummary()
     {
         uint32 const now = uint32(GameTime::GetGameTime().count());
@@ -121,6 +138,25 @@ namespace
         if (now < buySummaryAt + 3600)
             return;
         buySummaryAt = now;
+        if (settings.buyLog)
+            LOG_INFO("playerbots.loot", "auction visits (last hour): {} asked ({} for shopping), {} refused on cooldown, "
+                     "{} refused on a full queue, {} queued; {} ran, {} bots gone, {} dead or fighting, {} without AI, "
+                     "{} out of the auctioneer's reach (average {:.1f} yd)",
+                     pathCounters.requests.exchange(0), pathCounters.shopWants.exchange(0),
+                     pathCounters.cooldown.exchange(0), pathCounters.queueFull.exchange(0),
+                     pathCounters.queued.exchange(0), pathCounters.ran, pathCounters.gone, pathCounters.busy,
+                     pathCounters.noAi, pathCounters.outOfReach,
+                     pathCounters.outOfReach ? pathCounters.outOfReachYards / pathCounters.outOfReach : 0.0);
+        else
+        {
+            pathCounters.requests = 0;
+            pathCounters.shopWants = 0;
+            pathCounters.cooldown = 0;
+            pathCounters.queueFull = 0;
+            pathCounters.queued = 0;
+        }
+        pathCounters.gone = pathCounters.busy = pathCounters.noAi = pathCounters.outOfReach = pathCounters.ran = 0;
+        pathCounters.outOfReachYards = 0.0;
         if (settings.buyLog)
             for (uint32 kind = 0; kind < 2; ++kind)
                 LOG_INFO("playerbots.loot", "auction buys (last hour, {} bots): {} visits, {} without budget, {} with "
@@ -368,15 +404,32 @@ namespace
     void RunVisit(Visit const& visit)
     {
         Player* bot = ObjectAccessor::FindPlayer(visit.bot);
-        if (!bot || !bot->IsInWorld() || !bot->IsAlive() || bot->IsInCombat())
+        if (!bot || !bot->IsInWorld())
+        {
+            ++pathCounters.gone;
             return;
+        }
+        if (!bot->IsAlive() || bot->IsInCombat())
+        {
+            ++pathCounters.busy;
+            return;
+        }
         PlayerbotAI* botAI = GET_PLAYERBOT_AI(bot);
         if (!botAI)
+        {
+            ++pathCounters.noAi;
             return;
+        }
         // The core's handlers check the range again; a bot that walked off simply does nothing.
         Creature* npc = bot->GetNPCIfCanInteractWith(visit.auctioneer, UNIT_NPC_FLAG_AUCTIONEER);
         if (!npc)
+        {
+            ++pathCounters.outOfReach;
+            if (Creature* there = ObjectAccessor::GetCreature(*bot, visit.auctioneer))
+                pathCounters.outOfReachYards += bot->GetDistance(there);
             return;
+        }
+        ++pathCounters.ran;
 
         Traits const traits = TraitsFor(bot->GetGUID());
         LOG_DEBUG("playerbots.coa", "CoaEconomy: {} visits the auctioneer", bot->GetName());
@@ -533,15 +586,48 @@ bool RequestVisit(Player* bot, ObjectGuid auctioneer)
     if (!settings.enabled || !bot)
         return false;
     uint32 const now = uint32(GameTime::GetGameTime().count());
+    ++pathCounters.requests;
     std::lock_guard<std::mutex> guard(queueLock);
     uint32& last = lastVisit[bot->GetGUID().GetCounter()];
     if (last && now < last + settings.cooldownSeconds)
+    {
+        ++pathCounters.cooldown;
         return false;
+    }
     if (queue.size() >= MaxQueue)
+    {
+        ++pathCounters.queueFull;
         return false;
+    }
     last = now;
     queue.push_back({bot->GetGUID(), auctioneer});
+    ++pathCounters.queued;
     return true;
+}
+
+bool WantsToShop(Player* bot)
+{
+    if (!settings.enabled || !settings.shopEnable || !bot)
+        return false;
+    uint64 const budget = CoaEconomyRules::BotBudget(bot->GetMoney(), settings.maxBudgetPercent, TraitsFor(bot->GetGUID()).thrift);
+    if (!CoaEconomyRules::WantsToShop(budget, bot->GetLevel(), settings.shopCopperPerLevel))
+        return false;
+    uint32 const now = uint32(GameTime::GetGameTime().count());
+    std::lock_guard<std::mutex> guard(queueLock);
+    auto found = lastVisit.find(bot->GetGUID().GetCounter());
+    if (!CoaEconomyRules::ShopDue(now, found == lastVisit.end() ? 0 : found->second, settings.shopIntervalSeconds))
+        return false;
+    ++pathCounters.shopWants;
+    return true;
+}
+
+bool HasPendingVisit(ObjectGuid bot)
+{
+    std::lock_guard<std::mutex> guard(queueLock);
+    for (Visit const& visit : queue)
+        if (visit.bot == bot)
+            return true;
+    return false;
 }
 
 } // namespace CoaEconomy::BotAuctions

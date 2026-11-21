@@ -812,6 +812,18 @@ inline std::uint64_t BotBudget(std::uint64_t money, std::uint32_t maxPercent, fl
     return std::uint64_t(double(money) * maxPercent / 100.0 * (1.0 - 0.7 * std::clamp(thrift, 0.0f, 1.0f)));
 }
 
+// 3.2 (BotAuctions.Shop): a bot with no loot to sell still goes to the auction house to buy, when its visit budget
+// reaches level x copperPerLevel (a green weapon for a few gold) and its last visit is intervalSeconds old.
+inline bool WantsToShop(std::uint64_t budget, std::uint32_t level, std::uint32_t copperPerLevel)
+{
+    return budget > 0 && budget >= std::uint64_t(level) * copperPerLevel;
+}
+
+inline bool ShopDue(std::uint32_t now, std::uint32_t lastVisit, std::uint32_t intervalSeconds)
+{
+    return !lastVisit || now >= lastVisit + intervalSeconds;
+}
+
 // ---- Artisans (Craft/CoaArtisans, Craft/CoaCraftOrders) ----
 
 inline bool IsProfitable(std::uint64_t productValue, std::uint64_t materialCost, std::uint32_t minProfitPercent)

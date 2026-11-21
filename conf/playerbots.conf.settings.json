@@ -1132,6 +1132,38 @@
    "new_in": "3.2"
   },
   {
+   "key": "AiPlayerbot.CoaEconomy.BotAuctions.Shop.Enable",
+   "group": "economy",
+   "title": "Bots go to the auction house to buy",
+   "description": "A bot with nothing to sell still goes to the auction house to buy an upgrade or a bag when it has gold enough, at most once an hour.",
+   "type": "bool",
+   "default": true,
+   "coa": true,
+   "new_in": "3.2"
+  },
+  {
+   "key": "AiPlayerbot.CoaEconomy.BotAuctions.Shop.MinCopperPerLevel",
+   "group": "economy",
+   "title": "Shopping budget per level (copper)",
+   "description": "A bot goes shopping when what it may spend in a visit reaches its level times this many copper (500: 1 gold at level 20).",
+   "type": "int",
+   "default": 500,
+   "coa": true,
+   "min": 0,
+   "new_in": "3.2"
+  },
+  {
+   "key": "AiPlayerbot.CoaEconomy.BotAuctions.Shop.IntervalMinutes",
+   "group": "economy",
+   "title": "Minutes between two shopping visits",
+   "description": "Least time between two shopping visits of a bot (at least 5).",
+   "type": "int",
+   "default": 60,
+   "coa": true,
+   "min": 5,
+   "new_in": "3.2"
+  },
+  {
    "key": "AiPlayerbot.CoaCombat.MoltenCore.Enable",
    "group": "combat",
    "title": "Molten Core fixes",
