@@ -27,6 +27,7 @@
 #include "Playerbots.h"
 #include "RandomPlayerbotMgr.h"
 #include "ScriptMgr.h"
+#include "WorldSession.h"
 
 #include <cfloat>
 #include <cmath>
@@ -35,6 +36,7 @@
 #include <iomanip>
 #include <sstream>
 #include <type_traits>
+#include <unordered_map>
 #include <variant>
 
 using namespace Acore::ChatCommands;
@@ -45,6 +47,9 @@ namespace
 {
     bool enabled = true;
     std::string fileName = "squidbots_why.log";
+    bool gmOnly = false;          // AiPlayerbot.CoaWhy.GmOnly
+    uint32 cooldownMs = 5000;     // AiPlayerbot.CoaWhy.Cooldown (seconds)
+    std::unordered_map<uint64, uint64> lastAsked;  // player guid -> when (world thread)
 
     uint64 NowMs() { return uint64(GameTime::GetGameTimeMS().count()); }
 
@@ -205,6 +210,26 @@ namespace
             handler->SendSysMessage("[SquidBots why] off (AiPlayerbot.CoaWhy.Enable = 0).");
             return true;
         }
+        // Open to every account (a command refused to a player account would be said aloud in /say when the realm
+        // has AllowPlayerCommands = 0); GmOnly keeps it to game masters, with an answer, never in silence.
+        WorldSession* session = handler->GetSession();
+        if (gmOnly && session && session->GetSecurity() < SEC_GAMEMASTER)
+        {
+            handler->SendSysMessage("[SquidBots why] GM account needed.");
+            return true;
+        }
+        if (session && session->GetPlayer() && cooldownMs)
+        {
+            uint64& last = lastAsked[session->GetPlayer()->GetGUID().GetRawValue()];
+            uint64 const now = NowMs();
+            if (last && now < last + cooldownMs)
+            {
+                handler->PSendSysMessage("[SquidBots why] wait {} s between two questions.",
+                                         (last + cooldownMs - now + 999) / 1000);
+                return true;
+            }
+            last = now;
+        }
         if (!target)
             target = PlayerIdentifier::FromTarget(handler);
         Player* bot = target ? target->GetConnectedPlayer() : nullptr;
@@ -263,7 +288,7 @@ namespace
         ChatCommandTable GetCommands() const override
         {
             static ChatCommandTable squidbotsTable = {
-                {"why", HandleWhy, SEC_GAMEMASTER, Console::No},
+                {"why", HandleWhy, SEC_PLAYER, Console::No},
             };
             static ChatCommandTable commandTable = {
                 {"squidbots", squidbotsTable},
@@ -281,6 +306,8 @@ namespace
         {
             enabled = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaWhy.Enable", true, false);
             fileName = sConfigMgr->GetOption<std::string>("AiPlayerbot.CoaWhy.File", "squidbots_why.log", false);
+            gmOnly = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaWhy.GmOnly", false, false);
+            cooldownMs = 1000 * sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaWhy.Cooldown", 5, false);
         }
     };
 }  // namespace

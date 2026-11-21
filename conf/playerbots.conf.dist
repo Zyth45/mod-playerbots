@@ -681,7 +681,8 @@ AiPlayerbot.CoaMoveAudit.SampleMs = 300
 AiPlayerbot.CoaMoveAudit.ThrottleSeconds = 10
 AiPlayerbot.CoaMoveAudit.File = "coa_move_audit.jsonl"
 
-# ".squidbots why" (3.2), for a game master account, on a selected bot or a bot's name (.squidbots why [name]):
+# ".squidbots why" (3.2), for every account (GmOnly = 1: game master accounts only, the others are told so), on a
+# selected bot or a bot's name (.squidbots why [name]), once per Cooldown seconds per player:
 # what the bot is doing, in the chat and as one line in File (in the server's LogsDir) to send us: its name, level,
 # zone and position, its RPG status and since when, its destination and the NPC, object or quest it goes to, the
 # path the core would give it there now (NORMAL, INCOMPLETE, NOPATH...), its last move and action, how long it has
@@ -689,6 +690,8 @@ AiPlayerbot.CoaMoveAudit.File = "coa_move_audit.jsonl"
 # Default: 1 (enabled)
 AiPlayerbot.CoaWhy.Enable = 1
 AiPlayerbot.CoaWhy.File = "squidbots_why.log"
+AiPlayerbot.CoaWhy.GmOnly = 0
+AiPlayerbot.CoaWhy.Cooldown = 5
 
 # The achievements a random bot earns in its first minutes online (Level 10 ... 60 when it is levelled at login, the
 # professions) stay earned but are not announced to its guild, the players around it or the realm, for this many

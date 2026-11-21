@@ -14,9 +14,10 @@ class Player;
 class PlayerbotAI;
 
 // CoA 3.2 (AiPlayerbot.CoaWhy.Enable = 1, the user's go of 21/11): ".squidbots why" on a selected bot (or a bot's
-// name), for a game master account: what the bot is doing (its RPG status and destination, the NPC or object it
-// goes to, the path it would get there, its last move and action, how long it has stood still), in the chat and as
-// one line in a file of its own (AiPlayerbot.CoaWhy.File) that the player can send us.
+// name), for every account (CoaWhy.GmOnly = 1: game masters only), once per CoaWhy.Cooldown seconds per player:
+// what the bot is doing (its RPG status and destination, the NPC or object it goes to, the path it would get there,
+// its last move and action, how long it has stood still), in the chat and as one line in a file of its own
+// (AiPlayerbot.CoaWhy.File) that the player can send us.
 namespace CoaBotWhy
 {
 // What the bot keeps for the command, on its own AI (written on its update, read by the command on the world thread).
