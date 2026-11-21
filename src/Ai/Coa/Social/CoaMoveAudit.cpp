@@ -56,6 +56,11 @@ struct AuditSample
     uint64 atMs = 0;
     std::unordered_map<std::string, uint64> lastLine;  // kind -> when written
     LastMove move;
+    // 3.2 "pingpong": the current window (where it began, the furthest from there, the ground walked).
+    uint64 pingStartMs = 0;
+    uint32 pingMapId = 0;
+    float pingX = 0.0f, pingY = 0.0f, pingSpan = 0.0f, pingTravel = 0.0f;
+    bool pingSpoiled = false;  // a fight, a flight, water... in the window: not judged
 };
 
 std::mutex stateLock;
@@ -270,9 +275,40 @@ void Tick(PlayerbotAI* botAI)
 
     std::vector<std::string> due;
     LastMove move;
+    float pingTravel = 0.0f, pingSpan = 0.0f;
     {
         std::lock_guard<std::mutex> guard(stateLock);
         AuditSample& state = states[bot->GetGUID().GetRawValue()];
+        // 3.2: back and forth over a window out of combat.
+        if (!state.pingStartMs || state.pingMapId != bot->GetMapId() || Teleported(flat))
+        {
+            state.pingStartMs = nowMs;
+            state.pingMapId = bot->GetMapId();
+            state.pingX = x;
+            state.pingY = y;
+            state.pingSpan = state.pingTravel = 0.0f;
+            state.pingSpoiled = false;
+        }
+        else
+        {
+            state.pingTravel += flat;
+            state.pingSpan = std::max(state.pingSpan, std::hypot(x - state.pingX, y - state.pingY));
+            state.pingSpoiled |= exempt || bot->IsInCombat();
+            if (nowMs >= state.pingStartMs + PING_WINDOW_MS)
+            {
+                if (!state.pingSpoiled && PingPong(state.pingTravel, state.pingSpan))
+                {
+                    kinds.push_back("pingpong");
+                    pingTravel = state.pingTravel;
+                    pingSpan = state.pingSpan;
+                }
+                state.pingStartMs = nowMs;
+                state.pingX = x;
+                state.pingY = y;
+                state.pingSpan = state.pingTravel = 0.0f;
+                state.pingSpoiled = false;
+            }
+        }
         state.mapId = bot->GetMapId();
         state.x = x;
         state.y = y;
@@ -313,6 +349,7 @@ void Tick(PlayerbotAI* botAI)
              << ",\"combat\":" << (bot->IsInCombat() ? "true" : "false") << ",\"speed\":" << Num(bot->GetSpeed(MOVE_RUN))
              << ",\"gen\":" << Json(GeneratorName(bot->GetMotionMaster()->GetCurrentMovementGeneratorType()))
              << ",\"lastAction\":" << Json(lastAction) << ",\"rpg\":" << Json(rpg)
+             << ",\"ping\":{\"traveled\":" << Num(pingTravel) << ",\"span\":" << Num(pingSpan) << "}"
              << ",\"move\":{\"action\":" << Json(move.action) << ",\"to\":[" << Num(move.x) << "," << Num(move.y) << ","
              << Num(move.z) << "],\"path\":" << Json(PathTypeText(move.pathType)) << ",\"points\":" << move.points
              << ",\"ageMs\":" << (move.atMs ? nowMs - move.atMs : 0) << "}}";

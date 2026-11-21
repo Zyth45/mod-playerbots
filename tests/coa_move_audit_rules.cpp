@@ -29,5 +29,10 @@ int main()
     // Texts.
     assert(PathTypeText(0x01 | 0x04) == "NORMAL|INCOMPLETE" && PathTypeText(0) == "BLANK");
     assert(Json("a\"b\\c") == "\"a\\\"b\\\\c\"");
+    // 3.2: back and forth.
+    assert(PingPong(300.0f, 30.0f));    // 300 yards walked, never 30 from the start
+    assert(!PingPong(300.0f, 120.0f));  // it went somewhere
+    assert(!PingPong(100.0f, 30.0f));   // not enough walked
+    assert(!PingPong(300.0f, 3.0f));    // turning on the spot
     return 0;
 }

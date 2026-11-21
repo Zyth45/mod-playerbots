@@ -51,6 +51,19 @@ inline bool HeightJump(float dz, float flat, bool bothOnGround)
 }
 
 // One line per bot and per kind every throttle: true when this one is written.
+// 3.2, a bot going back and forth (the Thousand Needles canyon): over a window of PING_WINDOW_MS out of combat, it
+// walked at least PING_TRAVEL yards but never got further than PING_SPAN from where the window began (and moved at
+// least PING_MIN_SPAN, not a bot turning on the spot).
+constexpr uint64_t PING_WINDOW_MS = 180000;
+constexpr float PING_TRAVEL = 150.0f;
+constexpr float PING_SPAN = 50.0f;
+constexpr float PING_MIN_SPAN = 8.0f;
+
+inline bool PingPong(float traveled, float span)
+{
+    return traveled >= PING_TRAVEL && span <= PING_SPAN && span >= PING_MIN_SPAN;
+}
+
 inline bool Due(uint64_t lastMs, uint64_t nowMs, uint32_t throttleMs) { return !lastMs || nowMs >= lastMs + throttleMs; }
 
 // The core's PathType flags as text, for the report.

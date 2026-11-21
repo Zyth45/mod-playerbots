@@ -674,7 +674,9 @@ AiPlayerbot.CoaSelfFound.RollLog = 0
 # floor under it, not flying, falling or swimming), on a roof outdoors, crosses a wall between two samples, moves
 # far faster than it can run, teleports, or jumps more than 2 yards in height on the ground; with its last move
 # (action, path type and points, target). The fixed NPCs of a capital far from home and the oversized creatures of a
-# capital are written too. One line per bot and per kind every ThrottleSeconds. Nothing in the game changes.
+# capital are written too. 3.2: "pingpong", a bot that walked 150 yards or more in 3 minutes out of combat without
+# getting 50 yards from where it was (going back and forth). One line per bot and per kind every ThrottleSeconds.
+# Nothing in the game changes.
 # Default: 0 (off)
 AiPlayerbot.CoaMoveAudit = 0
 AiPlayerbot.CoaMoveAudit.SampleMs = 300
