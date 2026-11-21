@@ -5,6 +5,7 @@
  */
 
 #include "NewRpgAction.h"
+#include "CoaBotAuctions.h"
 #include "CoaCityLife.h"
 #include "CoaRpgTrade.h"
 #include "AreaDefines.h"
@@ -472,8 +473,14 @@ bool NewRpgWanderNpcAction::Execute(Event /*event*/)
     {
         // CoA Live City Life: on a city visit, now and then a station (inn, bank, auction house, forge, dummy).
         ObjectGuid npcOrGo = CoaCityLife::ChooseStation(botAI);
+        bool const station = !npcOrGo.IsEmpty();
         if (npcOrGo.IsEmpty())
             npcOrGo = ChooseNpcOrGameObjectToInteract();
+        // 3.2 (BuyLog): the way to an auctioneer, counted.
+        if (Creature* npc = npcOrGo.IsCreature() ? ObjectAccessor::GetCreature(*bot, npcOrGo) : nullptr)
+            if (npc->HasNpcFlag(UNIT_NPC_FLAG_AUCTIONEER))
+                CoaEconomy::BotAuctions::NoteWay(station ? CoaEconomy::BotAuctions::Way::Station
+                                                         : CoaEconomy::BotAuctions::Way::Picked);
         // No npc can be found, switch to IDLE
         if (npcOrGo.IsEmpty())
         {
@@ -521,6 +528,8 @@ bool NewRpgWanderNpcAction::Execute(Event /*event*/)
         if (!IsWaitingForLastMove(MovementPriority::MOVEMENT_NORMAL) &&
             (CoaCityLife::Holds(botAI, data.npcOrGo) || inCapital))
         {
+            if (object && object->ToCreature() && object->ToCreature()->HasNpcFlag(UNIT_NPC_FLAG_AUCTIONEER))
+                CoaEconomy::BotAuctions::NoteWay(CoaEconomy::BotAuctions::Way::GivenUp);
             CoaCityLife::Leave(botAI);
             data.npcOrGo = ObjectGuid();
             data.lastReach = 0;

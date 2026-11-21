@@ -153,6 +153,9 @@ ObjectGuid ChooseTradeNpc(PlayerbotAI* botAI, std::vector<ObjectGuid> const& tar
         if (!nearest || bot->GetExactDist(npc) < bot->GetExactDist(nearest))
             nearest = npc;
     }
+    // 3.2 (BuyLog): only the pick of the next NPC counts (distanceLimit), not the idle check of HasTradeNpcInReach.
+    if (nearest && distanceLimit > 0.0f && nearest->HasNpcFlag(UNIT_NPC_FLAG_AUCTIONEER))
+        BotAuctions::NoteWay(BotAuctions::Way::Sought);
     return nearest ? nearest->GetGUID() : ObjectGuid();
 }
 

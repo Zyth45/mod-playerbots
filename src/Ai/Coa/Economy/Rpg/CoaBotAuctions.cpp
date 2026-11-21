@@ -146,6 +146,7 @@ namespace
     struct PathCounters
     {
         std::atomic<uint32> requests{0}, cooldown{0}, queueFull{0}, queued{0}, shopWants{0};
+        std::atomic<uint32> sought{0}, picked{0}, station{0}, givenUp{0};
         uint32 gone = 0, busy = 0, noAi = 0, outOfReach = 0, ran = 0;
         double outOfReachYards = 0.0;
     } pathCounters;
@@ -169,10 +170,13 @@ namespace
             return;
         buySummaryAt = now;
         if (settings.buyLog)
-            LOG_INFO("playerbots.loot", "auction visits (last hour): {} asked ({} for shopping), {} refused on cooldown, "
+            LOG_INFO("playerbots.loot", "auction visits (last hour): {} auctioneers picked by a wander ({} by City Life, "
+                     "{} sought for business), {} given up on the way; "
+                     "{} asked ({} for shopping), {} refused on cooldown, "
                      "{} refused on a full queue, {} queued; {} ran, {} bots gone, {} dead or fighting, {} without AI, "
                      "{} out of the auctioneer's reach (average {:.1f} yd)",
-                     pathCounters.requests.exchange(0), pathCounters.shopWants.exchange(0),
+                     pathCounters.picked.exchange(0), pathCounters.station.exchange(0), pathCounters.sought.exchange(0),
+                     pathCounters.givenUp.exchange(0), pathCounters.requests.exchange(0), pathCounters.shopWants.exchange(0),
                      pathCounters.cooldown.exchange(0), pathCounters.queueFull.exchange(0),
                      pathCounters.queued.exchange(0), pathCounters.ran, pathCounters.gone, pathCounters.busy,
                      pathCounters.noAi, pathCounters.outOfReach,
@@ -184,6 +188,7 @@ namespace
             pathCounters.cooldown = 0;
             pathCounters.queueFull = 0;
             pathCounters.queued = 0;
+            pathCounters.sought = pathCounters.picked = pathCounters.station = pathCounters.givenUp = 0;
         }
         pathCounters.gone = pathCounters.busy = pathCounters.noAi = pathCounters.outOfReach = pathCounters.ran = 0;
         pathCounters.outOfReachYards = 0.0;
@@ -845,6 +850,19 @@ bool RequestVisit(Player* bot, ObjectGuid auctioneer)
     queue.push_back({bot->GetGUID(), auctioneer});
     ++pathCounters.queued;
     return true;
+}
+
+void NoteWay(Way way)
+{
+    if (!settings.buyLog)
+        return;
+    switch (way)
+    {
+        case Way::Sought: ++pathCounters.sought; break;
+        case Way::Picked: ++pathCounters.picked; break;
+        case Way::Station: ++pathCounters.station; break;
+        case Way::GivenUp: ++pathCounters.givenUp; break;
+    }
 }
 
 bool WantsToShop(Player* bot)
