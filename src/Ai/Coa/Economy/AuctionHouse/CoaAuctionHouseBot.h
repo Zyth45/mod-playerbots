@@ -454,6 +454,8 @@ public:
     const char* GetQualityName(ItemQualities quality);
     const char* GetCategoryName(ItemClass category);
     uint32 GetStackSizeForItem(ItemTemplate const* itemProto) const;
+    // 3.2: the largest stack listed for the item: its class cap (MaxStackSize.*), at most the item's own.
+    uint32 ListingStackCap(ItemTemplate const* itemProto) const;
     void CalculateItemValue(ItemTemplate const* itemProto, uint64& outBidPrice, uint64& outBuyoutPrice);
     void PopulateItemDropChances();
     void PopulateItemDropChancesForCategoryAndQuality(ItemClass category, std::string qualities);
