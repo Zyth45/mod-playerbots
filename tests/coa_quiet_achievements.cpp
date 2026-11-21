@@ -34,5 +34,9 @@ int main()
     first.insert(first.end(), {1, 0, 0, 0});
     assert(ServerFirstSender(first.data(), first.size(), sender) && sender == 0x99);
     assert(!ServerFirstSender(first.data(), 5, sender));
+    // 3.2: the first minutes online.
+    assert(CoaQuietAchievements::InLoginWindow(1000, 181000));
+    assert(!CoaQuietAchievements::InLoginWindow(181000, 181000));
+    assert(!CoaQuietAchievements::InLoginWindow(5000, 0));
     return 0;
 }

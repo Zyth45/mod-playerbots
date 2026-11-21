@@ -31,6 +31,7 @@
 #include "ObjectAccessor.h"
 #include "ObjectMgr.h"
 #include "Player.h"
+#include "PlayerbotFactory.h"
 #include "PlayerbotAI.h"
 #include "Playerbots.h"
 #include "ScriptMgr.h"
@@ -60,6 +61,7 @@ namespace
         uint32 maxPerItem = 10;
         uint32 maxPerUpgradeKit = 3;
         bool realHousePrices = false;
+        bool buyLog = false;  // 3.2: BotAuctions.BuyLog
         RealPrices::Multipliers multipliers;
     };
     Settings settings;
@@ -100,6 +102,32 @@ namespace
         settings.maxPerUpgradeKit = CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.BotAuctions.MaxPerUpgradeKit", 3);
         settings.realHousePrices = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.BotAuctions.RealHousePrices", true);
         settings.multipliers = RealPrices::LoadMultipliers("AiPlayerbot.CoaEconomy.BotAuctions.RealPriceMultiplier");
+        settings.buyLog = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.BotAuctions.BuyLog", false, false);
+    }
+
+    // 3.2 (BotAuctions.BuyLog): what the visits bought, self-found and classic bots apart; world thread only.
+    struct BuyCounters
+    {
+        uint32 visits[2] = {0, 0}, noBudget[2] = {0, 0}, nothing[2] = {0, 0}, upgrades[2] = {0, 0}, bags[2] = {0, 0};
+        uint64 spent[2] = {0, 0};
+    } buyCounters;
+    uint32 buySummaryAt = 0;
+
+    void BuySummary()
+    {
+        uint32 const now = uint32(GameTime::GetGameTime().count());
+        if (!buySummaryAt)
+            buySummaryAt = now;
+        if (now < buySummaryAt + 3600)
+            return;
+        buySummaryAt = now;
+        if (settings.buyLog)
+            for (uint32 kind = 0; kind < 2; ++kind)
+                LOG_INFO("playerbots.loot", "auction buys (last hour, {} bots): {} visits, {} without budget, {} with "
+                         "nothing worth it, {} upgrades and {} bags bought for {}c", kind ? "self-found" : "classic",
+                         buyCounters.visits[kind], buyCounters.noBudget[kind], buyCounters.nothing[kind],
+                         buyCounters.upgrades[kind], buyCounters.bags[kind], buyCounters.spent[kind]);
+        buyCounters = BuyCounters();
     }
 
     // The price a bot asks for one item: the market's learned price, else the house's, else a vendor-based guess.
@@ -269,8 +297,13 @@ namespace
     {
         // A thrifty bot spends down to 30 % of its share.
         uint64 const budget = CoaEconomyRules::BotBudget(bot->GetMoney(), settings.maxBudgetPercent, traits.thrift);
+        uint32 const kind = PlayerbotFactory::SelfFoundAt(bot->GetLevel()) || PlayerbotFactory::IsSelfFoundBot(bot) ? 1 : 0;
+        ++buyCounters.visits[kind];
         if (!budget)
+        {
+            ++buyCounters.noBudget[kind];
             return false;
+        }
 
         AuctionHouseObject* house = sAuctionMgr->GetAuctionsMap(npc->GetFaction());
         if (!house)
@@ -315,7 +348,16 @@ namespace
 
         AuctionEntry const* pick = best ? best : bestBag;
         if (!pick)
+        {
+            ++buyCounters.nothing[kind];
             return false;
+        }
+        ++(best ? buyCounters.upgrades[kind] : buyCounters.bags[kind]);
+        buyCounters.spent[kind] += pick->buyout;
+        if (settings.buyLog)
+            LOG_INFO("playerbots.loot", "auction buy: {} (level {}, {}, {}c, budget {}c) bought {} for {}c ({}, gain {:.1f})",
+                     bot->GetName(), bot->GetLevel(), kind ? "self-found" : "classic", bot->GetMoney(), budget,
+                     pick->item_template, pick->buyout, best ? "an upgrade" : "a bag", best ? bestGain : 0.0f);
 
         WorldPacket packet(CMSG_AUCTION_PLACE_BID);
         packet << auctioneer << uint32(pick->Id) << uint32(pick->buyout);
@@ -372,6 +414,7 @@ namespace
 
     void ProcessQueue()
     {
+        BuySummary();
         for (uint32 i = 0; i < settings.visitsPerTick; ++i)
         {
             Visit visit;

@@ -690,6 +690,13 @@ AiPlayerbot.CoaMoveAudit.File = "coa_move_audit.jsonl"
 AiPlayerbot.CoaWhy.Enable = 1
 AiPlayerbot.CoaWhy.File = "squidbots_why.log"
 
+# The achievements a random bot earns in its first minutes online (Level 10 ... 60 when it is levelled at login, the
+# professions) stay earned but are not announced to its guild, the players around it or the realm, for this many
+# minutes after it is loaded; then its achievements are announced as before. Never a real player, never a player's
+# alt bot. 0: every achievement announced.
+# Default: 3
+AiPlayerbot.Coa.HideLoginAchievementsMinutes = 3
+
 # Self-found random bots in dungeons: share of the random bots (0 to 100 percent, picked by character whatever
 # its level, always the same ones) that wear only what they loot, earn from quests or are traded from level 10 on.
 # No gear, gems, enchantments, level roll or level bracket is given to them, and the autogear and bis commands are
@@ -5835,6 +5842,12 @@ AiPlayerbot.CoaEconomy.BotAuctions.MaxBudgetPercent = 30
 AiPlayerbot.CoaEconomy.BotAuctions.VisitsPerTick = 2
 AiPlayerbot.CoaEconomy.BotAuctions.DurationHours = 24
 AiPlayerbot.CoaEconomy.BotAuctions.MaxScan = 300
+
+# Diagnostic (3.2): each piece or bag a bot buys at an auction house visit (its gold, its budget, the gain), and once an
+# hour the counts of the self-found and the classic bots apart (visits, visits without budget or with nothing worth
+# it, upgrades and bags bought, gold spent), in the playerbots.loot log (BotLoot.log).
+# Default: 0 (off)
+AiPlayerbot.CoaEconomy.BotAuctions.BuyLog = 0
 AiPlayerbot.CoaEconomy.BotAuctions.MaxPerItem = 10
 AiPlayerbot.CoaEconomy.BotAuctions.MaxPerUpgradeKit = 3
 

@@ -1,0 +1,2 @@
+### No burst of bot achievements when a bot comes online
+The achievements a random bot earns in its first three minutes online (Level 10 to 60 when it is levelled at login) stay earned but are no longer announced in your guild, around you or to the realm; after that its achievements are announced as before. Never a real player or your own alts (`AiPlayerbot.Coa.HideLoginAchievementsMinutes`, 0 to turn it off).

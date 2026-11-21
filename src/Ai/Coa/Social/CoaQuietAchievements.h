@@ -43,6 +43,12 @@ inline bool AchievementChatSender(uint8_t const* body, size_t size, uint64_t& se
     return true;
 }
 
+// CoA 3.2 (AiPlayerbot.Coa.HideLoginAchievementsMinutes = 3, the user's go of 21/11): a random bot that comes online
+// earns a run of achievements in its first minutes (Level 10 ... 60 when it is levelled at login): they stay earned,
+// they are not announced to its guild, the players around it or the realm until that many minutes after it was
+// loaded; then its achievements are announced as before. Never a real player, never a player's alt bot.
+inline bool InLoginWindow(uint64_t nowMs, uint64_t untilMs) { return nowMs < untilMs; }
+
 // A SMSG_SERVER_FIRST_ACHIEVEMENT body: the name (a C string), then the player's guid.
 inline bool ServerFirstSender(uint8_t const* body, size_t size, uint64_t& sender)
 {

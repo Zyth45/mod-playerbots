@@ -23,6 +23,7 @@
 {"AiPlayerbot.CoaEconomy.Artisans.Stock.MaxStacks", R"coa(2)coa"},
 {"AiPlayerbot.CoaEconomy.AuctionClock.Enable", R"coa(1)coa"},
 {"AiPlayerbot.CoaEconomy.AuctionClock.MaxPauseDays", R"coa(30)coa"},
+{"AiPlayerbot.CoaEconomy.BotAuctions.BuyLog", R"coa(0)coa"},
 {"AiPlayerbot.CoaEconomy.BotAuctions.DurationHours", R"coa(24)coa"},
 {"AiPlayerbot.CoaEconomy.BotAuctions.Enable", R"coa(1)coa"},
 {"AiPlayerbot.CoaEconomy.BotAuctions.ListPerVisit", R"coa(3)coa"},
