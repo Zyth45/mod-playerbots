@@ -344,10 +344,13 @@ namespace
         Materials::Process(bot, botAI);
         // Guild stock: intermediates from the bot's own materials, and the extra full stacks to its bank.
         Materials::TendGuildStock(bot);
-        // 3.2: the best upgrade it can make for itself with the reagents it holds, worn at once.
-        Artisans::CraftUpgradeForSelf(bot, botAI);
-        // 3.2: an enchanter enchants a piece it wears, with the reagents it holds.
-        Artisans::EnchantForSelf(bot);
+        // 3.2: its hourly study (craft or enchant for itself, missing reagents bought), when due; else, with
+        // SelfStudy off, what it can make with the reagents it holds.
+        if (!Artisans::StudyIfDue(bot, botAI))
+        {
+            Artisans::CraftUpgradeForSelf(bot, botAI);
+            Artisans::EnchantForSelf(bot);
+        }
 
         // An artisan makes a piece worth more than its materials and puts it up with its loot.
         Item* crafted = nullptr;

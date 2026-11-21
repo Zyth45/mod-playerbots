@@ -5899,6 +5899,21 @@ AiPlayerbot.CoaEconomy.CraftForSelf.Log = 0
 AiPlayerbot.CoaEconomy.EnchantForSelf.Enable = 1
 AiPlayerbot.CoaEconomy.EnchantForSelf.Log = 0
 
+# Self study: at most once per IntervalMinutes, a random bot in a capital studies what it could craft or enchant for
+# itself (the two keys above) and buys the reagents it lacks, a vendor's first, the auction house's next (reagents
+# only, never a finished item), for at most MaxGoldPercent of its gold and MaxCopperPerLevel times its level, and only
+# when the piece gains at least MinGainPercent over what it replaces. BuyReagents = 0: only the reagents it holds.
+# Log: each study, and once an hour the counts (studies, crafted, enchanted, short of reagents, reagents bought at a
+# vendor and at the auction house, gold spent), in the playerbots.loot log (BotLoot.log).
+# Default: 1 (enabled), 60 minutes, 1, 10 %, 2500 copper per level, 5 %; Log: 0 (disabled)
+AiPlayerbot.CoaEconomy.SelfStudy.Enable = 1
+AiPlayerbot.CoaEconomy.SelfStudy.IntervalMinutes = 60
+AiPlayerbot.CoaEconomy.SelfStudy.BuyReagents = 1
+AiPlayerbot.CoaEconomy.SelfStudy.MaxGoldPercent = 10
+AiPlayerbot.CoaEconomy.SelfStudy.MaxCopperPerLevel = 2500
+AiPlayerbot.CoaEconomy.SelfStudy.MinGainPercent = 5
+AiPlayerbot.CoaEconomy.SelfStudy.Log = 0
+
 # Craft on order and artisans in Trade, with CoA Live's lines (bank 3_0_05 of CoA IA MIND) and COD mail. Needs
 # Artisans, and AiPlayerbot.CoaLive.Enable = 1 (without it nothing is said and no order is taken).
 # A player whispers "can you make [item]?" to a bot that knows the recipe: it quotes the market value of the piece
