@@ -68,7 +68,7 @@ namespace
         bool realHousePrices = false;
         bool buyLog = false;  // 3.2: BotAuctions.BuyLog
         bool shopEnable = true;           // 3.2: BotAuctions.Shop.Enable
-        uint32 shopCopperPerLevel = 500;  // BotAuctions.Shop.MinCopperPerLevel
+        uint32 shopCopperPerLevel = 200;  // BotAuctions.Shop.MinCopperPerLevel
         uint32 shopIntervalSeconds = 60 * MINUTE;  // BotAuctions.Shop.IntervalMinutes
         // 3.2: buying and selling from afar (CoaEconomy.RemoteBuy.*, RemoteSell.*), random bots only.
         bool remoteBuy = true;
@@ -120,7 +120,7 @@ namespace
         settings.buyLog = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.BotAuctions.BuyLog", false, false);
         settings.shopEnable = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.BotAuctions.Shop.Enable", true, false);
         settings.shopCopperPerLevel =
-            CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.BotAuctions.Shop.MinCopperPerLevel", 500, false);
+            CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.BotAuctions.Shop.MinCopperPerLevel", 200, false);
         settings.shopIntervalSeconds = std::max<uint32>(5,
             CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.BotAuctions.Shop.IntervalMinutes", 60, false)) * MINUTE;
         settings.remoteBuy = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.RemoteBuy.Enable", true, false);

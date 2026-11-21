@@ -1156,9 +1156,9 @@
    "key": "AiPlayerbot.CoaEconomy.BotAuctions.Shop.MinCopperPerLevel",
    "group": "economy",
    "title": "Shopping budget per level (copper)",
-   "description": "A bot goes shopping when what it may spend in a visit reaches its level times this many copper (500: 1 gold at level 20).",
+   "description": "A bot goes shopping when what it may spend in a visit reaches its level times this many copper (200: 40 silver at level 20, about 2 gold carried).",
    "type": "int",
-   "default": 500,
+   "default": 200,
    "coa": true,
    "min": 0,
    "new_in": "3.2"

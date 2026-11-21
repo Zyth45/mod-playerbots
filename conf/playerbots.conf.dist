@@ -5864,10 +5864,10 @@ AiPlayerbot.CoaEconomy.BotAuctions.BuyLog = 0
 # in a visit (MaxBudgetPercent of its gold, less for a thrifty bot) reaches its level x MinCopperPerLevel and its last
 # visit is IntervalMinutes old. Before, a bot went there only to sell. BuyLog also counts the way to the visits.
 #    Enable             1 = on (default), 0 = off.
-#    MinCopperPerLevel  Least budget per level, in copper (default 500: 1 gold at level 20).
+#    MinCopperPerLevel  Least budget per level, in copper (default 200: 40 silver at level 20, about 2 gold carried).
 #    IntervalMinutes    Least time between two shopping visits (default 60, at least 5).
 AiPlayerbot.CoaEconomy.BotAuctions.Shop.Enable = 1
-AiPlayerbot.CoaEconomy.BotAuctions.Shop.MinCopperPerLevel = 500
+AiPlayerbot.CoaEconomy.BotAuctions.Shop.MinCopperPerLevel = 200
 AiPlayerbot.CoaEconomy.BotAuctions.Shop.IntervalMinutes = 60
 
 # 3.2: random bots also trade at their faction's auction house from where they are, without going there (never a
