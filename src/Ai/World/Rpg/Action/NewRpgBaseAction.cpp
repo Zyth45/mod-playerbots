@@ -9,6 +9,7 @@
 
 #include "CoaWorldBots.h"  // CoA World: CoaWorldQuestQuarantined, CoaWorldAreaTooHigh
 #include "CoaRpgTrade.h"
+#include "CoaBotAuctions.h"
 #include "CoaSafeMove.h"
 #include "CoaQuestLogRules.h"
 #include "NewRpgBaseAction.h"
@@ -815,7 +816,13 @@ ObjectGuid NewRpgBaseAction::ChooseNpcOrGameObjectToInteract(bool questgiverOnly
     {
         ObjectGuid const tradeNpc = CoaEconomy::RpgTrade::ChooseTradeNpc(botAI, possibleTargets, distanceLimit);
         if (!tradeNpc.IsEmpty())
+        {
+            // 3.2 (BuyLog): an auctioneer its business picked.
+            if (Creature* npc = ObjectAccessor::GetCreature(*bot, tradeNpc))
+                if (npc->HasNpcFlag(UNIT_NPC_FLAG_AUCTIONEER))
+                    CoaEconomy::BotAuctions::NoteWay(CoaEconomy::BotAuctions::Way::Sought);
             return tradeNpc;
+        }
     }
 
     if (possibleTargets.empty())

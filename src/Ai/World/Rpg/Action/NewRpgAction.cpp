@@ -352,6 +352,12 @@ bool NewRpgStatusUpdateAction::Execute(Event /*event*/)
         {
             if (info.HasStatusPersisted(info.cityStayMs ? info.cityStayMs : statusWanderNpcDuration))
             {
+                // 3.2 (BuyLog): an auctioneer the wander never got to.
+                if (auto const* wander = std::get_if<NewRpgInfo::WanderNpc>(&info.data))
+                    if (!wander->lastReach && wander->npcOrGo.IsCreature())
+                        if (Creature* npc = ObjectAccessor::GetCreature(*bot, wander->npcOrGo))
+                            if (npc->HasNpcFlag(UNIT_NPC_FLAG_AUCTIONEER))
+                                CoaEconomy::BotAuctions::NoteWay(CoaEconomy::BotAuctions::Way::TimedOut);
                 info.ChangeToIdle();
                 return true;
             }

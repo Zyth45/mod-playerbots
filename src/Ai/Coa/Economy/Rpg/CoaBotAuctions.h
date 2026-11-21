@@ -39,8 +39,9 @@ namespace CoaEconomy::BotAuctions
 
     // 3.2 (BuyLog): the way of a bot to an auctioneer, before RequestVisit, counted for the hourly "auction visits"
     // line. Sought: its business picked the auctioneer as the next NPC; Picked: a wander took an auctioneer as its
-    // target (Station: City Life's pick); GivenUp: the wander dropped it, no walkable way in a capital.
-    enum class Way { Sought, Picked, Station, GivenUp };
+    // target (Station: City Life's pick); GivenUp: the wander dropped it, no walkable way in a capital; TimedOut: the
+    // wander ended before the bot got there. Reached is "asked" (RequestVisit runs at every auctioneer reached).
+    enum class Way { Sought, Picked, Station, GivenUp, TimedOut };
     void NoteWay(Way way);
 
     // A bot's trading character, stable per character (GUID hash), each in [0, 1]:
