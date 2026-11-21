@@ -5863,6 +5863,23 @@ AiPlayerbot.CoaEconomy.BotAuctions.BuyLog = 0
 AiPlayerbot.CoaEconomy.BotAuctions.Shop.Enable = 1
 AiPlayerbot.CoaEconomy.BotAuctions.Shop.MinCopperPerLevel = 500
 AiPlayerbot.CoaEconomy.BotAuctions.Shop.IntervalMinutes = 60
+
+# 3.2: random bots also trade at their faction's auction house from where they are, without going there (never a
+# player's bot or alt, never in combat, in a dungeon or a battleground). The auctions are real ones, through the same
+# steps as the core's: deposit, cut, the seller paid, the item by mail.
+#    RemoteBuy.Enable            1 = on (default): once per RemoteBuy.IntervalMinutes (default 60) a bot buys the best
+#                                upgrade it can afford (the visit's budget and gear score) and wears it.
+#    RemoteSell.Enable           1 = on (default): once per RemoteSell.IntervalMinutes (default 120) a bot lists up to
+#                                RemoteSell.MaxItems (default 2) of what a visit would list, at the same price, only when
+#                                the house pays more than the vendor after its cut.
+#    RemoteTrade.MaxBotsPerPass  Bots served per pass, one pass every 30 s (default 20); the turns are spread over the
+#                                interval. BuyLog counts the turns, buys, listings and the time of the passes.
+AiPlayerbot.CoaEconomy.RemoteBuy.Enable = 1
+AiPlayerbot.CoaEconomy.RemoteBuy.IntervalMinutes = 60
+AiPlayerbot.CoaEconomy.RemoteSell.Enable = 1
+AiPlayerbot.CoaEconomy.RemoteSell.IntervalMinutes = 120
+AiPlayerbot.CoaEconomy.RemoteSell.MaxItems = 2
+AiPlayerbot.CoaEconomy.RemoteTrade.MaxBotsPerPass = 20
 AiPlayerbot.CoaEconomy.BotAuctions.MaxPerItem = 10
 AiPlayerbot.CoaEconomy.BotAuctions.MaxPerUpgradeKit = 3
 

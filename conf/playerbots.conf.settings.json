@@ -1164,6 +1164,70 @@
    "new_in": "3.2"
   },
   {
+   "key": "AiPlayerbot.CoaEconomy.RemoteBuy.Enable",
+   "group": "economy",
+   "title": "Bots buy upgrades from afar",
+   "description": "Random bots buy at their faction's auction house from where they are, once an hour: the best upgrade they can afford, worn at once. Real auctions: the seller is paid.",
+   "type": "bool",
+   "default": true,
+   "coa": true,
+   "new_in": "3.2"
+  },
+  {
+   "key": "AiPlayerbot.CoaEconomy.RemoteBuy.IntervalMinutes",
+   "group": "economy",
+   "title": "Minutes between two remote buys",
+   "description": "How often a bot buys from afar (at least 5).",
+   "type": "int",
+   "default": 60,
+   "coa": true,
+   "min": 5,
+   "new_in": "3.2"
+  },
+  {
+   "key": "AiPlayerbot.CoaEconomy.RemoteSell.Enable",
+   "group": "economy",
+   "title": "Bots list loot from afar",
+   "description": "Random bots list a few items at their faction's auction house from where they are, every two hours, at the usual price, only when the house pays more than the vendor.",
+   "type": "bool",
+   "default": true,
+   "coa": true,
+   "new_in": "3.2"
+  },
+  {
+   "key": "AiPlayerbot.CoaEconomy.RemoteSell.IntervalMinutes",
+   "group": "economy",
+   "title": "Minutes between two remote listings",
+   "description": "How often a bot lists from afar (at least 5).",
+   "type": "int",
+   "default": 120,
+   "coa": true,
+   "min": 5,
+   "new_in": "3.2"
+  },
+  {
+   "key": "AiPlayerbot.CoaEconomy.RemoteSell.MaxItems",
+   "group": "economy",
+   "title": "Items listed from afar",
+   "description": "Items a bot lists at most from afar each time.",
+   "type": "int",
+   "default": 2,
+   "coa": true,
+   "min": 0,
+   "new_in": "3.2"
+  },
+  {
+   "key": "AiPlayerbot.CoaEconomy.RemoteTrade.MaxBotsPerPass",
+   "group": "economy",
+   "title": "Bots per remote trade pass",
+   "description": "Bots served per pass (one pass every 30 seconds); the others keep their turn for the next pass.",
+   "type": "int",
+   "default": 20,
+   "coa": true,
+   "min": 1,
+   "new_in": "3.2"
+  },
+  {
    "key": "AiPlayerbot.CoaCombat.MoltenCore.Enable",
    "group": "combat",
    "title": "Molten Core fixes",

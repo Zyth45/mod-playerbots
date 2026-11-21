@@ -82,5 +82,12 @@ int main()
     assert(ShopDue(100, 0, 3600));
     assert(!ShopDue(3000, 100, 3600));
     assert(ShopDue(3700, 100, 3600));
+    // 3.2: from afar, only what beats the vendor after the cut (5 %).
+    assert(RemoteSellBeatsVendor(1000, 5, 900));
+    assert(!RemoteSellBeatsVendor(1000, 5, 950));
+    assert(!RemoteSellBeatsVendor(1000, 200, 0));
+    assert(FirstRemoteTurn(100, 0.0f, 3600) == 100);
+    assert(FirstRemoteTurn(100, 0.5f, 3600) == 1900);
+    assert(FirstRemoteTurn(100, 1.0f, 3600) < 3700);
     return 0;
 }

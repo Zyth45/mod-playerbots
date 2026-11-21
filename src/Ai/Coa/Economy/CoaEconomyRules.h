@@ -819,6 +819,20 @@ inline bool WantsToShop(std::uint64_t budget, std::uint32_t level, std::uint32_t
     return budget > 0 && budget >= std::uint64_t(level) * copperPerLevel;
 }
 
+// 3.2 (RemoteSell): a bot lists from afar only what brings more than the vendor once the house's cut is taken
+// (the deposit comes back with the sale).
+inline bool RemoteSellBeatsVendor(std::uint64_t buyout, std::uint32_t cutPercent, std::uint64_t vendorValue)
+{
+    return buyout * (100 - std::min<std::uint32_t>(cutPercent, 100)) / 100 > vendorValue;
+}
+
+// 3.2 (RemoteBuy, RemoteSell): when a bot's next turn comes. Its first one is spread over the interval by spread01
+// (a hash of its guid), so a realm starting does not see every bot trade at once.
+inline std::uint32_t FirstRemoteTurn(std::uint32_t now, float spread01, std::uint32_t intervalSeconds)
+{
+    return now + std::uint32_t(std::clamp(spread01, 0.0f, 0.999f) * float(intervalSeconds));
+}
+
 inline bool ShopDue(std::uint32_t now, std::uint32_t lastVisit, std::uint32_t intervalSeconds)
 {
     return !lastVisit || now >= lastVisit + intervalSeconds;
