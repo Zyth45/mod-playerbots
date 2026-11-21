@@ -9,6 +9,7 @@
 #include "CoaCityLife.h"
 #include "CoaRpgTrade.h"
 #include "CoaSafeMoveRules.h"
+#include "CoaEconomyRules.h"
 #include "AreaDefines.h"
 #include "BroadcastHelper.h"
 #include "ChatHelper.h"
@@ -352,12 +353,21 @@ bool NewRpgStatusUpdateAction::Execute(Event /*event*/)
         {
             if (info.HasStatusPersisted(info.cityStayMs ? info.cityStayMs : statusWanderNpcDuration))
             {
-                // 3.2 (BuyLog): an auctioneer the wander never got to.
                 if (auto const* wander = std::get_if<NewRpgInfo::WanderNpc>(&info.data))
-                    if (!wander->lastReach && wander->npcOrGo.IsCreature())
-                        if (Creature* npc = ObjectAccessor::GetCreature(*bot, wander->npcOrGo))
-                            if (npc->HasNpcFlag(UNIT_NPC_FLAG_AUCTIONEER))
-                                CoaEconomy::BotAuctions::NoteWay(CoaEconomy::BotAuctions::Way::TimedOut);
+                {
+                    Creature* npc = wander->npcOrGo.IsCreature() ? ObjectAccessor::GetCreature(*bot, wander->npcOrGo)
+                                                                 : nullptr;
+                    bool const auctioneer = npc && npc->HasNpcFlag(UNIT_NPC_FLAG_AUCTIONEER);
+                    bool const trade = auctioneer || (npc && npc->HasNpcFlag(UNIT_NPC_FLAG_VENDOR) &&
+                                                      CoaEconomy::RpgTrade::WantsTrade(botAI));
+                    // 3.2: on its way to a trade NPC, the bot gets there before the wander ends.
+                    if (CoaEconomyRules::KeepsTradeGoal(trade, wander->lastReach != 0,
+                                                        wander->pickedAt ? GetMSTimeDiffToNow(wander->pickedAt) : 0))
+                        break;
+                    // 3.2 (BuyLog): an auctioneer the wander never got to.
+                    if (auctioneer && !wander->lastReach)
+                        CoaEconomy::BotAuctions::NoteWay(CoaEconomy::BotAuctions::Way::TimedOut);
+                }
                 info.ChangeToIdle();
                 return true;
             }
@@ -496,6 +506,7 @@ bool NewRpgWanderNpcAction::Execute(Event /*event*/)
         }
         data.npcOrGo = npcOrGo;
         data.lastReach = 0;
+        data.pickedAt = getMSTime();
         return true;
     }
 

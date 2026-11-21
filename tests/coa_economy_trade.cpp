@@ -80,6 +80,11 @@ int main()
     assert(!WantsToShop(0, 1, 0));
     assert(WantsToShop(1, 1, 0));
     assert(ShopDue(100, 0, 3600));
+    // 3.2: a trade goal outlives the wander, for a while.
+    assert(KeepsTradeGoal(true, false, 60000));
+    assert(!KeepsTradeGoal(true, true, 60000));            // there already
+    assert(!KeepsTradeGoal(false, false, 60000));          // any other NPC
+    assert(!KeepsTradeGoal(true, false, KEEP_TRADE_GOAL_MS));  // long enough
     assert(!ShopDue(3000, 100, 3600));
     assert(ShopDue(3700, 100, 3600));
     // 3.2: from afar, only what beats the vendor after the cut (5 %).

@@ -833,6 +833,17 @@ inline std::uint32_t FirstRemoteTurn(std::uint32_t now, float spread01, std::uin
     return now + std::uint32_t(std::clamp(spread01, 0.0f, 0.999f) * float(intervalSeconds));
 }
 
+// 3.2: a wander lasts 5 minutes from its start, whatever its target: an auctioneer picked late in it was never
+// reached (12 picked, 0 reached on the bench). A bot on its way to a trade NPC (an auctioneer, or a vendor it has
+// business with) keeps that goal past the end of the wander, up to KEEP_TRADE_GOAL_MS after it picked it; a path
+// that really fails still drops it.
+constexpr std::uint32_t KEEP_TRADE_GOAL_MS = 3 * 60 * 1000;
+
+inline bool KeepsTradeGoal(bool tradeNpc, bool reached, std::uint32_t sincePickMs)
+{
+    return tradeNpc && !reached && sincePickMs < KEEP_TRADE_GOAL_MS;
+}
+
 inline bool ShopDue(std::uint32_t now, std::uint32_t lastVisit, std::uint32_t intervalSeconds)
 {
     return !lastVisit || now >= lastVisit + intervalSeconds;
