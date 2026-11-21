@@ -89,6 +89,19 @@ inline bool DeadEndPath(uint32_t type, uint32_t points, float endToTarget)
     return (type & INCOMPLETE) && points < DEAD_END_LIMIT_POINTS && endToTarget >= DEAD_END_MIN_GAP;
 }
 
+// 3.2: an NPC behind a counter (a banker, an auctioneer): the stop picked by it lies over the counter, off the
+// navmesh, and the path there is a dead end. The end of that path, the walkable point nearest the NPC, is taken
+// instead when it is NPC_STAND_REACH yards or less from the NPC (the core lets a player talk from 5.5 yards).
+constexpr float NPC_STAND_REACH = 4.5f;
+// A wander that gave up this many NPCs in a row (no walkable way) ends: the bot goes on with something else
+// instead of standing still and picking again.
+constexpr uint32_t WANDER_GIVE_UPS = 3;
+
+inline bool StandsByNpc(float endToNpc)
+{
+    return endToNpc <= NPC_STAND_REACH;
+}
+
 inline bool CityPathChecked(bool randomBot, bool realMaster, bool inCombat, bool generatePath, bool capital,
                             bool normalPriority)
 {

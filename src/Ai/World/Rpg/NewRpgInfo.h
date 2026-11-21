@@ -37,6 +37,7 @@ struct NewRpgInfo
     {
         ObjectGuid npcOrGo{};
         uint32 lastReach{0};
+        uint32 givenUp{0};  // CoA 3.2: NPCs given up in a row (no walkable way in a capital)
     };
     // RPG_WANDER_RANDOM
     struct WanderRandom

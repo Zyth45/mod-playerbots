@@ -8,6 +8,7 @@
 #include "CoaBotAuctions.h"
 #include "CoaCityLife.h"
 #include "CoaRpgTrade.h"
+#include "CoaSafeMoveRules.h"
 #include "AreaDefines.h"
 #include "BroadcastHelper.h"
 #include "ChatHelper.h"
@@ -499,6 +500,7 @@ bool NewRpgWanderNpcAction::Execute(Event /*event*/)
         if (!data.lastReach)
         {
             data.lastReach = getMSTime();
+            data.givenUp = 0;
             if (bot->CanInteractWithQuestGiver(object))
                 InteractWithNpcOrGameObjectForQuest(data.npcOrGo);
             // CoA Economy: sell, repair or use the auction house, as people do between two quests
@@ -531,6 +533,13 @@ bool NewRpgWanderNpcAction::Execute(Event /*event*/)
             if (object && object->ToCreature() && object->ToCreature()->HasNpcFlag(UNIT_NPC_FLAG_AUCTIONEER))
                 CoaEconomy::BotAuctions::NoteWay(CoaEconomy::BotAuctions::Way::GivenUp);
             CoaCityLife::Leave(botAI);
+            // 3.2 (".squidbots why": a bot still for minutes by the Stormwind bank, WANDER_NPC with no destination):
+            // it picked and gave up NPCs every tick. After a few in a row, the wander ends and it does something else.
+            if (++data.givenUp >= CoaSafeMove::WANDER_GIVE_UPS)
+            {
+                info.ChangeToIdle();
+                return true;
+            }
             data.npcOrGo = ObjectGuid();
             data.lastReach = 0;
             return true;

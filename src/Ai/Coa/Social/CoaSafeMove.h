@@ -8,6 +8,7 @@
 #define _PLAYERBOT_COASAFEMOVE_H
 
 class Player;
+class WorldObject;
 
 namespace CoaSafeMove
 {
@@ -17,6 +18,10 @@ namespace CoaSafeMove
 bool MovePoint(Player* bot, float x, float y, float z, bool allowSwim = false);
 // True when the core would follow a path to the point, not a straight line through walls (no move made).
 bool CanWalkTo(Player* bot, float x, float y, float z);
+// 3.2: a stop by the NPC (or object) the bot can walk to. When no whole path leads to (x, y, z), the end of the path
+// to the NPC is taken if it stands within talking range of it (StandsByNpc) and sees it; false, and x, y, z left
+// alone, otherwise.
+bool StandByNpc(Player* bot, WorldObject const* npc, float& x, float& y, float& z);
 }  // namespace CoaSafeMove
 
 #endif

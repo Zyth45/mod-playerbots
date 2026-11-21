@@ -40,6 +40,27 @@ bool MovePoint(Player* bot, float x, float y, float z, bool allowSwim)
     bot->GetMotionMaster()->MovePoint(0, x, y, z, FORCED_MOVEMENT_NONE, 0.0f, 0.0f, true, false);
     return true;
 }
+bool StandByNpc(Player* bot, WorldObject const* npc, float& x, float& y, float& z)
+{
+    if (!bot || !npc || !bot->IsInWorld() || bot->GetMapId() != npc->GetMapId())
+        return false;
+    if (CanWalkTo(bot, x, y, z))
+        return true;
+    PathGenerator path(bot);
+    if (!path.CalculatePath(npc->GetPositionX(), npc->GetPositionY(), npc->GetPositionZ(), false))
+        return false;
+    uint32 const type = uint32(path.GetPathType());
+    if (CoreStraightLine(type, uint32(path.GetPath().size())))
+        return false;
+    G3D::Vector3 const& end = path.GetActualEndPosition();
+    if (!StandsByNpc(npc->GetExactDist(end.x, end.y, end.z)) || !npc->IsWithinLOS(end.x, end.y, end.z + 1.5f))
+        return false;
+    x = end.x;
+    y = end.y;
+    z = end.z;
+    return true;
+}
+
 bool CanWalkTo(Player* bot, float x, float y, float z)
 {
     if (!bot || !bot->IsInWorld())

@@ -53,5 +53,10 @@ int main()
     assert(!CityPathChecked(true, false, false, true, true, false));  // a forced move (flee)
     // The path types of the trial: no path or a cut path is never walked (the straight line through the wall).
     assert(!Walkable(NOPATH, false) && !Walkable(NORMAL | INCOMPLETE, false) && !Walkable(SHORTCUT, false));
+    // 3.2: a stop by an NPC behind its counter.
+    assert(StandsByNpc(3.0f));
+    assert(StandsByNpc(4.5f));
+    assert(!StandsByNpc(6.0f));
+    assert(WANDER_GIVE_UPS >= 2);
     return 0;
 }
