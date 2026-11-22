@@ -114,15 +114,27 @@ inline GiveUp GivesUpNpc(bool gone, bool wayExists, uint32_t refusals)
     return refusals >= WANDER_REFUSALS ? GiveUp::Refusals : GiveUp::No;
 }
 
-// 3.2 (living bench, Undercity): a straight line the core gives for a target a few yards away, in sight and on the
-// same floor, arrives (its end 0.1 yard off); it is no line through a wall. Accepted up to SHORT_LINE_MAX yards
-// with at most SHORT_LINE_DZ yards of height (no fall, no floor above or below).
-constexpr float SHORT_LINE_MAX = 8.0f;
-constexpr float SHORT_LINE_DZ = 1.5f;
+// 3.2 (living bench, Undercity: a bot 46.2 yards from Auctioneer Yarly, 1.4 yards lower, got a straight line that
+// ends 0.1 yard off; it was refused). A straight line in sight whose ground stays within FLAT_LINE_DZ yards of the
+// line all along (sampled every FLAT_LINE_STEP yards: no canal, no ledge, no stairs) goes through no wall and over
+// no fall. Accepted up to FLAT_LINE_MAX yards.
+constexpr float FLAT_LINE_MAX = 60.0f;
+constexpr float FLAT_LINE_DZ = 1.5f;
+constexpr float FLAT_LINE_STEP = 2.0f;
 
-inline bool ShortLineArrives(float flatDistance, float dz, bool inSight)
+inline bool FlatLineArrives(float length, float maxGroundGap, bool inSight)
 {
-    return inSight && flatDistance <= SHORT_LINE_MAX && (dz < 0.0f ? -dz : dz) <= SHORT_LINE_DZ;
+    return inSight && length <= FLAT_LINE_MAX && maxGroundGap <= FLAT_LINE_DZ;
+}
+
+// 3.2 (living bench, Stormwind: from the street the path to all three auctioneers stops 16.1 yards short, their
+// counter is cut off the street's navmesh). A dead end whose end stays BRIDGE_MAX yards or less from the NPC is
+// walked when the rest, from its end to the NPC, is a flat line (FlatLineArrives).
+constexpr float BRIDGE_MAX = 20.0f;
+
+inline bool BridgesDeadEnd(float endToNpc, bool flatRest)
+{
+    return flatRest && endToNpc <= BRIDGE_MAX;
 }
 
 // 3.2 (BuyLog): why no walkable stop by an NPC exists, from the path to it.

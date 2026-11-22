@@ -12,8 +12,11 @@
 #include "GridNotifiers.h"
 #include "GridNotifiersImpl.h"
 
+#include <algorithm>
+#include <cmath>
 #include <list>
 #include "Log.h"
+#include "Map.h"
 #include "MotionMaster.h"
 #include "PathGenerator.h"
 #include "Player.h"
@@ -46,6 +49,28 @@ bool MovePoint(Player* bot, float x, float y, float z, bool allowSwim)
     bot->GetMotionMaster()->MovePoint(0, x, y, z, FORCED_MOVEMENT_NONE, 0.0f, 0.0f, true, false);
     return true;
 }
+// 3.2: from (fx, fy, fz) to (tx, ty, tz) in a straight line, in sight, the ground staying within FLAT_LINE_DZ of
+// the line every FLAT_LINE_STEP yards (FlatLineArrives).
+bool FlatLine(Player* bot, float fx, float fy, float fz, float tx, float ty, float tz)
+{
+    Map* map = bot->GetMap();
+    float const length = std::sqrt((tx - fx) * (tx - fx) + (ty - fy) * (ty - fy));
+    if (!map || length > FLAT_LINE_MAX ||
+        !map->isInLineOfSight(fx, fy, fz + 1.5f, tx, ty, tz + 1.5f, bot->GetPhaseMask(), LINEOFSIGHT_ALL_CHECKS,
+                              VMAP::ModelIgnoreFlags::Nothing))
+        return false;
+    float gap = 0.0f;
+    uint32 const steps = std::max<uint32>(1, uint32(length / FLAT_LINE_STEP));
+    for (uint32 i = 1; i <= steps && gap <= FLAT_LINE_DZ; ++i)
+    {
+        float const t = float(i) / float(steps);
+        float const px = fx + (tx - fx) * t, py = fy + (ty - fy) * t, pz = fz + (tz - fz) * t;
+        float const ground = map->GetHeight(bot->GetPhaseMask(), px, py, pz + 2.0f);
+        gap = ground <= INVALID_HEIGHT ? FLAT_LINE_DZ + 1.0f : std::max(gap, std::fabs(ground - pz));
+    }
+    return FlatLineArrives(length, gap, true);
+}
+
 bool StandByNpc(Player* bot, WorldObject const* npc, float& x, float& y, float& z)
 {
     if (!bot || !npc || !bot->IsInWorld() || bot->GetMapId() != npc->GetMapId())
@@ -59,7 +84,19 @@ bool StandByNpc(Player* bot, WorldObject const* npc, float& x, float& y, float& 
     if (CoreStraightLine(type, uint32(path.GetPath().size())))
         return false;
     G3D::Vector3 const& end = path.GetActualEndPosition();
-    if (!StandsByNpc(npc->GetExactDist(end.x, end.y, end.z)) || !npc->IsWithinLOS(end.x, end.y, end.z + 1.5f))
+    float const endToNpc = npc->GetExactDist(end.x, end.y, end.z);
+    // 3.2: a dead end short of the NPC (Stormwind's counter), the rest a flat line: walked to its end first, the
+    // flat line from there is accepted by CanWalkTo.
+    if (!StandsByNpc(endToNpc) &&
+        BridgesDeadEnd(endToNpc, FlatLine(bot, end.x, end.y, end.z, npc->GetPositionX(), npc->GetPositionY(),
+                                          npc->GetPositionZ())))
+    {
+        x = end.x;
+        y = end.y;
+        z = end.z;
+        return true;
+    }
+    if (!StandsByNpc(endToNpc) || !npc->IsWithinLOS(end.x, end.y, end.z + 1.5f))
         return false;
     x = end.x;
     y = end.y;
@@ -109,8 +146,10 @@ ObjectGuid OtherReachableAuctioneer(Player* bot, WorldObject* npc)
     return ObjectGuid::Empty;
 }
 
-bool CanWalkTo(Player* bot, float x, float y, float z)
+bool CanWalkTo(Player* bot, float x, float y, float z, bool* straight)
 {
+    if (straight)
+        *straight = false;
     if (!bot || !bot->IsInWorld())
         return false;
     // As the core will follow it (CoreStraightLine): a cut path is fine, only the straight line is refused. Refusing
@@ -120,13 +159,20 @@ bool CanWalkTo(Player* bot, float x, float y, float z)
         return false;
     uint32 const type = uint32(path.GetPathType());
     uint32 const points = uint32(path.GetPath().size());
+    // 3.2: a straight line in sight over flat ground arrives (Undercity's auctioneers), and so does the last leg
+    // past a dead end (Stormwind's counter, after StandByNpc's bridge).
+    auto flat = [&]()
+    {
+        bool const ok = FlatLine(bot, bot->GetPositionX(), bot->GetPositionY(), bot->GetPositionZ(), x, y, z);
+        if (ok && straight)
+            *straight = true;
+        return ok;
+    };
     if (CoreStraightLine(type, points))
-        // 3.2: a short straight line in sight on the same floor arrives (Undercity's auctioneers).
-        return ShortLineArrives(bot->GetExactDist2d(x, y), z - bot->GetPositionZ(),
-                                bot->IsWithinLOS(x, y, z + 1.5f));
+        return flat();
     // A short cut path to a target out of reach ends on a dead end (a ledge by the Stormwind bank, 3.2).
     G3D::Vector3 const& end = path.GetActualEndPosition();
     float const gap = std::sqrt((end.x - x) * (end.x - x) + (end.y - y) * (end.y - y) + (end.z - z) * (end.z - z));
-    return !DeadEndPath(type, points, gap);
+    return !DeadEndPath(type, points, gap) || flat();
 }
 }  // namespace CoaSafeMove

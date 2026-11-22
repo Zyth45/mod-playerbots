@@ -67,11 +67,15 @@ int main()
     assert(std::string(NoWayReason(INCOMPLETE | FARFROMPOLY_START, 10, false, true)) == "bot off the mesh");
     assert(std::string(NoWayReason(INCOMPLETE, 10, false, true)) == "dead end");
     assert(std::string(NoWayReason(NORMAL, 10, true, false)) == "out of sight");
-    // 3.2: a short straight line in sight on the same floor arrives.
-    assert(ShortLineArrives(3.0f, 0.5f, true));
-    assert(ShortLineArrives(8.0f, -1.5f, true));
-    assert(!ShortLineArrives(3.0f, 0.5f, false));   // behind a wall
-    assert(!ShortLineArrives(12.0f, 0.0f, true));   // too far
-    assert(!ShortLineArrives(3.0f, -4.0f, true));   // a fall
+    // 3.2, the living bench's cases. Undercity: 46.2 yards to Auctioneer Yarly over the flat ring (1.4 yards lower).
+    assert(FlatLineArrives(46.2f, 1.4f, true));
+    assert(!FlatLineArrives(46.2f, 1.4f, false));   // behind a wall
+    assert(!FlatLineArrives(46.2f, 4.0f, true));    // over a canal or a ledge
+    assert(!FlatLineArrives(80.0f, 0.0f, true));    // too far for a line
+    // Stormwind: the path to Chilton stops 16.1 yards short of it, the rest flat and in sight.
+    assert(BridgesDeadEnd(16.1f, true));
+    assert(!BridgesDeadEnd(16.1f, false));           // a wall or a drop in between
+    assert(!BridgesDeadEnd(25.0f, true));            // too far short
+    assert(!StandsByNpc(16.1f));                     // what refused it before
     return 0;
 }
