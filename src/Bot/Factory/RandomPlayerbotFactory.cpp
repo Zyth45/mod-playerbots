@@ -451,7 +451,7 @@ uint32 RandomPlayerbotFactory::CalculateTotalAccountCount()
         } while (typeCheck->NextRow());
     }
     if (otherPrefixRows)
-        LOG_INFO("playerbots", "Bot accounts: {} account type row(s) of another prefix than '{}' left out of the count",
+        LOG_INFO("server.loading", "Bot accounts: {} account type row(s) of another prefix than '{}' left out of the count",
                  otherPrefixRows, sPlayerbotAIConfig.randomBotAccountPrefix);
 
     // Determine divisor based on Death Knight availability and requested A&H faction ratio
