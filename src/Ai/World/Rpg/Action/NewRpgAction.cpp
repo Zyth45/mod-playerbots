@@ -569,6 +569,18 @@ bool NewRpgWanderNpcAction::Execute(Event /*event*/)
             CoaSafeMove::GiveUp const why = CoaSafeMove::GivesUpNpc(!object, wayExists, ++data.refusals);
             if (why == CoaSafeMove::GiveUp::No)
                 return false;
+            // 3.2 (Stormwind, Chilton): no way to this auctioneer, another of the same house it can walk to instead.
+            if (why == CoaSafeMove::GiveUp::NoWay && data.toAuctioneer)
+            {
+                ObjectGuid const other = CoaSafeMove::OtherReachableAuctioneer(bot, object);
+                if (!other.IsEmpty())
+                {
+                    data.npcOrGo = other;
+                    data.refusals = 0;
+                    data.pickedAt = getMSTime();
+                    return true;
+                }
+            }
             // 3.2 (BuyLog): counted from the pick's flag, the NPC may be gone (out of the grid).
             if (data.toAuctioneer)
             {

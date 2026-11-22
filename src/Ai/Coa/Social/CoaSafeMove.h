@@ -7,6 +7,8 @@
 #ifndef _PLAYERBOT_COASAFEMOVE_H
 #define _PLAYERBOT_COASAFEMOVE_H
 
+#include "ObjectGuid.h"
+
 class Player;
 class WorldObject;
 
@@ -24,6 +26,9 @@ bool CanWalkTo(Player* bot, float x, float y, float z);
 bool StandByNpc(Player* bot, WorldObject const* npc, float& x, float& y, float& z);
 // 3.2 (BuyLog): why StandByNpc found no stop (NoWayReason), and how far the path's end stays from the NPC.
 char const* NoWayWhy(Player* bot, WorldObject const* npc, float& endToNpc);
+// 3.2 (living bench, Stormwind: Chilton's stop lies off the part of the navmesh the street reaches): another
+// auctioneer within AUCTIONEERS_RANGE yards of npc with a walkable stop (StandByNpc), or an empty guid.
+ObjectGuid OtherReachableAuctioneer(Player* bot, WorldObject* npc);
 }  // namespace CoaSafeMove
 
 #endif

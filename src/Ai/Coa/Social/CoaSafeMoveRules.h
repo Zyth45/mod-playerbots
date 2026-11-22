@@ -114,6 +114,17 @@ inline GiveUp GivesUpNpc(bool gone, bool wayExists, uint32_t refusals)
     return refusals >= WANDER_REFUSALS ? GiveUp::Refusals : GiveUp::No;
 }
 
+// 3.2 (living bench, Undercity): a straight line the core gives for a target a few yards away, in sight and on the
+// same floor, arrives (its end 0.1 yard off); it is no line through a wall. Accepted up to SHORT_LINE_MAX yards
+// with at most SHORT_LINE_DZ yards of height (no fall, no floor above or below).
+constexpr float SHORT_LINE_MAX = 8.0f;
+constexpr float SHORT_LINE_DZ = 1.5f;
+
+inline bool ShortLineArrives(float flatDistance, float dz, bool inSight)
+{
+    return inSight && flatDistance <= SHORT_LINE_MAX && (dz < 0.0f ? -dz : dz) <= SHORT_LINE_DZ;
+}
+
 // 3.2 (BuyLog): why no walkable stop by an NPC exists, from the path to it.
 inline char const* NoWayReason(uint32_t type, uint32_t points, bool closeEnough, bool inSight)
 {

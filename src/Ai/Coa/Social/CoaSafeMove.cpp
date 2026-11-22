@@ -7,6 +7,12 @@
 #include "CoaSafeMove.h"
 
 #include "CoaSafeMoveRules.h"
+#include "CellImpl.h"
+#include "Creature.h"
+#include "GridNotifiers.h"
+#include "GridNotifiersImpl.h"
+
+#include <list>
 #include "Log.h"
 #include "MotionMaster.h"
 #include "PathGenerator.h"
@@ -75,6 +81,34 @@ char const* NoWayWhy(Player* bot, WorldObject const* npc, float& endToNpc)
                        npc->IsWithinLOS(end.x, end.y, end.z + 1.5f));
 }
 
+ObjectGuid OtherReachableAuctioneer(Player* bot, WorldObject* npc)
+{
+    constexpr float AUCTIONEERS_RANGE = 40.0f;
+    if (!bot || !npc || !bot->IsInWorld() || bot->GetMapId() != npc->GetMapId())
+        return ObjectGuid::Empty;
+    std::list<Creature*> auctioneers;
+    struct Check
+    {
+        WorldObject const* from;
+        bool operator()(Creature* c) const
+        {
+            return c->IsAlive() && c->HasNpcFlag(UNIT_NPC_FLAG_AUCTIONEER) && from->IsWithinDist(c, AUCTIONEERS_RANGE);
+        }
+    } check{npc};
+    Acore::CreatureListSearcher<Check> searcher(npc, auctioneers, check);
+    Cell::VisitObjects(npc, searcher, AUCTIONEERS_RANGE);
+    auctioneers.sort([bot](Creature* a, Creature* b) { return bot->GetExactDist(a) < bot->GetExactDist(b); });
+    for (Creature* other : auctioneers)
+    {
+        if (other->GetGUID() == npc->GetGUID())
+            continue;
+        float x = other->GetPositionX(), y = other->GetPositionY(), z = other->GetPositionZ();
+        if (StandByNpc(bot, other, x, y, z))
+            return other->GetGUID();
+    }
+    return ObjectGuid::Empty;
+}
+
 bool CanWalkTo(Player* bot, float x, float y, float z)
 {
     if (!bot || !bot->IsInWorld())
@@ -87,7 +121,9 @@ bool CanWalkTo(Player* bot, float x, float y, float z)
     uint32 const type = uint32(path.GetPathType());
     uint32 const points = uint32(path.GetPath().size());
     if (CoreStraightLine(type, points))
-        return false;
+        // 3.2: a short straight line in sight on the same floor arrives (Undercity's auctioneers).
+        return ShortLineArrives(bot->GetExactDist2d(x, y), z - bot->GetPositionZ(),
+                                bot->IsWithinLOS(x, y, z + 1.5f));
     // A short cut path to a target out of reach ends on a dead end (a ledge by the Stormwind bank, 3.2).
     G3D::Vector3 const& end = path.GetActualEndPosition();
     float const gap = std::sqrt((end.x - x) * (end.x - x) + (end.y - y) * (end.y - y) + (end.z - z) * (end.z - z));

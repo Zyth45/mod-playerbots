@@ -67,5 +67,11 @@ int main()
     assert(std::string(NoWayReason(INCOMPLETE | FARFROMPOLY_START, 10, false, true)) == "bot off the mesh");
     assert(std::string(NoWayReason(INCOMPLETE, 10, false, true)) == "dead end");
     assert(std::string(NoWayReason(NORMAL, 10, true, false)) == "out of sight");
+    // 3.2: a short straight line in sight on the same floor arrives.
+    assert(ShortLineArrives(3.0f, 0.5f, true));
+    assert(ShortLineArrives(8.0f, -1.5f, true));
+    assert(!ShortLineArrives(3.0f, 0.5f, false));   // behind a wall
+    assert(!ShortLineArrives(12.0f, 0.0f, true));   // too far
+    assert(!ShortLineArrives(3.0f, -4.0f, true));   // a fall
     return 0;
 }
