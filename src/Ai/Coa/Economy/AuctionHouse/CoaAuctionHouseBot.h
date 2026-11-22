@@ -456,6 +456,9 @@ public:
     uint32 GetStackSizeForItem(ItemTemplate const* itemProto) const;
     // 3.2: the largest stack listed for the item: its class cap (MaxStackSize.*), at most the item's own.
     uint32 ListingStackCap(ItemTemplate const* itemProto) const;
+    // 3.2: its own auctions of a stack above that cap (listed before the cap) are taken off the house: the item is
+    // deleted (it is the house bot's), a bidder gets its bid back. Never another seller's auction. Returns the count.
+    uint32 RemoveOversizedStacks(AuctionHouseObject* auctionHouse, uint32 houseId);
     void CalculateItemValue(ItemTemplate const* itemProto, uint64& outBidPrice, uint64& outBuyoutPrice);
     void PopulateItemDropChances();
     void PopulateItemDropChancesForCategoryAndQuality(ItemClass category, std::string qualities);

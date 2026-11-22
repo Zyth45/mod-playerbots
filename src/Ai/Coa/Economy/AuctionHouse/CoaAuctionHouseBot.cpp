@@ -380,6 +380,36 @@ uint32 AuctionHouseBot::ListingStackCap(ItemTemplate const* itemProto) const
     return cap ? std::min(cap, most) : most;
 }
 
+uint32 AuctionHouseBot::RemoveOversizedStacks(AuctionHouseObject* auctionHouse, uint32 houseId)
+{
+    if (!auctionHouse)
+        return 0;
+    std::vector<AuctionEntry*> oversized;
+    for (auto const& [id, auction] : auctionHouse->GetAuctions())
+    {
+        if (!auction || !IsHouseCharacter(auction->owner.GetCounter()))
+            continue;
+        ItemTemplate const* proto = sObjectMgr->GetItemTemplate(auction->item_template);
+        if (proto && auction->itemCount > std::max<uint32>(1, ListingStackCap(proto)))
+            oversized.push_back(auction);
+    }
+    if (oversized.empty())
+        return 0;
+    auto trans = CharacterDatabase.BeginTransaction();
+    for (AuctionEntry* auction : oversized)
+    {
+        if (auction->bidder)
+            sAuctionMgr->SendAuctionCancelledToBidderMail(auction, trans);  // the bid goes back to its bidder
+        sAuctionMgr->RemoveAItem(auction->item_guid, true, &trans);       // the house bot's item, deleted
+        auction->DeleteFromDB(trans);
+        auctionHouse->RemoveAuction(auction);
+    }
+    CharacterDatabase.CommitTransaction(trans);
+    LOG_INFO("playerbots.coa", "CoaEconomy: house bot took {} of its auctions with a stack above MaxStackSize.* off house {}",
+             uint32(oversized.size()), houseId);
+    return uint32(oversized.size());
+}
+
 uint32 AuctionHouseBot::GetStackSizeForItem(ItemTemplate const* itemProto) const
 {
     // Determine the stack ratio based on class type
@@ -1380,6 +1410,9 @@ void AuctionHouseBot::AddNewAuctions(std::vector<Player*> AHBPlayers, FactionSpe
     {
         return;
     }
+
+    // 3.2: its stacks listed before the MaxStackSize.* caps (980 Elementium Shards in one lot) leave the house.
+    RemoveOversizedStacks(auctionHouse, config->GetAHID());
 
     // CoA Economy: its own auctions only (CoaEconomyRules::HouseSellerCount): the bots' auctions no longer fill its
     // quota, which kept it from ever listing on a realm with many bots (and with it, the house's epic gear).
