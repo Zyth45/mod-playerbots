@@ -57,6 +57,16 @@ inline bool GapMutes(uint64_t nowMs, uint64_t lastMs, uint64_t gapMs)
     return gapMs && lastMs && nowMs < lastMs + gapMs;
 }
 
+// CoA 3.2 (AiPlayerbot.Coa.AchievementAnnounceRealmGapSeconds = 60, the user's ask of 22/11: when the realm starts,
+// every bot levels up and announces its Level achievements at once). On top of the gap per bot, at most one
+// announcement of a random bot in the whole realm per realm gap (a Server First counted too). Announced: botLastMs
+// and realmLastMs both become nowMs; muted: neither moves.
+inline bool Announces(uint64_t nowMs, uint64_t botLastMs, uint64_t realmLastMs, uint64_t botGapMs,
+                      uint64_t realmGapMs)
+{
+    return !GapMutes(nowMs, botLastMs, botGapMs) && !GapMutes(nowMs, realmLastMs, realmGapMs);
+}
+
 // A SMSG_SERVER_FIRST_ACHIEVEMENT body: the name (a C string), then the player's guid.
 inline bool ServerFirstSender(uint8_t const* body, size_t size, uint64_t& sender)
 {

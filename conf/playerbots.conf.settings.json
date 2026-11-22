@@ -687,6 +687,17 @@
    "new_in": "3.2"
   },
   {
+   "key": "AiPlayerbot.Coa.AchievementAnnounceRealmGapSeconds",
+   "group": "chat",
+   "title": "One bot achievement announced realm-wide per (seconds)",
+   "description": "On top of the limit per bot: at most one random bot achievement announced in the whole realm in this many seconds (a Server First counts too). Achievements are always earned, only the text is held. Never a real player or a player's alts. 0: no realm limit.",
+   "type": "int",
+   "default": 60,
+   "coa": true,
+   "min": 0,
+   "new_in": "3.2"
+  },
+  {
    "key": "AiPlayerbot.CoaStatusFile",
    "group": "other",
    "title": "Dashboard status file",

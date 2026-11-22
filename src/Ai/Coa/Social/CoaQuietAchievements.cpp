@@ -34,6 +34,8 @@ uint64_t loginWindowMs = 3 * 60 * 1000;  // AiPlayerbot.Coa.HideLoginAchievement
 // player around), until OnPlayerAchievementComplete or MUTE_HOLD_MS. Same lock.
 uint64_t announceGapMs = 60 * 1000;  // AiPlayerbot.Coa.AchievementAnnounceGapSeconds
 constexpr uint64_t MUTE_HOLD_MS = 2000;
+uint64_t realmGapMs = 60 * 1000;  // AiPlayerbot.Coa.AchievementAnnounceRealmGapSeconds
+uint64_t realmLastAnnounce = 0;   // when a random bot's achievement was last announced in the realm; same lock
 std::unordered_map<uint64_t, uint64_t> lastAnnounce;  // bot guid -> when its last achievement was announced
 std::unordered_map<uint64_t, uint64_t> muted;         // bot guid -> its announcement under way is dropped until then
 std::atomic<uint32_t> mutedCount{0};
@@ -53,10 +55,11 @@ bool IsQuiet(uint64_t guid)
     return mute != muted.end() && now < mute->second;
 }
 
-// Before the core announces an achievement of a random bot: dropped when another was announced within the gap.
+// Before the core announces an achievement of a random bot: dropped when another of this bot was announced within
+// the gap, or another of any random bot within the realm gap.
 void DecideAnnounce(Player* player)
 {
-    if (!announceGapMs || !player || !sRandomPlayerbotMgr.IsRandomBot(player))
+    if ((!announceGapMs && !realmGapMs) || !player || !sRandomPlayerbotMgr.IsRandomBot(player))
         return;
     uint64_t const guid = player->GetGUID().GetRawValue();
     uint64_t const now = NowMs();
@@ -67,7 +70,7 @@ void DecideAnnounce(Player* player)
     if (window != loginWindows.end() && CoaQuietAchievements::InLoginWindow(now, window->second))
         return;
     uint64_t& last = lastAnnounce[guid];
-    if (CoaQuietAchievements::GapMutes(now, last, announceGapMs))
+    if (!CoaQuietAchievements::Announces(now, last, realmLastAnnounce, announceGapMs, realmGapMs))
     {
         auto [it, fresh] = muted.try_emplace(guid, now + MUTE_HOLD_MS);
         if (fresh)
@@ -77,6 +80,7 @@ void DecideAnnounce(Player* player)
         return;
     }
     last = now;
+    realmLastAnnounce = now;
 }
 
 void EndAnnounce(Player* player)
@@ -190,6 +194,8 @@ public:
                         sConfigMgr->GetOption<uint32>("AiPlayerbot.Coa.HideLoginAchievementsMinutes", 3, false);
         announceGapMs = uint64_t(1000) *
                         sConfigMgr->GetOption<uint32>("AiPlayerbot.Coa.AchievementAnnounceGapSeconds", 60, false);
+        realmGapMs = uint64_t(1000) *
+                     sConfigMgr->GetOption<uint32>("AiPlayerbot.Coa.AchievementAnnounceRealmGapSeconds", 60, false);
     }
 
     void OnUpdate(uint32 diff) override

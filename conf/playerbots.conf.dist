@@ -708,6 +708,13 @@ AiPlayerbot.Coa.HideLoginAchievementsMinutes = 3
 # Default: 60
 AiPlayerbot.Coa.AchievementAnnounceGapSeconds = 60
 
+# On top of the gap per bot: at most one achievement of a random bot announced in the whole realm in this many
+# seconds (guild, nearby, realm; a Server First counted too), so the bots levelling up when the realm starts do not
+# fill the chat. The achievements are always earned, only the text is held. Never a real player, never a player's
+# alt bot. 0: no realm gap.
+# Default: 60
+AiPlayerbot.Coa.AchievementAnnounceRealmGapSeconds = 60
+
 # Self-found random bots in dungeons: share of the random bots (0 to 100 percent, picked by character whatever
 # its level, always the same ones) that wear only what they loot, earn from quests or are traded from level 10 on.
 # No gear, gems, enchantments, level roll or level bracket is given to them, and the autogear and bis commands are
