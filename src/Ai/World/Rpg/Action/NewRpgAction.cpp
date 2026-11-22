@@ -574,6 +574,13 @@ bool NewRpgWanderNpcAction::Execute(Event /*event*/)
             {
                 CoaEconomy::BotAuctions::NoteWay(CoaEconomy::BotAuctions::Way::GivenUp);
                 CoaEconomy::BotAuctions::NoteGiveUp(int(why), zone ? zone->area_name[0] : "");
+                if (why == CoaSafeMove::GiveUp::NoWay)
+                {
+                    float gap = 0.0f;
+                    char const* reason = CoaSafeMove::NoWayWhy(bot, object, gap);
+                    CoaEconomy::BotAuctions::NoteNoWay(reason, object->GetEntry(), bot->GetPositionX(),
+                                                       bot->GetPositionY(), bot->GetPositionZ(), gap);
+                }
             }
             data.refusals = 0;
             data.toAuctioneer = false;

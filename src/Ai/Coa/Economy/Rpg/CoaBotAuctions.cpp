@@ -42,6 +42,7 @@
 #include "WorldSession.h"
 
 #include <algorithm>
+#include <cstdio>
 #include <string>
 #include <map>
 #include <array>
@@ -154,6 +155,8 @@ namespace
         std::atomic<uint32> leftFor[12]{};  // 0..10: NewRpgStatus of the next activity, 11: a reset
         std::mutex giveUpLock;
         std::map<std::string, std::array<uint32, 3>> giveUps;  // capital -> gone, no way, refusals
+        std::map<std::string, uint32> noWayReasons;
+        std::vector<std::string> noWaySamples;  // at most NO_WAY_SAMPLES an hour
         std::atomic<uint32> shopChecks{0}, shopPoor{0}, shopInterval{0};
         // 3.2: budget and threshold of the "too poor" checks, for their medians (a sample, at most POOR_SAMPLES).
         std::mutex poorLock;
@@ -239,6 +242,16 @@ namespace
                             " " + std::to_string(n[0]) + " gone, " + std::to_string(n[1]) + " no way, " +
                             std::to_string(n[2]) + " refused moves";
                 pathCounters.giveUps.clear();
+                std::string reasons;
+                for (auto const& [why, n] : pathCounters.noWayReasons)
+                    reasons += (reasons.empty() ? "" : ", ") + why + " " + std::to_string(n);
+                std::string samples;
+                for (std::string const& sample : pathCounters.noWaySamples)
+                    samples += (samples.empty() ? "" : "; ") + sample;
+                if (!reasons.empty())
+                    ways += " | no way: " + reasons + " | samples: " + samples;
+                pathCounters.noWayReasons.clear();
+                pathCounters.noWaySamples.clear();
             }
             LOG_INFO("playerbots.loot", "auction visits (last hour): auctioneers given up by capital: {}",
                      ways.empty() ? "none" : ways);
@@ -946,6 +959,23 @@ void NoteGiveUp(int why, char const* capital)
     std::lock_guard<std::mutex> guard(pathCounters.giveUpLock);
     if (pathCounters.giveUps.size() < 64 || pathCounters.giveUps.count(capital ? capital : ""))
         ++pathCounters.giveUps[capital ? capital : ""][why - 1];
+}
+
+void NoteNoWay(char const* reason, uint32 entry, float x, float y, float z, float gap)
+{
+    if (!settings.buyLog)
+        return;
+    constexpr size_t NO_WAY_SAMPLES = 8;
+    std::lock_guard<std::mutex> guard(pathCounters.giveUpLock);
+    std::string const why = reason ? reason : "";
+    ++pathCounters.noWayReasons[why];
+    if (pathCounters.noWaySamples.size() < NO_WAY_SAMPLES)
+    {
+        char sample[160];
+        std::snprintf(sample, sizeof(sample), "entry %u from %.1f %.1f %.1f, %s (end %.1f yd off)", entry, x, y, z,
+                      why.c_str(), gap);
+        pathCounters.noWaySamples.emplace_back(sample);
+    }
 }
 
 void NoteShopNo(ShopNo why)

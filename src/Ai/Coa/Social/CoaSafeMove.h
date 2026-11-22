@@ -22,6 +22,8 @@ bool CanWalkTo(Player* bot, float x, float y, float z);
 // to the NPC is taken if it stands within talking range of it (StandsByNpc) and sees it; false, and x, y, z left
 // alone, otherwise.
 bool StandByNpc(Player* bot, WorldObject const* npc, float& x, float& y, float& z);
+// 3.2 (BuyLog): why StandByNpc found no stop (NoWayReason), and how far the path's end stays from the NPC.
+char const* NoWayWhy(Player* bot, WorldObject const* npc, float& endToNpc);
 }  // namespace CoaSafeMove
 
 #endif

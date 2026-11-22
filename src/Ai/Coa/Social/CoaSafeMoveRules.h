@@ -114,6 +114,22 @@ inline GiveUp GivesUpNpc(bool gone, bool wayExists, uint32_t refusals)
     return refusals >= WANDER_REFUSALS ? GiveUp::Refusals : GiveUp::No;
 }
 
+// 3.2 (BuyLog): why no walkable stop by an NPC exists, from the path to it.
+inline char const* NoWayReason(uint32_t type, uint32_t points, bool closeEnough, bool inSight)
+{
+    if (type & FARFROMPOLY_START)
+        return "bot off the mesh";
+    if (type & NOPATH)
+        return "no path";
+    if (CoreStraightLine(type, points))
+        return "straight line";
+    if (!closeEnough)
+        return "dead end";
+    if (!inSight)
+        return "out of sight";
+    return "way found";
+}
+
 inline bool StandsByNpc(float endToNpc)
 {
     return endToNpc <= NPC_STAND_REACH;

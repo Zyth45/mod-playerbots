@@ -1,6 +1,7 @@
 #include "CoaSafeMoveRules.h"
 
 #include <cassert>
+#include <string>
 
 int main()
 {
@@ -63,5 +64,8 @@ int main()
     assert(GivesUpNpc(false, false, 1) == GiveUp::NoWay);
     assert(GivesUpNpc(false, true, 1) == GiveUp::No);
     assert(GivesUpNpc(false, true, WANDER_REFUSALS) == GiveUp::Refusals);
+    assert(std::string(NoWayReason(INCOMPLETE | FARFROMPOLY_START, 10, false, true)) == "bot off the mesh");
+    assert(std::string(NoWayReason(INCOMPLETE, 10, false, true)) == "dead end");
+    assert(std::string(NoWayReason(NORMAL, 10, true, false)) == "out of sight");
     return 0;
 }

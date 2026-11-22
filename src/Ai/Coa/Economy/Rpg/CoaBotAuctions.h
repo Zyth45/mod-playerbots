@@ -49,6 +49,9 @@ namespace CoaEconomy::BotAuctions
     // 3.2 (BuyLog): an auctioneer given up on the way, why (CoaSafeMove::GiveUp: 1 gone, 2 no way, 3 refusals) and
     // in which capital.
     void NoteGiveUp(int why, char const* capital);
+    // 3.2 (BuyLog): a "no way" give-up: its reason (CoaSafeMove::NoWayReason), the auctioneer's entry, where the
+    // bot stood and how far the path's end stayed from the NPC. Reasons counted, the first few kept as samples.
+    void NoteNoWay(char const* reason, uint32 entry, float x, float y, float z, float gap);
     // 3.2 (BuyLog): a WantsToShop check, and why it said no.
     enum class ShopNo { Poor, Interval };
     void NoteShopNo(ShopNo why);

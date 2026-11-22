@@ -61,6 +61,20 @@ bool StandByNpc(Player* bot, WorldObject const* npc, float& x, float& y, float& 
     return true;
 }
 
+char const* NoWayWhy(Player* bot, WorldObject const* npc, float& endToNpc)
+{
+    endToNpc = 0.0f;
+    if (!bot || !npc || !bot->IsInWorld() || bot->GetMapId() != npc->GetMapId())
+        return "gone";
+    PathGenerator path(bot);
+    if (!path.CalculatePath(npc->GetPositionX(), npc->GetPositionY(), npc->GetPositionZ(), false))
+        return "no path";
+    G3D::Vector3 const& end = path.GetActualEndPosition();
+    endToNpc = npc->GetExactDist(end.x, end.y, end.z);
+    return NoWayReason(uint32(path.GetPathType()), uint32(path.GetPath().size()), StandsByNpc(endToNpc),
+                       npc->IsWithinLOS(end.x, end.y, end.z + 1.5f));
+}
+
 bool CanWalkTo(Player* bot, float x, float y, float z)
 {
     if (!bot || !bot->IsInWorld())
