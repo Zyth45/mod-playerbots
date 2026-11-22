@@ -79,6 +79,8 @@ int main()
     assert(!WantsToShop(9999, 20, 500));
     assert(!WantsToShop(0, 1, 0));
     assert(WantsToShop(1, 1, 0));
+    assert(ShopThreshold(20, 200) == 4000);
+    assert(ShopThreshold(5, 200) == 1000);
     assert(ShopDue(100, 0, 3600));
     // 3.2: a trade goal outlives the wander, for a while.
     assert(KeepsTradeGoal(true, false, 60000));

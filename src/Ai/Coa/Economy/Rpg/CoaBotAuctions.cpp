@@ -48,6 +48,7 @@
 #include <mutex>
 #include <unordered_map>
 #include <unordered_set>
+#include <vector>
 
 namespace CoaEconomy::BotAuctions
 {
@@ -149,6 +150,9 @@ namespace
         std::atomic<uint32> sought{0}, picked{0}, station{0}, givenUp{0}, timedOut{0};
         std::atomic<uint32> leftFor[12]{};  // 0..10: NewRpgStatus of the next activity, 11: a reset
         std::atomic<uint32> shopChecks{0}, shopPoor{0}, shopInterval{0};
+        // 3.2: budget and threshold of the "too poor" checks, for their medians (a sample, at most POOR_SAMPLES).
+        std::mutex poorLock;
+        std::vector<std::pair<uint64, uint64>> poor;
         uint32 gone = 0, busy = 0, noAi = 0, outOfReach = 0, ran = 0;
         double outOfReachYards = 0.0;
     } pathCounters;
@@ -205,10 +209,29 @@ namespace
                     total += n;
                     left += (left.empty() ? "" : ", ") + std::string(names[i]) + " " + std::to_string(n);
                 }
+            std::vector<uint64> budgets, thresholds;
+            {
+                std::lock_guard<std::mutex> guard(pathCounters.poorLock);
+                for (auto const& [budget, threshold] : pathCounters.poor)
+                {
+                    budgets.push_back(budget);
+                    thresholds.push_back(threshold);
+                }
+                pathCounters.poor.clear();
+            }
+            auto median = [](std::vector<uint64>& v) -> uint64
+            {
+                if (v.empty())
+                    return 0;
+                std::nth_element(v.begin(), v.begin() + v.size() / 2, v.end());
+                return v[v.size() / 2];
+            };
             LOG_INFO("playerbots.loot", "auction visits (last hour): {} wanders to an auctioneer left for another activity"
-                     " ({}); shopping checks {}: {} too poor, {} visited within the interval",
+                     " ({}); shopping checks {}: {} too poor (median budget {} copper, median threshold {} copper), "
+                     "{} visited within the interval",
                      total, left.empty() ? "none" : left, pathCounters.shopChecks.exchange(0),
-                     pathCounters.shopPoor.exchange(0), pathCounters.shopInterval.exchange(0));
+                     pathCounters.shopPoor.exchange(0), median(budgets), median(thresholds),
+                     pathCounters.shopInterval.exchange(0));
         }
         else
         {
@@ -917,6 +940,14 @@ bool WantsToShop(Player* bot)
     if (!CoaEconomyRules::WantsToShop(budget, bot->GetLevel(), settings.shopCopperPerLevel))
     {
         NoteShopNo(ShopNo::Poor);
+        if (settings.buyLog)
+        {
+            constexpr size_t POOR_SAMPLES = 4096;
+            std::lock_guard<std::mutex> guard(pathCounters.poorLock);
+            if (pathCounters.poor.size() < POOR_SAMPLES)
+                pathCounters.poor.emplace_back(budget,
+                                               CoaEconomyRules::ShopThreshold(bot->GetLevel(), settings.shopCopperPerLevel));
+        }
         return false;
     }
     uint32 const now = uint32(GameTime::GetGameTime().count());

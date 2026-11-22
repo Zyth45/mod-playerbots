@@ -813,10 +813,16 @@ inline std::uint64_t BotBudget(std::uint64_t money, std::uint32_t maxPercent, fl
 }
 
 // 3.2 (BotAuctions.Shop): a bot with no loot to sell still goes to the auction house to buy, when its visit budget
-// reaches level x copperPerLevel (a green weapon for a few gold) and its last visit is intervalSeconds old.
+// reaches ShopThreshold, level x copperPerLevel (a green weapon for a few gold), and its last visit is
+// intervalSeconds old.
+inline std::uint64_t ShopThreshold(std::uint32_t level, std::uint32_t copperPerLevel)
+{
+    return std::uint64_t(level) * copperPerLevel;
+}
+
 inline bool WantsToShop(std::uint64_t budget, std::uint32_t level, std::uint32_t copperPerLevel)
 {
-    return budget > 0 && budget >= std::uint64_t(level) * copperPerLevel;
+    return budget > 0 && budget >= ShopThreshold(level, copperPerLevel);
 }
 
 // 3.2 (RemoteSell): a bot lists from afar only what brings more than the vendor once the house's cut is taken
