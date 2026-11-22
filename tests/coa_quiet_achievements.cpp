@@ -62,5 +62,13 @@ int main()
         assert(!Announces(170000, 165000, 0, 60000, 60000));       // the gap per bot still holds
         assert(Announces(100200, 0, 100000, 60000, 0));             // 0: no realm gap
     }
+    // 3.2.1: a level achievement below the bot's level replays it (the core saves no bot achievement).
+    assert(LevelReplay(45, 10));
+    assert(!LevelReplay(50, 50));    // just reached
+    assert(!LevelReplay(45, 0));     // not a level achievement
+    // 3.2.1: the fate counted, the gap per bot first.
+    assert(GapFate(10000, 5000, 5000, 60000, 60000) == AnnounceFate::BotGap);
+    assert(GapFate(10000, 0, 5000, 60000, 60000) == AnnounceFate::RealmGap);
+    assert(GapFate(70000, 5000, 5000, 60000, 60000) == AnnounceFate::Shown);
     return 0;
 }

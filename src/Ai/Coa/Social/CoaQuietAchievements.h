@@ -67,6 +67,29 @@ inline bool Announces(uint64_t nowMs, uint64_t botLastMs, uint64_t realmLastMs, 
     return !GapMutes(nowMs, botLastMs, botGapMs) && !GapMutes(nowMs, realmLastMs, realmGapMs);
 }
 
+// CoA 3.2.1 (AiPlayerbot.Coa.HideReplayedAchievements = 1): the core never saves a bot's achievements (both cores,
+// AchievementMgr::SaveToDB returns for a bot session), so after each restart a bot earns them again: at its first
+// level-up, "Level 10" ... up to its level all at once. A level achievement below the bot's level is such a replay:
+// earned without a word. requiredLevel 0: not a level achievement.
+inline bool LevelReplay(uint32_t botLevel, uint32_t requiredLevel)
+{
+    return requiredLevel && requiredLevel < botLevel;
+}
+
+// CoA 3.2.1 (AiPlayerbot.Coa.AchievementAnnounceLog): what was decided for the achievements of the random bots, an hour
+// at a time. A candidate is shown or muted for one reason.
+enum class AnnounceFate { Shown, Simulated, Login, Replay, BotGap, RealmGap, Count };
+
+inline AnnounceFate GapFate(uint64_t nowMs, uint64_t botLastMs, uint64_t realmLastMs, uint64_t botGapMs,
+                            uint64_t realmGapMs)
+{
+    if (GapMutes(nowMs, botLastMs, botGapMs))
+        return AnnounceFate::BotGap;
+    if (GapMutes(nowMs, realmLastMs, realmGapMs))
+        return AnnounceFate::RealmGap;
+    return AnnounceFate::Shown;
+}
+
 // A SMSG_SERVER_FIRST_ACHIEVEMENT body: the name (a C string), then the player's guid.
 inline bool ServerFirstSender(uint8_t const* body, size_t size, uint64_t& sender)
 {

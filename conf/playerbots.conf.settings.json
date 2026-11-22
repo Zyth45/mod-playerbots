@@ -698,6 +698,26 @@
    "new_in": "3.2"
   },
   {
+   "key": "AiPlayerbot.Coa.HideReplayedAchievements",
+   "group": "chat",
+   "title": "Hide level achievements earned again after a restart",
+   "description": "The server keeps no bot achievement, so after a restart a bot earns them again at its first level-up. A level achievement below the bot's level is then earned without a word. Never a real player or a player's alts.",
+   "type": "bool",
+   "default": true,
+   "coa": true,
+   "new_in": "3.2.1"
+  },
+  {
+   "key": "AiPlayerbot.Coa.AchievementAnnounceLog",
+   "group": "chat",
+   "title": "Log bot achievement announces",
+   "description": "Diagnostic: every hour, the random bot achievements shown and muted and why, in CoaBots.log.",
+   "type": "bool",
+   "default": false,
+   "coa": true,
+   "new_in": "3.2.1"
+  },
+  {
    "key": "AiPlayerbot.CoaStatusFile",
    "group": "other",
    "title": "Dashboard status file",

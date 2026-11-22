@@ -715,6 +715,17 @@ AiPlayerbot.Coa.AchievementAnnounceGapSeconds = 60
 # Default: 60
 AiPlayerbot.Coa.AchievementAnnounceRealmGapSeconds = 60
 
+# The core saves no achievement of a bot, so after each restart a random bot earns its achievements again: at its
+# first level-up, "Level 10" up to its level at once. 1: a level achievement below the bot's level is earned without a
+# word (the one of the level it just reached is announced). Never a real player, never a player's alt bot.
+# Default: 1
+AiPlayerbot.Coa.HideReplayedAchievements = 1
+
+# Every hour, to the log (CoaBots.log): the achievements of the random bots shown and muted, and why
+# ("achievement announces (last hour): ..."). A diagnostic for the bench.
+# Default: 0
+AiPlayerbot.Coa.AchievementAnnounceLog = 0
+
 # Self-found random bots in dungeons: share of the random bots (0 to 100 percent, picked by character whatever
 # its level, always the same ones) that wear only what they loot, earn from quests or are traded from level 10 on.
 # No gear, gems, enchantments, level roll or level bracket is given to them, and the autogear and bis commands are
