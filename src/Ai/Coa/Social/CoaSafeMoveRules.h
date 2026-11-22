@@ -128,8 +128,9 @@ inline bool FlatLineArrives(float length, float maxGroundGap, bool inSight)
 }
 
 // 3.2 (living bench, Stormwind: from the street the path to all three auctioneers stops 16.1 yards short, their
-// counter is cut off the street's navmesh). A dead end whose end stays BRIDGE_MAX yards or less from the NPC is
-// walked when the rest, from its end to the NPC, is a flat line (FlatLineArrives).
+// counter is cut off the street's navmesh). A dead end whose end stays BRIDGE_MAX yards or less from the NPC could be
+// walked when the rest, from its end to the NPC, is a flat line. Not used in 3.2: the bench's bots stood at the end
+// of it (StandByNpc); kept for the 3.2.1 fix (a fixed stop per Stormwind auctioneer).
 constexpr float BRIDGE_MAX = 20.0f;
 
 inline bool BridgesDeadEnd(float endToNpc, bool flatRest)

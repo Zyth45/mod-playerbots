@@ -72,7 +72,7 @@ int main()
     assert(!FlatLineArrives(46.2f, 1.4f, false));   // behind a wall
     assert(!FlatLineArrives(46.2f, 4.0f, true));    // over a canal or a ledge
     assert(!FlatLineArrives(80.0f, 0.0f, true));    // too far for a line
-    // Stormwind: the path to Chilton stops 16.1 yards short of it, the rest flat and in sight.
+    // Stormwind (the path to Chilton stops 16.1 yards short): the bridge rule, kept for 3.2.1 and unused in 3.2.
     assert(BridgesDeadEnd(16.1f, true));
     assert(!BridgesDeadEnd(16.1f, false));           // a wall or a drop in between
     assert(!BridgesDeadEnd(25.0f, true));            // too far short

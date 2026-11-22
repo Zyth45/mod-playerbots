@@ -85,17 +85,9 @@ bool StandByNpc(Player* bot, WorldObject const* npc, float& x, float& y, float& 
         return false;
     G3D::Vector3 const& end = path.GetActualEndPosition();
     float const endToNpc = npc->GetExactDist(end.x, end.y, end.z);
-    // 3.2: a dead end short of the NPC (Stormwind's counter), the rest a flat line: walked to its end first, the
-    // flat line from there is accepted by CanWalkTo.
-    if (!StandsByNpc(endToNpc) &&
-        BridgesDeadEnd(endToNpc, FlatLine(bot, end.x, end.y, end.z, npc->GetPositionX(), npc->GetPositionY(),
-                                          npc->GetPositionZ())))
-    {
-        x = end.x;
-        y = end.y;
-        z = end.z;
-        return true;
-    }
+    // 3.2: no bridge over a dead end short of the NPC (BridgesDeadEnd): on the living bench the bots at the end of it
+    // (Stormwind's counter) stood there until their wander ended, the stop by the NPC failing the flat line. 3.2.1:
+    // a fixed stop per Stormwind auctioneer, taken in game.
     if (!StandsByNpc(endToNpc) || !npc->IsWithinLOS(end.x, end.y, end.z + 1.5f))
         return false;
     x = end.x;
