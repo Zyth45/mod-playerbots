@@ -97,6 +97,23 @@ constexpr float NPC_STAND_REACH = 4.5f;
 // instead of standing still and picking again.
 constexpr uint32_t WANDER_GIVE_UPS = 3;
 
+// 3.2 (living bench: 118 of 332 auctioneers given up on the way): a refused move is not always a refused way. The
+// move layer also refuses a move to the very point of the last one within 5 seconds (StandByNpc's stop is the same
+// each time), a bot that cannot move right now, a pull risk. An NPC is given up when it is gone, when no walkable
+// stop by it exists, or after WANDER_REFUSALS refused moves toward it.
+constexpr uint32_t WANDER_REFUSALS = 8;
+
+enum class GiveUp { No, Gone, NoWay, Refusals };
+
+inline GiveUp GivesUpNpc(bool gone, bool wayExists, uint32_t refusals)
+{
+    if (gone)
+        return GiveUp::Gone;
+    if (!wayExists)
+        return GiveUp::NoWay;
+    return refusals >= WANDER_REFUSALS ? GiveUp::Refusals : GiveUp::No;
+}
+
 inline bool StandsByNpc(float endToNpc)
 {
     return endToNpc <= NPC_STAND_REACH;

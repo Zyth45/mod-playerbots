@@ -40,6 +40,7 @@ struct NewRpgInfo
         uint32 givenUp{0};  // CoA 3.2: NPCs given up in a row (no walkable way in a capital)
         uint32 pickedAt{0};  // CoA 3.2: when npcOrGo was picked (getMSTime)
         bool toAuctioneer{false};  // CoA 3.2 (BuyLog): npcOrGo is an auctioneer, not reached yet
+        uint32 refusals{0};  // CoA 3.2: moves toward npcOrGo refused in a row
     };
     // RPG_WANDER_RANDOM
     struct WanderRandom

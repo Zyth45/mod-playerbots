@@ -58,5 +58,10 @@ int main()
     assert(StandsByNpc(4.5f));
     assert(!StandsByNpc(6.0f));
     assert(WANDER_GIVE_UPS >= 2);
+    // 3.2: a refused move is not a refused way.
+    assert(GivesUpNpc(true, true, 0) == GiveUp::Gone);
+    assert(GivesUpNpc(false, false, 1) == GiveUp::NoWay);
+    assert(GivesUpNpc(false, true, 1) == GiveUp::No);
+    assert(GivesUpNpc(false, true, WANDER_REFUSALS) == GiveUp::Refusals);
     return 0;
 }

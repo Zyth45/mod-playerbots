@@ -42,6 +42,9 @@
 #include "WorldSession.h"
 
 #include <algorithm>
+#include <string>
+#include <map>
+#include <array>
 #include <atomic>
 #include <chrono>
 #include <deque>
@@ -149,6 +152,8 @@ namespace
         std::atomic<uint32> requests{0}, cooldown{0}, queueFull{0}, queued{0}, shopWants{0};
         std::atomic<uint32> sought{0}, picked{0}, station{0}, givenUp{0}, timedOut{0};
         std::atomic<uint32> leftFor[12]{};  // 0..10: NewRpgStatus of the next activity, 11: a reset
+        std::mutex giveUpLock;
+        std::map<std::string, std::array<uint32, 3>> giveUps;  // capital -> gone, no way, refusals
         std::atomic<uint32> shopChecks{0}, shopPoor{0}, shopInterval{0};
         // 3.2: budget and threshold of the "too poor" checks, for their medians (a sample, at most POOR_SAMPLES).
         std::mutex poorLock;
@@ -226,6 +231,17 @@ namespace
                 std::nth_element(v.begin(), v.begin() + v.size() / 2, v.end());
                 return v[v.size() / 2];
             };
+            std::string ways;
+            {
+                std::lock_guard<std::mutex> guard(pathCounters.giveUpLock);
+                for (auto const& [capital, n] : pathCounters.giveUps)
+                    ways += (ways.empty() ? "" : "; ") + (capital.empty() ? std::string("outside a capital") : capital) +
+                            " " + std::to_string(n[0]) + " gone, " + std::to_string(n[1]) + " no way, " +
+                            std::to_string(n[2]) + " refused moves";
+                pathCounters.giveUps.clear();
+            }
+            LOG_INFO("playerbots.loot", "auction visits (last hour): auctioneers given up by capital: {}",
+                     ways.empty() ? "none" : ways);
             LOG_INFO("playerbots.loot", "auction visits (last hour): {} wanders to an auctioneer left for another activity"
                      " ({}); shopping checks {}: {} too poor (median budget {} copper, median threshold {} copper), "
                      "{} visited within the interval",
@@ -921,6 +937,15 @@ void NoteLeftFor(int nextStatus)
         return;
     uint32 const slot = nextStatus >= 0 && nextStatus <= 10 ? uint32(nextStatus) : 11;
     ++pathCounters.leftFor[slot];
+}
+
+void NoteGiveUp(int why, char const* capital)
+{
+    if (!settings.buyLog || why < 1 || why > 3)
+        return;
+    std::lock_guard<std::mutex> guard(pathCounters.giveUpLock);
+    if (pathCounters.giveUps.size() < 64 || pathCounters.giveUps.count(capital ? capital : ""))
+        ++pathCounters.giveUps[capital ? capital : ""][why - 1];
 }
 
 void NoteShopNo(ShopNo why)

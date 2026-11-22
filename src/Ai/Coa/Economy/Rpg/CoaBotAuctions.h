@@ -46,6 +46,9 @@ namespace CoaEconomy::BotAuctions
     // 3.2 (BuyLog): a wander heading for an auctioneer it never reached was replaced by another activity
     // (NewRpgStatus of the next one; 99: a reset).
     void NoteLeftFor(int nextStatus);
+    // 3.2 (BuyLog): an auctioneer given up on the way, why (CoaSafeMove::GiveUp: 1 gone, 2 no way, 3 refusals) and
+    // in which capital.
+    void NoteGiveUp(int why, char const* capital);
     // 3.2 (BuyLog): a WantsToShop check, and why it said no.
     enum class ShopNo { Poor, Interval };
     void NoteShopNo(ShopNo why);

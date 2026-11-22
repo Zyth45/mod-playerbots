@@ -8,6 +8,7 @@
 #include "CoaBotAuctions.h"
 #include "CoaCityLife.h"
 #include "CoaRpgTrade.h"
+#include "CoaSafeMove.h"
 #include "CoaSafeMoveRules.h"
 #include "CoaEconomyRules.h"
 #include "AreaDefines.h"
@@ -511,6 +512,7 @@ bool NewRpgWanderNpcAction::Execute(Event /*event*/)
         }
         data.npcOrGo = npcOrGo;
         data.lastReach = 0;
+        data.refusals = 0;
         data.pickedAt = getMSTime();
         return true;
     }
@@ -543,7 +545,10 @@ bool NewRpgWanderNpcAction::Execute(Event /*event*/)
     else
     {
         if (MoveWorldObjectTo(data.npcOrGo))
+        {
+            data.refusals = 0;
             return true;
+        }
         // CoA Live City Life (3.1.6): a station no walkable path leads to (inside a building, off the mesh) is given
         // up for another stop, never reached in a straight line through the walls.
         // 3.2: in a capital, any NPC whose way the city guard refuses (a dead end, a straight line) is given up too,
@@ -553,9 +558,24 @@ bool NewRpgWanderNpcAction::Execute(Event /*event*/)
         if (!IsWaitingForLastMove(MovementPriority::MOVEMENT_NORMAL) &&
             (CoaCityLife::Holds(botAI, data.npcOrGo) || inCapital))
         {
+            // 3.2: given up only when the NPC is gone, no walkable stop by it exists, or the moves keep being refused
+            // (a move to the same stop within 5 s, a bot that cannot move...): then it waits for the next tick.
+            bool wayExists = false;
+            if (object)
+            {
+                float sx = object->GetPositionX(), sy = object->GetPositionY(), sz = object->GetPositionZ();
+                wayExists = CoaSafeMove::StandByNpc(bot, object, sx, sy, sz);
+            }
+            CoaSafeMove::GiveUp const why = CoaSafeMove::GivesUpNpc(!object, wayExists, ++data.refusals);
+            if (why == CoaSafeMove::GiveUp::No)
+                return false;
             // 3.2 (BuyLog): counted from the pick's flag, the NPC may be gone (out of the grid).
             if (data.toAuctioneer)
+            {
                 CoaEconomy::BotAuctions::NoteWay(CoaEconomy::BotAuctions::Way::GivenUp);
+                CoaEconomy::BotAuctions::NoteGiveUp(int(why), zone ? zone->area_name[0] : "");
+            }
+            data.refusals = 0;
             data.toAuctioneer = false;
             CoaCityLife::Leave(botAI);
             // 3.2 (".squidbots why": a bot still for minutes by the Stormwind bank, WANDER_NPC with no destination):
