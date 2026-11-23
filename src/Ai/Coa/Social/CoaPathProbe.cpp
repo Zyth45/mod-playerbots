@@ -748,8 +748,6 @@ char const* PlaceReason(Scene const& scene, Query& q, Map* map, float x, float y
             ++nearby;
         }
     }
-    if (!CoaCityLife::PlaceServes(kinds))
-        return "no service within 50 yards";
     for (auto const& seg : scene.segments)
         if (CoaCityLife::SegmentDistance(x, y, seg[0], seg[1], seg[2], seg[3]) < CoaCityLife::PLACE_PATH_CLEAR)
             return "on a way between two services";
@@ -801,8 +799,12 @@ bool FindPlaces(std::pair<uint32, uint32> const& key)
     if (!scene.anyTile)
         return false;  // the capital's tiles are not loaded yet
     float minX = scene.services[0].x, maxX = minX, minY = scene.services[0].y, maxY = minY;
+    // 3.2.2 (sonde of 1e991b2d: no place in Ironforge, Darnassus): the floors around the services' heights, not z 0.
+    float minZ = scene.services[0].z, maxZ = minZ;
     for (Service const& s : scene.services)
     {
+        minZ = std::min(minZ, s.z);
+        maxZ = std::max(maxZ, s.z);
         minX = std::min(minX, s.x);
         maxX = std::max(maxX, s.x);
         minY = std::min(minY, s.y);
@@ -818,8 +820,8 @@ bool FindPlaces(std::pair<uint32, uint32> const& key)
         for (float gy = minY - 20.0f; gy <= maxY + 20.0f; gy += CoaCityLife::PLACE_GRID)
         {
             // Every floor of the navmesh at (gx, gy).
-            float const center[3] = {gy, 0.0f, gx};
-            float const box[3] = {0.5f, 400.0f, 0.5f};
+            float const center[3] = {gy, (minZ + maxZ) * 0.5f, gx};
+            float const box[3] = {0.5f, (maxZ - minZ) * 0.5f + 60.0f, 0.5f};
             dtPolyRef polys[16];
             int count = 0;
             q.query->queryPolygons(center, box, &q.filter, polys, &count, 16);

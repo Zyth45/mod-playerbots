@@ -248,12 +248,15 @@ inline bool SeatUsable(float botX, float botY, float botZ, float seatX, float se
 // PLACE_NPC_MIN to an NPC of them (its door, its counter) or PLACE_OBJECT_MIN to an object, off the ways between them
 // (PLACE_PATH_CLEAR yards). At most PLACES_PER_CAPITAL per capital, PLACE_SPACING yards apart. The user's own spots on
 // the Stormwind trade square (23/11, 6 of them, 7 to 60 yards apart, some by the quest board and the mailbox) set these.
-constexpr float PLACE_NPC_MIN = 8.0f;
+// 3.2.2 (sonde of 603a6549, the user's 31 spots: 17 kept; 8 refused for "no service within 50 yards", 5 "on a way", 1
+// "too close": spots chosen by eye, by a fountain, a quest board, a flight master): a square needs no service around
+// (the services only rank the squares), only standing right on a way's line is refused, and 2 yards from any NPC.
+constexpr float PLACE_NPC_MIN = 2.0f;
 constexpr float PLACE_OBJECT_MIN = 2.0f;
 constexpr float PLACE_SERVICE_MAX = 50.0f;
 // 3.2.2 (sonde of 2448cbcb, the user's 31 spots: 15 refused for "fewer than two kinds", 6 "on a way"): one kind of
 // service in range is enough, and only standing on the line of a way (PLACE_PATH_CLEAR) is refused.
-constexpr float PLACE_PATH_CLEAR = 1.5f;
+constexpr float PLACE_PATH_CLEAR = 0.75f;
 constexpr float PLACE_SPACING = 7.0f;
 constexpr float PLACE_GRID = 3.0f;
 constexpr float PLACE_FLAT_DZ = 0.6f;  // the ground 2 yards around stays this close in height
