@@ -4844,16 +4844,46 @@ void TravelMgr::PrepareDestinationCache()
         {
             CreatureTemplate const* creatureTemplate = sObjectMgr->GetCreatureTemplate(creatureDataList[0].id);
             uint32 level = (creatureTemplate->minlevel + creatureTemplate->maxlevel + 1) / 2;
+            // CoA 3.2.2: the grind spot is the real spawn nearest the middle of the cell's spawns, not the cell's corner
+            // (x, y and z rounded to 50 yards): bots were sent to points in the air or under the ground and stood there.
+            float cx = 0.0f, cy = 0.0f, cz = 0.0f;
+            for (auto const& data : creatureDataList)
+            {
+                cx += data.posX;
+                cy += data.posY;
+                cz += data.posZ;
+            }
+            float const n = float(creatureDataList.size());
+            cx /= n;
+            cy /= n;
+            cz /= n;
+            // Of a creature that walks (never a bird or a bat flying over: its spawn is in the air). The caches hold
+            // the maps of RandomBotMaps only, no instance; RandomTeleport keeps random bots off maps 530 and 571.
+            CreatureData const* spot = nullptr;
+            float best = FLT_MAX;
+            for (auto const& data : creatureDataList)
+            {
+                CreatureTemplate const* proto = sObjectMgr->GetCreatureTemplate(data.id);
+                if (!proto || !proto->Movement.IsGroundAllowed() || proto->Movement.IsFlightAllowed())
+                    continue;
+                float const d = (data.posX - cx) * (data.posX - cx) + (data.posY - cy) * (data.posY - cy) +
+                                (data.posZ - cz) * (data.posZ - cz);
+                if (d < best)
+                {
+                    best = d;
+                    spot = &data;
+                }
+            }
+            if (!spot)
+                continue;
             for (int32 l = (int32)level - (int32)sPlayerbotAIConfig.randomBotTeleLowerLevel;
                  l <= (int32)level + (int32)sPlayerbotAIConfig.randomBotTeleHigherLevel; l++)
             {
                 if (l < 1 || l > int32(maxLevel))
                     continue;
 
-                locsPerLevelCache[(uint8)l].push_back(WorldLocation(std::get<0>(gridTuple),
-                    static_cast<float>(std::get<1>(gridTuple)) * 50.0f,
-                    static_cast<float>(std::get<2>(gridTuple)) * 50.0f,
-                    static_cast<float>(std::get<3>(gridTuple)) * 50.0f));
+                locsPerLevelCache[(uint8)l].push_back(
+                    WorldLocation(std::get<0>(gridTuple), spot->posX, spot->posY, spot->posZ));
             }
         }
     }
