@@ -55,8 +55,9 @@ namespace CoaEconomy::BotAuctions
     void NoteNoWay(char const* capital, char const* reason, uint32 entry, float x, float y, float z, float gap);
     // 3.2.1 (BuyLog): a wander that ended before its auctioneer was reached ("not reached"), per capital, with a few
     // samples: the auctioneer's entry, where the bot stood, how far from the NPC, moving or not, refused moves in a row.
+    // 3.2.2: and how long ago the wander's action last ran, the NPC in interaction reach or not, the last action run.
     void NoteNotReached(char const* capital, uint32 entry, float x, float y, float z, float toNpc, bool moving,
-                        uint32 refusals);
+                        uint32 refusals, uint32 ranSecondsAgo, bool inReach, char const* lastAction);
     // 3.2 (BuyLog): a WantsToShop check, and why it said no.
     enum class ShopNo { Poor, Interval };
     void NoteShopNo(ShopNo why);

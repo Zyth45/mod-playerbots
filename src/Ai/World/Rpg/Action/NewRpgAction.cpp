@@ -29,6 +29,7 @@
 #include "PathGenerator.h"
 #include "Player.h"
 #include "PlayerbotAI.h"
+#include "Engine.h"
 #include "PlayerbotAIConfig.h"
 #include "PlayerbotTextMgr.h"
 #include "QuestDef.h"
@@ -371,10 +372,16 @@ bool NewRpgStatusUpdateAction::Execute(Event /*event*/)
                         CoaEconomy::BotAuctions::NoteWay(CoaEconomy::BotAuctions::Way::TimedOut);
                         // 3.2.1: where it stood, per capital.
                         AreaTableEntry const* zone = sAreaTableStore.LookupEntry(bot->GetZoneId());
+                        // 3.2.2: bots still within a few yards and never counted as there: did the wander's action
+                        // still run, was the NPC in reach for it, and what ran instead.
+                        Engine* engine = botAI->GetEngine(BOT_STATE_NON_COMBAT);
                         CoaEconomy::BotAuctions::NoteNotReached(
                             zone && (zone->flags & AREA_FLAG_CAPITAL) ? zone->area_name[0] : "",
                             npc ? npc->GetEntry() : 0, bot->GetPositionX(), bot->GetPositionY(), bot->GetPositionZ(),
-                            npc ? bot->GetExactDist(npc) : 0.0f, bot->isMoving(), wander->refusals);
+                            npc ? bot->GetExactDist(npc) : 0.0f, bot->isMoving(), wander->refusals,
+                            wander->lastRun ? GetMSTimeDiffToNow(wander->lastRun) / IN_MILLISECONDS : 0,
+                            npc && IsWithinInteractionDist(npc),
+                            engine ? engine->GetLastExecutedAction().c_str() : "");
                     }
                     wander->toAuctioneer = false;
                 }
@@ -496,6 +503,7 @@ bool NewRpgWanderNpcAction::Execute(Event /*event*/)
     if (!dataPtr)
         return false;
     auto& data = *dataPtr;
+    data.lastRun = getMSTime();
     if (!data.npcOrGo)
     {
         // CoA Live City Life: on a city visit, now and then a station (inn, bank, auction house, forge, dummy).

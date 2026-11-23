@@ -1003,7 +1003,7 @@ void NoteNoWay(char const* capital, char const* reason, uint32 entry, float x, f
 }
 
 void NoteNotReached(char const* capital, uint32 entry, float x, float y, float z, float toNpc, bool moving,
-                    uint32 refusals)
+                    uint32 refusals, uint32 ranSecondsAgo, bool inReach, char const* lastAction)
 {
     if (!settings.buyLog)
         return;
@@ -1015,9 +1015,11 @@ void NoteNotReached(char const* capital, uint32 entry, float x, float y, float z
     std::vector<std::string>& samples = pathCounters.notReachedSamples[site];
     if (samples.size() < SITE_SAMPLES)
     {
-        char sample[160];
-        std::snprintf(sample, sizeof(sample), "entry %u from %.1f %.1f %.1f, %.1f yd off, %s, %u refused", entry, x,
-                      y, z, toNpc, moving ? "moving" : "still", refusals);
+        char sample[256];
+        std::snprintf(sample, sizeof(sample),
+                      "entry %u from %.1f %.1f %.1f, %.1f yd off, %s, %u refused, wander ran %us ago, %s, last %s", entry,
+                      x, y, z, toNpc, moving ? "moving" : "still", refusals, ranSecondsAgo,
+                      inReach ? "in reach" : "out of reach", lastAction ? lastAction : "");
         samples.emplace_back(sample);
     }
 }
