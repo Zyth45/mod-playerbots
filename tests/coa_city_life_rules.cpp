@@ -110,7 +110,7 @@ int main()
     assert(!SeatUsable(0.0f, 0.0f, 99.0f, 2.0f, 1.0f, 99.5f, false));  // behind a wall
     assert(!SeatUsable(0.0f, 0.0f, 99.0f, 5.0f, 0.0f, 99.0f, true));   // too far
     // 3.2.2: the squares.
-    assert(PlaceServes(1 | 2) && !PlaceServes(16) && !PlaceServes(0));
+    assert(PlaceServes(1 | 2) && PlaceServes(16) && !PlaceServes(0));
     assert(SegmentDistance(0.0f, 5.0f, -10.0f, 0.0f, 10.0f, 0.0f) == 5.0f);
     assert(SegmentDistance(20.0f, 0.0f, -10.0f, 0.0f, 10.0f, 0.0f) == 10.0f);  // past the segment's end
     {

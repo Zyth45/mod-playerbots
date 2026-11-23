@@ -2289,9 +2289,8 @@ TeleportSpot SpotOf(Map* map, Player* bot, float x, float y, float z)
     spot.areaId = map->GetAreaId(phase, x, y, z);
     spot.inWater = map->IsInWater(phase, x, y, z, height);
     spot.ground = map->GetHeight(phase, x, y, z + 0.5f);
-    // 3.2.2 (the user in game, 23/11: the Stormwind bank's arrival put bots under the bank, on the cobbles at 97.7 under
-    // its floor at 99.6): Map::GetHeight reads the buildings' floors from the vmap of a loaded grid only; read with the
-    // grid unloaded, the ground was the terrain under the building, and it was kept for good. Such a read is never kept.
+    // 3.2.2: a read with the grid unloaded (no vmap: the terrain only) is never kept. (Not the bank's cause: the sonde of
+    // 2448cbcb read 97.66 there with the grid loaded too, the vmap holds no floor under the bank; see RandomTeleport.)
     spot.full = map->IsGridLoaded(x, y);
     if (!spot.full)
         return spot;
@@ -2494,10 +2493,24 @@ void RandomPlayerbotMgr::RandomTeleport(Player* bot, std::vector<WorldLocation>&
                   zone->area_name[locale], area->ID, area->area_name[locale], zone->area_level, area->area_level, x, y,
                   z, i + 1, tlocs.size());
 
-        // 3.2.2: a destination in a capital off the city's floor (a closed island of the navmesh: the Stormwind bank's
-        // arrivals) is moved onto it, or dropped (CoaPathProbe::ArrivalVerdict).
-        if (CoaPathProbe::ArrivalVerdict(loc.GetMapId(), x, y, z) == CoaPathProbe::Arrival::Dropped)
-            continue;
+        // 3.2.2 (sonde of 2448cbcb, the user in game): under the Stormwind bank the vmap holds no floor, so the ground
+        // above was the terrain under the bank (97.66, the bank's floor at 99.5) and the bots piled there. In a capital
+        // the height is the navmesh's floor nearest the spot's own height, on the city's floor, moved onto it within 10
+        // yards, or the spot dropped; a spot not judged yet is skipped (judged on the world thread soon).
+        {
+            float ax = loc.GetPositionX(), ay = loc.GetPositionY(), az = loc.GetPositionZ();
+            CoaPathProbe::Arrival const arrival = CoaPathProbe::ArrivalVerdict(loc.GetMapId(), ax, ay, az);
+            bool const capital = zone->flags & AREA_FLAG_CAPITAL;
+            if (arrival == CoaPathProbe::Arrival::Dropped ||
+                (capital && arrival == CoaPathProbe::Arrival::Unknown))
+                continue;
+            if (capital && (arrival == CoaPathProbe::Arrival::Ok || arrival == CoaPathProbe::Arrival::Moved))
+            {
+                x = ax;
+                y = ay;
+                z = az;
+            }
+        }
 
         if (hearth)
         {

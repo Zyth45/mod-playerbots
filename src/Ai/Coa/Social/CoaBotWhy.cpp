@@ -316,6 +316,17 @@ namespace
         return true;
     }
 
+    // 3.2.2: the arrivals where the navmesh and the server disagree on the floor.
+    bool HandleArrivals(ChatHandler* handler)
+    {
+        for (std::string const& line : CoaPathProbe::ArrivalsDisagree())
+        {
+            handler->PSendSysMessage("[SquidBots arrivals] {}", line);
+            LOG_INFO("playerbots.coa", "arrivals probe: {}", line);
+        }
+        return true;
+    }
+
     // 3.2.2: the ground under a point, with and without the vmap, before and after its grid is loaded.
     bool HandleGround(ChatHandler* handler, uint32 mapId, float x, float y, float z)
     {
@@ -360,6 +371,7 @@ namespace
                 {"places", HandlePlaces, SEC_ADMINISTRATOR, Console::Yes},
                 {"place", HandlePlace, SEC_ADMINISTRATOR, Console::Yes},
                 {"ground", HandleGround, SEC_ADMINISTRATOR, Console::Yes},
+                {"arrivals", HandleArrivals, SEC_ADMINISTRATOR, Console::Yes},
                 {"stop", HandleStop, SEC_ADMINISTRATOR, Console::Yes},
             };
             static ChatCommandTable commandTable = {

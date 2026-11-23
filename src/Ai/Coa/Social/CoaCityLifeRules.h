@@ -250,8 +250,10 @@ inline bool SeatUsable(float botX, float botY, float botZ, float seatX, float se
 // the Stormwind trade square (23/11, 6 of them, 7 to 60 yards apart, some by the quest board and the mailbox) set these.
 constexpr float PLACE_NPC_MIN = 8.0f;
 constexpr float PLACE_OBJECT_MIN = 2.0f;
-constexpr float PLACE_SERVICE_MAX = 45.0f;
-constexpr float PLACE_PATH_CLEAR = 3.0f;
+constexpr float PLACE_SERVICE_MAX = 50.0f;
+// 3.2.2 (sonde of 2448cbcb, the user's 31 spots: 15 refused for "fewer than two kinds", 6 "on a way"): one kind of
+// service in range is enough, and only standing on the line of a way (PLACE_PATH_CLEAR) is refused.
+constexpr float PLACE_PATH_CLEAR = 1.5f;
 constexpr float PLACE_SPACING = 7.0f;
 constexpr float PLACE_GRID = 3.0f;
 constexpr float PLACE_FLAT_DZ = 0.6f;  // the ground 2 yards around stays this close in height
@@ -271,13 +273,10 @@ inline bool PlaceOpen(uint32_t openDirections, bool ceilingClear)
     return ceilingClear && openDirections >= PLACE_OPEN_MIN;
 }
 
-// A candidate's kinds of services in range (a bit per kind): a square when at least two.
+// A candidate's kinds of services in range (a bit per kind): a square when at least one.
 inline bool PlaceServes(uint32_t kindsInRange)
 {
-    uint32_t n = 0;
-    for (uint32_t k = kindsInRange; k; k &= k - 1)
-        ++n;
-    return n >= 2;
+    return kindsInRange != 0;
 }
 
 // The distance from (px, py) to the segment (ax, ay)-(bx, by), 2D.

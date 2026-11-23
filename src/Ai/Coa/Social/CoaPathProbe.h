@@ -35,9 +35,10 @@ std::vector<std::string> StopProbe(uint32_t mapId, float x, float y, float z, ui
 std::vector<std::string> CheckCapitals();
 
 // 3.2.2 (Pilote: every teleport arrival in a capital on the floor the city walks on, not a fix for one bank). A
-// teleport's destination, judged once and kept: Ok (on the city's floor, or not in a capital), Moved (x, y, z set to
-// the nearest point that is, within 10 yards), Dropped (none: not a destination any more), Unknown (not judged yet: it
-// goes as before, and is judged on the world thread soon). The city's floor: at least 600 polygons joined to the
+// teleport's destination, judged once and kept: Ok (on the city's floor, or not in a capital), Moved (to the nearest
+// point that is, within 10 yards), Dropped (none: not a destination any more), Unknown (not judged yet: judged on the
+// world thread soon). z: the destination's own height going in (a banker's spot plus 2), in a capital the city's
+// floor's height coming out (Ok and Moved set x, y, z: the vmap holds no floor under some buildings, the navmesh does). The city's floor: at least 600 polygons joined to the
 // point's within 250 yards (the counters' NPCs stand on closed patches, no reference). AiPlayerbot.CoaArrivalCheck (1).
 enum class Arrival { Unknown, Ok, Moved, Dropped };
 Arrival ArrivalVerdict(uint32_t mapId, float& x, float& y, float& z);
@@ -59,6 +60,9 @@ std::vector<std::string> PlaceExplain(uint32_t mapId, float x, float y, float z)
 // 3.2.2: the ground under (x, y) from z: terrain, with the vmap, grid loaded or not, before and after loading it
 // (".squidbots ground <map> x y z": whether the vmap holds a building's floor there).
 std::vector<std::string> GroundProbe(uint32_t mapId, float x, float y, float z);
+// 3.2.2 (Pilote): each capital's arrivals whose navmesh floor and server floor (GetHeight) differ by more than a yard:
+// the list of places to check in game (".squidbots arrivals").
+std::vector<std::string> ArrivalsDisagree();
 // 3.2.2 (Pilote): a random bot of a capital standing still on a closed patch of the navmesh (fewer than 600 polygons
 // joined within 250 yards: under a building, on a counter's stage) is put back on the city's floor nearby, when no
 // real player sees it. Called on the bot's thread; at most once a minute per bot. True when it was moved.

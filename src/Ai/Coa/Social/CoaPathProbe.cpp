@@ -47,7 +47,7 @@ constexpr float CITY_RADIUS = 250.0f;
 constexpr int CITY_POLYS = 600;
 constexpr int CITY_SCAN = 1024;
 uint32 checkDelayMs = 0;  // AiPlayerbot.CoaPathCheck: 0 off, else the delay after the start
-bool arrivalCheck = false;  // AiPlayerbot.CoaArrivalCheck (0 until the sonde proves its criterion)
+bool arrivalCheck = true;  // AiPlayerbot.CoaArrivalCheck (the criterion proven by the sonde of a831bd0d)
 bool placesOn = true;      // AiPlayerbot.CoaLive.City.Squares
 uint32 checkTimer = 0;
 bool checkDone = false;
@@ -301,6 +301,7 @@ struct Verdict
 {
     CoaPathProbe::Arrival kind = CoaPathProbe::Arrival::Unknown;
     float x = 0.0f, y = 0.0f, z = 0.0f;
+    bool hasPoint = false;  // x, y, z: the city's floor there (in a capital)
     uint32 tries = 0;
 };
 std::mutex arrivalsLock;
@@ -331,6 +332,60 @@ int OnCityFloor(Query& q, float x, float y, float z)
     return count >= CITY_POLYS ? 1 : 0;
 }
 
+// 3.2.2: (x, y, z) on the city's floor (1), moved onto it within 10 yards (2: nx, ny, nz), none there (0), no polygon
+// (-1, its tile not loaded).
+// 3.2.2 (Pilote): the server sees that floor too: GetHeight from just over it gives it within FLOORS_AGREE. Under the
+// Stormwind bank the navmesh has a floor at 99.9 and the vmap none (GetHeight: the terrain, 97.66): a bot put there
+// would fall back under the bank at its next ground update (UpdateAllowedPositionZ on its path's points).
+constexpr float FLOORS_AGREE = 0.5f;
+
+bool ServerSeesFloor(Map* map, float x, float y, float z)
+{
+    if (!map)
+        return true;
+    float const ground = map->GetHeight(PHASEMASK_NORMAL, x, y, z + 0.5f);
+    return ground > INVALID_HEIGHT && std::fabs(ground - z) <= FLOORS_AGREE;
+}
+
+int RelocateToCity(Query& q, Map* map, float x, float y, float z, float& nx, float& ny, float& nz)
+{
+    int const here = OnCityFloor(q, x, y, z);
+    if (here == 1)
+    {
+        // 3.2.2 (sonde of 2448cbcb): the height of the navmesh's floor nearest z, when the server sees it too.
+        float const at[3] = {y, z, x};
+        float on[3];
+        Snap(*q.query, q.filter, at, on);
+        if (ServerSeesFloor(map, on[2], on[0], on[1]))
+        {
+            nx = on[2];
+            ny = on[0];
+            nz = on[1] + 0.05f;
+            return 1;
+        }
+    }
+    if (here == -1)
+        return here;
+    for (float ring : {2.0f, 4.0f, 6.0f, 8.0f, 10.0f})
+        for (uint32 i = 0; i < 8; ++i)
+        {
+            float const angle = float(i) * 6.2831853f / 8.0f;
+            float const probe[3] = {y + ring * std::sin(angle), z, x + ring * std::cos(angle)};
+            float snapped[3];
+            if (!Snap(*q.query, q.filter, probe, snapped) || std::fabs(snapped[1] - z) > 4.0f)
+                continue;
+            if (OnCityFloor(q, snapped[2], snapped[0], snapped[1]) == 1 &&
+                ServerSeesFloor(map, snapped[2], snapped[0], snapped[1]))
+            {
+                nx = snapped[2];
+                ny = snapped[0];
+                nz = snapped[1] + 0.05f;
+                return 2;
+            }
+        }
+    return 0;
+}
+
 void JudgeArrival(std::tuple<uint32, int32, int32> const& key, float x, float y, float z)
 {
     uint32 const mapId = std::get<0>(key);
@@ -344,34 +399,15 @@ void JudgeArrival(std::tuple<uint32, int32, int32> const& key, float x, float y,
         verdict.kind = CoaPathProbe::Arrival::Ok;  // a map without a navmesh: nothing to judge
     else
     {
-        int const here = OnCityFloor(q, x, y, z);
-        if (here == 1)
-            verdict.kind = CoaPathProbe::Arrival::Ok;
-        else if (here == 0)
-        {
-            verdict.kind = CoaPathProbe::Arrival::Dropped;
-            for (float ring : {2.0f, 4.0f, 6.0f, 8.0f, 10.0f})
-            {
-                for (uint32 i = 0; i < 8 && verdict.kind == CoaPathProbe::Arrival::Dropped; ++i)
-                {
-                    float const angle = float(i) * 6.2831853f / 8.0f;
-                    float const cx = x + ring * std::cos(angle), cy = y + ring * std::sin(angle);
-                    float const probe[3] = {cy, z, cx};
-                    float snapped[3];
-                    if (!Snap(*q.query, q.filter, probe, snapped) || std::fabs(snapped[1] - z) > 4.0f)
-                        continue;
-                    if (OnCityFloor(q, snapped[2], snapped[0], snapped[1]) == 1)
-                    {
-                        verdict.kind = CoaPathProbe::Arrival::Moved;
-                        verdict.x = snapped[2];
-                        verdict.y = snapped[0];
-                        verdict.z = snapped[1] + 0.05f;
-                    }
-                }
-                if (verdict.kind != CoaPathProbe::Arrival::Dropped)
-                    break;
-            }
-        }
+        Map* map = sMapMgr->CreateBaseMap(mapId);
+        if (map && !map->IsGridLoaded(x, y))
+            map->LoadGrid(x, y);  // the world thread: its vmap, for ServerSeesFloor
+        int const here = RelocateToCity(q, map, x, y, z, verdict.x, verdict.y, verdict.z);
+        verdict.hasPoint = here == 1 || here == 2;
+        verdict.kind = here == 1   ? CoaPathProbe::Arrival::Ok
+                       : here == 2 ? CoaPathProbe::Arrival::Moved
+                       : here == 0 ? CoaPathProbe::Arrival::Dropped
+                                   : CoaPathProbe::Arrival::Unknown;
     }
     AreaTableEntry const* zone = sAreaTableStore.LookupEntry(zoneId);
     std::lock_guard<std::mutex> guard(arrivalsLock);
@@ -405,13 +441,49 @@ Arrival ArrivalVerdict(uint32_t mapId, float& x, float& y, float& z)
             pendingArrivals.emplace(key, std::make_tuple(x, y, z));
         return Arrival::Unknown;
     }
-    if (found->second.kind == Arrival::Moved)
+    if (found->second.hasPoint)
     {
         x = found->second.x;
         y = found->second.y;
         z = found->second.z;
     }
     return found->second.kind;
+}
+
+std::vector<std::string> ArrivalsDisagree()
+{
+    std::vector<std::string> lines;
+    uint32 total = 0, apart = 0;
+    for (auto const& [key, lists] : CapitalSpots())
+    {
+        Map* map = sMapMgr->CreateBaseMap(key.first);
+        Query q;
+        if (!map || !Open(key.first, q))
+            continue;
+        AreaTableEntry const* zone = sAreaTableStore.LookupEntry(key.second);
+        std::string const name = zone ? zone->area_name[0] : std::to_string(key.second);
+        for (Spot const& given : lists.first)
+        {
+            if (!map->IsGridLoaded(given.x, given.y))
+                map->LoadGrid(given.x, given.y);
+            ++total;
+            float const at[3] = {given.y, given.z, given.x};
+            float on[3];
+            if (!Snap(*q.query, q.filter, at, on))
+                continue;
+            float const server = map->GetHeight(PHASEMASK_NORMAL, given.x, given.y, given.z + 0.5f);
+            if (std::fabs(server - on[1]) <= 1.0f)
+                continue;
+            ++apart;
+            lines.push_back(name + Fmt(": arrival of %.0f at %.1f %.1f", given.entry, given.x, given.y) +
+                            Fmt(" %.1f: navmesh %.2f, ", given.z, on[1]) + Fmt("GetHeight %.2f (%.2f apart)", server,
+                            std::fabs(server - on[1])) + Fmt("  -> .go xyz %.1f %.1f", given.x, given.y) +
+                            Fmt(" %.1f %.0f", on[1] + 0.5f, key.first));
+        }
+    }
+    lines.push_back(std::to_string(apart) + " of " + std::to_string(total) + " arrivals with the navmesh and the server's "
+                    "floors more than a yard apart");
+    return lines;
 }
 
 std::vector<std::string> StopProbe(uint32_t mapId, float x, float y, float z, uint32_t entryOrSpawn)
@@ -489,9 +561,39 @@ std::vector<std::string> CheckCapitals()
             continue;
         AreaTableEntry const* zone = sAreaTableStore.LookupEntry(key.second);
         std::string const name = zone ? zone->area_name[0] : std::to_string(key.second);
-        uint32 joinedHere = 0, cutHere = 0, unknownHere = 0;
-        for (Spot const& from : lists.first)
+        uint32 joinedHere = 0, cutHere = 0, unknownHere = 0, movedHere = 0, droppedHere = 0;
+        for (Spot const& given : lists.first)
         {
+            // 3.2.2 (Pilote): the arrival as TravelMgr gives it, where it snaps, its patch, and as CoaArrivalCheck
+            // corrects it; the pairs are judged from the corrected one (a dropped arrival is never used).
+            float const givenRc[3] = {given.y, given.z, given.x};
+            float givenPt[3];
+            dtPolyRef const givenRef = Snap(*q.query, q.filter, givenRc, givenPt);
+            int polys = 0;
+            if (givenRef)
+            {
+                dtPolyRef around[CITY_SCAN];
+                q.query->findPolysAroundCircle(givenRef, givenPt, CITY_RADIUS, &q.filter, around, nullptr, nullptr, &polys,
+                                               CITY_SCAN);
+            }
+            Spot from = given;
+            int const verdict = RelocateToCity(q, map, given.x, given.y, given.z, from.x, from.y, from.z);
+            float const serverZ = map ? map->GetHeight(PHASEMASK_NORMAL, given.x, given.y, given.z + 0.5f) : 0.0f;
+            lines.push_back(name + Fmt(": arrival of %.0f (%.1f %.1f", given.entry, given.x, given.y) +
+                            Fmt(" %.1f) snaps at z %.2f, ", given.z, givenRef ? givenPt[1] : 0.0f) +
+                            Fmt("GetHeight %.2f, ", serverZ) +
+                            Fmt("%.0f polygons joined: ", polys) +
+                            (verdict == 1   ? std::string("on the city's floor")
+                             : verdict == 2 ? Fmt("moved to %.1f %.1f %.1f", from.x, from.y, from.z)
+                             : verdict == 0 ? std::string("DROPPED (no city floor within 10 yards)")
+                                            : std::string("no polygon")));
+            if (verdict == 2)
+                ++movedHere;
+            if (verdict == 0)
+            {
+                ++droppedHere;
+                continue;
+            }
             float const fromRc[3] = {from.y, from.z, from.x};
             float fromPt[3];
             dtPolyRef const fromRef = Snap(*q.query, q.filter, fromRc, fromPt);
@@ -524,7 +626,9 @@ std::vector<std::string> CheckCapitals()
             }
         }
         lines.push_back(name + ": " + std::to_string(joinedHere) + " joined, " + std::to_string(cutHere) +
-                        " not joined, " + std::to_string(unknownHere) + " unknown (no polygon at an end)");
+                        " not joined, " + std::to_string(unknownHere) + " unknown (no polygon at an end); arrivals " +
+                        std::to_string(lists.first.size()) + ": " + std::to_string(movedHere) + " moved, " +
+                        std::to_string(droppedHere) + " dropped");
     }
     lines.push_back("capitals' path check: " + std::to_string(pairs) + " pairs, " + std::to_string(cut) +
                     " not joined, " + std::to_string(unknown) + " unknown");
@@ -635,7 +739,7 @@ char const* PlaceReason(Scene const& scene, Query& q, Map* map, float x, float y
         }
     }
     if (!CoaCityLife::PlaceServes(kinds))
-        return "fewer than two kinds of services within 45 yards";
+        return "no service within 50 yards";
     for (auto const& seg : scene.segments)
         if (CoaCityLife::SegmentDistance(x, y, seg[0], seg[1], seg[2], seg[3]) < CoaCityLife::PLACE_PATH_CLEAR)
             return "on a way between two services";
@@ -931,7 +1035,7 @@ std::vector<std::string> PlaceExplain(uint32_t mapId, float x, float y, float z)
     }
     uint32 kinds = 0, nearby = 0;
     char const* why = PlaceReason(scene, q, map, atPt[2], atPt[0], atPt[1], kinds, nearby);
-    lines.push_back(Fmt("services within 45 yards: %.0f (kinds %.0f: 1 auction, 2 bank, 4 inn, 8 flight, 16 quest ", nearby,
+    lines.push_back(Fmt("services within 50 yards: %.0f (kinds %.0f: 1 auction, 2 bank, 4 inn, 8 flight, 16 quest ", nearby,
                         kinds) + Fmt("board, 32 mailbox); nearest %.1f yards (kind %.0f)", nearest, nearestKind));
     lines.push_back(why ? std::string("not a square: ") + why : std::string("a square"));
     float closest = 1e9f;
@@ -965,7 +1069,7 @@ public:
 
     void OnAfterConfigLoad(bool /*reload*/) override
     {
-        arrivalCheck = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaArrivalCheck", false, false);
+        arrivalCheck = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaArrivalCheck", true, false);
         placesOn = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaLive.City.Squares", true, false);
         bool const on = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaPathCheck", false, false);
         checkDelayMs = on ? 1000 * std::max<uint32>(
