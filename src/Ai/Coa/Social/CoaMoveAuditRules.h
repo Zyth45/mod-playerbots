@@ -7,6 +7,7 @@
 #ifndef PLAYERBOTS_COAMOVEAUDITRULES_H
 #define PLAYERBOTS_COAMOVEAUDITRULES_H
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <string>
@@ -63,6 +64,34 @@ inline bool PingPong(float traveled, float span)
 {
     return traveled >= PING_TRAVEL && span <= PING_SPAN && span >= PING_MIN_SPAN;
 }
+
+// 3.2.2 (the user, 23/11: "bots that go through mountains, fly or are in walls"). "terrain": between two samples
+// outdoors, both on the terrain's surface, the terrain somewhere in between rises TERRAIN_MARGIN yards over both ends
+// (the walls check reads the models only, never the terrain). TERRAIN_STEPS points are read in between.
+constexpr float TERRAIN_MARGIN = 2.0f;
+constexpr float TERRAIN_SURFACE = 1.0f;  // an end this far under the terrain is in a cave or a city below: not judged
+constexpr uint32_t TERRAIN_STEPS = 4;
+
+inline bool ThroughTerrain(float zFrom, float gridFrom, float zTo, float gridTo, float highestGridBetween)
+{
+    if (gridFrom <= -100000.0f || gridTo <= -100000.0f || highestGridBetween <= -100000.0f)
+        return false;
+    if (zFrom < gridFrom - TERRAIN_SURFACE || zTo < gridTo - TERRAIN_SURFACE)
+        return false;
+    return highestGridBetween > std::max(zFrom, zTo) + TERRAIN_MARGIN;
+}
+
+// 3.2.2: "inwall": standing on the ground, the bot's head sees out in at most INWALL_MAX_OPEN of INWALL_DIRECTIONS
+// directions at INWALL_REACH yards: it stands inside a wall or a building's model. Read every INWALL_EVERY_MS.
+constexpr uint32_t INWALL_DIRECTIONS = 4;
+constexpr uint32_t INWALL_MAX_OPEN = 1;
+constexpr float INWALL_REACH = 1.0f;
+constexpr uint32_t INWALL_EVERY_MS = 3000;
+
+inline bool InWall(uint32_t openDirections) { return openDirections <= INWALL_MAX_OPEN; }
+
+// 3.2.2: the hourly summary keeps SUMMARY_SAMPLES samples per kind.
+constexpr size_t SUMMARY_SAMPLES = 6;
 
 inline bool Due(uint64_t lastMs, uint64_t nowMs, uint32_t throttleMs) { return !lastMs || nowMs >= lastMs + throttleMs; }
 

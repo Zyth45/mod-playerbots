@@ -21,6 +21,12 @@ int main()
     assert(!TooFast(2.1f, 300, 7.0f));
     assert(!TooFast(14.0f, 1000, 14.0f));        // mounted at its speed
     assert(Teleported(80.0f) && !TooFast(80.0f, 300, 7.0f));
+    // 3.2.2: through the relief: a hill 5 yards over both ends; a cave or a city under the terrain is not judged.
+    assert(ThroughTerrain(100.0f, 100.0f, 100.5f, 100.2f, 105.0f));
+    assert(!ThroughTerrain(100.0f, 100.0f, 100.5f, 100.2f, 101.0f));   // a small rise
+    assert(!ThroughTerrain(60.0f, 100.0f, 60.0f, 100.0f, 105.0f));     // under the terrain (Undercity)
+    // 3.2.2: in a wall: the head sees out in one direction or none.
+    assert(InWall(0) && InWall(1) && !InWall(2));
     // Wall check and jumps.
     assert(CheckWall(2.0f) && !CheckWall(0.2f) && !CheckWall(80.0f));
     assert(HeightJump(2.4f, 1.0f, true) && !HeightJump(2.4f, 1.0f, false) && !HeightJump(2.4f, 6.0f, true));

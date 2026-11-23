@@ -25,7 +25,10 @@ void Load();
 // On the bot's update (map thread).
 void Tick(PlayerbotAI* botAI);
 // A move asked by an action (MovementAction::MoveTo): the path the core will get, kept for the next line.
-void NoteMove(Player* bot, char const* action, float x, float y, float z);
+// 3.2.2: straight: walked in a straight line (no path from the core, CoaSafeMove's flat line).
+void NoteMove(Player* bot, char const* action, float x, float y, float z, bool straight = false);
+// 3.2.2: a move that is not an action's MoveTo (a teleport off a navmesh island...), kept as the move's origin.
+void NoteOrigin(Player* bot, char const* origin);
 }  // namespace CoaMoveAudit
 
 void AddSC_coa_move_audit();

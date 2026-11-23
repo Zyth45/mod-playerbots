@@ -20,8 +20,11 @@
 #include "Playerbots.h"
 #include "RandomPlayerbotMgr.h"
 #include "ScriptMgr.h"
+#include "Log.h"
 #include <atomic>
 #include <fstream>
+#include <map>
+#include <vector>
 #include <iomanip>
 #include <mutex>
 #include <sstream>
@@ -42,6 +45,7 @@ std::string fileName = "coa_move_audit.jsonl";
 struct LastMove
 {
     std::string action;
+    std::string origin;  // 3.2.2: core path, straight line, or a NoteOrigin
     float x = 0.0f, y = 0.0f, z = 0.0f;
     uint32 pathType = 0;
     uint32 points = 0;
@@ -69,6 +73,48 @@ std::unordered_map<uint64, uint64> npcLines;  // creature guid -> when written
 
 std::mutex fileLock;
 std::ofstream file;
+
+// 3.2.2: the hour's lines per kind, and a few samples of each, for the hourly summary in the log.
+std::mutex summaryLock;
+std::map<std::string, uint32> hourCounts;
+std::map<std::string, std::vector<std::string>> hourSamples;
+std::atomic<uint64> nextSummaryMs{0};
+
+void NoteSummary(std::string const& kind, std::string const& sample)
+{
+    std::lock_guard<std::mutex> guard(summaryLock);
+    ++hourCounts[kind];
+    std::vector<std::string>& samples = hourSamples[kind];
+    if (samples.size() < CoaMoveAuditRules::SUMMARY_SAMPLES)
+        samples.push_back(sample);
+}
+
+void LogSummaryWhenDue(uint64 nowMs)
+{
+    uint64 due = nextSummaryMs.load(std::memory_order_relaxed);
+    if (!due)
+    {
+        nextSummaryMs.compare_exchange_strong(due, nowMs + HOUR * IN_MILLISECONDS);
+        return;
+    }
+    if (nowMs < due || !nextSummaryMs.compare_exchange_strong(due, nowMs + HOUR * IN_MILLISECONDS))
+        return;
+    std::map<std::string, uint32> counts;
+    std::map<std::string, std::vector<std::string>> samples;
+    {
+        std::lock_guard<std::mutex> guard(summaryLock);
+        counts.swap(hourCounts);
+        samples.swap(hourSamples);
+    }
+    std::string text;
+    for (auto const& [kind, n] : counts)
+    {
+        text += (text.empty() ? "" : " / ") + kind + " " + std::to_string(n) + ":";
+        for (std::string const& sample : samples[kind])
+            text += " " + sample + ";";
+    }
+    LOG_INFO("playerbots.coa", "move audit (last hour): {}", text.empty() ? "nothing odd" : text);
+}
 
 void Write(std::string const& line)
 {
@@ -204,12 +250,23 @@ void Load()
     enabled.store(sConfigMgr->GetOption<bool>("AiPlayerbot.CoaMoveAudit", false), std::memory_order_relaxed);
 }
 
-void NoteMove(Player* bot, char const* action, float x, float y, float z)
+void NoteOrigin(Player* bot, char const* origin)
+{
+    if (!Enabled() || !bot)
+        return;
+    std::lock_guard<std::mutex> guard(stateLock);
+    LastMove& move = states[bot->GetGUID().GetRawValue()].move;
+    move.origin = origin ? origin : "";
+    move.atMs = GameTime::GetGameTimeMS().count();
+}
+
+void NoteMove(Player* bot, char const* action, float x, float y, float z, bool straight)
 {
     if (!Enabled() || !bot || !bot->IsInWorld())
         return;
     LastMove move;
     move.action = action ? action : "";
+    move.origin = straight ? "straight line" : "core path";
     move.x = x;
     move.y = y;
     move.z = z;
@@ -230,6 +287,7 @@ void Tick(PlayerbotAI* botAI)
     if (!bot || !bot->IsInWorld() || bot->IsBeingTeleported())
         return;
     uint64 const nowMs = GameTime::GetGameTimeMS().count();
+    LogSummaryWhenDue(nowMs);
     Map* map = bot->GetMap();
     float const x = bot->GetPositionX(), y = bot->GetPositionY(), z = bot->GetPositionZ();
     bool const exempt = bot->IsFlying() || bot->IsFalling() || bot->GetTransport() || bot->IsInFlight() ||
@@ -271,6 +329,34 @@ void Tick(PlayerbotAI* botAI)
             kinds.push_back("wall");
         if (HeightJump(dz, flat, before.onGround && onGround))
             kinds.push_back("zjump");
+        // 3.2.2: through the relief, outdoors.
+        if (CheckWall(flat) && !exempt && bot->IsOutdoors())
+        {
+            float highest = INVALID_HEIGHT;
+            for (uint32 i = 1; i <= TERRAIN_STEPS; ++i)
+            {
+                float const t = float(i) / float(TERRAIN_STEPS + 1);
+                highest = std::max(highest, map->GetGridHeight(before.x + (x - before.x) * t,
+                                                               before.y + (y - before.y) * t));
+            }
+            if (ThroughTerrain(before.z, map->GetGridHeight(before.x, before.y), z, gridZ, highest))
+                kinds.push_back("terrain");
+        }
+    }
+    // 3.2.2: inside a wall or a building's model, now and then.
+    if (onGround && (nowMs / sampleMs) % std::max<uint32>(1, INWALL_EVERY_MS / sampleMs) == 0)
+    {
+        uint32 open = 0;
+        for (uint32 i = 0; i < INWALL_DIRECTIONS; ++i)
+        {
+            float const angle = float(i) * 6.2831853f / float(INWALL_DIRECTIONS);
+            if (map->isInLineOfSight(x, y, z + 1.5f, x + INWALL_REACH * std::cos(angle),
+                                     y + INWALL_REACH * std::sin(angle), z + 1.5f, bot->GetPhaseMask(),
+                                     LINEOFSIGHT_CHECK_VMAP, VMAP::ModelIgnoreFlags::M2))
+                ++open;
+        }
+        if (InWall(open))
+            kinds.push_back("inwall");
     }
 
     std::vector<std::string> due;
@@ -350,10 +436,16 @@ void Tick(PlayerbotAI* botAI)
              << ",\"gen\":" << Json(GeneratorName(bot->GetMotionMaster()->GetCurrentMovementGeneratorType()))
              << ",\"lastAction\":" << Json(lastAction) << ",\"rpg\":" << Json(rpg)
              << ",\"ping\":{\"traveled\":" << Num(pingTravel) << ",\"span\":" << Num(pingSpan) << "}"
-             << ",\"move\":{\"action\":" << Json(move.action) << ",\"to\":[" << Num(move.x) << "," << Num(move.y) << ","
+             << ",\"move\":{\"action\":" << Json(move.action) << ",\"origin\":" << Json(move.origin) << ",\"to\":[" << Num(move.x) << "," << Num(move.y) << ","
              << Num(move.z) << "],\"path\":" << Json(PathTypeText(move.pathType)) << ",\"points\":" << move.points
              << ",\"ageMs\":" << (move.atMs ? nowMs - move.atMs : 0) << "}}";
         Write(line.str());
+        // 3.2.2: the hourly summary's sample: map, where, the action and the move's origin.
+        std::ostringstream sample;
+        sample << "map " << bot->GetMapId() << " " << Num(x) << " " << Num(y) << " " << Num(z) << " ("
+               << ZoneName(bot->GetZoneId()) << "), " << (lastAction.empty() ? move.action : lastAction) << ", "
+               << (move.origin.empty() ? "no move noted" : move.origin) << " " << PathTypeText(move.pathType);
+        NoteSummary(kind, sample.str());
     }
 }
 }  // namespace CoaMoveAudit

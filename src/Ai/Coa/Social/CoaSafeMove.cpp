@@ -7,6 +7,7 @@
 #include "CoaSafeMove.h"
 
 #include "CoaSafeMoveRules.h"
+#include "CoaMoveAudit.h"
 #include "CellImpl.h"
 #include "Creature.h"
 #include "GridNotifiers.h"
@@ -241,9 +242,15 @@ Unstick UnstickFromIsland(Player* bot, WorldObject const* npc)
         }
     Unstick const choice = UnstickChoice(stuck, walkable, !walkable && stuck && RealPlayerSees(bot));
     if (choice == Unstick::Walk)
+    {
+        CoaMoveAudit::NoteOrigin(bot, "walk off a navmesh island");
         bot->GetMotionMaster()->MovePoint(0, wx, wy, wz, FORCED_MOVEMENT_NONE, 0.0f, 0.0f, false, false);
+    }
     else if (choice == Unstick::Teleport)
+    {
+        CoaMoveAudit::NoteOrigin(bot, "teleport off a navmesh island");
         bot->NearTeleportTo(stop.x, stop.y, stop.z, bot->GetOrientation());
+    }
     return choice;
 }
 
