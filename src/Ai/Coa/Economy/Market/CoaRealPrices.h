@@ -27,7 +27,8 @@ namespace CoaEconomy::RealPrices
     // The median of the scanned items of its kind (gear: weapons and armour; goods: the rest), quality and item level
     // (0 without enough samples).
     uint64 Band(ItemTemplate const* proto);
-    uint64 BandOf(uint32 quality, uint32 itemLevel, bool gear = true);
+    // kind: CoaEconomyRules::PriceBand (0: gear).
+    uint64 BandOf(uint32 quality, uint32 itemLevel, uint32 kind = 0);
     // Of(), gear kept between half and 1.5 times Band(), goods under 3 times it (scans hold a few joke or dumped
     // listings: a 4,500 g fishing pole, epics at a few gold); 0 when not seen.
     uint64 Priced(ItemTemplate const* proto);

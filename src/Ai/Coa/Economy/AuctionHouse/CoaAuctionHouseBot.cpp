@@ -384,14 +384,26 @@ uint32 AuctionHouseBot::RemoveOversizedStacks(AuctionHouseObject* auctionHouse, 
 {
     if (!auctionHouse)
         return 0;
+    // 3.2.1: once a start, its listings priced at over 3 times what it would ask today (a price floor of an older
+    // version: Elementium Bars at 94 g each) leave the house too.
+    bool const priceSweep = PriceSweptHouses.insert(houseId).second;
+    uint32 overpriced = 0;
     std::vector<AuctionEntry*> oversized;
     for (auto const& [id, auction] : auctionHouse->GetAuctions())
     {
         if (!auction || !IsHouseCharacter(auction->owner.GetCounter()))
             continue;
         ItemTemplate const* proto = sObjectMgr->GetItemTemplate(auction->item_template);
-        if (proto && auction->itemCount > std::max<uint32>(1, ListingStackCap(proto)))
+        if (!proto)
+            continue;
+        if (auction->itemCount > std::max<uint32>(1, ListingStackCap(proto)))
             oversized.push_back(auction);
+        else if (priceSweep && CoaEconomyRules::OverpricedListing(auction->buyout, auction->itemCount,
+                                                                  GetHouseLowestBuyoutPerItem(proto)))
+        {
+            oversized.push_back(auction);
+            ++overpriced;
+        }
     }
     if (oversized.empty())
         return 0;
@@ -405,8 +417,9 @@ uint32 AuctionHouseBot::RemoveOversizedStacks(AuctionHouseObject* auctionHouse, 
         auctionHouse->RemoveAuction(auction);
     }
     CharacterDatabase.CommitTransaction(trans);
-    LOG_INFO("playerbots.coa", "CoaEconomy: house bot took {} of its auctions with a stack above MaxStackSize.* off house {}",
-             uint32(oversized.size()), houseId);
+    LOG_INFO("playerbots.coa", "CoaEconomy: house bot took {} of its auctions off house {} ({} with a stack above "
+             "MaxStackSize.*, {} priced over 3 times its price today)", uint32(oversized.size()), houseId,
+             uint32(oversized.size()) - overpriced, overpriced);
     return uint32(oversized.size());
 }
 

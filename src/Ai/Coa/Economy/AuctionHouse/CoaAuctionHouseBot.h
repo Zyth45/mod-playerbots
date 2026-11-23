@@ -459,6 +459,7 @@ public:
     // 3.2: its own auctions of a stack above that cap (listed before the cap) are taken off the house: the item is
     // deleted (it is the house bot's), a bidder gets its bid back. Never another seller's auction. Returns the count.
     uint32 RemoveOversizedStacks(AuctionHouseObject* auctionHouse, uint32 houseId);
+    std::unordered_set<uint32> PriceSweptHouses;  // 3.2.1: houses swept of overpriced listings since the start
     void CalculateItemValue(ItemTemplate const* itemProto, uint64& outBidPrice, uint64& outBuyoutPrice);
     void PopulateItemDropChances();
     void PopulateItemDropChancesForCategoryAndQuality(ItemClass category, std::string qualities);

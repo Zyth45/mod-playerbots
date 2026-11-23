@@ -1,0 +1,2 @@
+### Fair prices for materials the auction house never priced
+A material the real CoA auction house never showed took the median price of every item of its quality and level, patterns and card decks included: an Elementium Bar was listed at 94 gold each, Elementium Bombs at over 700 gold the stack. Materials sold in stacks are now priced from materials sold in stacks only, and the house bot takes its listings priced at over three times today's price off the auction house once at startup.

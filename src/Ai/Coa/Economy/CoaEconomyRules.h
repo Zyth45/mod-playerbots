@@ -279,6 +279,25 @@ inline std::uint64_t FairPrice(std::uint64_t value, std::uint64_t reagents, std:
     return value;
 }
 
+// 3.2.1: the band a scanned price joins, for the floor of the unscanned items of its quality and level. Goods sold
+// one at a time (patterns, decks, bags) and goods sold in stacks apart: the epic goods of level 60 had a median of
+// 168 g from patterns and decks, and an Elementium Bar was listed at 94 g each, 1880 g the stack.
+enum class PriceBand { Gear, Single, Stack };
+
+inline PriceBand BandKind(bool gear, std::uint32_t maxStackSize)
+{
+    return gear ? PriceBand::Gear : maxStackSize > 1 ? PriceBand::Stack : PriceBand::Single;
+}
+
+// 3.2.1: a house bot's listing priced over PRICE_SWEEP_TIMES its item's lowest price today (a price of an older
+// version) leaves the house. lowestPerItem 0: unknown, kept.
+constexpr std::uint64_t PRICE_SWEEP_TIMES = 3;
+
+inline bool OverpricedListing(std::uint64_t buyout, std::uint32_t count, std::uint64_t lowestPerItem)
+{
+    return lowestPerItem && count && buyout / count > lowestPerItem * PRICE_SWEEP_TIMES;
+}
+
 // The least price of a better quality: 1.5 times the scaled median of the quality below (0 when unknown).
 // Gear's scanned price tops at 1.5 times its median, so this step puts a better quality at or over the dearest piece
 // of the quality below, slot or not.
