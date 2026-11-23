@@ -179,6 +179,74 @@ char const* NoWayWhy(Player* bot, WorldObject const* npc, float& endToNpc)
                        npc->IsWithinLOS(end.x, end.y, end.z + 1.5f));
 }
 
+namespace
+{
+// A real player (not a bot) on the bot's map who sees it.
+bool RealPlayerSees(Player* bot)
+{
+    constexpr float SIGHT = 100.0f;
+    Map* map = bot->GetMap();
+    if (!map)
+        return true;
+    Map::PlayerList const& players = map->GetPlayers();
+    for (Map::PlayerList::const_iterator itr = players.begin(); itr != players.end(); ++itr)
+    {
+        Player* player = itr->GetSource();
+        if (!player || player == bot || !player->GetSession() || player->GetSession()->IsBot())
+            continue;
+        if (player->IsWithinDist(bot, SIGHT) && player->IsWithinLOSInMap(bot))
+            return true;
+    }
+    return false;
+}
+
+// The path from (fx, fy, fz) reaches the stop.
+bool PathReaches(Player* bot, float fx, float fy, float fz, G3D::Vector3 const& stop)
+{
+    PathGenerator path(bot);
+    if (!path.CalculatePath(fx, fy, fz, stop.x, stop.y, stop.z, false) ||
+        CoreStraightLine(uint32(path.GetPathType()), uint32(path.GetPath().size())))
+        return false;
+    G3D::Vector3 const& end = path.GetActualEndPosition();
+    return (end - stop).length() <= 1.5f;
+}
+}  // namespace
+
+Unstick UnstickFromIsland(Player* bot, WorldObject const* npc)
+{
+    if (!bot || !npc || !bot->IsInWorld() || bot->GetMapId() != npc->GetMapId())
+        return Unstick::NotStuck;
+    G3D::Vector3 stop;
+    {
+        std::lock_guard<std::mutex> guard(ringStopsLock);
+        auto found = ringStops.find(npc->GetGUID().GetRawValue());
+        if (found == ringStops.end())
+            return Unstick::NotStuck;  // no stop known to be walkable: nothing to tell an island from
+        stop = found->second;
+    }
+    bool const stuck = !PathReaches(bot, bot->GetPositionX(), bot->GetPositionY(), bot->GetPositionZ(), stop);
+    bool walkable = false;
+    float wx = 0.0f, wy = 0.0f, wz = 0.0f;
+    Map* map = bot->GetMap();
+    for (float radius : UNSTICK_RADII)
+        for (uint32 i = 0; stuck && map && !walkable && i < UNSTICK_DIRECTIONS; ++i)
+        {
+            float const angle = float(i) * 6.2831853f / float(UNSTICK_DIRECTIONS);
+            wx = bot->GetPositionX() + radius * std::cos(angle);
+            wy = bot->GetPositionY() + radius * std::sin(angle);
+            wz = map->GetHeight(bot->GetPhaseMask(), wx, wy, bot->GetPositionZ() + 2.0f);
+            walkable = wz > INVALID_HEIGHT &&
+                       FlatLine(bot, bot->GetPositionX(), bot->GetPositionY(), bot->GetPositionZ(), wx, wy, wz) &&
+                       PathReaches(bot, wx, wy, wz, stop);
+        }
+    Unstick const choice = UnstickChoice(stuck, walkable, !walkable && stuck && RealPlayerSees(bot));
+    if (choice == Unstick::Walk)
+        bot->GetMotionMaster()->MovePoint(0, wx, wy, wz, FORCED_MOVEMENT_NONE, 0.0f, 0.0f, false, false);
+    else if (choice == Unstick::Teleport)
+        bot->NearTeleportTo(stop.x, stop.y, stop.z, bot->GetOrientation());
+    return choice;
+}
+
 ObjectGuid OtherReachableAuctioneer(Player* bot, WorldObject* npc)
 {
     constexpr float AUCTIONEERS_RANGE = 40.0f;

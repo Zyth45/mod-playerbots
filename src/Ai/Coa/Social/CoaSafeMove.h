@@ -7,6 +7,7 @@
 #ifndef _PLAYERBOT_COASAFEMOVE_H
 #define _PLAYERBOT_COASAFEMOVE_H
 
+#include "CoaSafeMoveRules.h"
 #include "ObjectGuid.h"
 
 class Player;
@@ -31,6 +32,9 @@ char const* NoWayWhy(Player* bot, WorldObject const* npc, float& endToNpc);
 // 3.2 (living bench, Stormwind: Chilton's stop lies off the part of the navmesh the street reaches): another
 // auctioneer within AUCTIONEERS_RANGE yards of npc with a walkable stop (StandByNpc), or an empty guid.
 ObjectGuid OtherReachableAuctioneer(Player* bot, WorldObject* npc);
+// 3.2.2: a bot whose way to npc found no stop: when it stands on a closed island (its path to the stop another bot
+// walked to stops short), gets it off (UnstickChoice) and says how; NotStuck when there is no known stop or no island.
+Unstick UnstickFromIsland(Player* bot, WorldObject const* npc);
 }  // namespace CoaSafeMove
 
 #endif

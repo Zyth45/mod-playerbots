@@ -169,6 +169,24 @@ constexpr uint32_t STAND_RING_DIRECTIONS = 8;
 constexpr float STAND_RING_RADII[] = {2.0f, 3.5f};
 constexpr uint32_t STAND_RING_TRIES = STAND_RING_DIRECTIONS * (sizeof(STAND_RING_RADII) / sizeof(STAND_RING_RADII[0]));
 
+// 3.2.2 (Pilote, 23/11, within the rule of credible moves): a bot standing on a closed island of the navmesh (its
+// path to a stop known to be walkable stops short) gets off it: a walk in a straight line over checked flat ground
+// to a point within UNSTICK_REACH yards from which the stop is walkable; else, when no real player sees it, a short
+// teleport to the stop; else the visit is given up. NotStuck: the bot is not on an island.
+constexpr float UNSTICK_REACH = 4.5f;
+constexpr float UNSTICK_RADII[] = {1.5f, 3.0f, 4.5f};
+constexpr uint32_t UNSTICK_DIRECTIONS = 8;
+enum class Unstick { NotStuck, Walk, Teleport, Abandon };
+
+inline Unstick UnstickChoice(bool stuck, bool walkableNear, bool realPlayerInSight)
+{
+    if (!stuck)
+        return Unstick::NotStuck;
+    if (walkableNear)
+        return Unstick::Walk;
+    return realPlayerInSight ? Unstick::Abandon : Unstick::Teleport;
+}
+
 // The try'th point: its radius and its angle, from the angle toward the bot, alternating sides (0, +45, -45, +90...).
 inline void StandRingPoint(uint32_t tryIndex, float towardBot, float& radius, float& angle)
 {

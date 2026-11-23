@@ -158,6 +158,7 @@ namespace
         std::map<std::string, uint32> noWayReasons;
         std::map<std::string, std::vector<std::string>> noWaySamples;  // capital -> at most NO_WAY_SAMPLES an hour
         std::map<std::string, uint32> notReached;                      // capital -> wanders ended short of it
+        std::atomic<uint32> unstick[3]{};  // 3.2.2: off a closed island by a walk, by a teleport, or given up
         std::map<std::string, std::vector<std::string>> notReachedSamples;
         std::atomic<uint32> shopChecks{0}, shopPoor{0}, shopInterval{0};
         // 3.2: budget and threshold of the "too poor" checks, for their medians (a sample, at most POOR_SAMPLES).
@@ -266,6 +267,9 @@ namespace
                                   (capital.empty() ? std::string("outside a capital") : capital) + " " + std::to_string(n);
                 if (!notReached.empty())
                     ways += " | not reached: " + notReached + " | samples: " + bySite(pathCounters.notReachedSamples);
+                ways += " | off a navmesh island: " + std::to_string(pathCounters.unstick[0].exchange(0)) +
+                        " walked, " + std::to_string(pathCounters.unstick[1].exchange(0)) + " teleported unseen, " +
+                        std::to_string(pathCounters.unstick[2].exchange(0)) + " given up (a player in sight)";
                 pathCounters.noWayReasons.clear();
                 pathCounters.noWaySamples.clear();
                 pathCounters.notReached.clear();
@@ -1000,6 +1004,12 @@ void NoteNoWay(char const* capital, char const* reason, uint32 entry, float x, f
                       why.c_str(), gap);
         samples.emplace_back(sample);
     }
+}
+
+void NoteUnstick(int how)
+{
+    if (settings.buyLog && how >= 1 && how <= 3)
+        ++pathCounters.unstick[how - 1];
 }
 
 void NoteNotReached(char const* capital, uint32 entry, float x, float y, float z, float toNpc, bool moving,

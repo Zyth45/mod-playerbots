@@ -585,6 +585,19 @@ bool NewRpgWanderNpcAction::Execute(Event /*event*/)
             CoaSafeMove::GiveUp const why = CoaSafeMove::GivesUpNpc(!object, wayExists, ++data.refusals);
             if (why == CoaSafeMove::GiveUp::No)
                 return false;
+            // 3.2.2: a bot on a closed island of the navmesh gets off it (a short walk, a teleport no player sees),
+            // then tries again; otherwise the visit is given up below.
+            if (why == CoaSafeMove::GiveUp::NoWay && object)
+            {
+                CoaSafeMove::Unstick const unstick = CoaSafeMove::UnstickFromIsland(bot, object);
+                if (unstick != CoaSafeMove::Unstick::NotStuck)
+                    CoaEconomy::BotAuctions::NoteUnstick(int(unstick));
+                if (unstick == CoaSafeMove::Unstick::Walk || unstick == CoaSafeMove::Unstick::Teleport)
+                {
+                    data.refusals = 0;
+                    return true;
+                }
+            }
             // 3.2 (Stormwind, Chilton): no way to this auctioneer, another of the same house it can walk to instead.
             if (why == CoaSafeMove::GiveUp::NoWay && data.toAuctioneer)
             {

@@ -77,6 +77,12 @@ int main()
     assert(!BridgesDeadEnd(16.1f, false));           // a wall or a drop in between
     assert(!BridgesDeadEnd(25.0f, true));            // too far short
     assert(!StandsByNpc(16.1f));                     // what refused it before
+    // 3.2.2: off a closed island: a walk first, a teleport only unseen, else the visit given up.
+    assert(UnstickChoice(false, false, false) == Unstick::NotStuck);
+    assert(UnstickChoice(true, true, true) == Unstick::Walk);
+    assert(UnstickChoice(true, false, false) == Unstick::Teleport);
+    assert(UnstickChoice(true, false, true) == Unstick::Abandon);
+    assert(UNSTICK_RADII[2] <= UNSTICK_REACH);
     // 3.2.2: the ring around an NPC, first toward the bot, then alternating sides, all within reach of it.
     {
         float radius = 0.0f, angle = 0.0f;
