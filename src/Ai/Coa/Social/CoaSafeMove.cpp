@@ -112,6 +112,13 @@ void TraceBehind(WorldObject const* npc)
              npc->GetName(), npc->GetEntry(), npc->GetPositionX(), npc->GetPositionY(), npc->GetPositionZ());
 }
 
+// 3.2.2: the NPC is seen from the stop, at 1.5 yards up or at the eyes, or the stop is at its counter (SeenOrAtCounter).
+bool Sees(WorldObject const* npc, float x, float y, float z)
+{
+    return SeenOrAtCounter(npc->IsWithinLOS(x, y, z + 1.5f), npc->IsWithinLOS(x, y, z + STAND_EYES),
+                           npc->GetExactDist(x, y, z), z - npc->GetPositionZ());
+}
+
 // By the NPC: within NPC_STAND_REACH, or within the core's own reach for it (a high counter).
 bool ByNpc(Player* bot, WorldObject const* npc, float x, float y, float z)
 {
@@ -138,7 +145,7 @@ bool RingStopWalks(Player* bot, WorldObject const* npc, float px, float py, floa
         return false;
     stop = path.GetActualEndPosition();
     return ByNpc(bot, npc, stop.x, stop.y, stop.z) && FrontOf(npc, stop.x, stop.y) &&
-           npc->IsWithinLOS(stop.x, stop.y, stop.z + 1.5f);
+           Sees(npc, stop.x, stop.y, stop.z);
 }
 
 bool RingStopByNpc(Player* bot, WorldObject const* npc, float& x, float& y, float& z)
@@ -213,7 +220,7 @@ bool StandByNpc(Player* bot, WorldObject const* npc, float& x, float& y, float& 
         G3D::Vector3 const& end = path.GetActualEndPosition();
         // 3.2: no bridge over a dead end short of the NPC (BridgesDeadEnd): on the living bench the bots at the end of
         // it (Stormwind's counter) stood there until their wander ended, the stop by the NPC failing the flat line.
-        if (ByNpc(bot, npc, end.x, end.y, end.z) && npc->IsWithinLOS(end.x, end.y, end.z + 1.5f))
+        if (ByNpc(bot, npc, end.x, end.y, end.z) && Sees(npc, end.x, end.y, end.z))
         {
             if (FrontOf(npc, end.x, end.y))
             {
@@ -254,7 +261,7 @@ char const* NoWayWhy(Player* bot, WorldObject const* npc, float& endToNpc)
     G3D::Vector3 const& end = path.GetActualEndPosition();
     endToNpc = npc->GetExactDist(end.x, end.y, end.z);
     return NoWayReason(uint32(path.GetPathType()), uint32(path.GetPath().size()), StandsByNpc(endToNpc),
-                       npc->IsWithinLOS(end.x, end.y, end.z + 1.5f));
+                       Sees(npc, end.x, end.y, end.z));
 }
 
 namespace

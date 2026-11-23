@@ -104,6 +104,12 @@ int main()
     assert(InFrontOf(-4886.55f, -997.594f, 2.23402f, -4889.0996f, -994.0582f));
     assert(!InFrontOf(-4886.55f, -997.594f, 2.23402f, -4884.0f, -1001.0f));   // behind the banker
     assert(!InFrontOf(-4886.55f, -997.594f, 2.23402f, -4886.0f, -997.0f));    // beside: under a yard out
+    // 3.2.2: an auctioneer on a dais behind its counter: seen over it, or the stop at the counter.
+    assert(SeenOrAtCounter(false, true, 6.0f, 0.0f));
+    assert(SeenOrAtCounter(false, false, 4.46f, -1.2f));   // Ironforge's auctioneer 9859, on its dais
+    assert(!SeenOrAtCounter(false, false, 6.03f, 0.0f));   // out of reach
+    assert(!SeenOrAtCounter(false, false, 4.0f, -3.5f));   // another floor, under the NPC
+    assert(!SeenOrAtCounter(false, false, 4.0f, 3.0f));    // another floor, over it
     assert(UNSTICK_RADII[2] <= UNSTICK_REACH);
     // 3.2.2: the ring around an NPC, first toward the bot, then alternating sides, all within reach of it.
     {

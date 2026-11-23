@@ -129,16 +129,21 @@ bool FindStop(Query& q, Map* map, dtPolyRef fromRef, float const* fromPt, float 
         float const* end = &straight[(points - 1) * 3];
         float const toNpc = std::sqrt((end[2] - nx) * (end[2] - nx) + (end[0] - ny) * (end[0] - ny) +
                                       (end[1] - nz) * (end[1] - nz));
-        bool const sight = !map || map->isInLineOfSight(end[2], end[0], end[1] + 1.5f, nx, ny, nz + 1.5f,
-                                                       PHASEMASK_NORMAL, LINEOFSIGHT_ALL_CHECKS,
-                                                       VMAP::ModelIgnoreFlags::Nothing);
+        auto seen = [&](float up)
+        {
+            return !map || map->isInLineOfSight(end[2], end[0], end[1] + up, nx, ny, nz + 1.5f, PHASEMASK_NORMAL,
+                                                LINEOFSIGHT_ALL_CHECKS, VMAP::ModelIgnoreFlags::Nothing);
+        };
+        bool const seenLow = seen(1.5f);
+        bool const sight = CoaSafeMove::SeenOrAtCounter(seenLow, seenLow || seen(CoaSafeMove::STAND_EYES), toNpc,
+                                                           end[1] - nz);
         bool const front = std::isnan(facing) || CoaSafeMove::InFrontOf(nx, ny, facing, end[2], end[0]);
         // 3.2.2 (sonde of 603a6549: every auctioneer of Ironforge and Orgrimmar "not joined", bots reaching them in game):
         // the reach with the usual sizes, a humanoid NPC's and a player's combat reach (1.5 each), as ByNpc counts them.
         bool const ok = CoaSafeMove::InInteractionReach(toNpc, 1.5f, 1.5f) && sight && front;
         if (how && (ok || what == "direct path"))
             *how += (how->empty() ? "" : "; ") + what + Fmt(": end %.2f %.2f %.2f,", end[2], end[0], end[1]) +
-                    Fmt(" %.2f yd from the NPC", toNpc) + (sight ? "" : ", out of sight") +
+                    Fmt(" %.2f yd from the NPC", toNpc) + (seenLow ? "" : sight ? ", at the counter" : ", out of sight") +
                     (front ? "" : ", BEHIND it");
         if (ok)
         {

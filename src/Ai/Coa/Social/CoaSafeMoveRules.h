@@ -198,6 +198,19 @@ inline bool InFrontOf(float npcX, float npcY, float facing, float x, float y)
     return (x - npcX) * std::cos(facing) + (y - npcY) * std::sin(facing) >= STAND_FRONT;
 }
 
+// 3.2.2 (sonde of 1e991b2d: the auctioneers of Ironforge and Orgrimmar, Stormwind's banker 137354, on a dais behind a
+// counter: the path's end in front of them at 1.6 to 4.5 yards, "out of sight" at 1.5 yards up): the NPC is seen from
+// the stop at 1.5 yards up or at the eyes (STAND_EYES, over a counter), or the stop is within NPC_STAND_REACH of it
+// (the core asks no sight to talk, GetNPCIfCanInteractWith; the stop is in front of the NPC and on the path's floor).
+// Unseen, the stop lies at most COUNTER_RISE yards above or under the NPC (Pilote: never another floor).
+constexpr float STAND_EYES = 2.5f;
+constexpr float COUNTER_RISE = 2.5f;
+
+inline bool SeenOrAtCounter(bool seenLow, bool seenEyes, float dist, float dz)
+{
+    return seenLow || seenEyes || (dist <= NPC_STAND_REACH && std::fabs(dz) <= COUNTER_RISE);
+}
+
 // 3.2.2 (Pilote, 23/11, within the rule of credible moves): a bot standing on a closed island of the navmesh (its
 // path to a stop known to be walkable stops short) gets off it: a walk in a straight line over checked flat ground
 // to a point within UNSTICK_REACH yards from which the stop is walkable; else, when no real player sees it, a short
