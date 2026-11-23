@@ -76,6 +76,21 @@ bool NewRpgBaseAction::MoveFarTo(WorldPosition dest)
         // clear stuck information if it's a new dest
         botAI->rpgInfo.SetMoveFarTo(dest);
     }
+    // CoA 3.2.2: the time the bot spent fighting (or doing anything but this walk) does not count as time stuck:
+    // after a long fight on the way, it teleported to its target at once. A gap of more than MOVE_FAR_GAP_MS between
+    // two calls moves the progress mark forward by that gap.
+    {
+        constexpr uint32 MOVE_FAR_GAP_MS = 5000;
+        uint32 const now = getMSTime();
+        uint32& last = botAI->rpgInfo.moveFarLastMs;
+        if (last && botAI->rpgInfo.stuckTs)
+        {
+            uint32 const gap = getMSTimeDiff(last, now);
+            if (gap > MOVE_FAR_GAP_MS)
+                botAI->rpgInfo.stuckTs += gap;
+        }
+        last = now;
+    }
 
     // performance optimization
     if (IsWaitingForLastMove(MovementPriority::MOVEMENT_NORMAL))
