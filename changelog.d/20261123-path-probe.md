@@ -1,0 +1,2 @@
+### A navmesh probe for server owners
+".squidbots path <map> x y z x y z" (console and RA too) tells whether the walkable mesh joins two points, where a path really ends and which floors lie under the target; ".squidbots pathcheck" checks, in every capital, the way from where the bots arrive to each auctioneer, banker and flight master (AiPlayerbot.CoaPathCheck runs it once after the start). Read only.

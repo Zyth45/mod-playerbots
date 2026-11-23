@@ -11,12 +11,14 @@
 #include "CoaDungeonClearLink.h"
 #include "CoaLive.h"
 #include "CoaMoveAudit.h"
+#include "CoaPathProbe.h"
 #include "CoaQuietAchievements.h"
 
 void AddCoaLiveScripts()
 {
     AddSC_coa_live();
     AddSC_coa_quiet_achievements();
+    AddSC_coa_path_probe();
     AddSC_coa_move_audit();
     AddSC_coa_dungeon_clear_link();
     AddSC_coa_bot_why();

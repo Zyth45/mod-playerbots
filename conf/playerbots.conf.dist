@@ -683,6 +683,15 @@ AiPlayerbot.CoaMoveAudit.SampleMs = 300
 AiPlayerbot.CoaMoveAudit.ThrottleSeconds = 10
 AiPlayerbot.CoaMoveAudit.File = "coa_move_audit.jsonl"
 
+# 3.2.2: the capitals' path check. For each capital, from each arrival (a banker's point where the bots are sent: 6 yards
+# in front of him, 2 higher; an innkeeper's, a flight master's) to each auctioneer, banker and flight master, one line in
+# CoaBots.log per pair the navmesh does not join. Run once, DelaySeconds after the start (the navmesh tiles load with
+# the grids). The same at any time: ".squidbots pathcheck"; one pair: ".squidbots path <map> x y z x y z" (console and
+# RA too). Read only.
+# Default: 0, 300
+AiPlayerbot.CoaPathCheck = 0
+AiPlayerbot.CoaPathCheck.DelaySeconds = 300
+
 # ".squidbots why" (3.2), for every account (GmOnly = 1: game master accounts only, the others are told so), on a
 # selected bot or a bot's name (.squidbots why [name]), once per Cooldown seconds per player:
 # what the bot is doing, in the chat and as one line in File (in the server's LogsDir) to send us: its name, level,

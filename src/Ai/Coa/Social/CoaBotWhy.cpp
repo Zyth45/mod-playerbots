@@ -9,6 +9,7 @@
 #include "Chat.h"
 #include "ChatCommand.h"
 #include "CoaBotWhyRules.h"
+#include "CoaPathProbe.h"
 #include "CoaMoveAuditRules.h"
 #include "Config.h"
 #include "Creature.h"
@@ -16,6 +17,7 @@
 #include "Engine.h"
 #include "GameObject.h"
 #include "GameTime.h"
+#include "Log.h"
 #include "Map.h"
 #include "MotionMaster.h"
 #include "NewRpgInfo.h"
@@ -280,6 +282,28 @@ namespace
         return true;
     }
 
+    // 3.2.2: the navmesh probe (CoaPathProbe), console and RA too.
+    bool HandlePath(ChatHandler* handler, uint32 mapId, float fx, float fy, float fz, float tx, float ty, float tz)
+    {
+        for (std::string const& line : CoaPathProbe::Probe(mapId, fx, fy, fz, tx, ty, tz))
+        {
+            handler->PSendSysMessage("[SquidBots path] {}", line);
+            LOG_INFO("playerbots.coa", "path probe map {} {:.1f} {:.1f} {:.1f} -> {:.1f} {:.1f} {:.1f}: {}", mapId, fx, fy,
+                     fz, tx, ty, tz, line);
+        }
+        return true;
+    }
+
+    bool HandlePathCheck(ChatHandler* handler)
+    {
+        for (std::string const& line : CoaPathProbe::CheckCapitals())
+        {
+            handler->PSendSysMessage("[SquidBots pathcheck] {}", line);
+            LOG_INFO("playerbots.coa", "path check: {}", line);
+        }
+        return true;
+    }
+
     class CoaBotWhyCommandScript : public CommandScript
     {
     public:
@@ -289,6 +313,8 @@ namespace
         {
             static ChatCommandTable squidbotsTable = {
                 {"why", HandleWhy, SEC_PLAYER, Console::No},
+                {"path", HandlePath, SEC_ADMINISTRATOR, Console::Yes},
+                {"pathcheck", HandlePathCheck, SEC_ADMINISTRATOR, Console::Yes},
             };
             static ChatCommandTable commandTable = {
                 {"squidbots", squidbotsTable},
