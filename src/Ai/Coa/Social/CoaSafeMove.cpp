@@ -15,10 +15,13 @@
 #include <algorithm>
 #include <cmath>
 #include <list>
+#include <unordered_map>
+#include <mutex>
 #include "Log.h"
 #include "Map.h"
 #include "MotionMaster.h"
 #include "PathGenerator.h"
+#include "Timer.h"
 #include "Player.h"
 
 static_assert(CoaSafeMove::NORMAL == PATHFIND_NORMAL && CoaSafeMove::SHORTCUT == PATHFIND_SHORTCUT &&
@@ -71,6 +74,70 @@ bool FlatLine(Player* bot, float fx, float fy, float fz, float tx, float ty, flo
     return FlatLineArrives(length, gap, true);
 }
 
+namespace
+{
+std::mutex ringStopsLock;
+std::unordered_map<uint64, G3D::Vector3> ringStops;  // NPC guid -> the ring stop found for it (map threads)
+// NPC guid -> when a whole ring search found nothing: none again for RING_RETRY_MS (up to 16 paths a search).
+std::unordered_map<uint64, uint32> ringMisses;
+constexpr uint32 RING_RETRY_MS = 60 * 1000;
+
+// A stop by the NPC the bot walks to: the path to (px, py, pz) ends by the NPC and in its sight.
+bool RingStopWalks(Player* bot, WorldObject const* npc, float px, float py, float pz, G3D::Vector3& stop)
+{
+    PathGenerator path(bot);
+    if (!path.CalculatePath(px, py, pz, false) ||
+        CoreStraightLine(uint32(path.GetPathType()), uint32(path.GetPath().size())))
+        return false;
+    stop = path.GetActualEndPosition();
+    return StandsByNpc(npc->GetExactDist(stop.x, stop.y, stop.z)) && npc->IsWithinLOS(stop.x, stop.y, stop.z + 1.5f);
+}
+
+bool RingStopByNpc(Player* bot, WorldObject const* npc, float& x, float& y, float& z)
+{
+    uint64 const key = npc->GetGUID().GetRawValue();
+    G3D::Vector3 stop;
+    {
+        std::lock_guard<std::mutex> guard(ringStopsLock);
+        auto found = ringStops.find(key);
+        if (found != ringStops.end())
+            stop = found->second;
+    }
+    bool found = stop != G3D::Vector3::zero() && RingStopWalks(bot, npc, stop.x, stop.y, stop.z, stop);
+    if (!found)
+    {
+        std::lock_guard<std::mutex> guard(ringStopsLock);
+        auto miss = ringMisses.find(key);
+        if (miss != ringMisses.end() && GetMSTimeDiffToNow(miss->second) < RING_RETRY_MS)
+            return false;
+    }
+    float const towardBot = npc->GetAngle(bot);
+    for (uint32 i = 0; !found && i < STAND_RING_TRIES; ++i)
+    {
+        float radius = 0.0f, angle = 0.0f;
+        StandRingPoint(i, towardBot, radius, angle);
+        found = RingStopWalks(bot, npc, npc->GetPositionX() + radius * std::cos(angle),
+                              npc->GetPositionY() + radius * std::sin(angle), npc->GetPositionZ(), stop);
+    }
+    {
+        std::lock_guard<std::mutex> guard(ringStopsLock);
+        if (!found)
+        {
+            if (ringMisses.size() < 4096 || ringMisses.count(key))
+                ringMisses[key] = getMSTime();
+            return false;
+        }
+        if (ringStops.size() < 4096 || ringStops.count(key))
+            ringStops[key] = stop;
+        ringMisses.erase(key);
+    }
+    x = stop.x;
+    y = stop.y;
+    z = stop.z;
+    return true;
+}
+}  // namespace
+
 bool StandByNpc(Player* bot, WorldObject const* npc, float& x, float& y, float& z)
 {
     if (!bot || !npc || !bot->IsInWorld() || bot->GetMapId() != npc->GetMapId())
@@ -83,32 +150,19 @@ bool StandByNpc(Player* bot, WorldObject const* npc, float& x, float& y, float& 
     uint32 const type = uint32(path.GetPathType());
     if (CoreStraightLine(type, uint32(path.GetPath().size())))
         return false;
-    G3D::Vector3 end = path.GetActualEndPosition();
-    float endToNpc = npc->GetExactDist(end.x, end.y, end.z);
+    G3D::Vector3 const& end = path.GetActualEndPosition();
     // 3.2: no bridge over a dead end short of the NPC (BridgesDeadEnd): on the living bench the bots at the end of it
     // (Stormwind's counter) stood there until their wander ended, the stop by the NPC failing the flat line.
-    // 3.2.1: the end may be short only because the core took a closed island right under the NPC (Chilton): the
-    // same point a little higher (NpcLift) gets the floor the bot walks on.
-    for (uint32 step = 1; step <= NPC_LIFT_STEPS && !StandsByNpc(endToNpc); ++step)
+    if (StandsByNpc(npc->GetExactDist(end.x, end.y, end.z)) && npc->IsWithinLOS(end.x, end.y, end.z + 1.5f))
     {
-        PathGenerator lifted(bot);
-        if (!lifted.CalculatePath(npc->GetPositionX(), npc->GetPositionY(), npc->GetPositionZ() + NpcLift(step), false) ||
-            CoreStraightLine(uint32(lifted.GetPathType()), uint32(lifted.GetPath().size())))
-            continue;
-        G3D::Vector3 const& liftedEnd = lifted.GetActualEndPosition();
-        float const liftedToNpc = npc->GetExactDist(liftedEnd.x, liftedEnd.y, liftedEnd.z);
-        if (liftedToNpc < endToNpc)
-        {
-            end = liftedEnd;
-            endToNpc = liftedToNpc;
-        }
+        x = end.x;
+        y = end.y;
+        z = end.z;
+        return true;
     }
-    if (!StandsByNpc(endToNpc) || !npc->IsWithinLOS(end.x, end.y, end.z + 1.5f))
-        return false;
-    x = end.x;
-    y = end.y;
-    z = end.z;
-    return true;
+    // 3.2.2: the end may be short only because the core took another floor right under the NPC (Chilton): a stop on a
+    // ring around it (StandRingPoint), the one found before for this NPC first.
+    return RingStopByNpc(bot, npc, x, y, z);
 }
 
 char const* NoWayWhy(Player* bot, WorldObject const* npc, float& endToNpc)

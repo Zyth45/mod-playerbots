@@ -159,16 +159,25 @@ inline bool StandsByNpc(float endToNpc)
     return endToNpc <= NPC_STAND_REACH;
 }
 
-// 3.2.1 (navmesh read around the Stormwind auctioneers): under Auctioneer Chilton lies a closed island of 13 polygons,
-// 0.1 yard below the floor the street reaches. The core takes the polygon nearest the NPC's own height, the island,
-// and the path ended 16.1 yards short. When the path to an NPC stops short, the same point a little higher is tried:
-// NPC_LIFT_STEPS lifts, NPC_LIFT_STEP yards each (never above the NPC's head).
-constexpr uint32_t NPC_LIFT_STEPS = 2;
-constexpr float NPC_LIFT_STEP = 0.2f;
+// 3.2.2 (living bench of d3bb1f81: the 3.2.1 lift changed nothing): under Auctioneer Chilton five floors of the navmesh
+// lie within 2 yards of height, a closed island 0.1 yard under the floor the street reaches. Detour's findNearestPoly
+// counts any polygon under the point within its climb height as distance 0, so a lift under that height ties and the
+// island may still win. When the path to an NPC stops short, points on a ring around it are tried instead, where the
+// floors no longer overlap: STAND_RING_DIRECTIONS directions, the first toward the bot, at each of STAND_RING_RADII.
+// The first whose path ends by the NPC and in its sight is the stop, kept for that NPC.
+constexpr uint32_t STAND_RING_DIRECTIONS = 8;
+constexpr float STAND_RING_RADII[] = {2.0f, 3.5f};
+constexpr uint32_t STAND_RING_TRIES = STAND_RING_DIRECTIONS * (sizeof(STAND_RING_RADII) / sizeof(STAND_RING_RADII[0]));
 
-inline float NpcLift(uint32_t step)
+// The try'th point: its radius and its angle, from the angle toward the bot, alternating sides (0, +45, -45, +90...).
+inline void StandRingPoint(uint32_t tryIndex, float towardBot, float& radius, float& angle)
 {
-    return float(step) * NPC_LIFT_STEP;
+    uint32_t const ring = tryIndex / STAND_RING_DIRECTIONS;
+    uint32_t const step = tryIndex % STAND_RING_DIRECTIONS;
+    radius = STAND_RING_RADII[ring < 2 ? ring : 1];
+    float const turn = 6.2831853f / float(STAND_RING_DIRECTIONS);
+    float const side = (step % 2) ? 1.0f : -1.0f;
+    angle = towardBot + side * float((step + 1) / 2) * turn;
 }
 
 inline bool CityPathChecked(bool randomBot, bool realMaster, bool inCombat, bool generatePath, bool capital,

@@ -77,8 +77,17 @@ int main()
     assert(!BridgesDeadEnd(16.1f, false));           // a wall or a drop in between
     assert(!BridgesDeadEnd(25.0f, true));            // too far short
     assert(!StandsByNpc(16.1f));                     // what refused it before
-    // 3.2.1: Chilton's island lies 0.1 yard under the floor; the lifts pass it and stay under a head.
-    assert(NpcLift(1) > 0.1f);
-    assert(NpcLift(NPC_LIFT_STEPS) < 1.0f);
+    // 3.2.2: the ring around an NPC, first toward the bot, then alternating sides, all within reach of it.
+    {
+        float radius = 0.0f, angle = 0.0f;
+        StandRingPoint(0, 1.0f, radius, angle);
+        assert(radius == 2.0f && angle == 1.0f);
+        StandRingPoint(1, 1.0f, radius, angle);
+        assert(angle > 1.0f);
+        StandRingPoint(2, 1.0f, radius, angle);
+        assert(angle < 1.0f);
+        StandRingPoint(STAND_RING_TRIES - 1, 1.0f, radius, angle);
+        assert(radius == 3.5f && StandsByNpc(radius));
+    }
     return 0;
 }
