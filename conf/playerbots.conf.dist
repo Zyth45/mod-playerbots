@@ -1461,8 +1461,8 @@ AiPlayerbot.PreferredSpecWeapons = 0
 
 # Set minimum level of bots that will enchant and socket gems into their equipment with maintenance
 # If greater than RandomBotMaxlevel, bots will not automatically enchant equipment or socket gems
-# Default: 60
-AiPlayerbot.MinEnchantingBotLevel = 60
+# Default: 20 (3.2.1 and before: 60; a bot from level 20 on gets the enchantments and gems of its level)
+AiPlayerbot.MinEnchantingBotLevel = 20
 
 # Enable expansion limitation for bot enchants and gems
 # If enabled, bots will not use TBC enchants until level 61 or WotLK enchants and gems until level 71
