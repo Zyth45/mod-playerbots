@@ -83,11 +83,26 @@ bool StandByNpc(Player* bot, WorldObject const* npc, float& x, float& y, float& 
     uint32 const type = uint32(path.GetPathType());
     if (CoreStraightLine(type, uint32(path.GetPath().size())))
         return false;
-    G3D::Vector3 const& end = path.GetActualEndPosition();
-    float const endToNpc = npc->GetExactDist(end.x, end.y, end.z);
+    G3D::Vector3 end = path.GetActualEndPosition();
+    float endToNpc = npc->GetExactDist(end.x, end.y, end.z);
     // 3.2: no bridge over a dead end short of the NPC (BridgesDeadEnd): on the living bench the bots at the end of it
-    // (Stormwind's counter) stood there until their wander ended, the stop by the NPC failing the flat line. 3.2.1:
-    // a fixed stop per Stormwind auctioneer, taken in game.
+    // (Stormwind's counter) stood there until their wander ended, the stop by the NPC failing the flat line.
+    // 3.2.1: the end may be short only because the core took a closed island right under the NPC (Chilton): the
+    // same point a little higher (NpcLift) gets the floor the bot walks on.
+    for (uint32 step = 1; step <= NPC_LIFT_STEPS && !StandsByNpc(endToNpc); ++step)
+    {
+        PathGenerator lifted(bot);
+        if (!lifted.CalculatePath(npc->GetPositionX(), npc->GetPositionY(), npc->GetPositionZ() + NpcLift(step), false) ||
+            CoreStraightLine(uint32(lifted.GetPathType()), uint32(lifted.GetPath().size())))
+            continue;
+        G3D::Vector3 const& liftedEnd = lifted.GetActualEndPosition();
+        float const liftedToNpc = npc->GetExactDist(liftedEnd.x, liftedEnd.y, liftedEnd.z);
+        if (liftedToNpc < endToNpc)
+        {
+            end = liftedEnd;
+            endToNpc = liftedToNpc;
+        }
+    }
     if (!StandsByNpc(endToNpc) || !npc->IsWithinLOS(end.x, end.y, end.z + 1.5f))
         return false;
     x = end.x;

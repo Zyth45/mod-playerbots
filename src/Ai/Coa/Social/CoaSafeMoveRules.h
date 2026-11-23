@@ -159,6 +159,18 @@ inline bool StandsByNpc(float endToNpc)
     return endToNpc <= NPC_STAND_REACH;
 }
 
+// 3.2.1 (navmesh read around the Stormwind auctioneers): under Auctioneer Chilton lies a closed island of 13 polygons,
+// 0.1 yard below the floor the street reaches. The core takes the polygon nearest the NPC's own height, the island,
+// and the path ended 16.1 yards short. When the path to an NPC stops short, the same point a little higher is tried:
+// NPC_LIFT_STEPS lifts, NPC_LIFT_STEP yards each (never above the NPC's head).
+constexpr uint32_t NPC_LIFT_STEPS = 2;
+constexpr float NPC_LIFT_STEP = 0.2f;
+
+inline float NpcLift(uint32_t step)
+{
+    return float(step) * NPC_LIFT_STEP;
+}
+
 inline bool CityPathChecked(bool randomBot, bool realMaster, bool inCombat, bool generatePath, bool capital,
                             bool normalPriority)
 {

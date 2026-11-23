@@ -77,5 +77,8 @@ int main()
     assert(!BridgesDeadEnd(16.1f, false));           // a wall or a drop in between
     assert(!BridgesDeadEnd(25.0f, true));            // too far short
     assert(!StandsByNpc(16.1f));                     // what refused it before
+    // 3.2.1: Chilton's island lies 0.1 yard under the floor; the lifts pass it and stay under a head.
+    assert(NpcLift(1) > 0.1f);
+    assert(NpcLift(NPC_LIFT_STEPS) < 1.0f);
     return 0;
 }
