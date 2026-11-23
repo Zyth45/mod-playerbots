@@ -16,6 +16,7 @@
 #include <algorithm>
 #include <cmath>
 #include <list>
+#include <map>
 #include <unordered_map>
 #include <mutex>
 #include "Log.h"
@@ -78,10 +79,23 @@ bool FlatLine(Player* bot, float fx, float fy, float fz, float tx, float ty, flo
 namespace
 {
 std::mutex ringStopsLock;
-std::unordered_map<uint64, G3D::Vector3> ringStops;  // NPC guid -> the ring stop found for it (map threads)
-// NPC guid -> when a whole ring search found nothing: none again for RING_RETRY_MS (up to 16 paths a search).
-std::unordered_map<uint64, uint32> ringMisses;
+// NPC guid -> a stop by it a bot walked to (StandByNpc's success: the direct way, the path's end, or the ring); map
+// threads.
+std::unordered_map<uint64, G3D::Vector3> ringStops;
+// (NPC guid, start cell) -> when a whole ring search from there found nothing: not again from that cell for
+// RING_RETRY_MS (up to 16 paths a search).
+std::map<std::pair<uint64, uint32>, uint32> ringMisses;
 constexpr uint32 RING_RETRY_MS = 60 * 1000;
+
+void KnowStop(WorldObject const* npc, float x, float y, float z)
+{
+    if (!StandsByNpc(npc->GetExactDist(x, y, z)))
+        return;
+    uint64 const key = npc->GetGUID().GetRawValue();
+    std::lock_guard<std::mutex> guard(ringStopsLock);
+    if (ringStops.size() < 4096 || ringStops.count(key))
+        ringStops[key] = G3D::Vector3(x, y, z);
+}
 
 // A stop by the NPC the bot walks to: the path to (px, py, pz) ends by the NPC and in its sight.
 bool RingStopWalks(Player* bot, WorldObject const* npc, float px, float py, float pz, G3D::Vector3& stop)
@@ -97,6 +111,7 @@ bool RingStopWalks(Player* bot, WorldObject const* npc, float px, float py, floa
 bool RingStopByNpc(Player* bot, WorldObject const* npc, float& x, float& y, float& z)
 {
     uint64 const key = npc->GetGUID().GetRawValue();
+    std::pair<uint64, uint32> const missKey(key, StartCell(bot->GetPositionX(), bot->GetPositionY()));
     G3D::Vector3 stop;
     {
         std::lock_guard<std::mutex> guard(ringStopsLock);
@@ -108,7 +123,7 @@ bool RingStopByNpc(Player* bot, WorldObject const* npc, float& x, float& y, floa
     if (!found)
     {
         std::lock_guard<std::mutex> guard(ringStopsLock);
-        auto miss = ringMisses.find(key);
+        auto miss = ringMisses.find(missKey);
         if (miss != ringMisses.end() && GetMSTimeDiffToNow(miss->second) < RING_RETRY_MS)
             return false;
     }
@@ -117,20 +132,22 @@ bool RingStopByNpc(Player* bot, WorldObject const* npc, float& x, float& y, floa
     {
         float radius = 0.0f, angle = 0.0f;
         StandRingPoint(i, towardBot, radius, angle);
-        found = RingStopWalks(bot, npc, npc->GetPositionX() + radius * std::cos(angle),
-                              npc->GetPositionY() + radius * std::sin(angle), npc->GetPositionZ(), stop);
+        float const px = npc->GetPositionX() + radius * std::cos(angle);
+        float const py = npc->GetPositionY() + radius * std::sin(angle);
+        found = RingStopWalks(bot, npc, px, py, npc->GetPositionZ(), stop) ||
+                RingStopWalks(bot, npc, px, py, npc->GetPositionZ() - STAND_RING_DROP, stop);
     }
     {
         std::lock_guard<std::mutex> guard(ringStopsLock);
         if (!found)
         {
-            if (ringMisses.size() < 4096 || ringMisses.count(key))
-                ringMisses[key] = getMSTime();
+            if (ringMisses.size() < 16384 || ringMisses.count(missKey))
+                ringMisses[missKey] = getMSTime();
             return false;
         }
         if (ringStops.size() < 4096 || ringStops.count(key))
             ringStops[key] = stop;
-        ringMisses.erase(key);
+        ringMisses.erase(missKey);
     }
     x = stop.x;
     y = stop.y;
@@ -144,7 +161,10 @@ bool StandByNpc(Player* bot, WorldObject const* npc, float& x, float& y, float& 
     if (!bot || !npc || !bot->IsInWorld() || bot->GetMapId() != npc->GetMapId())
         return false;
     if (CanWalkTo(bot, x, y, z))
+    {
+        KnowStop(npc, x, y, z);  // 3.2.2: a stop a bot walks to, the reference of UnstickFromIsland
         return true;
+    }
     PathGenerator path(bot);
     if (!path.CalculatePath(npc->GetPositionX(), npc->GetPositionY(), npc->GetPositionZ(), false))
         return false;
@@ -159,6 +179,7 @@ bool StandByNpc(Player* bot, WorldObject const* npc, float& x, float& y, float& 
         x = end.x;
         y = end.y;
         z = end.z;
+        KnowStop(npc, x, y, z);
         return true;
     }
     // 3.2.2: the end may be short only because the core took another floor right under the NPC (Chilton): a stop on a
@@ -222,7 +243,7 @@ Unstick UnstickFromIsland(Player* bot, WorldObject const* npc)
         std::lock_guard<std::mutex> guard(ringStopsLock);
         auto found = ringStops.find(npc->GetGUID().GetRawValue());
         if (found == ringStops.end())
-            return Unstick::NotStuck;  // no stop known to be walkable: nothing to tell an island from
+            return Unstick::NoKnownStop;  // no stop known to be walkable: nothing to tell an island from
         stop = found->second;
     }
     bool const stuck = !PathReaches(bot, bot->GetPositionX(), bot->GetPositionY(), bot->GetPositionZ(), stop);

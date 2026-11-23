@@ -55,8 +55,8 @@ namespace CoaEconomy::BotAuctions
     void NoteNoWay(char const* capital, char const* reason, uint32 entry, float x, float y, float z, float gap);
     // 3.2.1 (BuyLog): a wander that ended before its auctioneer was reached ("not reached"), per capital, with a few
     // samples: the auctioneer's entry, where the bot stood, how far from the NPC, moving or not, refused moves in a row.
-    // 3.2.2 (BuyLog): a bot got off a closed island of the navmesh (CoaSafeMove::Unstick: 1 walk, 2 teleport, 3 the visit
-    // given up), counted for the hourly line.
+    // 3.2.2 (BuyLog): the island check of a "no way" give-up (CoaSafeMove::Unstick: 0 its path reaches the known stop,
+    // 1 walked off, 2 teleported, 3 the visit given up, 4 no known stop), counted for the hourly line.
     void NoteUnstick(int how);
     // 3.2.2: and how long ago the wander's action last ran, the NPC in interaction reach or not, the last action run.
     void NoteNotReached(char const* capital, uint32 entry, float x, float y, float z, float toNpc, bool moving,

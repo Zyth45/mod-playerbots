@@ -168,6 +168,10 @@ inline bool StandsByNpc(float endToNpc)
 constexpr uint32_t STAND_RING_DIRECTIONS = 8;
 constexpr float STAND_RING_RADII[] = {2.0f, 3.5f};
 constexpr uint32_t STAND_RING_TRIES = STAND_RING_DIRECTIONS * (sizeof(STAND_RING_RADII) / sizeof(STAND_RING_RADII[0]));
+// 3.2.2 (navmesh read again: Chilton and Fitch stand on the closed island itself, the city's floor 1.57 yards lower,
+// under the tiles' walkableClimb of 1.6, so a point at the NPC's height ties): each ring point is tried at the NPC's
+// height, then STAND_RING_DROP yards lower, where only the floor below is within the climb.
+constexpr float STAND_RING_DROP = 1.6f;
 
 // 3.2.2 (Pilote, 23/11, within the rule of credible moves): a bot standing on a closed island of the navmesh (its
 // path to a stop known to be walkable stops short) gets off it: a walk in a straight line over checked flat ground
@@ -176,7 +180,21 @@ constexpr uint32_t STAND_RING_TRIES = STAND_RING_DIRECTIONS * (sizeof(STAND_RING
 constexpr float UNSTICK_REACH = 4.5f;
 constexpr float UNSTICK_RADII[] = {1.5f, 3.0f, 4.5f};
 constexpr uint32_t UNSTICK_DIRECTIONS = 8;
-enum class Unstick { NotStuck, Walk, Teleport, Abandon };
+// NotStuck: its path reaches the known stop; NoKnownStop: no bot has stood by this NPC yet (3.2.2, Pilote: the bench
+// of d061adec wrote no "off a navmesh island" line, the stops were known from a ring search only).
+enum class Unstick { NotStuck, Walk, Teleport, Abandon, NoKnownStop };
+
+// 3.2.2 (Pilote): a ring search that found nothing is not tried again for a while from the same start only (the
+// bots teleported to the Stormwind bank failed it, and kept every other bot from trying for a minute). The start's
+// cell: START_CELL yards a side.
+constexpr float START_CELL = 4.0f;
+
+inline uint32_t StartCell(float x, float y)
+{
+    int32_t const cx = int32_t(std::floor(x / START_CELL));
+    int32_t const cy = int32_t(std::floor(y / START_CELL));
+    return (uint32_t(cx) & 0xFFFFu) << 16 | (uint32_t(cy) & 0xFFFFu);
+}
 
 inline Unstick UnstickChoice(bool stuck, bool walkableNear, bool realPlayerInSight)
 {

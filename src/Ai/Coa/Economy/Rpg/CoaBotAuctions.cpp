@@ -158,7 +158,9 @@ namespace
         std::map<std::string, uint32> noWayReasons;
         std::map<std::string, std::vector<std::string>> noWaySamples;  // capital -> at most NO_WAY_SAMPLES an hour
         std::map<std::string, uint32> notReached;                      // capital -> wanders ended short of it
-        std::atomic<uint32> unstick[3]{};  // 3.2.2: off a closed island by a walk, by a teleport, or given up
+        // 3.2.2: CoaSafeMove::Unstick of the "no way" give-ups: 0 path reaches the known stop, 1 walk, 2 teleport,
+        // 3 given up, 4 no known stop.
+        std::atomic<uint32> unstick[5]{};
         std::map<std::string, std::vector<std::string>> notReachedSamples;
         std::atomic<uint32> shopChecks{0}, shopPoor{0}, shopInterval{0};
         // 3.2: budget and threshold of the "too poor" checks, for their medians (a sample, at most POOR_SAMPLES).
@@ -267,9 +269,11 @@ namespace
                                   (capital.empty() ? std::string("outside a capital") : capital) + " " + std::to_string(n);
                 if (!notReached.empty())
                     ways += " | not reached: " + notReached + " | samples: " + bySite(pathCounters.notReachedSamples);
-                ways += " | off a navmesh island: " + std::to_string(pathCounters.unstick[0].exchange(0)) +
-                        " walked, " + std::to_string(pathCounters.unstick[1].exchange(0)) + " teleported unseen, " +
-                        std::to_string(pathCounters.unstick[2].exchange(0)) + " given up (a player in sight)";
+                ways += " | off a navmesh island: " + std::to_string(pathCounters.unstick[1].exchange(0)) +
+                        " walked, " + std::to_string(pathCounters.unstick[2].exchange(0)) + " teleported unseen, " +
+                        std::to_string(pathCounters.unstick[3].exchange(0)) + " given up (a player in sight); not on one: " +
+                        std::to_string(pathCounters.unstick[0].exchange(0)) + " whose path reaches the known stop, " +
+                        std::to_string(pathCounters.unstick[4].exchange(0)) + " with no known stop";
                 pathCounters.noWayReasons.clear();
                 pathCounters.noWaySamples.clear();
                 pathCounters.notReached.clear();
@@ -1008,8 +1012,8 @@ void NoteNoWay(char const* capital, char const* reason, uint32 entry, float x, f
 
 void NoteUnstick(int how)
 {
-    if (settings.buyLog && how >= 1 && how <= 3)
-        ++pathCounters.unstick[how - 1];
+    if (settings.buyLog && how >= 0 && how <= 4)
+        ++pathCounters.unstick[how];
 }
 
 void NoteNotReached(char const* capital, uint32 entry, float x, float y, float z, float toNpc, bool moving,

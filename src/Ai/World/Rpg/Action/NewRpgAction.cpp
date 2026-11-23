@@ -599,8 +599,7 @@ bool NewRpgWanderNpcAction::Execute(Event /*event*/)
             if (why == CoaSafeMove::GiveUp::NoWay && object)
             {
                 CoaSafeMove::Unstick const unstick = CoaSafeMove::UnstickFromIsland(bot, object);
-                if (unstick != CoaSafeMove::Unstick::NotStuck)
-                    CoaEconomy::BotAuctions::NoteUnstick(int(unstick));
+                CoaEconomy::BotAuctions::NoteUnstick(int(unstick));
                 if (unstick == CoaSafeMove::Unstick::Walk || unstick == CoaSafeMove::Unstick::Teleport)
                 {
                     data.refusals = 0;

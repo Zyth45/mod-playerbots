@@ -82,6 +82,11 @@ int main()
     assert(UnstickChoice(true, true, true) == Unstick::Walk);
     assert(UnstickChoice(true, false, false) == Unstick::Teleport);
     assert(UnstickChoice(true, false, true) == Unstick::Abandon);
+    // 3.2.2: the start cells of the ring's misses: 4 yards a side, the two Stormwind bank arrivals apart.
+    assert(StartCell(-8919.9f, 634.9f) == StartCell(-8918.5f, 633.2f));
+    assert(StartCell(-8919.9f, 634.9f) != StartCell(-8893.8f, 643.9f));
+    // 3.2.2: Chilton at 97.47 over the city's floor at 95.90: the dropped point is within the climb of that floor only.
+    assert(97.47f - STAND_RING_DROP - 95.90f < 0.1f);
     assert(UNSTICK_RADII[2] <= UNSTICK_REACH);
     // 3.2.2: the ring around an NPC, first toward the bot, then alternating sides, all within reach of it.
     {
