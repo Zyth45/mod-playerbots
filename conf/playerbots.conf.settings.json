@@ -698,6 +698,38 @@
    "new_in": "3.2"
   },
   {
+   "key": "AiPlayerbot.CoaLive.City.Squares",
+   "group": "live",
+   "title": "Bots on the capitals' squares",
+   "description": "Bots on a city visit now and then gather by two or three on the capitals' squares (between the auction house, the bank, the inn and the quest board), facing each other, sitting or talking for a few minutes.",
+   "type": "bool",
+   "default": true,
+   "coa": true,
+   "new_in": "3.2.2"
+  },
+  {
+   "key": "AiPlayerbot.CoaLive.City.SquareMaxBots",
+   "group": "live",
+   "title": "Bots per square",
+   "description": "At most this many bots on one square of a capital (1 to 3).",
+   "type": "int",
+   "default": 3,
+   "coa": true,
+   "min": 1,
+   "max": 3,
+   "new_in": "3.2.2"
+  },
+  {
+   "key": "AiPlayerbot.CoaArrivalCheck",
+   "group": "live",
+   "title": "Arrivals on the city's floor",
+   "description": "A bot sent to a capital (a banker, an innkeeper, a hub) lands on the floor the city walks on: an arrival on a cut-off patch is moved a few yards onto it, or no longer used.",
+   "type": "bool",
+   "default": true,
+   "coa": true,
+   "new_in": "3.2.2"
+  },
+  {
    "key": "AiPlayerbot.CoaLfgRolePriority",
    "group": "party",
    "title": "Missing dungeon finder role first",

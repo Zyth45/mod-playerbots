@@ -109,5 +109,17 @@ int main()
     assert(!SeatUsable(0.0f, 0.0f, 99.0f, 2.0f, 1.0f, 103.0f, true));  // within reach but 4 yards up: never lifted
     assert(!SeatUsable(0.0f, 0.0f, 99.0f, 2.0f, 1.0f, 99.5f, false));  // behind a wall
     assert(!SeatUsable(0.0f, 0.0f, 99.0f, 5.0f, 0.0f, 99.0f, true));   // too far
+    // 3.2.2: the squares.
+    assert(PlaceServes(1 | 2) && !PlaceServes(16) && !PlaceServes(0));
+    assert(SegmentDistance(0.0f, 5.0f, -10.0f, 0.0f, 10.0f, 0.0f) == 5.0f);
+    assert(SegmentDistance(20.0f, 0.0f, -10.0f, 0.0f, 10.0f, 0.0f) == 10.0f);  // past the segment's end
+    {
+        float x0 = 0.0f, y0 = 0.0f, x1 = 0.0f, y1 = 0.0f;
+        PlaceSlot(0, 100.0f, 50.0f, x0, y0);
+        PlaceSlot(1, 100.0f, 50.0f, x1, y1);
+        assert(std::fabs(std::hypot(x0 - 100.0f, y0 - 50.0f) - PLACE_SLOT_RADIUS) < 0.01f);
+        assert(std::hypot(x0 - x1, y0 - y1) > 2.0f);  // two bots face to face, not on each other
+    }
+    assert(MaxBots(Station::Square) == 3 && Weight(Station::Square) > 0 && !CanBePost(Station::Square));
     return 0;
 }

@@ -31,6 +31,7 @@ enum class Station : uint8_t
     Vendor,   // a buyer at a merchant
     Mail,     // a mailbox: reads its mail (3.1.6)
     Seat,     // a chair or a bench of the city: sits on it (3.1.6)
+    Square,   // 3.2.2: a square of the city, with one or two others, sitting or talking
 };
 
 struct Candidate
@@ -86,6 +87,7 @@ inline uint32_t Weight(Station s)
         case Station::Vendor: return 15;
         case Station::Mail: return 10;
         case Station::Seat: return 10;
+        case Station::Square: return 15;
         default: return 0;
     }
 }
@@ -141,6 +143,7 @@ inline uint32_t StayMs(Station s, std::function<uint32_t(uint32_t, uint32_t)> co
         case Station::Beg: return between(2 * 60, 6 * 60) * 1000;
         case Station::Mail: return between(30, 90) * 1000;
         case Station::Seat: return between(3 * 60, 10 * 60) * 1000;
+        case Station::Square: return between(2 * 60, 5 * 60) * 1000;
         default: return 0;
     }
 }
@@ -186,6 +189,7 @@ inline Pose PoseOf(Station s)
         case Station::Forge: return {false, ATTACK1H, 2500};
         case Station::Dummy: return {false, ATTACK_UNARMED, 1800};
         case Station::Seat: return {true, 0, 0};
+        case Station::Square: return {false, TALK, 9000};
         default: return {};
     }
 }
@@ -236,6 +240,51 @@ inline bool SeatUsable(float botX, float botY, float botZ, float seatX, float se
 {
     float const dx = seatX - botX, dy = seatY - botY;
     return inSight && std::fabs(seatZ - botZ) <= SEAT_MAX_DZ && dx * dx + dy * dy <= SEAT_MAX_DIST * SEAT_MAX_DIST;
+}
+// 3.2.2 (the user, 23/11: bots standing on the capitals' squares, by the auction house's door and the quest board, on
+// the square between the bank and the auction house; "on est pas préssé ... essai de tout faire pour la 3.2.2"). A
+// square: outdoors, on the city's floor, flat, between PLACE_SERVICE_MIN and PLACE_SERVICE_MAX yards of at least two
+// services of different kinds (an auctioneer, a banker, an innkeeper, a flight master, a quest board), off the ways
+// between them (PLACE_PATH_CLEAR yards). At most PLACES_PER_CAPITAL per capital, PLACE_SPACING yards apart.
+constexpr float PLACE_SERVICE_MIN = 12.0f;
+constexpr float PLACE_SERVICE_MAX = 45.0f;
+constexpr float PLACE_PATH_CLEAR = 4.0f;
+constexpr float PLACE_SPACING = 20.0f;
+constexpr float PLACE_GRID = 4.0f;
+constexpr float PLACE_FLAT_DZ = 0.6f;  // the ground 2 yards around stays this close in height
+constexpr uint32_t PLACES_PER_CAPITAL = 6;
+
+// A candidate's kinds of services in range (a bit per kind): a square when at least two.
+inline bool PlaceServes(uint32_t kindsInRange)
+{
+    uint32_t n = 0;
+    for (uint32_t k = kindsInRange; k; k &= k - 1)
+        ++n;
+    return n >= 2;
+}
+
+// The distance from (px, py) to the segment (ax, ay)-(bx, by), 2D.
+inline float SegmentDistance(float px, float py, float ax, float ay, float bx, float by)
+{
+    float const dx = bx - ax, dy = by - ay;
+    float const len2 = dx * dx + dy * dy;
+    float t = len2 > 0.0f ? ((px - ax) * dx + (py - ay) * dy) / len2 : 0.0f;
+    t = t < 0.0f ? 0.0f : t > 1.0f ? 1.0f : t;
+    float const ex = ax + t * dx - px, ey = ay + t * dy - py;
+    return std::sqrt(ex * ex + ey * ey);
+}
+
+// The bots of a square stand on a small circle, facing its middle: the slot'th of up to three, PLACE_SLOT_RADIUS
+// yards out, a third of a turn apart.
+constexpr float PLACE_SLOT_RADIUS = 1.3f;
+constexpr float PLACE_ARRIVED = 1.5f;     // a bot this close to its slot stands there
+constexpr uint32_t PLACE_SIT_PCT = 40;    // of the bots settled on a square, this many sit
+
+inline void PlaceSlot(uint32_t slot, float cx, float cy, float& x, float& y)
+{
+    float const angle = float(slot % 3) * 2.0943951f;
+    x = cx + PLACE_SLOT_RADIUS * std::cos(angle);
+    y = cy + PLACE_SLOT_RADIUS * std::sin(angle);
 }
 }  // namespace CoaCityLife
 

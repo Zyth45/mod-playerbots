@@ -9,6 +9,7 @@
 #include "CoaEconomyRules.h"
 #include "CoaWorldBgSim.h"
 #include "RandomPlayerbotMgr.h"
+#include "CoaPathProbe.h"
 #include "GameTime.h"
 #include "Group.h"
 
@@ -2483,9 +2484,14 @@ void RandomPlayerbotMgr::RandomTeleport(Player* bot, std::vector<WorldLocation>&
                   zone->area_name[locale], area->ID, area->area_name[locale], zone->area_level, area->area_level, x, y,
                   z, i + 1, tlocs.size());
 
+        // 3.2.2: a destination in a capital off the city's floor (a closed island of the navmesh: the Stormwind bank's
+        // arrivals) is moved onto it, or dropped (CoaPathProbe::ArrivalVerdict).
+        if (CoaPathProbe::ArrivalVerdict(loc.GetMapId(), x, y, z) == CoaPathProbe::Arrival::Dropped)
+            continue;
+
         if (hearth)
         {
-            bot->SetHomebind(loc, zone->ID);
+            bot->SetHomebind(WorldLocation(loc.GetMapId(), x, y, z, loc.GetOrientation()), zone->ID);
         }
 
         // Prevent blink to be detected by visible real players

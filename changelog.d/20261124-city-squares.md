@@ -1,0 +1,2 @@
+### Bots on the capitals' squares
+Bots on a city visit now and then gather by two or three on the squares of the capitals, between the auction house, the bank, the inn and the quest board, facing each other, sitting or talking for a few minutes (AiPlayerbot.CoaLive.City.Squares, SquareMaxBots). The squares are found once after the start, outdoors, on the floor the city walks on and off the ways people take; ".squidbots places" lists them.

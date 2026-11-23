@@ -544,16 +544,20 @@ bool NewRpgWanderNpcAction::Execute(Event /*event*/)
 
     WorldObject* object = ObjectAccessor::GetWorldObject(*bot, data.npcOrGo);
     // CoA Live City Life: a bot that stepped from its auctioneer into the room still stays there.
-    if (object && (IsWithinInteractionDist(object) || (data.lastReach && CoaCityLife::InRoom(botAI, object))))
+    // 3.2.2: a square of the city is reached at its slot, never at its anchor NPC (no quest, no trade there).
+    bool const square = object && CoaCityLife::HoldsSquare(botAI, data.npcOrGo);
+    if (object && (square ? CoaCityLife::AtSquare(botAI)
+                          : IsWithinInteractionDist(object) || (data.lastReach && CoaCityLife::InRoom(botAI, object))))
     {
         if (!data.lastReach)
         {
             data.lastReach = getMSTime();
             data.givenUp = 0;
-            if (bot->CanInteractWithQuestGiver(object))
+            if (!square && bot->CanInteractWithQuestGiver(object))
                 InteractWithNpcOrGameObjectForQuest(data.npcOrGo);
             // CoA Economy: sell, repair or use the auction house, as people do between two quests
-            CoaEconomy::RpgTrade::TradeAtNpc(botAI, object);
+            if (!square)
+                CoaEconomy::RpgTrade::TradeAtNpc(botAI, object);
             CoaCityLife::OnReach(botAI, object);
             return true;
         }

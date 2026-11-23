@@ -10,6 +10,7 @@
 #include "CoaWorldBots.h"  // CoA World: CoaWorldQuestQuarantined, CoaWorldAreaTooHigh
 #include "CoaRpgTrade.h"
 #include "CoaBotAuctions.h"
+#include "CoaCityLife.h"
 #include "CoaSafeMove.h"
 #include "CoaQuestLogRules.h"
 #include "NewRpgBaseAction.h"
@@ -276,6 +277,9 @@ bool NewRpgBaseAction::MoveWorldObjectTo(ObjectGuid guid, float distance)
         y = object->GetPositionY();
         z = object->GetPositionZ();
     }
+    // CoA (3.2.2): a square of the city: its slot, not the anchor NPC.
+    if (CoaCityLife::SquareSpot(botAI, guid, x, y, z))
+        return MoveTo(mapId, x, y, z, false, false, false, true);
     // CoA (3.2): in a capital, the city guard refuses a stop off the navmesh (a banker or an auctioneer behind its
     // counter) and the NPC was given up while the bot stood still: the walkable point nearest the NPC is taken.
     if (sRandomPlayerbotMgr.IsRandomBot(bot) && !botAI->HasGameClientMaster() && !bot->IsInCombat())

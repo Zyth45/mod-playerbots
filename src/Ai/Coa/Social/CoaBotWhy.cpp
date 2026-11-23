@@ -304,6 +304,26 @@ namespace
         return true;
     }
 
+    // 3.2.2: what StandByNpc answers from a point for an NPC (entry or spawn id).
+    bool HandleStop(ChatHandler* handler, uint32 mapId, float x, float y, float z, uint32 entryOrSpawn)
+    {
+        for (std::string const& line : CoaPathProbe::StopProbe(mapId, x, y, z, entryOrSpawn))
+        {
+            handler->PSendSysMessage("[SquidBots stop] {}", line);
+            LOG_INFO("playerbots.coa", "stop probe map {} {:.1f} {:.1f} {:.1f} npc {}: {}", mapId, x, y, z, entryOrSpawn,
+                     line);
+        }
+        return true;
+    }
+
+    // 3.2.2: the capitals' squares found (City Life).
+    bool HandlePlaces(ChatHandler* handler)
+    {
+        for (std::string const& line : CoaPathProbe::PlacesReport())
+            handler->PSendSysMessage("[SquidBots places] {}", line);
+        return true;
+    }
+
     class CoaBotWhyCommandScript : public CommandScript
     {
     public:
@@ -315,6 +335,8 @@ namespace
                 {"why", HandleWhy, SEC_PLAYER, Console::No},
                 {"path", HandlePath, SEC_ADMINISTRATOR, Console::Yes},
                 {"pathcheck", HandlePathCheck, SEC_ADMINISTRATOR, Console::Yes},
+                {"places", HandlePlaces, SEC_ADMINISTRATOR, Console::Yes},
+                {"stop", HandleStop, SEC_ADMINISTRATOR, Console::Yes},
             };
             static ChatCommandTable commandTable = {
                 {"squidbots", squidbotsTable},
