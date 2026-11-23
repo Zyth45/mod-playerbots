@@ -42,6 +42,7 @@ struct NewRpgInfo
         bool toAuctioneer{false};  // CoA 3.2 (BuyLog): npcOrGo is an auctioneer, not reached yet
         uint32 refusals{0};  // CoA 3.2: moves toward npcOrGo refused in a row
         uint32 lastRun{0};   // CoA 3.2.2 (BuyLog): when the wander npc action last ran (getMSTime)
+        bool reachGrace{false};  // CoA 3.2.2: the wander was kept one tick past its end for an NPC in reach
     };
     // RPG_WANDER_RANDOM
     struct WanderRandom

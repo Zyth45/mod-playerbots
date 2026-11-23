@@ -362,6 +362,14 @@ bool NewRpgStatusUpdateAction::Execute(Event /*event*/)
                     bool const auctioneer = npc && npc->HasNpcFlag(UNIT_NPC_FLAG_AUCTIONEER);
                     bool const trade = auctioneer || (npc && npc->HasNpcFlag(UNIT_NPC_FLAG_VENDOR) &&
                                                       CoaEconomy::RpgTrade::WantsTrade(botAI));
+                    // 3.2.2 (bench of d061adec): a bot whose AI slept for minutes by its NPC woke up there, and this check,
+                    // first on its tick, ended the wander before the wander's action could count it there ("not
+                    // reached", in reach, its action last run 90 to 640 s before). Once, the wander is kept for it.
+                    if (npc && !wander->lastReach && !wander->reachGrace && IsWithinInteractionDist(npc))
+                    {
+                        wander->reachGrace = true;
+                        break;
+                    }
                     // 3.2: on its way to a trade NPC, the bot gets there before the wander ends.
                     if (CoaEconomyRules::KeepsTradeGoal(trade, wander->lastReach != 0,
                                                         wander->pickedAt ? GetMSTimeDiffToNow(wander->pickedAt) : 0))
@@ -529,6 +537,7 @@ bool NewRpgWanderNpcAction::Execute(Event /*event*/)
         data.npcOrGo = npcOrGo;
         data.lastReach = 0;
         data.refusals = 0;
+        data.reachGrace = false;
         data.pickedAt = getMSTime();
         return true;
     }
