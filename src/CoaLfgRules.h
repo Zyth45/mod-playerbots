@@ -39,4 +39,12 @@ inline bool CoaLfgProposalExpired(std::uint32_t waitedMs, std::uint32_t proposal
     return waitedMs > proposalMs;
 }
 
+// 3.2.1 (AiPlayerbot.CoaLfgRolePriority): a queued party of real players misses a tank (or a healer) no queued bot
+// covers. A free bot of that role queues at its next check (a few seconds) instead of waiting for its random roll (one
+// chance in 20 a check): the missing role comes first. tank, heal: the bot would queue as one.
+inline bool CoaLfgRoleWanted(bool tank, bool heal, bool needTank, bool needHeal)
+{
+    return (tank && needTank) || (heal && needHeal);
+}
+
 #endif

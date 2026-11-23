@@ -698,6 +698,16 @@
    "new_in": "3.2"
   },
   {
+   "key": "AiPlayerbot.CoaLfgRolePriority",
+   "group": "party",
+   "title": "Missing dungeon finder role first",
+   "description": "While a queued party of real players misses a tank or a healer, a free bot of that role queues within seconds instead of at its random roll.",
+   "type": "bool",
+   "default": true,
+   "coa": true,
+   "new_in": "3.2.1"
+  },
+  {
    "key": "AiPlayerbot.Coa.HideReplayedAchievements",
    "group": "chat",
    "title": "Hide level achievements earned again after a restart",

@@ -4333,6 +4333,13 @@ AiPlayerbot.CoaTrust.Boss = 25
 AiPlayerbot.CoaTrust.RaidBoss = 100
 AiPlayerbot.CoaTrust.Ranks = 0,100,500,1500,4000,10000
 
+#    AiPlayerbot.CoaLfgRolePriority
+#        Description: Dungeon finder: while a queued party of real players misses a tank or a healer that no queued
+#                     bot covers, a free random bot of that role queues within seconds instead of at its random
+#                     roll (one chance in 20 a check), so the missing role comes first.
+#        Default:     1 (enabled)
+AiPlayerbot.CoaLfgRolePriority = 1
+
 # Bots' minimum and maximum level when teleporting in and out of a zone, according to the new RPG strategy
 # Format: AiPlayerbot.ZoneBracket.zoneID = minLevel,maxLevel
 #

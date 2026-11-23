@@ -10,6 +10,8 @@
 void LfgStrategy::InitTriggers(std::vector<TriggerNode*>& triggers)
 {
     triggers.push_back(new TriggerNode("random", { NextAction("lfg join", relevance) }));
+    // 3.2.1: a bot of the role a queued party misses queues first.
+    triggers.push_back(new TriggerNode("lfg role wanted", { NextAction("lfg join", relevance) }));
     triggers.push_back(
         new TriggerNode("seldom", { NextAction("lfg leave", relevance) }));
     triggers.push_back(new TriggerNode(

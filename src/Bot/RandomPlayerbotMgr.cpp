@@ -1717,6 +1717,8 @@ void RandomPlayerbotMgr::CheckLfgQueue()
     std::unordered_map<ObjectGuid, time_t> queuedSince;
     time_t const lfgNow = time(nullptr);
     bool needTankOrHeal[2] = {false, false};
+    bool needTank[2] = {false, false};
+    bool needHeal[2] = {false, false};
     uint32 partiesWithoutTank[2] = {0, 0};
     uint32 partiesWithoutHeal[2] = {0, 0};
     std::unordered_set<ObjectGuid> countedParties;
@@ -1760,6 +1762,8 @@ void RandomPlayerbotMgr::CheckLfgQueue()
                 uint8 roles = sLFGMgr->GetRoles(player->GetGUID());
                 if (!(roles & lfg::PLAYER_ROLE_TANK) || !(roles & lfg::PLAYER_ROLE_HEALER))
                     needTankOrHeal[player->GetTeamId()] = true;
+                needTank[player->GetTeamId()] |= !(roles & lfg::PLAYER_ROLE_TANK);
+                needHeal[player->GetTeamId()] |= !(roles & lfg::PLAYER_ROLE_HEALER);
                 continue;
             }
 
@@ -1804,12 +1808,20 @@ void RandomPlayerbotMgr::CheckLfgQueue()
         }
 
         for (uint8 team : {TEAM_ALLIANCE, TEAM_HORDE})
-            needTankOrHeal[team] =
-                partiesWithoutTank[team] > queuedTanks[team] || partiesWithoutHeal[team] > queuedHeals[team];
+        {
+            needTank[team] = partiesWithoutTank[team] > queuedTanks[team];
+            needHeal[team] = partiesWithoutHeal[team] > queuedHeals[team];
+            needTankOrHeal[team] = needTank[team] || needHeal[team];
+        }
     }
 
     LfgNeedTankOrHeal[TEAM_ALLIANCE] = needTankOrHeal[TEAM_ALLIANCE];
     LfgNeedTankOrHeal[TEAM_HORDE] = needTankOrHeal[TEAM_HORDE];
+    for (uint8 team : {TEAM_ALLIANCE, TEAM_HORDE})
+    {
+        LfgNeedTank[team] = needTank[team];
+        LfgNeedHeal[team] = needHeal[team];
+    }
 
     {
         std::lock_guard<std::mutex> lock(lfgPlayerLevelsLock);
