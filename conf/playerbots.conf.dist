@@ -695,9 +695,9 @@ AiPlayerbot.CoaPathCheck.DelaySeconds = 300
 # 3.2.2: a random bot's teleport into a capital (to a banker, a hub, an innkeeper) lands on the floor the city walks on:
 # a destination off it (a closed patch of the navmesh, as at the Stormwind bank) is moved to the nearest point that is,
 # within 10 yards, or no longer used. Each destination is judged once, on the world thread; a moved or dropped one is
-# written to CoaBots.log ("arrival check").
-# Default: 1
-AiPlayerbot.CoaArrivalCheck = 1
+# written to CoaBots.log ("arrival check"). Off until the sonde proves the city's-floor criterion (Pilote, 23/11).
+# Default: 0
+AiPlayerbot.CoaArrivalCheck = 0
 
 # ".squidbots why" (3.2), for every account (GmOnly = 1: game master accounts only, the others are told so), on a
 # selected bot or a bot's name (.squidbots why [name]), once per Cooldown seconds per player:

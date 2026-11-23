@@ -39,8 +39,11 @@ namespace
 {
 constexpr int MAX_POLYS = 1024;
 constexpr int MAX_POINTS = 256;
+constexpr float CITY_RADIUS = 250.0f;
+constexpr int CITY_POLYS = 600;
+constexpr int CITY_SCAN = 1024;
 uint32 checkDelayMs = 0;  // AiPlayerbot.CoaPathCheck: 0 off, else the delay after the start
-bool arrivalCheck = true;  // AiPlayerbot.CoaArrivalCheck
+bool arrivalCheck = false;  // AiPlayerbot.CoaArrivalCheck (0 until the sonde proves its criterion)
 bool placesOn = true;      // AiPlayerbot.CoaLive.City.Squares
 uint32 checkTimer = 0;
 bool checkDone = false;
@@ -125,6 +128,16 @@ std::vector<std::string> Probe(uint32_t mapId, float fx, float fy, float fz, flo
     lines.push_back(Fmt("start snaps to %.2f %.2f %.2f (%.2f yd off)", fromPt[2], fromPt[0], fromPt[1],
                         std::sqrt(dtVdistSqr(from, fromPt))) + ", polygon " + std::to_string(uint64(fromRef)) +
                     Fmt(" at z %.2f", fromPt[1]));
+    // 3.2.2 (Pilote): the city's-floor criterion of the arrivals, shown for both ends, to be proven by the sonde.
+    for (auto const& [what, ref, pt] : {std::make_tuple("start", fromRef, fromPt), std::make_tuple("target", toRef, toPt)})
+    {
+        dtPolyRef around[CITY_SCAN];
+        int aroundCount = 0;
+        query.findPolysAroundCircle(ref, pt, CITY_RADIUS, &q.filter, around, nullptr, nullptr, &aroundCount, CITY_SCAN);
+        lines.push_back(std::string(what) + Fmt(": %.0f polygons joined within %.0f yd", aroundCount, CITY_RADIUS) +
+                        (aroundCount >= CITY_SCAN ? " (the scan's cap)" : "") +
+                        (aroundCount >= CITY_POLYS ? ", the city's floor" : ", a closed patch"));
+    }
     lines.push_back(Fmt("target snaps to %.2f %.2f %.2f (%.2f yd off)", toPt[2], toPt[0], toPt[1],
                         std::sqrt(dtVdistSqr(to, toPt))) + ", polygon " + std::to_string(uint64(toRef)) +
                     Fmt(" at z %.2f", toPt[1]));
@@ -245,9 +258,6 @@ std::tuple<uint32, int32, int32> ArrivalKey(uint32 mapId, float x, float y)
 // (the city: thousands; the closed patches of the Stormwind bank's arrivals and under the counters' NPCs: 2 to 165).
 // The sonde of 23/11 found most counter NPCs on such patches, so their positions are no reference. -1: no polygon
 // under the point (its tile not loaded).
-constexpr float CITY_RADIUS = 250.0f;
-constexpr int CITY_POLYS = 600;
-constexpr int CITY_SCAN = 1024;
 
 int OnCityFloor(Query& q, float x, float y, float z)
 {
@@ -746,7 +756,7 @@ public:
 
     void OnAfterConfigLoad(bool /*reload*/) override
     {
-        arrivalCheck = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaArrivalCheck", true, false);
+        arrivalCheck = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaArrivalCheck", false, false);
         placesOn = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaLive.City.Squares", true, false);
         bool const on = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaPathCheck", false, false);
         checkDelayMs = on ? 1000 * std::max<uint32>(

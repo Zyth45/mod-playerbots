@@ -725,7 +725,7 @@
    "title": "Arrivals on the city's floor",
    "description": "A bot sent to a capital (a banker, an innkeeper, a hub) lands on the floor the city walks on: an arrival on a cut-off patch is moved a few yards onto it, or no longer used.",
    "type": "bool",
-   "default": true,
+   "default": false,
    "coa": true,
    "new_in": "3.2.2"
   },
