@@ -3395,34 +3395,68 @@ std::string RandomPlayerbotMgr::GetEventData(uint32 bot, std::string const& even
 uint32 RandomPlayerbotMgr::SetEventValue(uint32 bot, std::string const& event, uint32 value, uint32 validIn,
                                          std::string const& data)
 {
-    PlayerbotsDatabaseTransaction trans = PlayerbotsDatabase.BeginTransaction();
-
-    PlayerbotsDatabasePreparedStatement* stmt =
-        PlayerbotsDatabase.GetPreparedStatement(PLAYERBOTS_DEL_RANDOM_BOTS_BY_OWNER_AND_EVENT);
-    stmt->SetData(0, 0);
-    stmt->SetData(1, bot);
-    stmt->SetData(2, event.c_str());
-    trans->Append(stmt);
-
-    if (value)
+    // CoA 3.2.2: one statement, no transaction of a DELETE then an INSERT: thousands of bots logging in at once made
+    // those deadlock (error 1213). The row is kept unique by (owner, bot, event) (2026_11_24_00_coa_random_bots_unique);
+    // a database without that key yet (the SQL update not applied) keeps the old DELETE then INSERT.
+    static std::once_flag keyChecked;
+    static bool uniqueKey = false;
+    std::call_once(keyChecked, []()
     {
-        stmt = PlayerbotsDatabase.GetPreparedStatement(PLAYERBOTS_INS_RANDOM_BOTS);
+        uniqueKey = PlayerbotsDatabase.Query(
+                        "SELECT 1 FROM information_schema.statistics WHERE table_schema = DATABASE() AND "
+                        "table_name = 'playerbots_random_bots' AND index_name = 'owner_bot_event'") != nullptr;
+        LOG_INFO("server.loading", "Playerbots: random bot events written {}", uniqueKey ?
+                 "in one statement (unique key owner_bot_event)" :
+                 "by DELETE then INSERT (apply 2026_11_24_00_coa_random_bots_unique.sql for the unique key)");
+    });
+    if (!uniqueKey)
+    {
+        PlayerbotsDatabaseTransaction trans = PlayerbotsDatabase.BeginTransaction();
+        PlayerbotsDatabasePreparedStatement* stmt =
+            PlayerbotsDatabase.GetPreparedStatement(PLAYERBOTS_DEL_RANDOM_BOTS_BY_OWNER_AND_EVENT);
         stmt->SetData(0, 0);
         stmt->SetData(1, bot);
-        stmt->SetData(2, NowSeconds());
-        stmt->SetData(3, validIn);
-        stmt->SetData(4, event.c_str());
-        stmt->SetData(5, value);
-
-        if (!data.empty())
-            stmt->SetData(6, data.c_str());
-        else
-            stmt->SetData(6);  // NULL
-
+        stmt->SetData(2, event.c_str());
         trans->Append(stmt);
+        if (value)
+        {
+            stmt = PlayerbotsDatabase.GetPreparedStatement(PLAYERBOTS_INS_RANDOM_BOTS);
+            stmt->SetData(0, 0);
+            stmt->SetData(1, bot);
+            stmt->SetData(2, NowSeconds());
+            stmt->SetData(3, validIn);
+            stmt->SetData(4, event.c_str());
+            stmt->SetData(5, value);
+            if (!data.empty())
+                stmt->SetData(6, data.c_str());
+            else
+                stmt->SetData(6);  // NULL
+            trans->Append(stmt);
+        }
+        PlayerbotsDatabase.CommitTransaction(trans);
     }
-
-    PlayerbotsDatabase.CommitTransaction(trans);
+    else if (!value)
+    {
+        PlayerbotsDatabasePreparedStatement* stmt =
+            PlayerbotsDatabase.GetPreparedStatement(PLAYERBOTS_DEL_RANDOM_BOTS_BY_OWNER_AND_EVENT);
+        stmt->SetData(0, 0);
+        stmt->SetData(1, bot);
+        stmt->SetData(2, event.c_str());
+        PlayerbotsDatabase.Execute(stmt);
+    }
+    else
+    {
+        std::string safeEvent = event;
+        PlayerbotsDatabase.EscapeString(safeEvent);
+        std::string safeData = data;
+        if (!safeData.empty())
+            PlayerbotsDatabase.EscapeString(safeData);
+        PlayerbotsDatabase.Execute(Acore::StringFormat(
+            "INSERT INTO playerbots_random_bots (owner, bot, time, validIn, event, value, data) "
+            "VALUES (0, {}, {}, {}, '{}', {}, {}) ON DUPLICATE KEY UPDATE time = VALUES(time), "
+            "validIn = VALUES(validIn), value = VALUES(value), data = VALUES(data)",
+            bot, NowSeconds(), validIn, safeEvent, value, safeData.empty() ? std::string("NULL") : "'" + safeData + "'"));
+    }
 
     // Update in-memory cache
     std::lock_guard<std::mutex> lock(eventCacheLock);
