@@ -108,6 +108,15 @@ namespace
         return proto && proto->Bonding != BIND_WHEN_PICKED_UP && proto->Bonding != BIND_QUEST_ITEM &&
                proto->Class != ITEM_CLASS_QUEST && (proto->SellPrice > 0 || proto->BuyPrice > 0);
     }
+
+    // 3.2.1: an item a bot made carries its maker, as a player's does ("Made by", the crafted count): the bot's
+    // crafts had no creator at all (0 creatorGuid in the showcase's database).
+    Item* SignedByCrafter(Player* bot, Item* item)
+    {
+        if (item && bot)
+            item->SetGuidValue(ITEM_FIELD_CREATOR, bot->GetGUID());
+        return item;
+    }
 }
 
 bool IsEnabled()
@@ -430,7 +439,8 @@ Item* Craft(Player* bot, Recipe const& recipe)
         return nullptr;
     if (!Consume(bot, recipe, 1))
         return nullptr;
-    return bot->StoreNewItem(dest, recipe.itemId, true, Item::GenerateItemRandomPropertyId(recipe.itemId));
+    return SignedByCrafter(bot,
+                           bot->StoreNewItem(dest, recipe.itemId, true, Item::GenerateItemRandomPropertyId(recipe.itemId)));
 }
 
 namespace
@@ -556,7 +566,7 @@ Item* CraftUpgradeForSelf(Player* bot, PlayerbotAI* botAI, uint64 buyCap)
     if (bot->CanStoreNewItem(NULL_BAG, NULL_SLOT, dest, bestItem, 1) != EQUIP_ERR_OK)
         return nullptr;
     TakeReagents(bot, bestSpell, bestPlan);
-    Item* item = bot->StoreNewItem(dest, bestItem, true, Item::GenerateItemRandomPropertyId(bestItem));
+    Item* item = SignedByCrafter(bot, bot->StoreNewItem(dest, bestItem, true, Item::GenerateItemRandomPropertyId(bestItem)));
     if (!item)
         return nullptr;
     // Worn at once, where it is an upgrade.
