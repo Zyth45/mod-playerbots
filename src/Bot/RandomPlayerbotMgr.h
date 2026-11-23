@@ -254,7 +254,9 @@ public:
     float getActivityMod() { return activityMod; }
     float getActivityPercentage() { return activityMod * 100.0f; }
     void setActivityPercentage(float percentage) { activityMod = percentage / 100.0f; }
-    static uint8 GetTeamClassIdx(bool isAlliance, uint8 claz) { return isAlliance * 20 + claz; }
+    // CoA 3.2.2 (Dungeon Clear, issue 62): the CoA classes go up to 32 (MAX_CLASSES 33); "isAlliance * 20" put a Horde
+    // class of 21 and more in the bucket of the Alliance class 20 below it (.playerbots addclass drew the other side).
+    static uint8 GetTeamClassIdx(bool isAlliance, uint8 claz) { return isAlliance * MAX_CLASSES + claz; }
 
     void PrepareAddclassCache();
     void Init();
