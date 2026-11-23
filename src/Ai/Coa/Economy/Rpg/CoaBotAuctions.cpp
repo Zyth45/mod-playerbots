@@ -156,7 +156,9 @@ namespace
         std::mutex giveUpLock;
         std::map<std::string, std::array<uint32, 3>> giveUps;  // capital -> gone, no way, refusals
         std::map<std::string, uint32> noWayReasons;
-        std::vector<std::string> noWaySamples;  // at most NO_WAY_SAMPLES an hour
+        std::map<std::string, std::vector<std::string>> noWaySamples;  // capital -> at most NO_WAY_SAMPLES an hour
+        std::map<std::string, uint32> notReached;                      // capital -> wanders ended short of it
+        std::map<std::string, std::vector<std::string>> notReachedSamples;
         std::atomic<uint32> shopChecks{0}, shopPoor{0}, shopInterval{0};
         // 3.2: budget and threshold of the "too poor" checks, for their medians (a sample, at most POOR_SAMPLES).
         std::mutex poorLock;
@@ -245,13 +247,29 @@ namespace
                 std::string reasons;
                 for (auto const& [why, n] : pathCounters.noWayReasons)
                     reasons += (reasons.empty() ? "" : ", ") + why + " " + std::to_string(n);
-                std::string samples;
-                for (std::string const& sample : pathCounters.noWaySamples)
-                    samples += (samples.empty() ? "" : "; ") + sample;
+                auto bySite = [](std::map<std::string, std::vector<std::string>> const& samples)
+                {
+                    std::string text;
+                    for (auto const& [capital, list] : samples)
+                    {
+                        text += (text.empty() ? "" : " / ") + (capital.empty() ? std::string("outside a capital") : capital) + ":";
+                        for (std::string const& sample : list)
+                            text += " " + sample + ";";
+                    }
+                    return text;
+                };
                 if (!reasons.empty())
-                    ways += " | no way: " + reasons + " | samples: " + samples;
+                    ways += " | no way: " + reasons + " | samples: " + bySite(pathCounters.noWaySamples);
+                std::string notReached;
+                for (auto const& [capital, n] : pathCounters.notReached)
+                    notReached += (notReached.empty() ? "" : ", ") +
+                                  (capital.empty() ? std::string("outside a capital") : capital) + " " + std::to_string(n);
+                if (!notReached.empty())
+                    ways += " | not reached: " + notReached + " | samples: " + bySite(pathCounters.notReachedSamples);
                 pathCounters.noWayReasons.clear();
                 pathCounters.noWaySamples.clear();
+                pathCounters.notReached.clear();
+                pathCounters.notReachedSamples.clear();
             }
             LOG_INFO("playerbots.loot", "auction visits (last hour): auctioneers given up by capital: {}",
                      ways.empty() ? "none" : ways);
@@ -629,7 +647,7 @@ namespace
             CollectAuctionMail(bot);
             Item* item = bot->GetItemByGuid(itemGuid);
             PlayerbotAI* botAI = GET_PLAYERBOT_AI(bot);
-            uint8 const slot = item && botAI ? botAI->FindEquipSlot(item->GetTemplate(), NULL_SLOT, true) : NULL_SLOT;
+            uint8 const slot = item && botAI ? botAI->FindEquipSlot(item->GetTemplate(), NULL_SLOT, true) : uint8(NULL_SLOT);
             if (slot != NULL_SLOT)
                 CoaMissionMgr::EquipItem(bot, item, slot);
             if (settings.buyLog)
@@ -961,20 +979,46 @@ void NoteGiveUp(int why, char const* capital)
         ++pathCounters.giveUps[capital ? capital : ""][why - 1];
 }
 
-void NoteNoWay(char const* reason, uint32 entry, float x, float y, float z, float gap)
+constexpr size_t SITE_SAMPLES = 8;  // per capital and hour
+constexpr size_t SITES = 64;
+
+void NoteNoWay(char const* capital, char const* reason, uint32 entry, float x, float y, float z, float gap)
 {
     if (!settings.buyLog)
         return;
-    constexpr size_t NO_WAY_SAMPLES = 8;
     std::lock_guard<std::mutex> guard(pathCounters.giveUpLock);
     std::string const why = reason ? reason : "";
+    std::string const site = capital ? capital : "";
     ++pathCounters.noWayReasons[why];
-    if (pathCounters.noWaySamples.size() < NO_WAY_SAMPLES)
+    if (pathCounters.noWaySamples.size() >= SITES && !pathCounters.noWaySamples.count(site))
+        return;
+    std::vector<std::string>& samples = pathCounters.noWaySamples[site];
+    if (samples.size() < SITE_SAMPLES)
     {
         char sample[160];
         std::snprintf(sample, sizeof(sample), "entry %u from %.1f %.1f %.1f, %s (end %.1f yd off)", entry, x, y, z,
                       why.c_str(), gap);
-        pathCounters.noWaySamples.emplace_back(sample);
+        samples.emplace_back(sample);
+    }
+}
+
+void NoteNotReached(char const* capital, uint32 entry, float x, float y, float z, float toNpc, bool moving,
+                    uint32 refusals)
+{
+    if (!settings.buyLog)
+        return;
+    std::lock_guard<std::mutex> guard(pathCounters.giveUpLock);
+    std::string const site = capital ? capital : "";
+    if (pathCounters.notReached.size() >= SITES && !pathCounters.notReached.count(site))
+        return;
+    ++pathCounters.notReached[site];
+    std::vector<std::string>& samples = pathCounters.notReachedSamples[site];
+    if (samples.size() < SITE_SAMPLES)
+    {
+        char sample[160];
+        std::snprintf(sample, sizeof(sample), "entry %u from %.1f %.1f %.1f, %.1f yd off, %s, %u refused", entry, x,
+                      y, z, toNpc, moving ? "moving" : "still", refusals);
+        samples.emplace_back(sample);
     }
 }
 

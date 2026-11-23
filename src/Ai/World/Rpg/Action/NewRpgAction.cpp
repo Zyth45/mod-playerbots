@@ -367,7 +367,15 @@ bool NewRpgStatusUpdateAction::Execute(Event /*event*/)
                         break;
                     // 3.2 (BuyLog): an auctioneer the wander never got to (counted here, not as left for idle).
                     if ((auctioneer || wander->toAuctioneer) && !wander->lastReach)
+                    {
                         CoaEconomy::BotAuctions::NoteWay(CoaEconomy::BotAuctions::Way::TimedOut);
+                        // 3.2.1: where it stood, per capital.
+                        AreaTableEntry const* zone = sAreaTableStore.LookupEntry(bot->GetZoneId());
+                        CoaEconomy::BotAuctions::NoteNotReached(
+                            zone && (zone->flags & AREA_FLAG_CAPITAL) ? zone->area_name[0] : "",
+                            npc ? npc->GetEntry() : 0, bot->GetPositionX(), bot->GetPositionY(), bot->GetPositionZ(),
+                            npc ? bot->GetExactDist(npc) : 0.0f, bot->isMoving(), wander->refusals);
+                    }
                     wander->toAuctioneer = false;
                 }
                 info.ChangeToIdle();
@@ -590,7 +598,8 @@ bool NewRpgWanderNpcAction::Execute(Event /*event*/)
                 {
                     float gap = 0.0f;
                     char const* reason = CoaSafeMove::NoWayWhy(bot, object, gap);
-                    CoaEconomy::BotAuctions::NoteNoWay(reason, object->GetEntry(), bot->GetPositionX(),
+                    CoaEconomy::BotAuctions::NoteNoWay(zone ? zone->area_name[0] : "", reason, object->GetEntry(),
+                                                       bot->GetPositionX(),
                                                        bot->GetPositionY(), bot->GetPositionZ(), gap);
                 }
             }
