@@ -22,9 +22,11 @@ behaves exactly as before, and everything a server needs to adapt is in configur
   or that already spreads the module's `.cpp` files over libraries of its own, is left as it is.
 - The module only uses core APIs of the official core. Where it can use more, it looks for the header first
   (`__has_include`) and falls back otherwise; the release manifest lists these headers under
-  `optional_core_headers`. Today: `AscensionCompanionLoot.h`. A core that marks added races as male-only defines
-  `COA_CORE_MALE_ONLY_RACES_HEADER` (the header declaring `IsAscensionMaleOnlyRace(uint8)`); without it the module's
-  own list and the `AiPlayerbot.BotRace.*` lines are used.
+  `optional_core_headers`. Today none: a core offers an API by defining a macro naming its header, never by the
+  header's name alone. `COA_CORE_MALE_ONLY_RACES_HEADER` (the header declaring `IsAscensionMaleOnlyRace(uint8)`;
+  without it the module's own list and the `AiPlayerbot.BotRace.*` lines are used) and
+  `COA_CORE_COMPANION_LOOT_HEADER` (the header declaring `Ascension::CompanionLooting`; without it the module reads
+  the companion's appearance from the database).
 - Dungeon Clear is a separate module with its own releases; it does nothing without SquidBots. Build the tag the
   manifest names with this release. At startup the log says `SquidBots: Dungeon Clear <version> is built into this
   server.` or that it is not; `AiPlayerbot.CoaCaps.Addon = 1` (default) lets the addon ask the same.

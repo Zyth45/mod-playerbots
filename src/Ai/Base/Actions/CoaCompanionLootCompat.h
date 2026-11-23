@@ -11,9 +11,12 @@
 // A core without it (the public Conquest-of-AzerothCore core) gets the same answers from the module: the creatures and
 // spells below, and the active appearance read from the database the core writes on every change, through a cache.
 // COA_FORCE_COMPANION_LOOT_FALLBACK builds the module's answers on a core that has the API (to test them).
+// 3.2.1: a header's name proves nothing (the official core added an AscensionIncarnation.h of its own, without the
+// function the module looked for, and the 3.2 build broke): the core's API is used only when the core defines
+// COA_CORE_COMPANION_LOOT_HEADER, the header declaring Ascension::CompanionLooting.
 
-#if __has_include("AscensionCompanionLoot.h") && !defined(COA_FORCE_COMPANION_LOOT_FALLBACK)
-#include "AscensionCompanionLoot.h"
+#if defined(COA_CORE_COMPANION_LOOT_HEADER) && !defined(COA_FORCE_COMPANION_LOOT_FALLBACK)
+#include COA_CORE_COMPANION_LOOT_HEADER
 #define COA_HAS_CORE_COMPANION_LOOT 1
 namespace CoaCompanionLoot = Ascension::CompanionLooting;
 #else
