@@ -316,6 +316,28 @@ namespace
         return true;
     }
 
+    // 3.2.2: the ground under a point, with and without the vmap, before and after its grid is loaded.
+    bool HandleGround(ChatHandler* handler, uint32 mapId, float x, float y, float z)
+    {
+        for (std::string const& line : CoaPathProbe::GroundProbe(mapId, x, y, z))
+        {
+            handler->PSendSysMessage("[SquidBots ground] {}", line);
+            LOG_INFO("playerbots.coa", "ground probe map {} {:.1f} {:.1f} {:.1f}: {}", mapId, x, y, z, line);
+        }
+        return true;
+    }
+
+    // 3.2.2: why a point is or is not a square.
+    bool HandlePlace(ChatHandler* handler, uint32 mapId, float x, float y, float z)
+    {
+        for (std::string const& line : CoaPathProbe::PlaceExplain(mapId, x, y, z))
+        {
+            handler->PSendSysMessage("[SquidBots place] {}", line);
+            LOG_INFO("playerbots.coa", "place probe map {} {:.1f} {:.1f} {:.1f}: {}", mapId, x, y, z, line);
+        }
+        return true;
+    }
+
     // 3.2.2: the capitals' squares found (City Life).
     bool HandlePlaces(ChatHandler* handler)
     {
@@ -336,6 +358,8 @@ namespace
                 {"path", HandlePath, SEC_ADMINISTRATOR, Console::Yes},
                 {"pathcheck", HandlePathCheck, SEC_ADMINISTRATOR, Console::Yes},
                 {"places", HandlePlaces, SEC_ADMINISTRATOR, Console::Yes},
+                {"place", HandlePlace, SEC_ADMINISTRATOR, Console::Yes},
+                {"ground", HandleGround, SEC_ADMINISTRATOR, Console::Yes},
                 {"stop", HandleStop, SEC_ADMINISTRATOR, Console::Yes},
             };
             static ChatCommandTable commandTable = {

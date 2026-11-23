@@ -3826,8 +3826,9 @@ AiPlayerbot.CoaLive.City.FishingPct = 10
 
 #    AiPlayerbot.CoaLive.City.Squares
 #    AiPlayerbot.CoaLive.City.SquareMaxBots
-#        Description: City Life (3.2.2): the squares of the capitals, outdoors between two kinds of services or more
-#                     (auction house, bank, inn, flight master, quest board), on the floor the city walks on and off
+#        Description: City Life (3.2.2): the squares of the capitals, open spaces (indoors too: Ironforge, Undercity)
+#                     between two kinds of services or more (auction house, bank, inn, flight master, quest board,
+#                     mailbox), on the floor the city walks on and off
 #                     the ways between them, are found once after the start (".squidbots places" lists them). A bot
 #                     on a city visit now and then stands on one with one or two others, facing them, sitting or
 #                     talking for 2 to 5 minutes. SquareMaxBots: at most this many on one square (1 to 3). An hourly

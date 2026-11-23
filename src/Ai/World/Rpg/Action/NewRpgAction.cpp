@@ -8,6 +8,8 @@
 #include "CoaBotAuctions.h"
 #include "CoaCityLife.h"
 #include "CoaRpgTrade.h"
+#include "CoaPathProbe.h"
+#include "RandomPlayerbotMgr.h"
 #include "CoaSafeMove.h"
 #include "CoaSafeMoveRules.h"
 #include "CoaEconomyRules.h"
@@ -250,6 +252,10 @@ bool StartRpgDoQuestAction::Execute(Event event)
 
 bool NewRpgStatusUpdateAction::Execute(Event /*event*/)
 {
+    // 3.2.2: a random bot stuck on a closed patch of a capital's navmesh (under a building) back on the city's floor.
+    if (RandomPlayerbotMgr::instance().IsRandomBot(bot) && !botAI->HasGameClientMaster() &&
+        CoaPathProbe::RescueFromPatch(bot))
+        return true;
     NewRpgInfo& info = botAI->rpgInfo;
     NewRpgStatus status = info.GetStatus();
     switch (status)

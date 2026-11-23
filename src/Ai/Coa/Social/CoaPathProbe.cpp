@@ -24,6 +24,9 @@
 #include "MapMgr.h"
 #include "ObjectMgr.h"
 #include "ScriptMgr.h"
+#include "Timer.h"
+#include "WorldSession.h"
+#include "Player.h"
 
 #include <algorithm>
 #include <set>
@@ -32,6 +35,7 @@
 #include <cmath>
 #include <cstdio>
 #include <map>
+#include <unordered_map>
 #include <tuple>
 #include <mutex>
 
@@ -98,6 +102,61 @@ bool Open(uint32 mapId, Query& out)
     out.filter.setIncludeFlags(NAV_GROUND | NAV_WATER | NAV_MAGMA | NAV_SLIME);
     out.filter.setExcludeFlags(0);
     return out.query != nullptr;
+}
+
+// What StandByNpc finds from (fromRef, fromPt) for an NPC at (nx, ny, nz): the direct path's end, then the ring of
+// stops at each drop, within the core's reach (InInteractionReach, sizes not counted: half a yard short of it) and in
+// sight. how: what was found or tried.
+bool FindStop(Query& q, Map* map, dtPolyRef fromRef, float const* fromPt, float nx, float ny, float nz, float fromX,
+              float fromY, std::string* how, float& sx, float& sy, float& sz)
+{
+    auto tryStop = [&](std::string const& what, float tx, float ty, float tz) -> bool
+    {
+        float const to[3] = {ty, tz, tx};
+        float toPt[3];
+        dtPolyRef const toRef = Snap(*q.query, q.filter, to, toPt);
+        if (!toRef)
+            return false;
+        dtPolyRef polys[MAX_POLYS];
+        int count = 0;
+        q.query->findPath(fromRef, toRef, fromPt, toPt, &q.filter, polys, &count, MAX_POLYS);
+        float straight[MAX_POINTS * 3];
+        int points = 0;
+        q.query->findStraightPath(fromPt, toPt, polys, count, straight, nullptr, nullptr, &points, MAX_POINTS);
+        if (!points)
+            return false;
+        float const* end = &straight[(points - 1) * 3];
+        float const toNpc = std::sqrt((end[2] - nx) * (end[2] - nx) + (end[0] - ny) * (end[0] - ny) +
+                                      (end[1] - nz) * (end[1] - nz));
+        bool const sight = !map || map->isInLineOfSight(end[2], end[0], end[1] + 1.5f, nx, ny, nz + 1.5f,
+                                                       PHASEMASK_NORMAL, LINEOFSIGHT_ALL_CHECKS,
+                                                       VMAP::ModelIgnoreFlags::Nothing);
+        bool const ok = CoaSafeMove::InInteractionReach(toNpc, 0.0f, 0.0f) && sight;
+        if (how && (ok || what == "direct path"))
+            *how += (how->empty() ? "" : "; ") + what + Fmt(": end %.2f %.2f %.2f,", end[2], end[0], end[1]) +
+                    Fmt(" %.2f yd from the NPC", toNpc) + (sight ? "" : ", out of sight");
+        if (ok)
+        {
+            sx = end[2];
+            sy = end[0];
+            sz = end[1];
+        }
+        return ok;
+    };
+    if (tryStop("direct path", nx, ny, nz))
+        return true;
+    float const towardStart = std::atan2(fromY - ny, fromX - nx);
+    for (uint32 i = 0; i < CoaSafeMove::STAND_RING_TRIES; ++i)
+    {
+        float radius = 0.0f, angle = 0.0f;
+        CoaSafeMove::StandRingPoint(i, towardStart, radius, angle);
+        float const px = nx + radius * std::cos(angle), py = ny + radius * std::sin(angle);
+        for (uint32 d = 0; d < CoaSafeMove::STAND_RING_DROP_COUNT; ++d)
+            if (tryStop(Fmt("ring %.0f (%.1f yd)", i, radius) + Fmt(" %.1f yd lower", CoaSafeMove::STAND_RING_DROPS[d]),
+                        px, py, nz - CoaSafeMove::STAND_RING_DROPS[d]))
+                return true;
+    }
+    return false;
 }
 }  // namespace
 
@@ -397,50 +456,16 @@ std::vector<std::string> StopProbe(uint32_t mapId, float x, float y, float z, ui
     float const nx = npc->posX, ny = npc->posY, nz = npc->posZ;
     lines.push_back(Fmt("NPC %.0f at %.2f %.2f %.2f", npc->id, nx, ny, nz) + Fmt(", start %.2f %.2f %.2f", fromPt[2],
                     fromPt[0], fromPt[1]));
-    // The end of the path to (tx, ty, tz): within reach of the NPC (CoaSafeMove's NPC_STAND_REACH), in sight.
-    auto tryStop = [&](char const* what, float tx, float ty, float tz) -> bool
-    {
-        float const to[3] = {ty, tz, tx};
-        float toPt[3];
-        dtPolyRef const toRef = Snap(*q.query, q.filter, to, toPt);
-        if (!toRef)
-            return false;
-        dtPolyRef polys[MAX_POLYS];
-        int count = 0;
-        q.query->findPath(fromRef, toRef, fromPt, toPt, &q.filter, polys, &count, MAX_POLYS);
-        float straight[MAX_POINTS * 3];
-        int points = 0;
-        q.query->findStraightPath(fromPt, toPt, polys, count, straight, nullptr, nullptr, &points, MAX_POINTS);
-        if (!points)
-            return false;
-        float const* end = &straight[(points - 1) * 3];
-        float const toNpc = std::sqrt((end[2] - nx) * (end[2] - nx) + (end[0] - ny) * (end[0] - ny) +
-                                      (end[1] - nz) * (end[1] - nz));
-        bool const sight = !map || map->isInLineOfSight(end[2], end[0], end[1] + 1.5f, nx, ny, nz + 1.5f,
-                                                       PHASEMASK_NORMAL, LINEOFSIGHT_ALL_CHECKS,
-                                                       VMAP::ModelIgnoreFlags::Nothing);
-        bool const ok = CoaSafeMove::StandsByNpc(toNpc) && sight;
-        if (ok || std::string(what) == "direct path")
-            lines.push_back(std::string(what) + Fmt(": end %.2f %.2f %.2f,", end[2], end[0], end[1]) +
-                            Fmt(" %.2f yd from the NPC", toNpc) + (sight ? "" : ", out of sight") +
-                            (ok ? " -> STOP" : ""));
-        return ok;
-    };
-    if (tryStop("direct path", nx, ny, nz))
-        return lines;
-    float const towardStart = std::atan2(y - ny, x - nx);
-    for (uint32 i = 0; i < CoaSafeMove::STAND_RING_TRIES; ++i)
-    {
-        float radius = 0.0f, angle = 0.0f;
-        CoaSafeMove::StandRingPoint(i, towardStart, radius, angle);
-        float const px = nx + radius * std::cos(angle), py = ny + radius * std::sin(angle);
-        if (tryStop(Fmt("ring %.0f (%.1f yd) at the NPC's height", i, radius).c_str(), px, py, nz) ||
-            tryStop(Fmt("ring %.0f (%.1f yd) 1.6 yd lower", i, radius).c_str(), px, py,
-                    nz - CoaSafeMove::STAND_RING_DROP))
-            return lines;
-    }
-    lines.push_back("no stop: neither the direct path nor the " + std::to_string(CoaSafeMove::STAND_RING_TRIES * 2) +
-                    " ring points end within reach of the NPC in its sight (StandByNpc fails; the island check follows)");
+    std::string how;
+    float sx = 0.0f, sy = 0.0f, sz = 0.0f;
+    if (FindStop(q, map, fromRef, fromPt, nx, ny, nz, x, y, &how, sx, sy, sz))
+        lines.push_back(how + Fmt(" -> STOP at %.2f %.2f %.2f,", sx, sy, sz) +
+                        Fmt(" %.2f yd from the NPC", std::sqrt((sx - nx) * (sx - nx) + (sy - ny) * (sy - ny) +
+                                                                 (sz - nz) * (sz - nz))));
+    else
+        lines.push_back(how + "; no stop: neither the direct path nor the " +
+                        std::to_string(CoaSafeMove::STAND_RING_TRIES * CoaSafeMove::STAND_RING_DROP_COUNT) +
+                        " ring points end within reach of the NPC in its sight (StandByNpc fails; the island check follows)");
     return lines;
 }
 
@@ -484,9 +509,10 @@ std::vector<std::string> CheckCapitals()
                     ++unknownHere;
                     continue;  // no polygon there even with its grid loaded: told apart, in the totals
                 }
-                dtPolyRef polys[MAX_POLYS];
-                int count = 0;
-                if (Joined(*q.query, q.filter, fromRef, fromPt, toRef, toPt, polys, count))
+                // 3.2.2: joined when the bot finds a stop by the NPC from there (FindStop: the counters' NPCs stand on
+                // closed patches of their own, so their very polygon is no test).
+                float sx = 0.0f, sy = 0.0f, sz = 0.0f;
+                if (FindStop(q, map, fromRef, fromPt, to.x, to.y, to.z, from.x, from.y, nullptr, sx, sy, sz))
                 {
                     ++joinedHere;
                     continue;
@@ -513,19 +539,26 @@ std::mutex placesLock;
 std::map<std::pair<uint32, uint32>, std::vector<CoaPathProbe::Place>> places;  // (map, zone) -> its squares
 std::set<std::pair<uint32, uint32>> placesTried;  // capitals searched (even with no square found)
 std::atomic<uint32> placesTaken{0};
+std::atomic<uint32> rescued{0}, rescueSeen{0};  // 3.2.2: RescueFromPatch
 uint32 placeIds = 0;
 
 struct Service
 {
-    uint32 kind;  // a bit: 1 auctioneer, 2 banker, 4 innkeeper, 8 flight master, 16 quest board
+    uint32 kind;  // a bit: 1 auctioneer, 2 banker, 4 innkeeper, 8 flight master, 16 quest board, 32 mailbox
     float x, y, z;
 };
 
-// One capital's squares; false when its tiles are not loaded yet (tried again later).
-bool FindPlaces(std::pair<uint32, uint32> const& key)
+// A capital's services and the ways between them (straight paths of the navmesh).
+struct Scene
 {
-    uint32 const mapId = key.first, zoneId = key.second;
     std::vector<Service> services;
+    std::vector<std::array<float, 4>> segments;
+    bool anyTile = false;
+};
+
+Scene BuildScene(uint32 mapId, uint32 zoneId, Query& q)
+{
+    Scene scene;
     for (auto const& [spawnId, data] : sObjectMgr->GetAllCreatureData())
     {
         if (data.mapid != mapId)
@@ -543,36 +576,33 @@ bool FindPlaces(std::pair<uint32, uint32> const& key)
         else if (proto->npcflag & UNIT_NPC_FLAG_FLIGHTMASTER)
             kind = 8;
         if (kind && sMapMgr->GetZoneId(PHASEMASK_NORMAL, mapId, data.posX, data.posY, data.posZ) == zoneId)
-            services.push_back({kind, data.posX, data.posY, data.posZ});
+            scene.services.push_back({kind, data.posX, data.posY, data.posZ});
     }
     for (auto const& [spawnId, data] : sObjectMgr->GetAllGOData())
     {
         if (data.mapid != mapId)
             continue;
         GameObjectTemplate const* proto = sObjectMgr->GetGameObjectTemplate(data.id);
-        if (proto && proto->type == GAMEOBJECT_TYPE_QUESTGIVER &&
-            sMapMgr->GetZoneId(PHASEMASK_NORMAL, mapId, data.posX, data.posY, data.posZ) == zoneId)
-            services.push_back({16, data.posX, data.posY, data.posZ});
+        uint32 const kind = !proto ? 0 : proto->type == GAMEOBJECT_TYPE_QUESTGIVER ? 16
+                                        : proto->type == GAMEOBJECT_TYPE_MAILBOX  ? 32 : 0;
+        if (kind && sMapMgr->GetZoneId(PHASEMASK_NORMAL, mapId, data.posX, data.posY, data.posZ) == zoneId)
+            scene.services.push_back({kind, data.posX, data.posY, data.posZ});
     }
-    auto capital = CapitalSpots().find(key);
-    Query q;
-    Map* map = sMapMgr->CreateBaseMap(mapId);
-    if (services.size() < 2 || capital == CapitalSpots().end() || !map || !Open(mapId, q))
-        return true;  // nothing to find
-    // The ways between the services (the passage axes): straight paths of the navmesh.
-    std::vector<std::array<float, 4>> segments;
-    bool anyTile = false;
-    for (size_t a = 0; a < services.size(); ++a)
-        for (size_t b = a + 1; b < services.size(); ++b)
+    for (size_t a = 0; a < scene.services.size(); ++a)
+        for (size_t b = a + 1; b < scene.services.size(); ++b)
         {
-            float const from[3] = {services[a].y, services[a].z, services[a].x};
-            float const to[3] = {services[b].y, services[b].z, services[b].x};
+            Service const& sa = scene.services[a];
+            Service const& sb = scene.services[b];
+            if ((sa.kind | sb.kind) & CoaCityLife::PLACE_OBJECT_KINDS)
+                continue;  // the ways people take: between the NPCs' services, not to every mailbox
+            float const from[3] = {sa.y, sa.z, sa.x};
+            float const to[3] = {sb.y, sb.z, sb.x};
             float fromPt[3], toPt[3];
             dtPolyRef const fromRef = Snap(*q.query, q.filter, from, fromPt);
             dtPolyRef const toRef = Snap(*q.query, q.filter, to, toPt);
             if (!fromRef || !toRef)
                 continue;
-            anyTile = true;
+            scene.anyTile = true;
             dtPolyRef polys[MAX_POLYS];
             int count = 0;
             if (dtStatusFailed(q.query->findPath(fromRef, toRef, fromPt, toPt, &q.filter, polys, &count, MAX_POLYS)) ||
@@ -582,13 +612,82 @@ bool FindPlaces(std::pair<uint32, uint32> const& key)
             int points = 0;
             q.query->findStraightPath(fromPt, toPt, polys, count, straight, nullptr, nullptr, &points, MAX_POINTS);
             for (int i = 1; i < points; ++i)
-                segments.push_back({straight[(i - 1) * 3 + 2], straight[(i - 1) * 3], straight[i * 3 + 2],
-                                    straight[i * 3]});
+                scene.segments.push_back({straight[(i - 1) * 3 + 2], straight[(i - 1) * 3], straight[i * 3 + 2],
+                                          straight[i * 3]});
         }
-    if (!anyTile)
+    return scene;
+}
+
+// Why (x, y, z) on the navmesh is no square (nullptr: it is one); nearby: the services in range.
+char const* PlaceReason(Scene const& scene, Query& q, Map* map, float x, float y, float z, uint32& kinds, uint32& nearby)
+{
+    kinds = 0;
+    nearby = 0;
+    for (Service const& s : scene.services)
+    {
+        float const d = std::sqrt((s.x - x) * (s.x - x) + (s.y - y) * (s.y - y) + (s.z - z) * (s.z - z));
+        if (d < ((s.kind & CoaCityLife::PLACE_OBJECT_KINDS) ? CoaCityLife::PLACE_OBJECT_MIN : CoaCityLife::PLACE_NPC_MIN))
+            return "too close to a service (its door, its counter)";
+        if (d <= CoaCityLife::PLACE_SERVICE_MAX)
+        {
+            kinds |= s.kind;
+            ++nearby;
+        }
+    }
+    if (!CoaCityLife::PlaceServes(kinds))
+        return "fewer than two kinds of services within 45 yards";
+    for (auto const& seg : scene.segments)
+        if (CoaCityLife::SegmentDistance(x, y, seg[0], seg[1], seg[2], seg[3]) < CoaCityLife::PLACE_PATH_CLEAR)
+            return "on a way between two services";
+    PositionFullTerrainStatus status;
+    map->GetFullTerrainStatusForPosition(PHASEMASK_NORMAL, x, y, z + 0.5f, 2.0f, status);
+    if (status.liquidInfo.Status != LIQUID_MAP_NO_WATER)
+        return "in water";
+    // An open space, indoors too (Ironforge, Undercity): walls away, a high ceiling.
+    float const head = z + CoaCityLife::PLACE_HEAD;
+    uint32 open = 0;
+    for (uint32 i = 0; i < CoaCityLife::PLACE_OPEN_DIRECTIONS; ++i)
+    {
+        float const angle = float(i) * 6.2831853f / float(CoaCityLife::PLACE_OPEN_DIRECTIONS);
+        if (map->isInLineOfSight(x, y, head, x + CoaCityLife::PLACE_OPEN_REACH * std::cos(angle),
+                                 y + CoaCityLife::PLACE_OPEN_REACH * std::sin(angle), head, PHASEMASK_NORMAL,
+                                 LINEOFSIGHT_ALL_CHECKS, VMAP::ModelIgnoreFlags::M2))
+            ++open;
+    }
+    bool const ceiling = map->isInLineOfSight(x, y, head, x, y, head + CoaCityLife::PLACE_CEILING, PHASEMASK_NORMAL,
+                                              LINEOFSIGHT_ALL_CHECKS, VMAP::ModelIgnoreFlags::M2);
+    if (!CoaCityLife::PlaceOpen(open, ceiling))
+        return ceiling ? "walls close around (fewer than 6 of 8 directions free for 4 yards)"
+                       : "a low ceiling (something within 2.5 yards over the head)";
+    for (uint32 slot = 0; slot < 3; ++slot)
+    {
+        float sx = 0.0f, sy = 0.0f;
+        CoaCityLife::PlaceSlot(slot, x, y, sx, sy);
+        float const around[3] = {sy, z, sx};
+        float aroundPt[3];
+        if (!Snap(*q.query, q.filter, around, aroundPt) || std::fabs(aroundPt[1] - z) > CoaCityLife::PLACE_FLAT_DZ)
+            return "not flat around it (a slot off the floor or 0.6 yard higher or lower)";
+    }
+    if (OnCityFloor(q, x, y, z) != 1)
+        return "not on the city's floor (fewer than 600 polygons joined within 250 yards)";
+    return nullptr;
+}
+
+// One capital's squares; false when its tiles are not loaded yet (tried again later).
+bool FindPlaces(std::pair<uint32, uint32> const& key)
+{
+    uint32 const mapId = key.first, zoneId = key.second;
+    Query q;
+    Map* map = sMapMgr->CreateBaseMap(mapId);
+    if (!map || !Open(mapId, q))
+        return true;  // nothing to find
+    Scene const scene = BuildScene(mapId, zoneId, q);
+    if (scene.services.size() < 2)
+        return true;
+    if (!scene.anyTile)
         return false;  // the capital's tiles are not loaded yet
-    float minX = services[0].x, maxX = minX, minY = services[0].y, maxY = minY;
-    for (Service const& s : services)
+    float minX = scene.services[0].x, maxX = minX, minY = scene.services[0].y, maxY = minY;
+    for (Service const& s : scene.services)
     {
         minX = std::min(minX, s.x);
         maxX = std::max(maxX, s.x);
@@ -604,7 +703,7 @@ bool FindPlaces(std::pair<uint32, uint32> const& key)
     for (float gx = minX - 20.0f; gx <= maxX + 20.0f; gx += CoaCityLife::PLACE_GRID)
         for (float gy = minY - 20.0f; gy <= maxY + 20.0f; gy += CoaCityLife::PLACE_GRID)
         {
-            // Every floor of the navmesh at (gx, gy) between the services' heights.
+            // Every floor of the navmesh at (gx, gy).
             float const center[3] = {gy, 0.0f, gx};
             float const box[3] = {0.5f, 400.0f, 0.5f};
             dtPolyRef polys[16];
@@ -612,57 +711,16 @@ bool FindPlaces(std::pair<uint32, uint32> const& key)
             q.query->queryPolygons(center, box, &q.filter, polys, &count, 16);
             for (int i = 0; i < count; ++i)
             {
-                float const probe[3] = {gy, 0.0f, gx};
                 float on[3];
                 bool over = false;
-                if (dtStatusFailed(q.query->closestPointOnPoly(polys[i], probe, on, &over)) || !over)
+                if (dtStatusFailed(q.query->closestPointOnPoly(polys[i], center, on, &over)) || !over)
                     continue;
-                float const x = on[2], y = on[0], z = on[1];
                 uint32 kinds = 0, nearby = 0;
-                for (Service const& s : services)
-                {
-                    float const d = std::sqrt((s.x - x) * (s.x - x) + (s.y - y) * (s.y - y) + (s.z - z) * (s.z - z));
-                    if (d < CoaCityLife::PLACE_SERVICE_MIN)
-                    {
-                        kinds = 0;  // too close to a service: its door, its counter
-                        break;
-                    }
-                    if (d <= CoaCityLife::PLACE_SERVICE_MAX)
-                    {
-                        kinds |= s.kind;
-                        ++nearby;
-                    }
-                }
-                if (!CoaCityLife::PlaceServes(kinds))
-                    continue;
-                bool onWay = false;
-                for (auto const& seg : segments)
-                    if (CoaCityLife::SegmentDistance(x, y, seg[0], seg[1], seg[2], seg[3]) < CoaCityLife::PLACE_PATH_CLEAR)
-                    {
-                        onWay = true;
-                        break;
-                    }
-                if (onWay)
-                    continue;
-                PositionFullTerrainStatus status;
-                map->GetFullTerrainStatusForPosition(PHASEMASK_NORMAL, x, y, z + 0.5f, 2.0f, status);
-                if (!status.outdoors || status.liquidInfo.Status != LIQUID_MAP_NO_WATER)
-                    continue;
-                bool flat = true;
-                for (uint32 slot = 0; slot < 3 && flat; ++slot)
-                {
-                    float sx = 0.0f, sy = 0.0f;
-                    CoaCityLife::PlaceSlot(slot, x, y, sx, sy);
-                    float const around[3] = {sy, z, sx};
-                    float aroundPt[3];
-                    flat = Snap(*q.query, q.filter, around, aroundPt) &&
-                           std::fabs(aroundPt[1] - z) <= CoaCityLife::PLACE_FLAT_DZ;
-                }
-                if (flat)
-                    found.push_back({x, y, z, nearby});
+                if (!PlaceReason(scene, q, map, on[2], on[0], on[1], kinds, nearby))
+                    found.push_back({on[2], on[0], on[1], nearby});
             }
         }
-    // The most central first, PLACE_SPACING apart, on the city's floor.
+    // The most central first, PLACE_SPACING apart.
     std::sort(found.begin(), found.end(), [](Found const& a, Found const& b) { return a.nearby > b.nearby; });
     std::vector<CoaPathProbe::Place> kept;
     AreaTableEntry const* zone = sAreaTableStore.LookupEntry(zoneId);
@@ -674,7 +732,7 @@ bool FindPlaces(std::pair<uint32, uint32> const& key)
         for (CoaPathProbe::Place const& p : kept)
             if (std::hypot(p.x - f.x, p.y - f.y) < CoaCityLife::PLACE_SPACING)
                 apart = false;
-        if (!apart || OnCityFloor(q, f.x, f.y, f.z) != 1)
+        if (!apart)
             continue;
         CoaPathProbe::Place place;
         place.id = ++placeIds;
@@ -735,12 +793,163 @@ std::vector<std::string> PlacesReport()
             line += Fmt(" | %.1f %.1f %.1f", p.x, p.y, p.z);
         lines.push_back(line);
     }
+    lines.push_back("bots put back on the city's floor from a closed patch: " + std::to_string(rescued.exchange(0)) +
+                    " (found on one: " + std::to_string(rescueSeen.exchange(0)) + ")");
     lines.push_back(std::to_string(placesTried.size()) + " of " + std::to_string(CapitalSpots().size()) +
                     " capitals searched; " + std::to_string(placesTaken.exchange(0)) + " bots settled on a square since the last report");
     return lines;
 }
 
 void NotePlaceTaken() { ++placesTaken; }
+
+namespace
+{
+std::mutex rescueLock;
+std::unordered_map<uint64, uint32> rescueChecked;  // bot -> when last checked (getMSTime)
+}  // namespace
+
+bool RescueFromPatch(Player* bot)
+{
+    constexpr uint32 EVERY_MS = 60 * 1000;
+    if (!bot || !bot->IsInWorld() || bot->isMoving() || bot->IsInCombat() || bot->GetMap()->Instanceable())
+        return false;
+    AreaTableEntry const* zone = sAreaTableStore.LookupEntry(bot->GetZoneId());
+    if (!zone || !(zone->flags & AREA_FLAG_CAPITAL))
+        return false;
+    {
+        std::lock_guard<std::mutex> guard(rescueLock);
+        uint32& last = rescueChecked[bot->GetGUID().GetRawValue()];
+        if (last && GetMSTimeDiffToNow(last) < EVERY_MS)
+            return false;
+        last = getMSTime();
+        if (rescueChecked.size() > 20000)
+            rescueChecked.clear();
+    }
+    // A query of our own, on the bot's map thread (the map's tiles are its own).
+    dtNavMesh const* navMesh = bot->GetMap()->GetMapCollisionData().GetMMapData().GetNavMesh();
+    if (!navMesh)
+        return false;
+    Query q;
+    q.query = MMAP::MMapMgr::CreateNavMeshQuery(const_cast<dtNavMesh*>(navMesh));
+    q.filter.setIncludeFlags(NAV_GROUND | NAV_WATER | NAV_MAGMA | NAV_SLIME);
+    q.filter.setExcludeFlags(0);
+    if (!q.query)
+        return false;
+    float const x = bot->GetPositionX(), y = bot->GetPositionY(), z = bot->GetPositionZ();
+    if (OnCityFloor(q, x, y, z) != 0)
+        return false;  // on the city's floor, or no polygon here
+    for (float ring : {2.0f, 4.0f, 6.0f, 8.0f, 10.0f})
+        for (uint32 i = 0; i < 8; ++i)
+        {
+            float const angle = float(i) * 6.2831853f / 8.0f;
+            for (float dz : {0.0f, 2.0f, -2.0f, 4.0f})
+            {
+                float const probe[3] = {y + ring * std::sin(angle), z + dz, x + ring * std::cos(angle)};
+                float on[3];
+                if (!Snap(*q.query, q.filter, probe, on) || OnCityFloor(q, on[2], on[0], on[1]) != 1)
+                    continue;
+                ++rescueSeen;
+                // Seen by a real player: left for its next teleport (CoaArrivalCheck), never moved in view.
+                Map::PlayerList const& players = bot->GetMap()->GetPlayers();
+                for (Map::PlayerList::const_iterator itr = players.begin(); itr != players.end(); ++itr)
+                    if (Player* player = itr->GetSource())
+                        if (player != bot && player->GetSession() && !player->GetSession()->IsBot() &&
+                            player->IsWithinDist(bot, 100.0f) && player->IsWithinLOSInMap(bot))
+                            return false;
+                ++rescued;
+                bot->NearTeleportTo(on[2], on[0], on[1] + 0.05f, bot->GetOrientation());
+                return true;
+            }
+        }
+    return false;
+}
+
+std::vector<std::string> GroundProbe(uint32_t mapId, float x, float y, float z)
+{
+    std::vector<std::string> lines;
+    Map* map = sMapMgr->CreateBaseMap(mapId);
+    if (!map)
+        return {"no map " + std::to_string(mapId)};
+    auto read = [&](char const* when)
+    {
+        PositionFullTerrainStatus status;
+        map->GetFullTerrainStatusForPosition(PHASEMASK_NORMAL, x, y, z, 2.0f, status);
+        lines.push_back(std::string(when) + (map->IsGridLoaded(x, y) ? " (grid loaded)" : " (grid NOT loaded)") +
+                        Fmt(": terrain %.2f, GetHeight terrain only %.2f, with the vmap %.2f", map->GetGridHeight(x, y),
+                            map->GetHeight(PHASEMASK_NORMAL, x, y, z + 0.5f, false),
+                            map->GetHeight(PHASEMASK_NORMAL, x, y, z + 0.5f, true)) +
+                        Fmt(", floor %.2f, ", status.floorZ) + (status.outdoors ? "outdoors" : "indoors"));
+    };
+    read("as it is");
+    if (!map->IsGridLoaded(x, y))
+    {
+        map->LoadGrid(x, y);
+        read("grid loaded now");
+    }
+    return lines;
+}
+
+std::vector<std::string> PlaceExplain(uint32_t mapId, float x, float y, float z)
+{
+    std::vector<std::string> lines;
+    Map* map = sMapMgr->CreateBaseMap(mapId);
+    if (map && !map->IsGridLoaded(x, y))
+        map->LoadGrid(x, y);
+    Query q;
+    if (!map || !Open(mapId, q))
+    {
+        lines.push_back("no navmesh for map " + std::to_string(mapId));
+        return lines;
+    }
+    float const at[3] = {y, z, x};
+    float atPt[3];
+    dtPolyRef const atRef = Snap(*q.query, q.filter, at, atPt);
+    if (!atRef)
+    {
+        lines.push_back("no polygon there");
+        return lines;
+    }
+    uint32 const zoneId = sMapMgr->GetZoneId(PHASEMASK_NORMAL, mapId, x, y, z);
+    Scene const scene = BuildScene(mapId, zoneId, q);
+    dtPolyRef around[CITY_SCAN];
+    int aroundCount = 0;
+    q.query->findPolysAroundCircle(atRef, atPt, CITY_RADIUS, &q.filter, around, nullptr, nullptr, &aroundCount, CITY_SCAN);
+    lines.push_back(Fmt("snaps to %.2f %.2f %.2f, ", atPt[2], atPt[0], atPt[1]) +
+                    Fmt("%.0f polygons joined within 250 yards, ", aroundCount) +
+                    Fmt("%.0f services in the zone, %.0f ways", scene.services.size(), scene.segments.size()));
+    float nearest = 1e9f;
+    uint32 nearestKind = 0;
+    for (Service const& s : scene.services)
+    {
+        float const d = std::sqrt((s.x - atPt[2]) * (s.x - atPt[2]) + (s.y - atPt[0]) * (s.y - atPt[0]) +
+                                  (s.z - atPt[1]) * (s.z - atPt[1]));
+        if (d < nearest)
+        {
+            nearest = d;
+            nearestKind = s.kind;
+        }
+    }
+    uint32 kinds = 0, nearby = 0;
+    char const* why = PlaceReason(scene, q, map, atPt[2], atPt[0], atPt[1], kinds, nearby);
+    lines.push_back(Fmt("services within 45 yards: %.0f (kinds %.0f: 1 auction, 2 bank, 4 inn, 8 flight, 16 quest ", nearby,
+                        kinds) + Fmt("board, 32 mailbox); nearest %.1f yards (kind %.0f)", nearest, nearestKind));
+    lines.push_back(why ? std::string("not a square: ") + why : std::string("a square"));
+    float closest = 1e9f;
+    std::string which = "none found yet";
+    {
+        std::lock_guard<std::mutex> guard(placesLock);
+        for (auto const& [key, list] : places)
+            if (key.first == mapId)
+                for (Place const& p : list)
+                    if (float const d = std::hypot(p.x - atPt[2], p.y - atPt[0]); d < closest)
+                    {
+                        closest = d;
+                        which = Fmt("%.1f %.1f %.1f, ", p.x, p.y, p.z) + Fmt("%.1f yards off", d);
+                    }
+    }
+    lines.push_back("nearest square found: " + which);
+    return lines;
+}
 }  // namespace CoaPathProbe
 
 namespace

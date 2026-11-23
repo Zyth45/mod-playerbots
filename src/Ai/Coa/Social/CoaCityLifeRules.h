@@ -243,16 +243,33 @@ inline bool SeatUsable(float botX, float botY, float botZ, float seatX, float se
 }
 // 3.2.2 (the user, 23/11: bots standing on the capitals' squares, by the auction house's door and the quest board, on
 // the square between the bank and the auction house; "on est pas préssé ... essai de tout faire pour la 3.2.2"). A
-// square: outdoors, on the city's floor, flat, between PLACE_SERVICE_MIN and PLACE_SERVICE_MAX yards of at least two
-// services of different kinds (an auctioneer, a banker, an innkeeper, a flight master, a quest board), off the ways
-// between them (PLACE_PATH_CLEAR yards). At most PLACES_PER_CAPITAL per capital, PLACE_SPACING yards apart.
-constexpr float PLACE_SERVICE_MIN = 12.0f;
+// square: an open space (PlaceOpen), on the city's floor, flat, within PLACE_SERVICE_MAX yards of at least two services of different
+// kinds (an auctioneer, a banker, an innkeeper, a flight master; a quest board, a mailbox), never closer than
+// PLACE_NPC_MIN to an NPC of them (its door, its counter) or PLACE_OBJECT_MIN to an object, off the ways between them
+// (PLACE_PATH_CLEAR yards). At most PLACES_PER_CAPITAL per capital, PLACE_SPACING yards apart. The user's own spots on
+// the Stormwind trade square (23/11, 6 of them, 7 to 60 yards apart, some by the quest board and the mailbox) set these.
+constexpr float PLACE_NPC_MIN = 8.0f;
+constexpr float PLACE_OBJECT_MIN = 2.0f;
 constexpr float PLACE_SERVICE_MAX = 45.0f;
-constexpr float PLACE_PATH_CLEAR = 4.0f;
-constexpr float PLACE_SPACING = 20.0f;
-constexpr float PLACE_GRID = 4.0f;
+constexpr float PLACE_PATH_CLEAR = 3.0f;
+constexpr float PLACE_SPACING = 7.0f;
+constexpr float PLACE_GRID = 3.0f;
 constexpr float PLACE_FLAT_DZ = 0.6f;  // the ground 2 yards around stays this close in height
-constexpr uint32_t PLACES_PER_CAPITAL = 6;
+constexpr uint32_t PLACES_PER_CAPITAL = 12;
+constexpr uint32_t PLACE_OBJECT_KINDS = 16 | 32;  // the kinds that are objects: a quest board, a mailbox
+// 3.2.2 (the user's spots: Ironforge and Undercity are indoors, so "outdoors" refused them): an open space instead. From
+// the head (PLACE_HEAD yards up), at least PLACE_OPEN_MIN of PLACE_OPEN_DIRECTIONS directions free of walls for
+// PLACE_OPEN_REACH yards, and nothing overhead for PLACE_CEILING yards above the head.
+constexpr float PLACE_HEAD = 1.5f;
+constexpr float PLACE_OPEN_REACH = 4.0f;
+constexpr uint32_t PLACE_OPEN_DIRECTIONS = 8;
+constexpr uint32_t PLACE_OPEN_MIN = 6;
+constexpr float PLACE_CEILING = 2.5f;
+
+inline bool PlaceOpen(uint32_t openDirections, bool ceilingClear)
+{
+    return ceilingClear && openDirections >= PLACE_OPEN_MIN;
+}
 
 // A candidate's kinds of services in range (a bit per kind): a square when at least two.
 inline bool PlaceServes(uint32_t kindsInRange)

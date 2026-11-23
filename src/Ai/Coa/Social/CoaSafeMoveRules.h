@@ -172,6 +172,21 @@ constexpr uint32_t STAND_RING_TRIES = STAND_RING_DIRECTIONS * (sizeof(STAND_RING
 // under the tiles' walkableClimb of 1.6, so a point at the NPC's height ties): each ring point is tried at the NPC's
 // height, then STAND_RING_DROP yards lower, where only the floor below is within the climb.
 constexpr float STAND_RING_DROP = 1.6f;
+// 3.2.2 (the user's spots on the Stormwind trade square: its floor at z 94.3 to 94.7, about 3 yards under Chilton):
+// and STAND_RING_DROP2 yards lower too.
+constexpr float STAND_RING_DROP2 = 3.0f;
+// 3.2.2 (sonde of a831bd0d, Undercity: Epitwee (8721) on her counter, the floor 5.3 yards under her): every ring point
+// at these drops under the NPC's height, so that one is within the climb of the floor below whatever it is.
+constexpr float STAND_RING_DROPS[] = {0.0f, STAND_RING_DROP, STAND_RING_DROP2, 4.5f, 6.0f};
+constexpr uint32_t STAND_RING_DROP_COUNT = sizeof(STAND_RING_DROPS) / sizeof(STAND_RING_DROPS[0]);
+// The core's own reach for an NPC (Player::GetNPCIfCanInteractWith: INTERACTION_DISTANCE 5.5 plus both objects'
+// sizes, in 3D), half a yard short. A stop under a counter 5.3 yards high is within it, not within NPC_STAND_REACH.
+constexpr float INTERACTION_REACH = 5.0f;
+
+inline bool InInteractionReach(float dist, float npcSize, float botSize)
+{
+    return dist <= INTERACTION_REACH + npcSize + botSize;
+}
 
 // 3.2.2 (Pilote, 23/11, within the rule of credible moves): a bot standing on a closed island of the navmesh (its
 // path to a stop known to be walkable stops short) gets off it: a walk in a straight line over checked flat ground

@@ -121,5 +121,8 @@ int main()
         assert(std::hypot(x0 - x1, y0 - y1) > 2.0f);  // two bots face to face, not on each other
     }
     assert(MaxBots(Station::Square) == 3 && Weight(Station::Square) > 0 && !CanBePost(Station::Square));
+    // 3.2.2: an open space, indoors too: walls away in 6 of 8 directions, a high ceiling.
+    assert(PlaceOpen(8, true) && PlaceOpen(6, true));
+    assert(!PlaceOpen(5, true) && !PlaceOpen(8, false));
     return 0;
 }

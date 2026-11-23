@@ -343,6 +343,13 @@ void Tick(PlayerbotAI* botAI)
                 kinds.push_back("terrain");
         }
     }
+    // 3.2.2 (Pilote): under a building's floor in a capital (the vmap's floor read from 6 yards up, over the feet).
+    if (onGround && InCapital(bot->GetZoneId()) && (nowMs / sampleMs) % std::max<uint32>(1, INWALL_EVERY_MS / sampleMs) == 0)
+    {
+        float const above = map->GetHeight(bot->GetPhaseMask(), x, y, z + UNDERFLOOR_MAX, true, UNDERFLOOR_MAX - 0.5f);
+        if (UnderFloor(z, above))
+            kinds.push_back("underfloor");
+    }
     // 3.2.2: inside a wall or a building's model, now and then.
     if (onGround && (nowMs / sampleMs) % std::max<uint32>(1, INWALL_EVERY_MS / sampleMs) == 0)
     {

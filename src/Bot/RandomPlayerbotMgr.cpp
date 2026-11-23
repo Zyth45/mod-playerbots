@@ -2266,6 +2266,7 @@ struct TeleportSpot
     uint32 areaId = 0;
     bool inWater = false;
     float ground = INVALID_HEIGHT;
+    bool full = true;  // 3.2.2: read with the grid loaded (the buildings' floors of the vmap seen), else terrain only
 };
 
 std::mutex teleportSpotsLock;
@@ -2288,6 +2289,12 @@ TeleportSpot SpotOf(Map* map, Player* bot, float x, float y, float z)
     spot.areaId = map->GetAreaId(phase, x, y, z);
     spot.inWater = map->IsInWater(phase, x, y, z, height);
     spot.ground = map->GetHeight(phase, x, y, z + 0.5f);
+    // 3.2.2 (the user in game, 23/11: the Stormwind bank's arrival put bots under the bank, on the cobbles at 97.7 under
+    // its floor at 99.6): Map::GetHeight reads the buildings' floors from the vmap of a loaded grid only; read with the
+    // grid unloaded, the ground was the terrain under the building, and it was kept for good. Such a read is never kept.
+    spot.full = map->IsGridLoaded(x, y);
+    if (!spot.full)
+        return spot;
     std::lock_guard<std::mutex> guard(teleportSpotsLock);
     if (teleportSpots.size() > 200000)
         teleportSpots.clear();
@@ -2443,6 +2450,9 @@ void RandomPlayerbotMgr::RandomTeleport(Player* bot, std::vector<WorldLocation>&
         TeleportSpot const spot = SpotOf(map, bot, x, y, z);
         AreaTableEntry const* zone = sAreaTableStore.LookupEntry(spot.zoneId);
         if (!zone)
+            continue;
+        // 3.2.2: in a capital (buildings everywhere), never to a ground read without the buildings' floors.
+        if (!spot.full && (zone->flags & AREA_FLAG_CAPITAL))
             continue;
 
         AreaTableEntry const* area = sAreaTableStore.LookupEntry(spot.areaId);

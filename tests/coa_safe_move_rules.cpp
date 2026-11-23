@@ -1,6 +1,7 @@
 #include "CoaSafeMoveRules.h"
 
 #include <cassert>
+#include <cmath>
 #include <string>
 
 int main()
@@ -87,6 +88,18 @@ int main()
     assert(StartCell(-8919.9f, 634.9f) != StartCell(-8893.8f, 643.9f));
     // 3.2.2: Chilton at 97.47 over the city's floor at 95.90: the dropped point is within the climb of that floor only.
     assert(97.47f - STAND_RING_DROP - 95.90f < 0.1f);
+    // 3.2.2: the trade square's floor at 94.5, 3 yards under Chilton: the second drop is within the climb of it.
+    assert(std::fabs(97.47f - STAND_RING_DROP2 - 94.5f) < 1.6f);
+    // 3.2.2: Undercity's Epitwee 5.3 yards over the floor: a drop within the climb of it, and a stop 5.5 yards off in
+    // 3D within the core's reach (5.5 plus the sizes), not within NPC_STAND_REACH.
+    {
+        bool within = false;
+        for (uint32_t d = 0; d < STAND_RING_DROP_COUNT; ++d)
+            within |= std::fabs(-56.79f - STAND_RING_DROPS[d] - (-62.11f)) < 1.6f;
+        assert(within);
+    }
+    assert(InInteractionReach(5.5f, 0.5f, 0.4f) && !StandsByNpc(5.5f));
+    assert(!InInteractionReach(7.42f, 0.5f, 0.4f));
     assert(UNSTICK_RADII[2] <= UNSTICK_REACH);
     // 3.2.2: the ring around an NPC, first toward the bot, then alternating sides, all within reach of it.
     {

@@ -12,6 +12,7 @@
 #include <vector>
 
 class ChatHandler;
+class Player;
 
 // CoA 3.2.2 (Pilote, from the d061adec bench): a probe of the navmesh with no player and no bot, from the console or
 // RA. ".squidbots path <map> <x> <y> <z> <x> <y> <z>": the polygon each point snaps to (as the core's PathGenerator
@@ -52,6 +53,16 @@ struct Place
 };
 std::vector<Place> PlacesNear(uint32_t mapId, float x, float y, float range);
 std::vector<std::string> PlacesReport();
+// Why (x, y, z) is or is not a square: its floor, the services in range, the nearest of them, the ways, outdoors,
+// flat, and the nearest square found (".squidbots place <map> x y z").
+std::vector<std::string> PlaceExplain(uint32_t mapId, float x, float y, float z);
+// 3.2.2: the ground under (x, y) from z: terrain, with the vmap, grid loaded or not, before and after loading it
+// (".squidbots ground <map> x y z": whether the vmap holds a building's floor there).
+std::vector<std::string> GroundProbe(uint32_t mapId, float x, float y, float z);
+// 3.2.2 (Pilote): a random bot of a capital standing still on a closed patch of the navmesh (fewer than 600 polygons
+// joined within 250 yards: under a building, on a counter's stage) is put back on the city's floor nearby, when no
+// real player sees it. Called on the bot's thread; at most once a minute per bot. True when it was moved.
+bool RescueFromPatch(Player* bot);
 // A bot settled on a square (City Life), counted for the hourly line.
 void NotePlaceTaken();
 }  // namespace CoaPathProbe

@@ -87,9 +87,16 @@ std::unordered_map<uint64, G3D::Vector3> ringStops;
 std::map<std::pair<uint64, uint32>, uint32> ringMisses;
 constexpr uint32 RING_RETRY_MS = 60 * 1000;
 
-void KnowStop(WorldObject const* npc, float x, float y, float z)
+// By the NPC: within NPC_STAND_REACH, or within the core's own reach for it (a high counter).
+bool ByNpc(Player* bot, WorldObject const* npc, float x, float y, float z)
 {
-    if (!StandsByNpc(npc->GetExactDist(x, y, z)))
+    float const d = npc->GetExactDist(x, y, z);
+    return StandsByNpc(d) || InInteractionReach(d, npc->GetObjectSize(), bot->GetObjectSize());
+}
+
+void KnowStop(Player* bot, WorldObject const* npc, float x, float y, float z)
+{
+    if (!ByNpc(bot, npc, x, y, z))
         return;
     uint64 const key = npc->GetGUID().GetRawValue();
     std::lock_guard<std::mutex> guard(ringStopsLock);
@@ -105,7 +112,7 @@ bool RingStopWalks(Player* bot, WorldObject const* npc, float px, float py, floa
         CoreStraightLine(uint32(path.GetPathType()), uint32(path.GetPath().size())))
         return false;
     stop = path.GetActualEndPosition();
-    return StandsByNpc(npc->GetExactDist(stop.x, stop.y, stop.z)) && npc->IsWithinLOS(stop.x, stop.y, stop.z + 1.5f);
+    return ByNpc(bot, npc, stop.x, stop.y, stop.z) && npc->IsWithinLOS(stop.x, stop.y, stop.z + 1.5f);
 }
 
 bool RingStopByNpc(Player* bot, WorldObject const* npc, float& x, float& y, float& z)
@@ -134,8 +141,8 @@ bool RingStopByNpc(Player* bot, WorldObject const* npc, float& x, float& y, floa
         StandRingPoint(i, towardBot, radius, angle);
         float const px = npc->GetPositionX() + radius * std::cos(angle);
         float const py = npc->GetPositionY() + radius * std::sin(angle);
-        found = RingStopWalks(bot, npc, px, py, npc->GetPositionZ(), stop) ||
-                RingStopWalks(bot, npc, px, py, npc->GetPositionZ() - STAND_RING_DROP, stop);
+        for (uint32 d = 0; !found && d < STAND_RING_DROP_COUNT; ++d)
+            found = RingStopWalks(bot, npc, px, py, npc->GetPositionZ() - STAND_RING_DROPS[d], stop);
     }
     {
         std::lock_guard<std::mutex> guard(ringStopsLock);
@@ -162,7 +169,7 @@ bool StandByNpc(Player* bot, WorldObject const* npc, float& x, float& y, float& 
         return false;
     if (CanWalkTo(bot, x, y, z))
     {
-        KnowStop(npc, x, y, z);  // 3.2.2: a stop a bot walks to, the reference of UnstickFromIsland
+        KnowStop(bot, npc, x, y, z);  // 3.2.2: a stop a bot walks to, the reference of UnstickFromIsland
         return true;
     }
     PathGenerator path(bot);
@@ -174,12 +181,12 @@ bool StandByNpc(Player* bot, WorldObject const* npc, float& x, float& y, float& 
     G3D::Vector3 const& end = path.GetActualEndPosition();
     // 3.2: no bridge over a dead end short of the NPC (BridgesDeadEnd): on the living bench the bots at the end of it
     // (Stormwind's counter) stood there until their wander ended, the stop by the NPC failing the flat line.
-    if (StandsByNpc(npc->GetExactDist(end.x, end.y, end.z)) && npc->IsWithinLOS(end.x, end.y, end.z + 1.5f))
+    if (ByNpc(bot, npc, end.x, end.y, end.z) && npc->IsWithinLOS(end.x, end.y, end.z + 1.5f))
     {
         x = end.x;
         y = end.y;
         z = end.z;
-        KnowStop(npc, x, y, z);
+        KnowStop(bot, npc, x, y, z);
         return true;
     }
     // 3.2.2: the end may be short only because the core took another floor right under the NPC (Chilton): a stop on a

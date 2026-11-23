@@ -101,6 +101,16 @@ constexpr uint32_t INWALL_EVERY_MS = 3000;
 
 inline bool InWall(uint32_t openDirections) { return openDirections <= INWALL_MAX_OPEN; }
 
+// 3.2.2 (Pilote): "underfloor": in a capital, on the ground, a floor of the vmap UNDERFLOOR_MIN to UNDERFLOOR_MAX yards
+// over the feet (a building's floor over the bot: it stands on the terrain under it).
+constexpr float UNDERFLOOR_MIN = 1.0f;
+constexpr float UNDERFLOOR_MAX = 6.0f;
+
+inline bool UnderFloor(float z, float floorAbove)
+{
+    return floorAbove > -100000.0f && floorAbove - z >= UNDERFLOOR_MIN && floorAbove - z <= UNDERFLOOR_MAX;
+}
+
 // 3.2.2: the hourly summary keeps SUMMARY_SAMPLES samples per kind.
 constexpr size_t SUMMARY_SAMPLES = 6;
 
