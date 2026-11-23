@@ -21,6 +21,10 @@ int main()
     assert(!TooFast(2.1f, 300, 7.0f));
     assert(!TooFast(14.0f, 1000, 14.0f));        // mounted at its speed
     assert(Teleported(80.0f) && !TooFast(80.0f, 300, 7.0f));
+    // 3.2.2: 80 yards in 22 seconds is a run, not a teleport; 5500 yards in 2 seconds is one.
+    assert(!TeleportedFor(80.0f, 22000, 7.0f));
+    assert(TeleportedFor(5500.0f, 2000, 7.0f));
+    assert(TeleportedFor(80.0f, 300, 7.0f));
     // 3.2.2: through the relief: a hill 5 yards over both ends; a cave or a city under the terrain is not judged.
     assert(ThroughTerrain(100.0f, 100.0f, 100.5f, 100.2f, 105.0f));
     assert(!ThroughTerrain(100.0f, 100.0f, 100.5f, 100.2f, 101.0f));   // a small rise

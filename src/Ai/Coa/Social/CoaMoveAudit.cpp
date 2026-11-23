@@ -319,7 +319,7 @@ void Tick(PlayerbotAI* botAI)
         dz = z - before.z;
         dtMs = uint32(nowMs - before.atMs);
         float const speed = std::max(bot->GetSpeed(MOVE_RUN), bot->GetSpeed(MOVE_WALK));
-        if (Teleported(flat))
+        if (TeleportedFor(flat, dtMs, speed))
             kinds.push_back("teleport");
         else if (TooFast(flat, dtMs, speed) && !exempt)
             kinds.push_back("fast");
@@ -330,7 +330,7 @@ void Tick(PlayerbotAI* botAI)
         if (HeightJump(dz, flat, before.onGround && onGround))
             kinds.push_back("zjump");
         // 3.2.2: through the relief, outdoors.
-        if (CheckWall(flat) && !exempt && bot->IsOutdoors())
+        if (CheckWall(flat) && flat <= TERRAIN_MAX_FLAT && !exempt && bot->IsOutdoors())
         {
             float highest = INVALID_HEIGHT;
             for (uint32 i = 1; i <= TERRAIN_STEPS; ++i)
@@ -442,10 +442,13 @@ void Tick(PlayerbotAI* botAI)
         Write(line.str());
         // 3.2.2: the hourly summary's sample: map, where, the action and the move's origin.
         std::ostringstream sample;
-        sample << "map " << bot->GetMapId() << " " << Num(x) << " " << Num(y) << " " << Num(z) << " ("
+        sample << "map " << bot->GetMapId() << " " << Num(x) << " " << Num(y) << " " << Num(z) << " (" << Num(flat)
+               << " yd in " << dtMs << " ms, floor " << Num(floorZ) << ", "
                << ZoneName(bot->GetZoneId()) << "), " << (lastAction.empty() ? move.action : lastAction) << ", "
                << (move.origin.empty() ? "no move noted" : move.origin) << " " << PathTypeText(move.pathType);
-        NoteSummary(kind, sample.str());
+        // "roof" stays in the file only: the tree of Teldrassil and the ramps of the cities are floors over the terrain.
+        if (kind != "roof")
+            NoteSummary(kind, sample.str());
     }
 }
 }  // namespace CoaMoveAudit

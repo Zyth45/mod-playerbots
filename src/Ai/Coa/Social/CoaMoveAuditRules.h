@@ -37,9 +37,17 @@ inline bool OnRoof(bool outdoors, float floorZ, float gridZ)
 
 inline bool Teleported(float flat) { return flat > TELEPORT_DIST; }
 
+// 3.2.2 (bench of d061adec: 15 800 of 17 500 "teleport" lines were jumps under 500 yards between two samples taken
+// seconds apart, a bot whose AI ticks seldom): a teleport is further than the bot could have run in the time, plus
+// TELEPORT_DIST.
+inline bool TeleportedFor(float flat, uint32_t dtMs, float speed)
+{
+    return Teleported(flat) && flat > speed * FAST_FACTOR * (float(dtMs) / 1000.0f) + TELEPORT_DIST;
+}
+
 inline bool TooFast(float flat, uint32_t dtMs, float speed)
 {
-    if (!dtMs || Teleported(flat))
+    if (!dtMs || TeleportedFor(flat, dtMs, speed))
         return false;
     return flat / (float(dtMs) / 1000.0f) > speed * FAST_FACTOR + FAST_MARGIN;
 }
@@ -71,6 +79,9 @@ inline bool PingPong(float traveled, float span)
 constexpr float TERRAIN_MARGIN = 2.0f;
 constexpr float TERRAIN_SURFACE = 1.0f;  // an end this far under the terrain is in a cave or a city below: not judged
 constexpr uint32_t TERRAIN_STEPS = 4;
+// 3.2.2: a longer segment between two samples is a path around the hill, not through it (the bench's "terrain" lines:
+// 14 to 41 yards between samples, along the navmesh).
+constexpr float TERRAIN_MAX_FLAT = 8.0f;
 
 inline bool ThroughTerrain(float zFrom, float gridFrom, float zTo, float gridTo, float highestGridBetween)
 {
