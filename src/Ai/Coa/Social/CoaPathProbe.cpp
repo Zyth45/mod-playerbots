@@ -541,7 +541,8 @@ std::vector<std::string> StopProbe(uint32_t mapId, float x, float y, float z, ui
         return lines;
     }
     float const nx = npc->posX, ny = npc->posY, nz = npc->posZ;
-    lines.push_back(Fmt("NPC %.0f at %.2f %.2f %.2f", npc->id, nx, ny, nz) + Fmt(", start %.2f %.2f %.2f", fromPt[2],
+    lines.push_back(Fmt("NPC %.0f at %.2f %.2f %.2f", npc->id, nx, ny, nz) + Fmt(", facing %.2f", npc->orientation) +
+                    Fmt(", start %.2f %.2f %.2f", fromPt[2],
                     fromPt[0], fromPt[1]));
     std::string how;
     float sx = 0.0f, sy = 0.0f, sz = 0.0f;
