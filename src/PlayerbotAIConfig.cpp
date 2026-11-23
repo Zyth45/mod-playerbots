@@ -759,7 +759,7 @@ bool PlayerbotAIConfig::Initialize()
     autoGearCommand = sConfigMgr->GetOption<int32>("AiPlayerbot.AutoGearCommand", 1);
     autoGearCommandAltBots = sConfigMgr->GetOption<int32>("AiPlayerbot.AutoGearCommandAltBots", 1);
     coaSelfFound = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaSelfFound", false);
-    coaSelfFoundMaxLevel = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaSelfFoundMaxLevel", 59);
+    coaSelfFoundMaxLevel = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaSelfFoundMaxLevel", 80);
     int32 const coaSelfFoundBotsPercentOption = sConfigMgr->GetOption<int32>("AiPlayerbot.CoaSelfFoundBotsPercent", -1);
     coaSelfFoundBotsPercent = coaSelfFoundBotsPercentOption < 0 ? (coaSelfFound ? 20 : 0)
                                                                 : std::min<uint32>(uint32(coaSelfFoundBotsPercentOption), 100);

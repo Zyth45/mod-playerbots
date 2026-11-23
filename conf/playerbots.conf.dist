@@ -646,8 +646,9 @@ AiPlayerbot.AutoGearCommandAltBots = 1
 AiPlayerbot.CoaSelfFound = 0
 
 # Highest level self-found applies to; at higher levels bots are geared and recruited as usual.
-# Default: 59 (at 60 bots are geared as usual for the endgame)
-AiPlayerbot.CoaSelfFoundMaxLevel = 59
+# Default: 80 (3.2.2: no level of CoA is geared by the server; 59 before, when bots of level 60 were given the
+# endgame gear. A value of your own is kept.)
+AiPlayerbot.CoaSelfFoundMaxLevel = 80
 
 # With AiPlayerbot.CoaSelfFound = 1, a random bot left with no weapon at all (none worn, none in its bags; a fishing
 # pole is no weapon) gets the starting weapon of its class, once in its life (table playerbots_coa_starter_weapon):
