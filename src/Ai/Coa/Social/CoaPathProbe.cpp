@@ -279,6 +279,10 @@ Capitals const& CapitalSpots()
     uint32 const targetFlags = UNIT_NPC_FLAG_AUCTIONEER | UNIT_NPC_FLAG_BANKER | UNIT_NPC_FLAG_FLIGHTMASTER;
     for (auto const& [spawnId, data] : sObjectMgr->GetAllCreatureData())
     {
+        // 3.2.2 (the user: no Dalaran in CoA, level 60 at most): the capitals of the old continents only (Eastern
+        // Kingdoms, Kalimdor), where the bots of CoA live.
+        if (data.mapid != 0 && data.mapid != 1)
+            continue;
         CreatureTemplate const* proto = sObjectMgr->GetCreatureTemplate(data.id);
         if (!proto || !(proto->npcflag & (arrivalFlags | targetFlags)))
             continue;
