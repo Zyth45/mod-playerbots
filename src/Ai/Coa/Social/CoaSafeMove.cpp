@@ -87,6 +87,31 @@ std::unordered_map<uint64, G3D::Vector3> ringStops;
 std::map<std::pair<uint64, uint32>, uint32> ringMisses;
 constexpr uint32 RING_RETRY_MS = 60 * 1000;
 
+// 3.2.2: in front of the NPC, as it faces at home (a creature turns to whoever talks to it); an object has no front.
+bool FrontOf(WorldObject const* npc, float x, float y)
+{
+    Creature const* creature = npc->ToCreature();
+    if (!creature)
+        return true;
+    Position const& home = creature->GetHomePosition();
+    return InFrontOf(home.GetPositionX(), home.GetPositionY(), home.GetOrientation(), x, y);
+}
+
+// NPCs with no stop in front of them (their facing in the database turned to a wall?), traced once each.
+std::mutex behindLock;
+std::unordered_map<uint64, bool> behindTraced;
+
+void TraceBehind(WorldObject const* npc)
+{
+    {
+        std::lock_guard<std::mutex> guard(behindLock);
+        if (behindTraced.size() > 4096 || !behindTraced.emplace(npc->GetGUID().GetRawValue(), true).second)
+            return;
+    }
+    LOG_INFO("playerbots.coa", "stand by npc: no stop in front of {} (entry {}, {:.1f} {:.1f} {:.1f}), one behind it kept",
+             npc->GetName(), npc->GetEntry(), npc->GetPositionX(), npc->GetPositionY(), npc->GetPositionZ());
+}
+
 // By the NPC: within NPC_STAND_REACH, or within the core's own reach for it (a high counter).
 bool ByNpc(Player* bot, WorldObject const* npc, float x, float y, float z)
 {
@@ -112,7 +137,8 @@ bool RingStopWalks(Player* bot, WorldObject const* npc, float px, float py, floa
         CoreStraightLine(uint32(path.GetPathType()), uint32(path.GetPath().size())))
         return false;
     stop = path.GetActualEndPosition();
-    return ByNpc(bot, npc, stop.x, stop.y, stop.z) && npc->IsWithinLOS(stop.x, stop.y, stop.z + 1.5f);
+    return ByNpc(bot, npc, stop.x, stop.y, stop.z) && FrontOf(npc, stop.x, stop.y) &&
+           npc->IsWithinLOS(stop.x, stop.y, stop.z + 1.5f);
 }
 
 bool RingStopByNpc(Player* bot, WorldObject const* npc, float& x, float& y, float& z)
@@ -167,31 +193,54 @@ bool StandByNpc(Player* bot, WorldObject const* npc, float& x, float& y, float& 
 {
     if (!bot || !npc || !bot->IsInWorld() || bot->GetMapId() != npc->GetMapId())
         return false;
+    // 3.2.2: a stop behind the NPC (in a bank's booth) is kept as a last resort only (FrontOf).
+    bool behind = false;
+    G3D::Vector3 behindStop;
     if (CanWalkTo(bot, x, y, z))
     {
-        KnowStop(bot, npc, x, y, z);  // 3.2.2: a stop a bot walks to, the reference of UnstickFromIsland
-        return true;
+        if (FrontOf(npc, x, y))
+        {
+            KnowStop(bot, npc, x, y, z);  // 3.2.2: a stop a bot walks to, the reference of UnstickFromIsland
+            return true;
+        }
+        behind = true;
+        behindStop = G3D::Vector3(x, y, z);
     }
     PathGenerator path(bot);
-    if (!path.CalculatePath(npc->GetPositionX(), npc->GetPositionY(), npc->GetPositionZ(), false))
-        return false;
-    uint32 const type = uint32(path.GetPathType());
-    if (CoreStraightLine(type, uint32(path.GetPath().size())))
-        return false;
-    G3D::Vector3 const& end = path.GetActualEndPosition();
-    // 3.2: no bridge over a dead end short of the NPC (BridgesDeadEnd): on the living bench the bots at the end of it
-    // (Stormwind's counter) stood there until their wander ended, the stop by the NPC failing the flat line.
-    if (ByNpc(bot, npc, end.x, end.y, end.z) && npc->IsWithinLOS(end.x, end.y, end.z + 1.5f))
+    if (path.CalculatePath(npc->GetPositionX(), npc->GetPositionY(), npc->GetPositionZ(), false) &&
+        !CoreStraightLine(uint32(path.GetPathType()), uint32(path.GetPath().size())))
     {
-        x = end.x;
-        y = end.y;
-        z = end.z;
-        KnowStop(bot, npc, x, y, z);
-        return true;
+        G3D::Vector3 const& end = path.GetActualEndPosition();
+        // 3.2: no bridge over a dead end short of the NPC (BridgesDeadEnd): on the living bench the bots at the end of
+        // it (Stormwind's counter) stood there until their wander ended, the stop by the NPC failing the flat line.
+        if (ByNpc(bot, npc, end.x, end.y, end.z) && npc->IsWithinLOS(end.x, end.y, end.z + 1.5f))
+        {
+            if (FrontOf(npc, end.x, end.y))
+            {
+                x = end.x;
+                y = end.y;
+                z = end.z;
+                KnowStop(bot, npc, x, y, z);
+                return true;
+            }
+            if (!behind)
+            {
+                behind = true;
+                behindStop = end;
+            }
+        }
     }
-    // 3.2.2: the end may be short only because the core took another floor right under the NPC (Chilton): a stop on a
-    // ring around it (StandRingPoint), the one found before for this NPC first.
-    return RingStopByNpc(bot, npc, x, y, z);
+    // 3.2.2: the end may be short only because the core took another floor right under the NPC (Chilton), or lie
+    // behind it: a stop on a ring around it (StandRingPoint), in front of it, the one found before first.
+    if (RingStopByNpc(bot, npc, x, y, z))
+        return true;
+    if (!behind)
+        return false;
+    TraceBehind(npc);
+    x = behindStop.x;
+    y = behindStop.y;
+    z = behindStop.z;
+    return true;
 }
 
 char const* NoWayWhy(Player* bot, WorldObject const* npc, float& endToNpc)

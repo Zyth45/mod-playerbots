@@ -188,6 +188,16 @@ inline bool InInteractionReach(float dist, float npcSize, float botSize)
     return dist <= INTERACTION_REACH + npcSize + botSize;
 }
 
+// 3.2.2 (the user at the Ironforge bank: bots behind the counter, in the bankers' booths; his three spots in front of
+// it, 4.1 to 4.8 yards out along each banker's facing): a stop by an NPC lies at least STAND_FRONT yards in front of
+// it, along the way it faces at home. None found there: the stop found anywhere, as before (an NPC set facing a wall).
+constexpr float STAND_FRONT = 1.0f;
+
+inline bool InFrontOf(float npcX, float npcY, float facing, float x, float y)
+{
+    return (x - npcX) * std::cos(facing) + (y - npcY) * std::sin(facing) >= STAND_FRONT;
+}
+
 // 3.2.2 (Pilote, 23/11, within the rule of credible moves): a bot standing on a closed island of the navmesh (its
 // path to a stop known to be walkable stops short) gets off it: a walk in a straight line over checked flat ground
 // to a point within UNSTICK_REACH yards from which the stop is walkable; else, when no real player sees it, a short

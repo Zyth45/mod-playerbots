@@ -105,10 +105,11 @@ bool Open(uint32 mapId, Query& out)
 }
 
 // What StandByNpc finds from (fromRef, fromPt) for an NPC at (nx, ny, nz): the direct path's end, then the ring of
-// stops at each drop, within the core's reach (InInteractionReach, sizes not counted: half a yard short of it) and in
+// stops at each drop, within the core's reach (InInteractionReach, usual sizes: half a yard short of it) and in
 // sight. how: what was found or tried.
+// 3.2.2: facing (the NPC's at home; NAN: none) — the stop lies in front of the NPC (CoaSafeMove::InFrontOf).
 bool FindStop(Query& q, Map* map, dtPolyRef fromRef, float const* fromPt, float nx, float ny, float nz, float fromX,
-              float fromY, std::string* how, float& sx, float& sy, float& sz)
+              float fromY, std::string* how, float& sx, float& sy, float& sz, float facing = NAN)
 {
     auto tryStop = [&](std::string const& what, float tx, float ty, float tz) -> bool
     {
@@ -131,10 +132,14 @@ bool FindStop(Query& q, Map* map, dtPolyRef fromRef, float const* fromPt, float 
         bool const sight = !map || map->isInLineOfSight(end[2], end[0], end[1] + 1.5f, nx, ny, nz + 1.5f,
                                                        PHASEMASK_NORMAL, LINEOFSIGHT_ALL_CHECKS,
                                                        VMAP::ModelIgnoreFlags::Nothing);
-        bool const ok = CoaSafeMove::InInteractionReach(toNpc, 0.0f, 0.0f) && sight;
+        bool const front = std::isnan(facing) || CoaSafeMove::InFrontOf(nx, ny, facing, end[2], end[0]);
+        // 3.2.2 (sonde of 603a6549: every auctioneer of Ironforge and Orgrimmar "not joined", bots reaching them in game):
+        // the reach with the usual sizes, a humanoid NPC's and a player's combat reach (1.5 each), as ByNpc counts them.
+        bool const ok = CoaSafeMove::InInteractionReach(toNpc, 1.5f, 1.5f) && sight && front;
         if (how && (ok || what == "direct path"))
             *how += (how->empty() ? "" : "; ") + what + Fmt(": end %.2f %.2f %.2f,", end[2], end[0], end[1]) +
-                    Fmt(" %.2f yd from the NPC", toNpc) + (sight ? "" : ", out of sight");
+                    Fmt(" %.2f yd from the NPC", toNpc) + (sight ? "" : ", out of sight") +
+                    (front ? "" : ", BEHIND it");
         if (ok)
         {
             sx = end[2];
@@ -264,6 +269,7 @@ struct Spot
 {
     uint32 entry;
     float x, y, z;
+    float o = NAN;  // a target's facing at home
 };
 // (map, capital zone) -> the arrivals and the targets, from the spawns.
 using Capitals = std::map<std::pair<uint32, uint32>, std::pair<std::vector<Spot>, std::vector<Spot>>>;
@@ -295,7 +301,7 @@ Capitals const& CapitalSpots()
             lists.first.push_back({data.id, data.posX + std::cos(data.orientation) * 6.0f,
                                    data.posY + std::sin(data.orientation) * 6.0f, data.posZ + 2.0f});
         if (proto->npcflag & targetFlags)
-            lists.second.push_back({data.id, data.posX, data.posY, data.posZ});
+            lists.second.push_back({data.id, data.posX, data.posY, data.posZ, data.orientation});
     }
     return capitals;
 }
@@ -534,7 +540,7 @@ std::vector<std::string> StopProbe(uint32_t mapId, float x, float y, float z, ui
                     fromPt[0], fromPt[1]));
     std::string how;
     float sx = 0.0f, sy = 0.0f, sz = 0.0f;
-    if (FindStop(q, map, fromRef, fromPt, nx, ny, nz, x, y, &how, sx, sy, sz))
+    if (FindStop(q, map, fromRef, fromPt, nx, ny, nz, x, y, &how, sx, sy, sz, npc->orientation))
         lines.push_back(how + Fmt(" -> STOP at %.2f %.2f %.2f,", sx, sy, sz) +
                         Fmt(" %.2f yd from the NPC", std::sqrt((sx - nx) * (sx - nx) + (sy - ny) * (sy - ny) +
                                                                  (sz - nz) * (sz - nz))));
@@ -618,7 +624,7 @@ std::vector<std::string> CheckCapitals()
                 // 3.2.2: joined when the bot finds a stop by the NPC from there (FindStop: the counters' NPCs stand on
                 // closed patches of their own, so their very polygon is no test).
                 float sx = 0.0f, sy = 0.0f, sz = 0.0f;
-                if (FindStop(q, map, fromRef, fromPt, to.x, to.y, to.z, from.x, from.y, nullptr, sx, sy, sz))
+                if (FindStop(q, map, fromRef, fromPt, to.x, to.y, to.z, from.x, from.y, nullptr, sx, sy, sz, to.o))
                 {
                     ++joinedHere;
                     continue;

@@ -100,6 +100,10 @@ int main()
     }
     assert(InInteractionReach(5.5f, 0.5f, 0.4f) && !StandsByNpc(5.5f));
     assert(!InInteractionReach(7.42f, 0.5f, 0.4f));
+    // 3.2.2: the Ironforge bank: the user's spots 4.4 yards in front of banker 2461 (facing 2.23); its booth behind.
+    assert(InFrontOf(-4886.55f, -997.594f, 2.23402f, -4889.0996f, -994.0582f));
+    assert(!InFrontOf(-4886.55f, -997.594f, 2.23402f, -4884.0f, -1001.0f));   // behind the banker
+    assert(!InFrontOf(-4886.55f, -997.594f, 2.23402f, -4886.0f, -997.0f));    // beside: under a yard out
     assert(UNSTICK_RADII[2] <= UNSTICK_REACH);
     // 3.2.2: the ring around an NPC, first toward the bot, then alternating sides, all within reach of it.
     {
