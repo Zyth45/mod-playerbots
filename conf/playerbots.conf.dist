@@ -280,7 +280,7 @@ AiPlayerbot.BotRepairWhenSummon = 1
 # Defines at what level a bot will naturally use its 60% ground mount
 # Note: was level 20 during WotLK, 30 during TBC, 40 during Vanilla
 # Default: 20
-AiPlayerbot.UseGroundMountAtMinLevel = 20
+AiPlayerbot.UseGroundMountAtMinLevel = 5
 
 # Defines at what level a bot will naturally use its 100% fast ground mount
 # Note: was level 40 during WotLK, 60 during Vanilla

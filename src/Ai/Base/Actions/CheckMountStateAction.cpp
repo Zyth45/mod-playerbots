@@ -5,6 +5,8 @@
  */
 
 #include "CheckMountStateAction.h"
+
+#include <algorithm>
 #include "CoaWildcard.h"
 #include "Ai/Coa/Combat/Mount/CoaMountRule.h"
 #include "AscensionSpecialization.h"
@@ -302,6 +304,30 @@ bool CheckMountStateAction::Mount()
     // Try shapeshift
     if (TryForms(master, masterMountType, masterSpeed))
         return true;
+
+    // CoA 3.2.2: a random bot of no player keeps a ground mount of its own (StableMountIndex): CoA's ground mounts run
+    // at the riding speed, and the "fastest by its spell" group made nearly every bot ride the same 100% elekk.
+    if ((!master || master == bot) && sRandomPlayerbotMgr.IsRandomBot(bot) && masterMountType == 0 &&
+        !BotCanUseFlyingMount(bot))
+    {
+        std::vector<uint32> ground;
+        if (auto const it = mountData.allSpells.find(0); it != mountData.allSpells.end())
+            for (auto const& [speed, ids] : it->second)
+                ground.insert(ground.end(), ids.begin(), ids.end());
+        std::sort(ground.begin(), ground.end());
+        ground.erase(std::unique(ground.begin(), ground.end()), ground.end());
+        uint32 const start = CoaMountRule::StableMountIndex(bot->GetGUID().GetRawValue(), uint32(ground.size()));
+        for (uint32 i = 0; i < ground.size(); ++i)
+        {
+            uint32 const spellId = ground[(start + i) % ground.size()];
+            if (!bot->HasSpell(spellId) || !botAI->CanCastSpell(spellId, bot))
+                continue;
+            if (bot->isMoving())
+                bot->StopMoving();
+            if (botAI->CastSpell(spellId, bot))
+                return true;
+        }
+    }
 
     // Try random mount
     if (auto const* mounts = MountsOfType(mountData, masterMountType))

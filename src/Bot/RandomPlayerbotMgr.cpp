@@ -50,6 +50,7 @@
 #include "PlayerbotAI.h"
 #include "PlayerbotAIConfig.h"
 #include "PlayerbotFactory.h"
+#include "Ai/Coa/Combat/Mount/CoaMountRule.h"
 #include "CoaSpecialization.h"
 #include "AscensionSpecialization.h"
 #include "SpellMgr.h"
@@ -2338,6 +2339,46 @@ void CoaHomeFromOutland(Player* bot)
     bot->TeleportTo(start);
 }
 
+// CoA 3.2.2 (Pilote: the update shows at once, not at a bot's next randomize): a random bot of a player-less kind, of
+// the ground mount level or more, with no riding skill or no ground mount known, gets at its login the riding of its
+// level (Novice under 20, Apprentice from 20, Journeyman from the fast mount level, as InitSkills) and its race's mount
+// (InitMounts: only the kinds it lacks); nothing else of it changes. Never the bot of a player.
+void CoaRidingAtLogin(Player* bot)
+{
+    if (!bot || !sRandomPlayerbotMgr.IsRandomBot(bot) || !GET_PLAYERBOT_AI(bot) ||
+        GET_PLAYERBOT_AI(bot)->HasGameClientMaster() ||
+        bot->GetLevel() < sPlayerbotAIConfig.useGroundMountAtMinLevel)
+        return;
+    bool const riding = bot->GetSkillValue(SKILL_RIDING) > 0;
+    bool mount = false;
+    for (auto const& [spellId, state] : bot->GetSpellMap())
+    {
+        if (state->State == PLAYERSPELL_REMOVED || !state->Active)
+            continue;
+        SpellInfo const* info = sSpellMgr->GetSpellInfo(spellId);
+        if (info && info->HasAura(SPELL_AURA_MOUNTED))
+        {
+            mount = true;
+            break;
+        }
+    }
+    if (riding && mount)
+        return;
+    if (!riding)
+    {
+        bot->learnSpell(CoaMountRule::NoviceOrApprentice(bot->GetLevel()));
+        if (bot->GetLevel() >= sPlayerbotAIConfig.useFastGroundMountAtMinLevel)
+            bot->learnSpell(33391);
+    }
+    if (!mount)
+    {
+        PlayerbotFactory factory(bot, bot->GetLevel());
+        factory.InitMounts();
+    }
+    LOG_INFO("playerbots.coa", "coa: {} (level {}) given at login: riding {}, race's mount {}", bot->GetName(),
+             bot->GetLevel(), riding ? "kept" : "learned", mount ? "kept" : "learned");
+}
+
 WorldLocation BankArrival(WorldLocation const& banker)
 {
     std::string const key = std::to_string(banker.GetMapId()) + ":" + std::to_string(banker.GetPositionX()) + ":" +
@@ -4005,6 +4046,7 @@ void RandomPlayerbotMgr::OnBotLoginInternal(Player* const bot)
     // made before stayed at Sunstrider Isle or Ammen Vale, where no CoA quest awaits them, and stood there (Discord
     // 07/10): a low level random bot in Outland's map goes to its race's start.
     CoaHomeFromOutland(bot);  // CoA 3.2.2
+    CoaRidingAtLogin(bot);    // CoA 3.2.2
 
     // A bot made before MaxPlayerLevel or RandomBotMaxLevel was lowered kept its level, since Randomize only
     // rebuilds a bot at the level it has: bring it down to the cap, gear, talents and spells redone.
