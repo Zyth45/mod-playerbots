@@ -110,10 +110,13 @@ std::vector<std::string> Probe(uint32_t mapId, float fx, float fy, float fz, flo
                         " (its tile not loaded, or off the navmesh)");
         return lines;
     }
+    // 3.2.2 (Pilote): the polygons themselves, to see a target taken on another floor.
     lines.push_back(Fmt("start snaps to %.2f %.2f %.2f (%.2f yd off)", fromPt[2], fromPt[0], fromPt[1],
-                        std::sqrt(dtVdistSqr(from, fromPt))));
+                        std::sqrt(dtVdistSqr(from, fromPt))) + ", polygon " + std::to_string(uint64(fromRef)) +
+                    Fmt(" at z %.2f", fromPt[1]));
     lines.push_back(Fmt("target snaps to %.2f %.2f %.2f (%.2f yd off)", toPt[2], toPt[0], toPt[1],
-                        std::sqrt(dtVdistSqr(to, toPt))));
+                        std::sqrt(dtVdistSqr(to, toPt))) + ", polygon " + std::to_string(uint64(toRef)) +
+                    Fmt(" at z %.2f", toPt[1]));
     dtPolyRef polys[MAX_POLYS];
     int count = 0;
     bool const joined = Joined(query, q.filter, fromRef, fromPt, toRef, toPt, polys, count);
@@ -132,7 +135,13 @@ std::vector<std::string> Probe(uint32_t mapId, float fx, float fy, float fz, flo
     dtPolyRef floors[32];
     int floorCount = 0;
     query.queryPolygons(to, box, &q.filter, floors, &floorCount, 32);
-    std::map<int, std::pair<float, bool>> heights;  // tenths of a yard -> height, reached
+    struct Floor
+    {
+        float z = 0.0f;
+        bool reached = false;
+        dtPolyRef ref = 0;
+    };
+    std::map<int, Floor> heights;  // tenths of a yard -> the floor
     for (int i = 0; i < floorCount; ++i)
     {
         float closest[3];
@@ -142,13 +151,15 @@ std::vector<std::string> Probe(uint32_t mapId, float fx, float fy, float fz, flo
         int reached = 0;
         dtPolyRef way[MAX_POLYS];
         bool const in = Joined(query, q.filter, fromRef, fromPt, floors[i], closest, way, reached);
-        auto& floor = heights[int(std::lround(closest[1] * 10.0f))];
-        floor.first = closest[1];
-        floor.second = floor.second || in;
+        Floor& floor = heights[int(std::lround(closest[1] * 10.0f))];
+        floor.z = closest[1];
+        floor.reached = floor.reached || in;
+        floor.ref = floor.ref ? floor.ref : floors[i];
     }
     std::string floorsText = "floors under the target:";
     for (auto const& [tenth, floor] : heights)
-        floorsText += Fmt(" z %.2f", floor.first) + (floor.second ? " reached;" : " NOT reached;");
+        floorsText += Fmt(" z %.2f", floor.z) + " (polygon " + std::to_string(uint64(floor.ref)) + ")" +
+                      (floor.reached ? " reached;" : " NOT reached;");
     lines.push_back(heights.empty() ? std::string("no floor right under the target") : floorsText);
     return lines;
 }
