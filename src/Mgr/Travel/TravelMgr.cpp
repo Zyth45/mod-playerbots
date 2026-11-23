@@ -4817,6 +4817,10 @@ void TravelMgr::PrepareDestinationCache()
                 // Bots 1-60 go to base game bankers (all have minlevel 30 or 45)
                 if (l <=60 && level > 45)
                     continue;
+                // CoA 3.2.2: of the old continents (maps 0, 1): the Exodar's and Silvermoon's bankers (map 530, level
+                // 30 to 45) sent bots of level 19 and 24 to cities CoA has no use for (world 6, 23/11).
+                if (l <= 60 && mapId != 0 && mapId != 1)
+                    continue;
 
                 // Bots 61-70 go to Shattrath bankers (all have minlevel 60 or 70)
                 if ((l >=61 && l <=70) && (level < 60 || level > 70))

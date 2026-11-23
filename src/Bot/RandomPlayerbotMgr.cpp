@@ -2306,6 +2306,38 @@ TeleportSpot SpotOf(Map* map, Player* bot, float x, float y, float z)
 std::mutex bankArrivalsLock;
 std::unordered_map<std::string, WorldLocation> bankArrivals;
 
+// CoA 3.2.2 (the user, 24/11: "à northrend il devrait y avoir 0 bots CoA, ZERO"; 380 bots in map 530 on the showcase,
+// the Exodar, Silvermoon and the zones around): a random bot has no business on map 530 (Outland, the Blood Elves' and
+// Draenei's isles) or 571 (Northrend). CoA starts every race on the old continents (playercreateinfo: maps 0, 1, 609).
+bool CoaFarMap(uint32 mapId) { return mapId == 530 || mapId == 571; }
+
+// A random bot there goes home: its hearth when it lies off maps 530 and 571, else its race's start, which then becomes
+// its hearth (a hearth elsewhere is never rewritten). Never in a fight, a group, an instance, or the bot of a player.
+// At its login and at each refresh. Maps 530 and 571 are the open worlds: their dungeons have maps of their own.
+void CoaHomeFromOutland(Player* bot)
+{
+    if (!bot || !CoaFarMap(bot->GetMapId()) || !sRandomPlayerbotMgr.IsRandomBot(bot) || bot->IsInCombat() ||
+        bot->GetGroup() || !GET_PLAYERBOT_AI(bot) || GET_PLAYERBOT_AI(bot)->HasGameClientMaster() ||
+        bot->IsBeingTeleported() || !bot->IsInWorld() || bot->GetMap()->Instanceable())
+        return;
+    if (!CoaFarMap(bot->m_homebindMapId))
+    {
+        LOG_INFO("playerbots.coa", "coa: {} (level {}) leaves map {} for its hearth", bot->GetName(), bot->GetLevel(),
+                 bot->GetMapId());
+        bot->TeleportTo(bot->m_homebindMapId, bot->m_homebindX, bot->m_homebindY, bot->m_homebindZ,
+                        bot->GetOrientation());
+        return;
+    }
+    PlayerInfo const* info = sObjectMgr->GetPlayerInfo(bot->getRace(), bot->getClass());
+    if (!info || CoaFarMap(info->mapId))
+        return;
+    LOG_INFO("playerbots.coa", "coa: {} (level {}) leaves map {} for its race's start", bot->GetName(), bot->GetLevel(),
+             bot->GetMapId());
+    WorldLocation const start(info->mapId, info->positionX, info->positionY, info->positionZ, info->orientation);
+    bot->SetHomebind(start, info->areaId);
+    bot->TeleportTo(start);
+}
+
 WorldLocation BankArrival(WorldLocation const& banker)
 {
     std::string const key = std::to_string(banker.GetMapId()) + ":" + std::to_string(banker.GetPositionX()) + ":" +
@@ -2433,6 +2465,9 @@ void RandomPlayerbotMgr::RandomTeleport(Player* bot, std::vector<WorldLocation>&
     for (uint32 i = 0; i < tlocs.size(); i++)
     {
         WorldLocation loc = tlocs[i];
+        // CoA 3.2.2: never to map 530 or 571 (CoaFarMap): the levelling zones of the isles, their capitals' bankers.
+        if (CoaFarMap(loc.GetMapId()) && IsRandomBot(bot))
+            continue;
 
         float x = loc.GetPositionX();  // + (attemtps > 0 ? urand(0, sPlayerbotAIConfig.grindDistance) -
                                        // sPlayerbotAIConfig.grindDistance / 2 : 0);
@@ -3064,6 +3099,7 @@ void RandomPlayerbotMgr::Refresh(Player* bot)
     PlayerbotAI* botAI = GET_PLAYERBOT_AI(bot);
     if (!botAI)
         return;
+    CoaHomeFromOutland(bot);  // CoA 3.2.2: a bot that got to map 530 or 571 anyway (a boat, a portal) goes home
 
     if (bot->isDead())
     {
@@ -3968,14 +4004,7 @@ void RandomPlayerbotMgr::OnBotLoginInternal(Player* const bot)
     // CoA starts Blood Elves in Deathknell and Draenei in Shadowglen (jealous-sound/azerothcore-wotlk-coa#6397). Bots
     // made before stayed at Sunstrider Isle or Ammen Vale, where no CoA quest awaits them, and stood there (Discord
     // 07/10): a low level random bot in Outland's map goes to its race's start.
-    if (bot->GetMapId() == 530 && bot->GetLevel() <= 20 && IsRandomBot(bot) && !bot->IsInCombat() && !bot->GetGroup())
-        if (PlayerInfo const* info = sObjectMgr->GetPlayerInfo(bot->getRace(), bot->getClass()))
-            if (info->mapId != 530)
-            {
-                LOG_INFO("playerbots", "coa: {} (level {}) leaves map 530 for its race's start", bot->GetName(),
-                         bot->GetLevel());
-                bot->TeleportTo(info->mapId, info->positionX, info->positionY, info->positionZ, info->orientation);
-            }
+    CoaHomeFromOutland(bot);  // CoA 3.2.2
 
     // A bot made before MaxPlayerLevel or RandomBotMaxLevel was lowered kept its level, since Randomize only
     // rebuilds a bot at the level it has: bring it down to the cap, gear, talents and spells redone.
