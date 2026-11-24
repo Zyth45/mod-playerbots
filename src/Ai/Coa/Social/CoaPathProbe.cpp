@@ -666,6 +666,22 @@ std::vector<std::string> CheckCapitals()
                 ++droppedHere;
                 continue;
             }
+            // 3.2.2 (Pilote, sonde of 96b4114c: Darnassus's 6735 still judged here, its 4 pairs not joined): the same
+            // rule as JudgeArrival, which only runs when a bot is sent there: under half the services, dropped unless
+            // it is the capital's best arrival.
+            if (verdict == 1 || verdict == 2)
+            {
+                uint32 const targets = uint32(lists.second.size());
+                uint32 const reached = StopsFrom(q, map, lists.second, from.x, from.y, from.z);
+                uint32 const best = BestStops(q, map, key, lists);
+                if (!ArrivalJoinsCity(reached, targets) && reached < best)
+                {
+                    ++droppedHere;
+                    lines.push_back(name + Fmt(": arrival of %.0f DROPPED: a stop by %.0f", given.entry, reached) +
+                                    Fmt(" of the %.0f services (the best arrival: %.0f)", targets, best));
+                    continue;
+                }
+            }
             float const fromRc[3] = {from.y, from.z, from.x};
             float fromPt[3];
             dtPolyRef const fromRef = Snap(*q.query, q.filter, fromRc, fromPt);
