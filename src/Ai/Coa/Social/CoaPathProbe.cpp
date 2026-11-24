@@ -737,6 +737,18 @@ std::mutex placesLock;
 std::map<std::pair<uint32, uint32>, std::vector<CoaPathProbe::Place>> places;  // (map, zone) -> its squares
 std::set<std::pair<uint32, uint32>> placesTried;  // capitals searched (even with no square found)
 std::atomic<uint32> placesTaken{0};
+// 3.2.2 (measure only): seats used or refused at arrival, and each holder's latest state (reset at each report).
+struct SeatSeen
+{
+    uint8 state;  // 0 sat on the chair (SIT_*_CHAIR), 1 sat on the ground (SIT), 2 anything else (standing)
+    int8 use;     // 1 used, -1 refused, 0 unknown
+    std::string name;
+    float x, y, z;
+    uint32 entry;
+};
+std::atomic<uint32> seatsUsed{0}, seatsRefused{0};
+std::mutex seatsLock;
+std::map<uint64, SeatSeen> seatsHeld;
 std::atomic<uint32> rescued{0}, rescueSeen{0};  // 3.2.2: RescueFromPatch
 uint32 placeIds = 0;
 
@@ -996,10 +1008,52 @@ std::vector<std::string> PlacesReport()
                     " (found on one: " + std::to_string(rescueSeen.exchange(0)) + ")");
     lines.push_back(std::to_string(placesTried.size()) + " of " + std::to_string(CapitalSpots().size()) +
                     " capitals searched; " + std::to_string(placesTaken.exchange(0)) + " bots settled on a square since the last report");
+    {
+        std::lock_guard<std::mutex> seatGuard(seatsLock);
+        uint32 count[3] = {0, 0, 0};
+        std::string sample;
+        uint32 samples = 0;
+        for (auto const& [guid, seen] : seatsHeld)
+        {
+            ++count[seen.state];
+            if (seen.state == 2 && samples < 3)
+            {
+                ++samples;
+                sample += " | " + seen.name + Fmt(" %.2f %.2f %.2f go %.0f ", seen.x, seen.y, seen.z, seen.entry) +
+                          (seen.use < 0 ? "refused" : seen.use > 0 ? "stood up" : "unknown");
+            }
+        }
+        lines.push_back("seats: " + std::to_string(seatsUsed.exchange(0)) + " used, " +
+                        std::to_string(seatsRefused.exchange(0)) + " refused (SeatUsable); held " +
+                        std::to_string(count[0]) + " chair-sit / " + std::to_string(count[1]) + " sit / " +
+                        std::to_string(count[2]) + " stand" + sample);
+        seatsHeld.clear();
+    }
     return lines;
 }
 
 void NotePlaceTaken() { ++placesTaken; }
+
+void NoteSeatUse(bool used) { ++(used ? seatsUsed : seatsRefused); }
+
+void NoteSeatHeld(Player* bot, WorldObject const* seat, int8_t use)
+{
+    if (!bot || !seat)
+        return;
+    uint8 const stand = bot->getStandState();
+    SeatSeen seen;
+    seen.state = (stand >= UNIT_STAND_STATE_SIT_LOW_CHAIR && stand <= UNIT_STAND_STATE_SIT_HIGH_CHAIR) ? 0
+                 : stand == UNIT_STAND_STATE_SIT                                                     ? 1
+                                                                                                     : 2;
+    seen.use = use;
+    seen.name = bot->GetName();
+    seen.x = bot->GetPositionX();
+    seen.y = bot->GetPositionY();
+    seen.z = bot->GetPositionZ();
+    seen.entry = seat->GetEntry();
+    std::lock_guard<std::mutex> guard(seatsLock);
+    seatsHeld[bot->GetGUID().GetRawValue()] = std::move(seen);
+}
 
 namespace
 {

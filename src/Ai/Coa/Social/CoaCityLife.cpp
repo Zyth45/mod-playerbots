@@ -48,6 +48,7 @@ struct Holding
     uint32 placeId = 0;
     float px = 0.0f, py = 0.0f, pz = 0.0f, cx = 0.0f, cy = 0.0f;
     bool sitting = false;
+    int8 seat = 0;  // 3.2.2 (measure only): a seat's use at arrival, 1 used (Use), -1 refused (SeatUsable)
 };
 constexpr uint64 HOLD_MS = 15 * MINUTE * IN_MILLISECONDS;
 constexpr uint64 POST_MARGIN_MS = 5 * MINUTE * IN_MILLISECONDS;  // a long post is held this much past its end
@@ -278,6 +279,16 @@ ObjectGuid ChooseStation(PlayerbotAI* botAI)
     return h.station;
 }
 
+// 3.2.2 (measure only, the user: bots standing on chairs): how the bot's seat was taken, for the probe's hourly line.
+static void NoteSeatUse(Player* bot, int8 used)
+{
+    CoaPathProbe::NoteSeatUse(used > 0);
+    std::lock_guard<std::mutex> guard(cityLock);
+    auto it = holding.find(bot->GetGUID().GetRawValue());
+    if (it != holding.end())
+        it->second.seat = used;
+}
+
 void OnReach(PlayerbotAI* botAI, WorldObject* object)
 {
     if (!Enabled() || !botAI || !object)
@@ -335,11 +346,13 @@ void OnReach(PlayerbotAI* botAI, WorldObject* object)
                                seat->GetPositionY(), seat->GetPositionZ(), bot->IsWithinLOSInMap(seat)))
         {
             seat->Use(bot);
+            NoteSeatUse(bot, 1);
             return;
         }
         if (seat)
         {
             bot->SetFacingToObject(object);  // out of reach: stands by it, never lifted onto it
+            NoteSeatUse(bot, -1);
             return;
         }
     }
@@ -372,6 +385,8 @@ uint32 WhileStaying(PlayerbotAI* botAI, WorldObject* object, uint32 defaultMs)
     Pose pose;
     uint32 stay = 0;
     bool stepNow = false;
+    bool seatHeld = false;
+    int8 seatUse = 0;
     {
         std::lock_guard<std::mutex> guard(cityLock);
         auto it = holding.find(bot->GetGUID().GetRawValue());
@@ -381,6 +396,9 @@ uint32 WhileStaying(PlayerbotAI* botAI, WorldObject* object, uint32 defaultMs)
         if (it->second.kind == Station::Auction && !it->second.roomTried)
             stepNow = it->second.roomTried = true;
         pose = PoseOf(it->second.kind);
+        if (it->second.kind == Station::Seat)
+            seatUse = it->second.seat;
+        seatHeld = it->second.kind == Station::Seat;
         if (it->second.sitting)
             pose.emote = 0;  // 3.2.2: sitting on a square, no talk gestures
         stay = it->second.stayMs;
@@ -408,6 +426,8 @@ uint32 WhileStaying(PlayerbotAI* botAI, WorldObject* object, uint32 defaultMs)
     }
     if (pose.emote && !bot->IsInCombat())
         bot->HandleEmoteCommand(pose.emote);
+    if (seatHeld)
+        CoaPathProbe::NoteSeatHeld(bot, object, seatUse);
     return stay;
 }
 

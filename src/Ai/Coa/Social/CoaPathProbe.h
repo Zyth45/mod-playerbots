@@ -13,6 +13,7 @@
 
 class ChatHandler;
 class Player;
+class WorldObject;
 
 // CoA 3.2.2 (Pilote, from the d061adec bench): a probe of the navmesh with no player and no bot, from the console or
 // RA. ".squidbots path <map> <x> <y> <z> <x> <y> <z>": the polygon each point snaps to (as the core's PathGenerator
@@ -69,6 +70,10 @@ std::vector<std::string> ArrivalsDisagree();
 bool RescueFromPatch(Player* bot);
 // A bot settled on a square (City Life), counted for the hourly line.
 void NotePlaceTaken();
+// 3.2.2 (measure only, the user: bots standing on chairs): a City Life seat used (Use) or refused (SeatUsable) at
+// arrival, and, while a bot holds a seat, its stand state (its latest per bot, for the hourly "seats" line).
+void NoteSeatUse(bool used);
+void NoteSeatHeld(Player* bot, WorldObject const* seat, int8_t use);
 }  // namespace CoaPathProbe
 
 void AddSC_coa_path_probe();
