@@ -209,8 +209,9 @@ struct AvoidedSpot
 constexpr float AVOIDED_RISE = 4.0f;
 constexpr AvoidedSpot AVOIDED_SPOTS[] = {
     // Thunder Bluff, the wind riders' platform: the server's floor at 177.2-177.4, the client's at 180.5 (the user fell
-    // from -1197.6 32.0 177.7 down the tower's spiral stairs, 3 or 4 floors).
-    {1, -1197.6f, 32.0f, 177.5f, 12.0f},
+    // from -1197.6 32.0 177.7 down the tower's spiral stairs, 3 or 4 floors). 3.2.3 (the user, 24/11: Tal's own spot,
+    // -1196.75 26.08 177.6, is the true floor; the void lies in front of him): 4 yards around the void, not 12.
+    {1, -1197.6f, 32.0f, 177.5f, 4.0f},
     // Thunder Bluff, a tent's pole the server does not know ("ce point me tp PILE dedans").
     {1, -1265.16f, 24.39f, 128.8f, 1.5f},
     // Stormwind, the bank's square: a tree's planter ("je suis sur le bac de l'arbre").
@@ -265,6 +266,28 @@ inline bool FixedArrival(uint32_t mapId, float x, float y, float z, float& fx, f
         }
     return false;
 }
+
+// 3.2.3 (the user's eye, 24/11): NPCs whose front is a void the server does not know (Tal 2995, Thunder Bluff's wind
+// rider master): a bot stops by their side, SIDE_STOP yards off them square to their facing (left, then right), on
+// the server's floor within SIDE_STOP_RISE yards of the NPC's height.
+constexpr uint32_t SIDE_STOP_NPCS[] = {2995};
+constexpr float SIDE_STOP = 1.8f;
+constexpr float SIDE_STOP_RISE = 1.0f;
+inline bool SideStopNpc(uint32_t entry)
+{
+    for (uint32_t npc : SIDE_STOP_NPCS)
+        if (npc == entry)
+            return true;
+    return false;
+}
+// The side point `side` (0 left, 1 right) of an NPC at (nx, ny) facing `facing`.
+inline void SideStopPoint(float nx, float ny, float facing, int side, float& x, float& y)
+{
+    float const a = facing + (side == 0 ? 1.5707963f : -1.5707963f);
+    x = nx + SIDE_STOP * std::cos(a);
+    y = ny + SIDE_STOP * std::sin(a);
+}
+inline bool SideStopFloor(float npcZ, float floorZ) { return std::fabs(floorZ - npcZ) <= SIDE_STOP_RISE; }
 
 inline bool Avoided(uint32_t mapId, float x, float y, float z)
 {

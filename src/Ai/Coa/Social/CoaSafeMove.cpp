@@ -215,6 +215,25 @@ bool StandByNpc(Player* bot, WorldObject const* npc, float& x, float& y, float& 
 {
     if (!bot || !npc || !bot->IsInWorld() || bot->GetMapId() != npc->GetMapId())
         return false;
+    // 3.2.3: an NPC with a void in front of it (SideStopNpc: Tal 2995): a stop by its side, on the server's floor.
+    if (Creature const* creature = npc->ToCreature())
+        if (SideStopNpc(creature->GetEntry()))
+            if (Map* map = npc->GetMap())
+                for (int side = 0; side < 2; ++side)
+                {
+                    float sx, sy;
+                    SideStopPoint(npc->GetPositionX(), npc->GetPositionY(), creature->GetHomePosition().GetOrientation(),
+                                  side, sx, sy);
+                    float const sz = map->GetHeight(npc->GetPhaseMask(), sx, sy, npc->GetPositionZ() + 0.5f);
+                    if (SideStopFloor(npc->GetPositionZ(), sz) && CanWalkTo(bot, sx, sy, sz))
+                    {
+                        x = sx;
+                        y = sy;
+                        z = sz;
+                        KnowStop(bot, npc, x, y, z);
+                        return true;
+                    }
+                }
     // 3.2.2: a stop behind the NPC (in a bank's booth) is kept as a last resort only (FrontOf).
     bool behind = false;
     G3D::Vector3 behindStop;

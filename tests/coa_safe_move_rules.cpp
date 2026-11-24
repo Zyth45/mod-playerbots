@@ -146,5 +146,14 @@ int main()
     assert(WanderNpcRefused(18927, false) && WanderNpcRefused(19176, false) && WanderNpcRefused(20102, false));
     assert(WanderNpcRefused(2455, true));    // any NPC on waypoints or random moves
     assert(!WanderNpcRefused(2455, false));  // a banker standing at its counter
+    // 3.2.3: Tal 2995 is stopped by on his side, 1.8 yd square to his facing; his own spot is out of the void's disc.
+    assert(SideStopNpc(2995) && !SideStopNpc(2996));
+    float sx = 0.0f, sy = 0.0f;
+    SideStopPoint(0.0f, 0.0f, 0.0f, 0, sx, sy);
+    assert(std::fabs(sx) < 0.01f && std::fabs(sy - SIDE_STOP) < 0.01f);
+    SideStopPoint(0.0f, 0.0f, 0.0f, 1, sx, sy);
+    assert(std::fabs(sx) < 0.01f && std::fabs(sy + SIDE_STOP) < 0.01f);
+    assert(SideStopFloor(177.0f, 177.6f) && !SideStopFloor(177.0f, 174.0f));
+    assert(!Avoided(1, -1196.75f, 26.08f, 177.6f) && Avoided(1, -1197.6f, 32.0f, 177.5f));
     return 0;
 }
