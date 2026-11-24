@@ -289,6 +289,13 @@ inline void SideStopPoint(float nx, float ny, float facing, int side, float& x, 
 }
 inline bool SideStopFloor(float npcZ, float floorZ) { return std::fabs(floorZ - npcZ) <= SIDE_STOP_RISE; }
 
+// 3.2.3 (the user: bots riding inside inns): a bot indoors gets off its mount, walking or still (before: still only),
+// out of a flight, a transport and a battleground (its tunnels read as indoors; a fight there is no stroll).
+inline bool IndoorDismount(bool mounted, bool outdoors, bool inFlight, bool onTransport, bool inBattleground)
+{
+    return mounted && !outdoors && !inFlight && !onTransport && !inBattleground;
+}
+
 inline bool Avoided(uint32_t mapId, float x, float y, float z)
 {
     for (AvoidedSpot const& spot : AVOIDED_SPOTS)

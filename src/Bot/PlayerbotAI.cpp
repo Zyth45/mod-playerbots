@@ -2041,9 +2041,11 @@ void PlayerbotAI::DoNextAction(bool min)
                     pet->ToggleAutocast(info, !instance);
         }
 
-        // A bot standing still indoors gets off its mount: one stayed mounted in the Scarlet Raven Tavern
-        // (jealous-sound/azerothcore-wotlk-coa#6802).
-        if (bot->IsMounted() && !bot->isMoving() && !bot->IsInFlight() && !bot->GetTransport() && !bot->IsOutdoors())
+        // A bot indoors gets off its mount: one stayed mounted in the Scarlet Raven Tavern
+        // (jealous-sound/azerothcore-wotlk-coa#6802). 3.2.3 (the user: bots riding inside inns): walking too, so it
+        // walks in (CoaSafeMove::IndoorDismount); CheckMountState never mounts it again indoors.
+        if (CoaSafeMove::IndoorDismount(bot->IsMounted(), bot->IsOutdoors(), bot->IsInFlight(), bot->GetTransport(),
+                                        bot->InBattleground()))
             bot->RemoveAurasByType(SPELL_AURA_MOUNTED);
 
         // A bot out of a taxi kept its flying or gravity flag and floated over the flight master: it sends no landing
