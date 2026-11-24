@@ -15,6 +15,9 @@
 #include "CoaBotMute.h"
 #include "CoaAltGive.h"
 #include "CoaFishingGear.h"
+#include "CoaSafeMoveRules.h"
+#include "CoaBotWhy.h"
+#include "CoaMoveAudit.h"
 #include "CurrentTargetValue.h"
 
 #include <set>
@@ -582,6 +585,10 @@ void PlayerbotAI::UpdateAI(uint32 elapsed, bool minimal)
     CoaPet::Tick(this);
     // A fishing pole left in hand gives way to a weapon in a fight or a group (CoaFishingGear).
     CoaFishingGear::Tick(this);
+    // The night bench of the odd moves (AiPlayerbot.CoaMoveAudit, off by default): a sample of the bot.
+    CoaMoveAudit::Tick(this);
+    // ".squidbots why" (AiPlayerbot.CoaWhy.Enable): where the bot stands still since when.
+    CoaBotWhy::Tick(this);
     // The CoA talents left by a capped rebuild (AiPlayerbot.CoaLive.TalentsPerUpdate).
     CoaTalentsTick(bot);
     // The level-up maintenance spread over the next updates (AiPlayerbot.CoaLive.MaintenanceSpread).
@@ -2047,6 +2054,31 @@ void PlayerbotAI::DoNextAction(bool min)
             bot->SetDisableGravity(false);
             bot->RemoveUnitMovementFlag(MOVEMENTFLAG_FLYING);
             bot->GetMotionMaster()->MoveFall();
+        }
+        // 3.1.8 (move audit of 20/11): off a taxi without those flags, a bot still stood at the height of the path's
+        // last node, up to a few yards over the ground, for minutes (Morgan's Vigil, Darkshire, Thelsamar). A still
+        // bot out of flight, out of water and transport, outdoors, over its floor (CoaSafeMove::DropsToFloor) falls.
+        else if (!bot->IsInFlight() && !bot->GetTransport() && !bot->GetVehicle() && !bot->IsInWater() &&
+                 !bot->IsFlying() && !bot->IsFalling() && !bot->isMoving() && bot->IsAlive() &&
+                 !bot->IsBeingTeleported() && !bot->HasAuraType(SPELL_AURA_FLY) &&
+                 // Levitation and hover keep it up on purpose.
+                 !bot->HasAuraType(SPELL_AURA_HOVER) && !bot->HasUnitMovementFlag(MOVEMENTFLAG_HOVER))
+        {
+            // Every 2 s per bot at most: the floor under it is a query. Per map thread, no lock; bounded.
+            static thread_local std::unordered_map<uint64, uint32> nextDropCheck;
+            if (nextDropCheck.size() > 4096)
+                nextDropCheck.clear();
+            uint32 const nowMs = getMSTime();
+            uint32& next = nextDropCheck[bot->GetGUID().GetRawValue()];
+            if (!next || getMSTimeDiff(next, nowMs) < 0x80000000u)
+            {
+                next = nowMs + 2000;
+                float const floorZ = bot->GetFloorZ();
+                LiquidData const& liquid = bot->GetLiquidData();
+                bool const waterBelow = liquid.Level > INVALID_HEIGHT && liquid.Level >= floorZ;
+                if (CoaSafeMove::DropsToFloor(bot->GetPositionZ(), floorZ, bot->IsOutdoors(), waterBelow))
+                    bot->GetMotionMaster()->MoveFall();
+            }
         }
     }
 

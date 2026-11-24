@@ -5,35 +5,41 @@
  */
 
 #include "NewRpgInfo.h"
+#include "CoaBotAuctions.h"
 #include "Timer.h"
 #include <cmath>
 
 void NewRpgInfo::ChangeToGoGrind(WorldPosition pos)
 {
+    NoteLeaving(RPG_GO_GRIND);
     startT = getMSTime();
     data = GoGrind{pos};
 }
 
 void NewRpgInfo::ChangeToGoCamp(WorldPosition pos)
 {
+    NoteLeaving(RPG_GO_CAMP);
     startT = getMSTime();
     data = GoCamp{pos};
 }
 
 void NewRpgInfo::ChangeToWanderNpc()
 {
+    NoteLeaving(RPG_WANDER_NPC);
     startT = getMSTime();
     data = WanderNpc{};
 }
 
 void NewRpgInfo::ChangeToWanderRandom()
 {
+    NoteLeaving(RPG_WANDER_RANDOM);
     startT = getMSTime();
     data = WanderRandom{};
 }
 
 void NewRpgInfo::ChangeToDoQuest(uint32 questId, Quest const* quest)
 {
+    NoteLeaving(RPG_DO_QUEST);
     startT = getMSTime();
     DoQuest do_quest;
     do_quest.questId = questId;
@@ -43,6 +49,7 @@ void NewRpgInfo::ChangeToDoQuest(uint32 questId, Quest const* quest)
 
 void NewRpgInfo::ChangeToTravelFlight(uint32 flightMasterEntry, WorldPosition flightMasterPos, std::vector<uint32> path)
 {
+    NoteLeaving(RPG_TRAVEL_FLIGHT);
     startT = getMSTime();
     TravelFlight flight;
     flight.flightMasterEntry = flightMasterEntry;
@@ -54,6 +61,7 @@ void NewRpgInfo::ChangeToTravelFlight(uint32 flightMasterEntry, WorldPosition fl
 
 void NewRpgInfo::ChangeToOutdoorPvp(ObjectGuid::LowType capturePointSpawnId)
 {
+    NoteLeaving(RPG_OUTDOOR_PVP);
     startT = getMSTime();
     OutdoorPvP pvp;
     pvp.capturePointSpawnId = capturePointSpawnId;
@@ -62,18 +70,21 @@ void NewRpgInfo::ChangeToOutdoorPvp(ObjectGuid::LowType capturePointSpawnId)
 
 void NewRpgInfo::ChangeToGoCity(WorldPosition pos)
 {
+    NoteLeaving(RPG_GO_CITY);
     startT = getMSTime();
     data = GoCity{pos};
 }
 
 void NewRpgInfo::ChangeToRest()
 {
+    NoteLeaving(RPG_REST);
     startT = getMSTime();
     data = Rest{};
 }
 
 void NewRpgInfo::ChangeToIdle()
 {
+    NoteLeaving(RPG_IDLE);
     startT = getMSTime();
     data = Idle{};
 }
@@ -85,8 +96,15 @@ bool NewRpgInfo::CanChangeTo(NewRpgStatus)
 
 void NewRpgInfo::Reset()
 {
+    NoteLeaving(-1);
     data = Idle{};
     startT = getMSTime();
+}
+
+void NewRpgInfo::NoteLeaving(int nextStatus)
+{
+    if (auto const* wander = std::get_if<WanderNpc>(&data); wander && wander->toAuctioneer && !wander->lastReach)
+        CoaEconomy::BotAuctions::NoteLeftFor(nextStatus);
 }
 
 void NewRpgInfo::SetMoveFarTo(WorldPosition pos)

@@ -6,12 +6,19 @@
 
 #include "CoaQuietAchievements.h"
 
+#include "AchievementMgr.h"
+#include "Config.h"
+#include "DBCStores.h"
+#include "GameTime.h"
+#include "Log.h"
 #include "Opcodes.h"
 #include "Player.h"
+#include "RandomPlayerbotMgr.h"
 #include "ScriptMgr.h"
 #include "WorldPacket.h"
 
 #include <algorithm>
+#include <array>
 #include <atomic>
 #include <mutex>
 #include <shared_mutex>
@@ -22,11 +29,178 @@ namespace
 std::shared_mutex quietLock;
 std::unordered_map<uint64_t, uint32_t> quiet;  // bot guid -> nested scopes (map threads)
 std::atomic<uint32_t> quietCount{0};           // the fast way out of every packet sent
+// 3.2: a random bot's first minutes online, bot guid -> until when (game time, ms); same lock.
+std::unordered_map<uint64_t, uint64_t> loginWindows;
+std::atomic<uint32_t> windowCount{0};
+uint64_t loginWindowMs = 3 * 60 * 1000;  // AiPlayerbot.Coa.HideLoginAchievementsMinutes
+// 3.2: one announcement per random bot per gap. The decision is taken before the core announces the achievement
+// (OnPlayerBeforeAchievementComplete) and holds for the packets of that announcement (to each guild member and
+// player around), until OnPlayerAchievementComplete or MUTE_HOLD_MS. Same lock.
+uint64_t announceGapMs = 60 * 1000;  // AiPlayerbot.Coa.AchievementAnnounceGapSeconds
+constexpr uint64_t MUTE_HOLD_MS = 2000;
+uint64_t realmGapMs = 60 * 1000;  // AiPlayerbot.Coa.AchievementAnnounceRealmGapSeconds
+uint64_t realmLastAnnounce = 0;   // when a random bot's achievement was last announced in the realm; same lock
+bool hideReplays = true;          // AiPlayerbot.Coa.HideReplayedAchievements
+bool announceLog = false;         // AiPlayerbot.Coa.AchievementAnnounceLog
+// 3.2.1: the fates of the last hour, CoaQuietAchievements::AnnounceFate; same lock.
+std::array<uint32_t, size_t(CoaQuietAchievements::AnnounceFate::Count)> fates{};
+std::unordered_map<uint64_t, uint64_t> lastAnnounce;  // bot guid -> when its last achievement was announced
+std::unordered_map<uint64_t, uint64_t> muted;         // bot guid -> its announcement under way is dropped until then
+std::atomic<uint32_t> mutedCount{0};
+
+uint64_t NowMs() { return uint64_t(GameTime::GetGameTimeMS().count()); }
 
 bool IsQuiet(uint64_t guid)
 {
     std::shared_lock<std::shared_mutex> guard(quietLock);
-    return quiet.count(guid) != 0;
+    if (quiet.count(guid))
+        return true;
+    uint64_t const now = NowMs();
+    auto it = loginWindows.find(guid);
+    if (it != loginWindows.end() && CoaQuietAchievements::InLoginWindow(now, it->second))
+        return true;
+    auto mute = muted.find(guid);
+    return mute != muted.end() && now < mute->second;
+}
+
+// 3.2.1: the level a level achievement asks for (its criteria all "reach level"), or 0.
+uint32_t RequiredLevel(AchievementEntry const* achievement)
+{
+    AchievementCriteriaEntryList const* criteria =
+        achievement ? sAchievementMgr->GetAchievementCriteriaByAchievement(achievement->ID) : nullptr;
+    if (!criteria || criteria->empty())
+        return 0;
+    uint32_t level = 0;
+    for (AchievementCriteriaEntry const* criterion : *criteria)
+    {
+        if (!criterion || criterion->requiredType != ACHIEVEMENT_CRITERIA_TYPE_REACH_LEVEL)
+            return 0;
+        level = std::max<uint32_t>(level, criterion->reach_level.level);
+    }
+    return level;
+}
+
+// Its announcement under way is dropped (quietLock held).
+void Mute(uint64_t guid, uint64_t now)
+{
+    auto [it, fresh] = muted.try_emplace(guid, now + MUTE_HOLD_MS);
+    if (fresh)
+        mutedCount.fetch_add(1, std::memory_order_relaxed);
+    else
+        it->second = now + MUTE_HOLD_MS;
+}
+
+// Before the core announces an achievement of a random bot: dropped when it replays a level the bot passed long ago,
+// when another of this bot was announced within the gap, or another of any random bot within the realm gap.
+void DecideAnnounce(Player* player, AchievementEntry const* achievement)
+{
+    using CoaQuietAchievements::AnnounceFate;
+    if (!player || !sRandomPlayerbotMgr.IsRandomBot(player))
+        return;
+    uint64_t const guid = player->GetGUID().GetRawValue();
+    uint64_t const now = NowMs();
+    bool const replay = hideReplays && CoaQuietAchievements::LevelReplay(player->GetLevel(), RequiredLevel(achievement));
+    std::unique_lock<std::shared_mutex> guard(quietLock);
+    auto fate = [](AnnounceFate f) { ++fates[size_t(f)]; };
+    if (quiet.count(guid))
+        return fate(AnnounceFate::Simulated);  // the factory or a simulated credit: silent anyway
+    auto window = loginWindows.find(guid);
+    if (window != loginWindows.end() && CoaQuietAchievements::InLoginWindow(now, window->second))
+        return fate(AnnounceFate::Login);
+    if (replay)
+    {
+        Mute(guid, now);
+        return fate(AnnounceFate::Replay);
+    }
+    uint64_t& last = lastAnnounce[guid];
+    AnnounceFate const gap =
+        CoaQuietAchievements::GapFate(now, last, realmLastAnnounce, announceGapMs, realmGapMs);
+    fate(gap);
+    if (gap != AnnounceFate::Shown)
+    {
+        Mute(guid, now);
+        return;
+    }
+    last = now;
+    realmLastAnnounce = now;
+}
+
+// 3.2.1: the hour's fates, to the log when AiPlayerbot.Coa.AchievementAnnounceLog is on.
+void LogFates()
+{
+    using CoaQuietAchievements::AnnounceFate;
+    std::array<uint32_t, size_t(AnnounceFate::Count)> hour{};
+    {
+        std::unique_lock<std::shared_mutex> guard(quietLock);
+        std::swap(hour, fates);
+    }
+    if (!announceLog)
+        return;
+    auto n = [&hour](AnnounceFate f) { return hour[size_t(f)]; };
+    uint32_t candidates = 0;
+    for (uint32_t count : hour)
+        candidates += count;
+    LOG_INFO("playerbots.coa",
+             "achievement announces (last hour): {} shown, {} muted (bot gap {}, realm gap {}, login {}, replay {}, "
+             "simulated {}), {} candidates",
+             n(AnnounceFate::Shown), candidates - n(AnnounceFate::Shown), n(AnnounceFate::BotGap),
+             n(AnnounceFate::RealmGap), n(AnnounceFate::Login), n(AnnounceFate::Replay), n(AnnounceFate::Simulated),
+             candidates);
+}
+
+void EndAnnounce(Player* player)
+{
+    if (!player || !mutedCount.load(std::memory_order_relaxed))
+        return;
+    std::unique_lock<std::shared_mutex> guard(quietLock);
+    if (muted.erase(player->GetGUID().GetRawValue()))
+        mutedCount.fetch_sub(1, std::memory_order_relaxed);
+}
+
+void OpenLoginWindow(Player* player)
+{
+    if (!loginWindowMs || !player || !sRandomPlayerbotMgr.IsRandomBot(player))
+        return;
+    uint64_t const until = NowMs() + loginWindowMs;
+    std::unique_lock<std::shared_mutex> guard(quietLock);
+    auto [it, fresh] = loginWindows.try_emplace(player->GetGUID().GetRawValue(), until);
+    if (fresh)
+        windowCount.fetch_add(1, std::memory_order_relaxed);
+    else
+        it->second = std::max(it->second, until);
+}
+
+// The windows that ended (world thread, every few seconds).
+void CloseEndedWindows()
+{
+    uint64_t const now = NowMs();
+    {
+        std::unique_lock<std::shared_mutex> guard(quietLock);
+        for (auto it = muted.begin(); it != muted.end();)
+            if (now >= it->second)
+            {
+                it = muted.erase(it);
+                mutedCount.fetch_sub(1, std::memory_order_relaxed);
+            }
+            else
+                ++it;
+        if (lastAnnounce.size() > 20000)
+            for (auto it = lastAnnounce.begin(); it != lastAnnounce.end();)
+                it = now >= it->second + announceGapMs ? lastAnnounce.erase(it) : std::next(it);
+    }
+    if (!windowCount.load(std::memory_order_relaxed))
+        return;
+    std::unique_lock<std::shared_mutex> guard(quietLock);
+    for (auto it = loginWindows.begin(); it != loginWindows.end();)
+    {
+        if (!CoaQuietAchievements::InLoginWindow(now, it->second))
+        {
+            it = loginWindows.erase(it);
+            windowCount.fetch_sub(1, std::memory_order_relaxed);
+        }
+        else
+            ++it;
+    }
 }
 
 class CoaQuietAchievementsServerScript : public ServerScript
@@ -37,7 +211,8 @@ public:
     // Every packet of the realm passes here: out at once unless a bot is being made right now.
     bool CanPacketSend(WorldSession* /*session*/, WorldPacket const& packet) override
     {
-        if (!quietCount.load(std::memory_order_relaxed))
+        if (!quietCount.load(std::memory_order_relaxed) && !windowCount.load(std::memory_order_relaxed) &&
+            !mutedCount.load(std::memory_order_relaxed))
             return true;
         uint16 const opcode = packet.GetOpcode();
         if (opcode != SMSG_MESSAGECHAT && opcode != SMSG_SERVER_FIRST_ACHIEVEMENT)
@@ -49,6 +224,65 @@ public:
                 : CoaQuietAchievements::ServerFirstSender(packet.contents(), packet.size(), sender);
         return !(announce && IsQuiet(sender));
     }
+};
+// 3.2: the window opens when the bot is loaded (before the level-up of its login) and again at its login.
+class CoaLoginAchievementsPlayerScript : public PlayerScript
+{
+public:
+    CoaLoginAchievementsPlayerScript()
+        : PlayerScript("CoaLoginAchievementsPlayerScript", {PLAYERHOOK_ON_LOAD_FROM_DB, PLAYERHOOK_ON_LOGIN,
+                                                            PLAYERHOOK_ON_BEFORE_ACHI_COMPLETE, PLAYERHOOK_ON_ACHI_COMPLETE}) {}
+
+    void OnPlayerLoadFromDB(Player* player) override { OpenLoginWindow(player); }
+    void OnPlayerLogin(Player* player) override { OpenLoginWindow(player); }
+    // 3.2: one announcement per bot per gap (the achievement itself is never refused here).
+    bool OnPlayerBeforeAchievementComplete(Player* player, AchievementEntry const* achievement) override
+    {
+        DecideAnnounce(player, achievement);
+        return true;
+    }
+    void OnPlayerAchievementComplete(Player* player, AchievementEntry const* /*achievement*/) override
+    {
+        EndAnnounce(player);
+    }
+};
+
+class CoaLoginAchievementsWorldScript : public WorldScript
+{
+public:
+    CoaLoginAchievementsWorldScript()
+        : WorldScript("CoaLoginAchievementsWorldScript", {WORLDHOOK_ON_AFTER_CONFIG_LOAD, WORLDHOOK_ON_UPDATE}) {}
+
+    void OnAfterConfigLoad(bool /*reload*/) override
+    {
+        loginWindowMs = uint64_t(60 * 1000) *
+                        sConfigMgr->GetOption<uint32>("AiPlayerbot.Coa.HideLoginAchievementsMinutes", 3, false);
+        announceGapMs = uint64_t(1000) *
+                        sConfigMgr->GetOption<uint32>("AiPlayerbot.Coa.AchievementAnnounceGapSeconds", 60, false);
+        realmGapMs = uint64_t(1000) *
+                     sConfigMgr->GetOption<uint32>("AiPlayerbot.Coa.AchievementAnnounceRealmGapSeconds", 60, false);
+        hideReplays = sConfigMgr->GetOption<bool>("AiPlayerbot.Coa.HideReplayedAchievements", true, false);
+        announceLog = sConfigMgr->GetOption<bool>("AiPlayerbot.Coa.AchievementAnnounceLog", false, false);
+    }
+
+    void OnUpdate(uint32 diff) override
+    {
+        hourTimer += diff;
+        if (hourTimer >= HOUR * IN_MILLISECONDS)
+        {
+            hourTimer = 0;
+            LogFates();
+        }
+        sweepTimer += diff;
+        if (sweepTimer < 5000)
+            return;
+        sweepTimer = 0;
+        CloseEndedWindows();
+    }
+
+private:
+    uint32 sweepTimer = 0;
+    uint32 hourTimer = 0;
 };
 }  // namespace
 
@@ -78,4 +312,9 @@ Scope::~Scope()
 }
 }  // namespace CoaQuietAchievements
 
-void AddSC_coa_quiet_achievements() { new CoaQuietAchievementsServerScript(); }
+void AddSC_coa_quiet_achievements()
+{
+    new CoaQuietAchievementsServerScript();
+    new CoaLoginAchievementsPlayerScript();
+    new CoaLoginAchievementsWorldScript();
+}

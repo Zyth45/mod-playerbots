@@ -24,6 +24,7 @@
  * test runs). World thread only. Config: AiPlayerbot.CoaWorld.DungeonSim.*, off by default.
  */
 
+#include "CoaQuietAchievements.h"
 #include "CoaWorldBots.h"
 #include "CoaWorldState.h"
 #include "CoaWorldStateRules.h"
@@ -34,11 +35,13 @@
 #include "DBCStores.h"
 #include "Formulas.h"
 #include "Item.h"
+#include "ItemUsageValue.h"
 #include "LFGMgr.h"
 #include "Log.h"
 #include "LootMgr.h"
 #include "ObjectAccessor.h"
 #include "ObjectMgr.h"
+#include "PlayerbotAIConfig.h"
 #include "Player.h"
 #include "PlayerbotAI.h"
 #include "Playerbots.h"
@@ -597,9 +600,32 @@ namespace
                 reward.xp = perKill * kills * 5 / share * settings.xpPct / 100;
             }
 
-            // Each piece to one member, as the rolls would have done.
+            // Each piece to one member, as the rolls would have done: a member it is an upgrade for when there is one
+            // (3.1.8, the user's go of 20/11: it was always a member at random), else any member.
             for (auto const& item : items)
-                run.rewards[run.members[urand(0, run.members.size() - 1)]].items.push_back(item);
+            {
+                std::vector<ObjectGuid> wanting;
+                for (ObjectGuid const& guid : run.members)
+                    if (Player* member = ObjectAccessor::FindPlayer(guid))
+                        if (PlayerbotAI* memberAI = GET_PLAYERBOT_AI(member))
+                        {
+                            ItemUsage const usage = memberAI->GetAiObjectContext()
+                                                        ->GetValue<ItemUsage>("item usage", std::to_string(item.first))
+                                                        ->Get();
+                            if (usage == ITEM_USAGE_EQUIP || usage == ITEM_USAGE_REPLACE)
+                                wanting.push_back(guid);
+                        }
+                ObjectGuid const winner = !wanting.empty() ? wanting[urand(0, wanting.size() - 1)]
+                                                           : run.members[urand(0, run.members.size() - 1)];
+                run.rewards[winner].items.push_back(item);
+                if (sPlayerbotAIConfig.coaSelfFoundRollLog)
+                {
+                    Player* member = ObjectAccessor::FindPlayer(winner);
+                    LOG_INFO("playerbots.loot", "dungeon sim: item {} to {} ({}, {} member(s) wanted it)", item.first,
+                             member ? member->GetName() : std::to_string(winner.GetCounter()),
+                             wanting.empty() ? "at random" : "an upgrade", wanting.size());
+                }
+            }
         }
 
         // For monde.json: today's totals and the last runs, counted when the loot is rolled.
@@ -674,6 +700,7 @@ namespace
                 return;
             Reward& reward = itr->second;
             reward.given = true;
+            CoaQuietAchievements::Scope quiet(bot);  // 3.2: a simulated run's level-ups and loot are never announced
 
             if (reward.xp && bot->GetLevel() < sWorld->getIntConfig(CONFIG_MAX_PLAYER_LEVEL))
                 bot->GiveXP(reward.xp, nullptr);

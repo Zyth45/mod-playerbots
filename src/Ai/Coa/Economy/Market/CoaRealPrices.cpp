@@ -44,18 +44,24 @@ namespace
         return proto->Class == ITEM_CLASS_WEAPON || proto->Class == ITEM_CLASS_ARMOR;
     }
 
-    // (gear, quality, item level band) -> median market value of the scanned items of our item templates. Gear and
-    // goods apart: white gear of level 55 is worth far more than a runecloth of level 55. Built once.
-    std::map<std::tuple<bool, uint32, uint32>, uint64> floors;
+    // (band kind, quality, item level band) -> median market value of the scanned items of our item templates. Gear and
+    // goods apart: white gear of level 55 is worth far more than a runecloth of level 55. 3.2.1: goods in stacks and
+    // goods sold one at a time apart too (CoaEconomyRules::BandKind). Built once.
+    std::map<std::tuple<uint32, uint32, uint32>, uint64> floors;
+
+    uint32 KindOf(ItemTemplate const* proto)
+    {
+        return uint32(CoaEconomyRules::BandKind(IsGear(proto), proto->GetMaxStackSize()));
+    }
     std::once_flag floorsBuilt;
 
     void BuildFloors()
     {
-        std::map<std::tuple<bool, uint32, uint32>, std::vector<uint64>> samples;
+        std::map<std::tuple<uint32, uint32, uint32>, std::vector<uint64>> samples;
         for (auto const& [id, price] : Table())
             if (price)
                 if (ItemTemplate const* proto = sObjectMgr->GetItemTemplate(id))
-                    samples[{IsGear(proto), proto->Quality, proto->ItemLevel / BandLevels}].push_back(price);
+                    samples[{KindOf(proto), proto->Quality, proto->ItemLevel / BandLevels}].push_back(price);
         for (auto& [key, values] : samples)
             if (values.size() >= MinSamples)
                 floors[key] = CoaEconomyRules::Median(values);
@@ -74,16 +80,16 @@ uint64 Of(uint32 itemId)
 }
 
 // The median of the scanned items of its kind, quality and item level (any quality; 0 without enough samples).
-uint64 BandOf(uint32 quality, uint32 itemLevel, bool gear)
+uint64 BandOf(uint32 quality, uint32 itemLevel, uint32 kind)
 {
     std::call_once(floorsBuilt, BuildFloors);
-    auto found = floors.find({gear, quality, itemLevel / BandLevels});
+    auto found = floors.find({kind, quality, itemLevel / BandLevels});
     return found == floors.end() ? 0 : found->second;
 }
 
 uint64 Band(ItemTemplate const* proto)
 {
-    return proto ? BandOf(proto->Quality, proto->ItemLevel, IsGear(proto)) : 0;
+    return proto ? BandOf(proto->Quality, proto->ItemLevel, KindOf(proto)) : 0;
 }
 
 uint64 QualityStep(ItemTemplate const* proto, Multipliers const& multipliers)

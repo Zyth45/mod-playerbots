@@ -50,3 +50,6 @@ local.properties
 .cproject
 .vscode
 .idea
+
+# MSVC compiler database of a test build
+*.pdb

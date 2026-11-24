@@ -418,20 +418,41 @@ uint32 RandomPlayerbotFactory::CalculateTotalAccountCount()
     uint32 existingAddClassAccounts = 0;
     uint32 existingUnassignedAccounts = 0;
 
-    QueryResult typeCheck = PlayerbotsDatabase.Query("SELECT account_type, COUNT(*) FROM playerbots_account_type GROUP BY account_type");
+    // CoA 3.2: only the accounts of the current prefix count. The creation loop only sees those
+    // (AccountMgr::GetId(prefix + n)); rows of another prefix (a start with another prefix, a test realm) were
+    // counted all the same, so every start created that many accounts more: 650 rows of an old prefix gave 16,900
+    // accounts and 233,720 characters in 21 starts of a bench world. The other rows are left as they are.
+    std::unordered_set<uint32> prefixAccounts;
+    if (QueryResult accounts = LoginDatabase.Query("SELECT id FROM account WHERE username LIKE '{}%%'",
+                                                   sPlayerbotAIConfig.randomBotAccountPrefix.c_str()))
+    {
+        do
+            prefixAccounts.insert(accounts->Fetch()[0].Get<uint32>());
+        while (accounts->NextRow());
+    }
+    uint32 otherPrefixRows = 0;
+    QueryResult typeCheck = PlayerbotsDatabase.Query("SELECT account_id, account_type FROM playerbots_account_type");
     if (typeCheck)
     {
         do
         {
             Field* fields = typeCheck->Fetch();
-            uint8 accountType = fields[0].Get<uint8>();
-            uint32 count = static_cast<uint32>(fields[1].Get<uint64>());
+            uint32 const accountId = fields[0].Get<uint32>();
+            uint8 const accountType = fields[1].Get<uint8>();
+            if (!prefixAccounts.count(accountId))
+            {
+                ++otherPrefixRows;
+                continue;
+            }
 
-            if (accountType == 0) existingUnassignedAccounts = count;
-            else if (accountType == 1) existingRndBotAccounts = count;
-            else if (accountType == 2) existingAddClassAccounts = count;
+            if (accountType == 0) ++existingUnassignedAccounts;
+            else if (accountType == 1) ++existingRndBotAccounts;
+            else if (accountType == 2) ++existingAddClassAccounts;
         } while (typeCheck->NextRow());
     }
+    if (otherPrefixRows)
+        LOG_INFO("server.loading", "Bot accounts: {} account type row(s) of another prefix than '{}' left out of the count",
+                 otherPrefixRows, sPlayerbotAIConfig.randomBotAccountPrefix);
 
     // Determine divisor based on Death Knight availability and requested A&H faction ratio
     int divisor = CalculateAvailableCharsPerAccount();

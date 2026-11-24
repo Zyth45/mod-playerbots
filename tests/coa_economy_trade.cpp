@@ -74,5 +74,27 @@ int main()
     assert(CraftQuote(1000, 1000, 15, 0.0f) == 1092);
     std::uint64_t const patientQuote = CraftQuote(1000, 1000, 15, 1.0f);  // 1150 x 1.10, floating point
     assert(patientQuote >= 1264 && patientQuote <= 1265);
+    // 3.2: a bot goes to buy with a budget of level x 500 copper, once an hour.
+    assert(WantsToShop(10000, 20, 500));
+    assert(!WantsToShop(9999, 20, 500));
+    assert(!WantsToShop(0, 1, 0));
+    assert(WantsToShop(1, 1, 0));
+    assert(ShopThreshold(20, 200) == 4000);
+    assert(ShopThreshold(5, 200) == 1000);
+    assert(ShopDue(100, 0, 3600));
+    // 3.2: a trade goal outlives the wander, for a while.
+    assert(KeepsTradeGoal(true, false, 60000));
+    assert(!KeepsTradeGoal(true, true, 60000));            // there already
+    assert(!KeepsTradeGoal(false, false, 60000));          // any other NPC
+    assert(!KeepsTradeGoal(true, false, KEEP_TRADE_GOAL_MS));  // long enough
+    assert(!ShopDue(3000, 100, 3600));
+    assert(ShopDue(3700, 100, 3600));
+    // 3.2: from afar, only what beats the vendor after the cut (5 %).
+    assert(RemoteSellBeatsVendor(1000, 5, 900));
+    assert(!RemoteSellBeatsVendor(1000, 5, 950));
+    assert(!RemoteSellBeatsVendor(1000, 200, 0));
+    assert(FirstRemoteTurn(100, 0.0f, 3600) == 100);
+    assert(FirstRemoteTurn(100, 0.5f, 3600) == 1900);
+    assert(FirstRemoteTurn(100, 1.0f, 3600) < 3700);
     return 0;
 }

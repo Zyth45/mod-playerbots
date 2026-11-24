@@ -32,6 +32,7 @@
 #include "WorldSession.h"
 
 #include <algorithm>
+#include <mutex>
 #include <unordered_map>
 #include <vector>
 
@@ -479,11 +480,19 @@ bool HasStockWork(Player* bot)
 {
     if (!settings.guildStock || !bot)
         return false;
-    static std::unordered_map<uint64, std::pair<uint32, bool>> lastLook;  // bot -> (time looked, answer)
+    // bot -> (time looked, answer). Read and written from every bot's update, on the map threads in parallel: under
+    // its lock, and no reference kept past it (3.1.6 freeze: an unlocked operator[] corrupted the table and a map
+    // thread looped in it for ever).
+    static std::mutex lastLookLock;
+    static std::unordered_map<uint64, std::pair<uint32, bool>> lastLook;
     uint32 const now = uint32(GameTime::GetGameTime().count());
-    auto& look = lastLook[bot->GetGUID().GetRawValue()];
-    if (look.first && now < look.first + 60)
-        return look.second;
+    uint64 const key = bot->GetGUID().GetRawValue();
+    {
+        std::lock_guard<std::mutex> guard(lastLookLock);
+        auto const it = lastLook.find(key);
+        if (it != lastLook.end() && it->second.first && now < it->second.first + 60)
+            return it->second.second;
+    }
     std::unordered_set<uint32> const stock = StockReagents(bot);
     bool work = false;
     ForEachBagItem(bot, [&](Item* item)
@@ -503,7 +512,10 @@ bool HasStockWork(Player* bot)
                      std::max<uint32>(1, stackSize / 4))
             work = true;
     });
-    look = {now, work};
+    {
+        std::lock_guard<std::mutex> guard(lastLookLock);
+        lastLook[key] = {now, work};
+    }
     return work;
 }
 

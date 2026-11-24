@@ -81,8 +81,10 @@ namespace
     bool WantsAuctioneer(PlayerbotAI* botAI)
     {
         // 3.1.4: guild stock to bank or surplus to sell is a reason too (a gatherer's ore is no auction loot to it).
+        // 3.2: and gold to buy an upgrade, once an hour (BotAuctions.Shop): it went only to sell before.
         return BotAuctions::IsEnabled() && !BotAuctions::IsOnCooldown(botAI->GetBot()->GetGUID()) &&
-               (HasAuctionLoot(botAI) || Materials::HasStockWork(botAI->GetBot()));
+               (HasAuctionLoot(botAI) || Materials::HasStockWork(botAI->GetBot()) ||
+                BotAuctions::WantsToShop(botAI->GetBot()));
     }
 
     // What goes to the vendor: what the bot's item usage marks for a vendor, and its auction loot too when the bot

@@ -8,6 +8,7 @@
 #define PLAYERBOTS_PLAYERBOTAI_H
 
 #include "CoaAltAddon.h"
+#include "CoaBotWhy.h"
 #include "Chat.h"
 #include "ChatFilter.h"
 #include "ChatHelper.h"
@@ -646,6 +647,8 @@ public:
     static SpellFamilyNames Class2SpellFamilyName(uint8 cls);
     NewRpgInfo rpgInfo;
     NewRpgStatistic rpgStatistic;
+    // CoA 3.2: what ".squidbots why" tells of the bot (its last move, where it stands still since when).
+    CoaBotWhy::Trace coaWhy;
     std::unordered_set<uint32> lowPriorityQuest;
     time_t bgReleaseAttemptTime = 0;
     ForceRebuffState forceRebuff;

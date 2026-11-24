@@ -462,6 +462,9 @@ constexpr uint32 COA_TRADE_CHANNEL_ID = 4;
 constexpr uint32 COA_WORLD_CHANNEL_ID = 1;  // "Ascension", the world channel of the CoA client (night bank)
 std::unordered_set<uint64> tradeJoined;  // bot raw guid -> joined Trade by CoA Live (world thread only)
 std::unordered_set<uint64> worldJoined;  // the same for the world channel
+// Both sets under this lock (set operations only): a bot logging out from its own update erases its guid on its map
+// thread, two bots on two maps at once (3.1.7, the race review after the HasStockWork freeze).
+std::mutex joinedLock;
 
 bool SayInChannel(Player* bot, uint32 channelId, std::unordered_set<uint64>& joined, std::string const& text)
 {
@@ -475,9 +478,15 @@ bool SayInChannel(Player* bot, uint32 channelId, std::unordered_set<uint64>& joi
         if (!channel || channel->GetChannelId() != channelId || channel->GetName().empty())
             continue;
         uint64 const k = bot->GetGUID().GetRawValue();
-        if (!joined.count(k))
+        bool known = false;
+        {
+            std::lock_guard<std::mutex> guard(joinedLock);
+            known = joined.count(k) != 0;
+        }
+        if (!known)
         {
             channel->JoinChannel(bot, "");
+            std::lock_guard<std::mutex> guard(joinedLock);
             joined.insert(k);
             if (joined.size() > 20000)
                 joined.clear();
@@ -2446,8 +2455,11 @@ public:
             std::lock_guard<std::mutex> guard(liveLock);
             fishingUntil.erase(player->GetGUID().GetRawValue());  // a bot gone is no longer at the water
         }
-        tradeJoined.erase(player->GetGUID().GetRawValue());
-        worldJoined.erase(player->GetGUID().GetRawValue());  // its channels are left with it: join again next time
+        {
+            std::lock_guard<std::mutex> guard(joinedLock);  // a bot's logout runs on its map thread
+            tradeJoined.erase(player->GetGUID().GetRawValue());
+            worldJoined.erase(player->GetGUID().GetRawValue());  // its channels are left with it: join again next time
+        }
     }
 
     // A guild member loots a rare item or better.

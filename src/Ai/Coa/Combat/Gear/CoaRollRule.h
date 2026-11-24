@@ -53,6 +53,20 @@ namespace CoaRollRule
         return true;
     }
 
+    // 3.1.8 (AiPlayerbot.CoaSelfFound.Rolls, the user's go of 20/11): a self-found bot lives on what it loots, so it
+    // rolls as at "Bots need items" with greed rolls on, whatever the realm's keys: Need on an upgrade (after the real
+    // players' votes, HoldVote), Greed otherwise. Every other bot keeps the realm's keys.
+    inline int NeedLevelFor(int configured, bool selfFound, bool selfFoundRolls)
+    {
+        return selfFound && selfFoundRolls ? 2 : configured;
+    }
+    inline bool GreedFor(bool configured, bool selfFound, bool selfFoundRolls)
+    {
+        return (selfFound && selfFoundRolls) || configured;
+    }
+
+    inline char const* VoteName(Vote v) { return v == Vote::Need ? "need" : v == Vote::Greed ? "greed" : "pass"; }
+
     inline Vote Polite(Vote wanted, int needRollLevel, bool uniqueAlreadyOwned, bool realPlayerRolledNeed,
                        bool greedAllowed)
     {

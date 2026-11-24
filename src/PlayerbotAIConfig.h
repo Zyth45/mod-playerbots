@@ -757,7 +757,9 @@ public:
     uint32 coaLiveCityPostMinMinutes = 20;  // AiPlayerbot.CoaLive.City.PostMinMinutes
     uint32 coaLiveCityPostMaxMinutes = 60;  // AiPlayerbot.CoaLive.City.PostMaxMinutes
     uint32 coaLiveCityFishingPct = 10;      // AiPlayerbot.CoaLive.City.FishingPct: a stop at the city's water
-    bool coaSelfFoundStarterWeapon = true;  // AiPlayerbot.CoaSelfFound.StarterWeapon: once, for a bot with none
+    bool coaSelfFoundStarterWeapon = true;
+    bool coaSelfFoundRolls = true;     // AiPlayerbot.CoaSelfFound.Rolls: a self-found bot needs its upgrades, greeds the rest
+    bool coaSelfFoundRollLog = false;  // AiPlayerbot.CoaSelfFound.RollLog: each bot vote and simulated-dungeon gift logged  // AiPlayerbot.CoaSelfFound.StarterWeapon: once, for a bot with none
     bool coaMute = true;       // AiPlayerbot.CoaMute.Enable: the addon's Mute button (CoaBotMute)
     bool coaGiveToAlt = true;  // AiPlayerbot.CoaGiveToAlt.Enable: "give" an item from an alt to another (CoaAltGive)
     bool coaTrust = true;      // AiPlayerbot.CoaTrust.Enable: the trust of a player in his bots (CoaTrust)
@@ -765,6 +767,7 @@ public:
     uint32 coaTrustBoss = 25;       // AiPlayerbot.CoaTrust.Boss: for a boss outside a raid
     uint32 coaTrustRaidBoss = 100;  // AiPlayerbot.CoaTrust.RaidBoss: for a raid boss
     std::string coaTrustRanks = "0,100,500,1500,4000,10000";  // AiPlayerbot.CoaTrust.Ranks: where each rank starts
+    bool coaLfgRolePriority = true;  // AiPlayerbot.CoaLfgRolePriority: a bot of the missing role queues first (3.2.1)
     // ---- end of CoA Live ----
 
     // ---- CoA World (LoadCoaWorldConfig, CoaWorldConfig.cpp) ----

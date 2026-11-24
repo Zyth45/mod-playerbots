@@ -19,9 +19,11 @@ public:
     bool Execute(Event event) override;
     bool isUseful() override;
 
+    // The role the bot queues as (PLAYER_ROLE_*); also read by the "lfg role wanted" trigger.
+    uint32 GetRoles();
+
 protected:
     bool JoinLFG();
-    uint32 GetRoles();
 };
 
 class LfgAcceptAction : public LfgJoinAction

@@ -363,7 +363,8 @@ private:
     // Per auction house: auction id -> game time (seconds) from which the buyer may look at it.
     std::map<uint32, std::unordered_map<uint32, uint32>> HumanBuyerEligibleAt;
     // While true, CalculateItemValue takes the low end of every random range (the house's lowest asking price).
-    bool PriceRollLowest = false;
+    // Per thread: the guild stock asks the house's lowest price from the bots' map threads (3.1.7 race review).
+    static thread_local bool PriceRollLowest;
     uint32 PriceRoll(uint32 low, uint32 high) const { return PriceRollLowest ? low : urand(low, high); }
     uint64 GetHouseLowestBuyoutPerItem(ItemTemplate const* itemProto);
     void LoadHumanBuyerSettings();
@@ -453,6 +454,12 @@ public:
     const char* GetQualityName(ItemQualities quality);
     const char* GetCategoryName(ItemClass category);
     uint32 GetStackSizeForItem(ItemTemplate const* itemProto) const;
+    // 3.2: the largest stack listed for the item: its class cap (MaxStackSize.*), at most the item's own.
+    uint32 ListingStackCap(ItemTemplate const* itemProto) const;
+    // 3.2: its own auctions of a stack above that cap (listed before the cap) are taken off the house: the item is
+    // deleted (it is the house bot's), a bidder gets its bid back. Never another seller's auction. Returns the count.
+    uint32 RemoveOversizedStacks(AuctionHouseObject* auctionHouse, uint32 houseId);
+    std::unordered_set<uint32> PriceSweptHouses;  // 3.2.1: houses swept of overpriced listings since the start
     void CalculateItemValue(ItemTemplate const* itemProto, uint64& outBidPrice, uint64& outBuyoutPrice);
     void PopulateItemDropChances();
     void PopulateItemDropChancesForCategoryAndQuality(ItemClass category, std::string qualities);

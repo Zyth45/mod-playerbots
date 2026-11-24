@@ -656,6 +656,76 @@ AiPlayerbot.CoaSelfFoundMaxLevel = 59
 # Default: 1 (enabled)
 AiPlayerbot.CoaSelfFound.StarterWeapon = 1
 
+# A self-found bot (AiPlayerbot.CoaSelfFound, or one of AiPlayerbot.CoaSelfFoundBotsPercent) lives on what it loots: at
+# a group loot roll it rolls Need on an upgrade (after the real players of the group have voted, as at
+# AiPlayerbot.LootNeedRollLevel = 2) and Greed on the rest, whatever LootNeedRollLevel and LootGreedRollLevel say;
+# never Need against a real player who rolled Need. Every other bot keeps those two keys. 0: as before 3.1.8 (the
+# self-found bots follow the two keys too: with their defaults, they pass on everything).
+# Default: 1 (enabled)
+AiPlayerbot.CoaSelfFound.Rolls = 1
+
+# Each loot vote of a bot (item, bot, vote, why) and each piece of a simulated dungeon given to a member, in the
+# playerbots.loot log (BotLoot.log of the CoA Bots launcher), at level info. For a bench.
+# Default: 0 (disabled)
+AiPlayerbot.CoaSelfFound.RollLog = 0
+
+# Diagnostic of the bots' odd moves (3.1.7), for a bench: each bot is sampled every SampleMs and a JSON line is
+# written to File (relative to the world server's folder) when it stands in the air (more than 2.5 yards above the
+# floor under it, not flying, falling or swimming), on a roof outdoors, crosses a wall between two samples, moves
+# far faster than it can run, teleports, or jumps more than 2 yards in height on the ground; with its last move
+# (action, path type and points, target). The fixed NPCs of a capital far from home and the oversized creatures of a
+# capital are written too. 3.2: "pingpong", a bot that walked 150 yards or more in 3 minutes out of combat without
+# getting 50 yards from where it was (going back and forth). One line per bot and per kind every ThrottleSeconds.
+# Nothing in the game changes.
+# Default: 0 (off)
+AiPlayerbot.CoaMoveAudit = 0
+AiPlayerbot.CoaMoveAudit.SampleMs = 300
+AiPlayerbot.CoaMoveAudit.ThrottleSeconds = 10
+AiPlayerbot.CoaMoveAudit.File = "coa_move_audit.jsonl"
+
+# ".squidbots why" (3.2), for every account (GmOnly = 1: game master accounts only, the others are told so), on a
+# selected bot or a bot's name (.squidbots why [name]), once per Cooldown seconds per player:
+# what the bot is doing, in the chat and as one line in File (in the server's LogsDir) to send us: its name, level,
+# zone and position, its RPG status and since when, its destination and the NPC, object or quest it goes to, the
+# path the core would give it there now (NORMAL, INCOMPLETE, NOPATH...), its last move and action, how long it has
+# stood still. The bots keep their last move and where they stand still (a few numbers each).
+# Default: 1 (enabled)
+AiPlayerbot.CoaWhy.Enable = 1
+AiPlayerbot.CoaWhy.File = "squidbots_why.log"
+AiPlayerbot.CoaWhy.GmOnly = 0
+AiPlayerbot.CoaWhy.Cooldown = 5
+
+# The achievements a random bot earns in its first minutes online (Level 10 ... 60 when it is levelled at login, the
+# professions) stay earned but are not announced to its guild, the players around it or the realm, for this many
+# minutes after it is loaded; then its achievements are announced as before. Never a real player, never a player's
+# alt bot. 0: every achievement announced.
+# Default: 3
+AiPlayerbot.Coa.HideLoginAchievementsMinutes = 3
+
+# A random bot announces at most one achievement in this many seconds (guild, nearby, realm): the others are earned
+# without a word (no "1000 Honorable Kills" run in guild chat). The credits of a simulated battleground or dungeon
+# are never announced. Never a real player, never a player's alt bot. 0: every achievement announced.
+# Default: 60
+AiPlayerbot.Coa.AchievementAnnounceGapSeconds = 60
+
+# On top of the gap per bot: at most one achievement of a random bot announced in the whole realm in this many
+# seconds (guild, nearby, realm; a Server First counted too), so the bots levelling up when the realm starts do not
+# fill the chat. The achievements are always earned, only the text is held. Never a real player, never a player's
+# alt bot. 0: no realm gap.
+# Default: 60
+AiPlayerbot.Coa.AchievementAnnounceRealmGapSeconds = 60
+
+# The core saves no achievement of a bot, so after each restart a random bot earns its achievements again: at its
+# first level-up, "Level 10" up to its level at once. 1: a level achievement below the bot's level is earned without a
+# word (the one of the level it just reached is announced). Never a real player, never a player's alt bot.
+# Default: 1
+AiPlayerbot.Coa.HideReplayedAchievements = 1
+
+# Every hour, to the log (CoaBots.log): the achievements of the random bots shown and muted, and why
+# ("achievement announces (last hour): ..."). A diagnostic for the bench.
+# Default: 0
+AiPlayerbot.Coa.AchievementAnnounceLog = 0
+
 # Self-found random bots in dungeons: share of the random bots (0 to 100 percent, picked by character whatever
 # its level, always the same ones) that wear only what they loot, earn from quests or are traded from level 10 on.
 # No gear, gems, enchantments, level roll or level bracket is given to them, and the autogear and bis commands are
@@ -4263,6 +4333,13 @@ AiPlayerbot.CoaTrust.Boss = 25
 AiPlayerbot.CoaTrust.RaidBoss = 100
 AiPlayerbot.CoaTrust.Ranks = 0,100,500,1500,4000,10000
 
+#    AiPlayerbot.CoaLfgRolePriority
+#        Description: Dungeon finder: while a queued party of real players misses a tank or a healer that no queued
+#                     bot covers, a free random bot of that role queues within seconds instead of at its random
+#                     roll (one chance in 20 a check), so the missing role comes first.
+#        Default:     1 (enabled)
+AiPlayerbot.CoaLfgRolePriority = 1
+
 # Bots' minimum and maximum level when teleporting in and out of a zone, according to the new RPG strategy
 # Format: AiPlayerbot.ZoneBracket.zoneID = minLevel,maxLevel
 #
@@ -5801,6 +5878,39 @@ AiPlayerbot.CoaEconomy.BotAuctions.MaxBudgetPercent = 30
 AiPlayerbot.CoaEconomy.BotAuctions.VisitsPerTick = 2
 AiPlayerbot.CoaEconomy.BotAuctions.DurationHours = 24
 AiPlayerbot.CoaEconomy.BotAuctions.MaxScan = 300
+
+# Diagnostic (3.2): each piece or bag a bot buys at an auction house visit (its gold, its budget, the gain), and once an
+# hour the counts of the self-found and the classic bots apart (visits, visits without budget or with nothing worth
+# it, upgrades and bags bought, gold spent), in the playerbots.loot log (BotLoot.log).
+# Default: 0 (off)
+AiPlayerbot.CoaEconomy.BotAuctions.BuyLog = 0
+
+# 3.2: a bot with nothing to sell still goes to the auction house to buy (an upgrade, a bag), when what it may spend
+# in a visit (MaxBudgetPercent of its gold, less for a thrifty bot) reaches its level x MinCopperPerLevel and its last
+# visit is IntervalMinutes old. Before, a bot went there only to sell. BuyLog also counts the way to the visits.
+#    Enable             1 = on (default), 0 = off.
+#    MinCopperPerLevel  Least budget per level, in copper (default 200: 40 silver at level 20, about 2 gold carried).
+#    IntervalMinutes    Least time between two shopping visits (default 60, at least 5).
+AiPlayerbot.CoaEconomy.BotAuctions.Shop.Enable = 1
+AiPlayerbot.CoaEconomy.BotAuctions.Shop.MinCopperPerLevel = 200
+AiPlayerbot.CoaEconomy.BotAuctions.Shop.IntervalMinutes = 60
+
+# 3.2: random bots also trade at their faction's auction house from where they are, without going there (never a
+# player's bot or alt, never in combat, in a dungeon or a battleground). The auctions are real ones, through the same
+# steps as the core's: deposit, cut, the seller paid, the item by mail.
+#    RemoteBuy.Enable            1 = on (default): once per RemoteBuy.IntervalMinutes (default 60) a bot buys the best
+#                                upgrade it can afford (the visit's budget and gear score) and wears it.
+#    RemoteSell.Enable           1 = on (default): once per RemoteSell.IntervalMinutes (default 120) a bot lists up to
+#                                RemoteSell.MaxItems (default 2) of what a visit would list, at the same price, only when
+#                                the house pays more than the vendor after its cut.
+#    RemoteTrade.MaxBotsPerPass  Bots served per pass, one pass every 30 s (default 20); the turns are spread over the
+#                                interval. BuyLog counts the turns, buys, listings and the time of the passes.
+AiPlayerbot.CoaEconomy.RemoteBuy.Enable = 1
+AiPlayerbot.CoaEconomy.RemoteBuy.IntervalMinutes = 60
+AiPlayerbot.CoaEconomy.RemoteSell.Enable = 1
+AiPlayerbot.CoaEconomy.RemoteSell.IntervalMinutes = 120
+AiPlayerbot.CoaEconomy.RemoteSell.MaxItems = 2
+AiPlayerbot.CoaEconomy.RemoteTrade.MaxBotsPerPass = 20
 AiPlayerbot.CoaEconomy.BotAuctions.MaxPerItem = 10
 AiPlayerbot.CoaEconomy.BotAuctions.MaxPerUpgradeKit = 3
 
@@ -5857,6 +5967,37 @@ AiPlayerbot.CoaEconomy.BotAuctions.RealPriceMultiplier.Epic = 6
 #    MinProfitPercent  Least margin over the materials' market price (default 20).
 AiPlayerbot.CoaEconomy.Artisans.Enable = 1
 AiPlayerbot.CoaEconomy.Artisans.MinProfitPercent = 20
+
+# At an auction house visit, a bot with a profession makes for itself the best upgrade of its recipes (a weapon or a
+# piece of armour it can wear, better than the one worn by the gear score), only with the reagents it already holds
+# (nothing is bought for it), and wears it. Self-found and classic bots alike. Log: each piece made, in the
+# playerbots.loot log (BotLoot.log), for a bench.
+# Default: 1 (enabled); Log: 0 (disabled)
+AiPlayerbot.CoaEconomy.CraftForSelf.Enable = 1
+AiPlayerbot.CoaEconomy.CraftForSelf.Log = 0
+
+# At an auction house visit, a bot with Enchanting puts on one piece it wears the best permanent enchantment it knows,
+# only with the reagents it already holds (nothing is bought for it), when the piece fits the enchantment and the
+# bot's level allows it, and only when it beats the enchantment already there (never a better or equal one replaced).
+# Self-found and classic bots alike. Log: each enchantment put on, in the playerbots.loot log (BotLoot.log).
+# Default: 1 (enabled); Log: 0 (disabled)
+AiPlayerbot.CoaEconomy.EnchantForSelf.Enable = 1
+AiPlayerbot.CoaEconomy.EnchantForSelf.Log = 0
+
+# Self study: at most once per IntervalMinutes, a random bot in a capital studies what it could craft or enchant for
+# itself (the two keys above) and buys the reagents it lacks, a vendor's first, the auction house's next (reagents
+# only, never a finished item), for at most MaxGoldPercent of its gold and MaxCopperPerLevel times its level, and only
+# when the piece gains at least MinGainPercent over what it replaces. BuyReagents = 0: only the reagents it holds.
+# Log: each study, and once an hour the counts (studies, crafted, enchanted, short of reagents, reagents bought at a
+# vendor and at the auction house, gold spent), in the playerbots.loot log (BotLoot.log).
+# Default: 1 (enabled), 60 minutes, 1, 10 %, 2500 copper per level, 5 %; Log: 0 (disabled)
+AiPlayerbot.CoaEconomy.SelfStudy.Enable = 1
+AiPlayerbot.CoaEconomy.SelfStudy.IntervalMinutes = 60
+AiPlayerbot.CoaEconomy.SelfStudy.BuyReagents = 1
+AiPlayerbot.CoaEconomy.SelfStudy.MaxGoldPercent = 10
+AiPlayerbot.CoaEconomy.SelfStudy.MaxCopperPerLevel = 2500
+AiPlayerbot.CoaEconomy.SelfStudy.MinGainPercent = 5
+AiPlayerbot.CoaEconomy.SelfStudy.Log = 0
 
 # Craft on order and artisans in Trade, with CoA Live's lines (bank 3_0_05 of CoA IA MIND) and COD mail. Needs
 # Artisans, and AiPlayerbot.CoaLive.Enable = 1 (without it nothing is said and no order is taken).

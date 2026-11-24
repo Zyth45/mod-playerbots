@@ -258,5 +258,13 @@ int main()
     assert(!RareRecipeProfession(185) && !RareRecipeProfession(129) && !RareRecipeProfession(0));
     assert(RareRecipeProfession(164) && RareRecipeProfession(333) && RareRecipeProfession(171) &&
            RareRecipeProfession(197) && RareRecipeProfession(165) && RareRecipeProfession(202));
+    // 3.2.1: goods in stacks and goods sold one at a time have bands apart (an Elementium Bar is no pattern).
+    assert(BandKind(false, 20) == PriceBand::Stack);
+    assert(BandKind(false, 1) == PriceBand::Single);
+    assert(BandKind(true, 1) == PriceBand::Gear);
+    // 3.2.1: the house bot's leftovers over 3 times today's price leave: 20 bars at 1880 g, 5 g each today.
+    assert(OverpricedListing(18800000, 20, 50000));
+    assert(!OverpricedListing(18800000, 20, 400000));   // 94 g each, 40 g today: within 3 times
+    assert(!OverpricedListing(18800000, 20, 0));        // unknown today: kept
     return 0;
 }

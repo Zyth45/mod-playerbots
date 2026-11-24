@@ -7,6 +7,10 @@
 #include "CoaArtisans.h"
 
 #include "CoaEconomyConf.h"
+#include "CoaEnchantSelfRules.h"
+#include "CoaGearScore.h"
+#include "CoaMissionMgr.h"
+#include "CoaSelfStudyRules.h"
 
 #include "CoaAuctionHouseBot.h"
 #include "CoaEconomyData.h"
@@ -18,14 +22,22 @@
 #include "CoaSellable.h"
 #include "Config.h"
 #include "DBCStores.h"
+#include "GameTime.h"
 #include "Item.h"
+#include "Log.h"
 #include "ObjectMgr.h"
+#include "ObjectAccessor.h"
 #include "Player.h"
+#include "PlayerbotAI.h"
+#include "PlayerbotMgr.h"
+#include "Playerbots.h"
 #include "Random.h"
+#include "RandomPlayerbotMgr.h"
 #include "ScriptMgr.h"
 #include "SharedDefines.h"
 #include "SpellInfo.h"
 #include "SpellMgr.h"
+#include "StatsWeightCalculator.h"
 #include "WorldSession.h"
 
 #include <algorithm>
@@ -96,6 +108,15 @@ namespace
         return proto && proto->Bonding != BIND_WHEN_PICKED_UP && proto->Bonding != BIND_QUEST_ITEM &&
                proto->Class != ITEM_CLASS_QUEST && (proto->SellPrice > 0 || proto->BuyPrice > 0);
     }
+
+    // 3.2.1: an item a bot made carries its maker, as a player's does ("Made by", the crafted count): the bot's
+    // crafts had no creator at all (0 creatorGuid in the showcase's database).
+    Item* SignedByCrafter(Player* bot, Item* item)
+    {
+        if (item && bot)
+            item->SetGuidValue(ITEM_FIELD_CREATOR, bot->GetGUID());
+        return item;
+    }
 }
 
 bool IsEnabled()
@@ -108,9 +129,41 @@ bool IsTradableProduct(ItemTemplate const* proto)
     return IsTradable(proto);
 }
 
+bool craftForSelf = true;      // AiPlayerbot.CoaEconomy.CraftForSelf.Enable
+bool craftForSelfLog = false;  // AiPlayerbot.CoaEconomy.CraftForSelf.Log
+bool enchantForSelf = true;     // AiPlayerbot.CoaEconomy.EnchantForSelf.Enable
+bool enchantForSelfLog = false; // AiPlayerbot.CoaEconomy.EnchantForSelf.Log
+// AiPlayerbot.CoaEconomy.SelfStudy.*
+bool studyEnabled = true;
+uint32 studyIntervalSeconds = 3600;
+bool studyBuy = true;
+uint32 studyMoneyPercent = 10;
+uint32 studyCopperPerLevel = 2500;
+uint32 studyMinGainPercent = 5;
+bool studyLog = false;
+// Counters since the last summary (world thread only).
+struct StudyCounters
+{
+    uint32 studies = 0, crafted = 0, enchanted = 0, noReagents = 0, vendorUnits = 0, auctionUnits = 0;
+    uint64 spent = 0;
+} studyCounters;
+
 void LoadSettings()
 {
     enabled = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.Artisans.Enable", true, false);
+    craftForSelf = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.CraftForSelf.Enable", true, false);
+    craftForSelfLog = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.CraftForSelf.Log", false, false);
+    enchantForSelf = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.EnchantForSelf.Enable", true, false);
+    enchantForSelfLog = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.EnchantForSelf.Log", false, false);
+    studyEnabled = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.SelfStudy.Enable", true, false);
+    studyIntervalSeconds =
+        60 * std::max<uint32>(5, CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.SelfStudy.IntervalMinutes", 60));
+    studyBuy = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.SelfStudy.BuyReagents", true, false);
+    studyMoneyPercent =
+        std::min<uint32>(100, CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.SelfStudy.MaxGoldPercent", 10));
+    studyCopperPerLevel = CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.SelfStudy.MaxCopperPerLevel", 2500);
+    studyMinGainPercent = CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.SelfStudy.MinGainPercent", 5);
+    studyLog = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.SelfStudy.Log", false, false);
     minProfitPercent = CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.Artisans.MinProfitPercent", 20);
     realPrices = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.BotAuctions.RealHousePrices", true);
     realMultipliers = RealPrices::LoadMultipliers("AiPlayerbot.CoaEconomy.BotAuctions.RealPriceMultiplier");
@@ -386,7 +439,325 @@ Item* Craft(Player* bot, Recipe const& recipe)
         return nullptr;
     if (!Consume(bot, recipe, 1))
         return nullptr;
-    return bot->StoreNewItem(dest, recipe.itemId, true, Item::GenerateItemRandomPropertyId(recipe.itemId));
+    return SignedByCrafter(bot,
+                           bot->StoreNewItem(dest, recipe.itemId, true, Item::GenerateItemRandomPropertyId(recipe.itemId)));
+}
+
+namespace
+{
+    // The reagents a recipe misses in the bot's bags, and what buying them costs: a vendor's price when one sells it,
+    // else the auction house's. buyable is false when one of them cannot be bought (no price).
+    struct ReagentPlan
+    {
+        uint64 cost = 0;
+        uint32 vendorUnits = 0;
+        uint32 auctionUnits = 0;
+        bool missing = false;
+        bool buyable = true;
+    };
+
+    ReagentPlan PlanReagents(Player* bot, SpellInfo const* spell)
+    {
+        ReagentPlan plan;
+        for (uint8 i = 0; i < MAX_SPELL_REAGENTS; ++i)
+        {
+            if (spell->Reagent[i] <= 0 || !spell->ReagentCount[i])
+                continue;
+            uint32 const reagent = uint32(spell->Reagent[i]);
+            uint32 const held = bot->GetItemCount(reagent);
+            if (held >= spell->ReagentCount[i])
+                continue;
+            uint32 const short_ = spell->ReagentCount[i] - held;
+            plan.missing = true;
+            ItemTemplate const* proto = sObjectMgr->GetItemTemplate(reagent);
+            uint64 const vendor = proto && proto->BuyPrice && Sellable::IsFreeVendorItem(reagent) ? proto->BuyPrice : 0;
+            uint64 const unit = CoaSelfStudyRules::UnitPrice(vendor, vendor ? 0 : MarketPrice(reagent));
+            if (!unit)
+            {
+                plan.buyable = false;
+                continue;
+            }
+            plan.cost += unit * short_;
+            (vendor ? plan.vendorUnits : plan.auctionUnits) += short_;
+        }
+        return plan;
+    }
+
+    // A plan the study can carry out: nothing missing, or the missing reagents bought under the cap, when worth it.
+    bool Affordable(ReagentPlan const& plan, uint64 buyCap, float gain, float replacedScore)
+    {
+        if (!plan.missing)
+            return true;
+        return buyCap && plan.buyable && plan.cost <= buyCap &&
+               CoaSelfStudyRules::WorthBuying(gain, replacedScore, studyMinGainPercent);
+    }
+
+    // Uses the reagents: the held ones, and the missing ones paid in gold (the bot shopped for them).
+    void TakeReagents(Player* bot, SpellInfo const* spell, ReagentPlan const& plan)
+    {
+        for (uint8 i = 0; i < MAX_SPELL_REAGENTS; ++i)
+        {
+            if (spell->Reagent[i] <= 0 || !spell->ReagentCount[i])
+                continue;
+            uint32 const reagent = uint32(spell->Reagent[i]);
+            uint32 const held = std::min<uint32>(spell->ReagentCount[i], bot->GetItemCount(reagent));
+            if (held)
+                bot->DestroyItemCount(reagent, held, true);
+        }
+        if (!plan.missing)
+            return;
+        bot->ModifyMoney(-int32(std::min<uint64>(plan.cost, uint64(INT32_MAX))));
+        studyCounters.vendorUnits += plan.vendorUnits;
+        studyCounters.auctionUnits += plan.auctionUnits;
+        studyCounters.spent += plan.cost;
+    }
+
+    // Set by the two studies when an upgrade was there but its reagents could not be had.
+    bool studyShort = false;
+}
+
+Item* CraftUpgradeForSelf(Player* bot, PlayerbotAI* botAI, uint64 buyCap)
+{
+    if (!craftForSelf || !bot || !botAI)
+        return nullptr;
+
+    SpellInfo const* bestSpell = nullptr;
+    uint32 bestItem = 0;
+    float bestGain = 0.0f;
+    ReagentPlan bestPlan;
+    for (auto const& [spellId, playerSpell] : bot->GetSpellMap())
+    {
+        if (!playerSpell || playerSpell->State == PLAYERSPELL_REMOVED || !playerSpell->Active)
+            continue;
+        SpellInfo const* spell = sSpellMgr->GetSpellInfo(spellId);
+        if (!spell || !ProfessionOf(spellId))
+            continue;
+        uint32 itemId = 0;
+        for (SpellEffectInfo const& effect : spell->Effects)
+            if (effect.Effect == SPELL_EFFECT_CREATE_ITEM && effect.ItemType)
+            {
+                itemId = effect.ItemType;
+                break;
+            }
+        ItemTemplate const* proto = itemId ? sObjectMgr->GetItemTemplate(itemId) : nullptr;
+        if (!proto || (proto->Class != ITEM_CLASS_WEAPON && proto->Class != ITEM_CLASS_ARMOR) ||
+            proto->RequiredLevel > bot->GetLevel() || bot->CanUseItem(proto) != EQUIP_ERR_OK)
+            continue;
+        float const gain = CoaGearScore::UpgradeGain(bot, itemId);
+        if (gain <= bestGain)
+            continue;
+        ReagentPlan const plan = PlanReagents(bot, spell);
+        // What it replaces: the piece's own score less its gain.
+        float const replaced = plan.missing ? CoaGearScore::ItemScore(bot, itemId, 0, -1) - gain : 0.0f;
+        if (!Affordable(plan, buyCap, gain, replaced))
+        {
+            studyShort = true;
+            continue;
+        }
+        bestGain = gain;
+        bestSpell = spell;
+        bestItem = itemId;
+        bestPlan = plan;
+    }
+    if (!bestSpell)
+        return nullptr;
+
+    ItemPosCountVec dest;
+    if (bot->CanStoreNewItem(NULL_BAG, NULL_SLOT, dest, bestItem, 1) != EQUIP_ERR_OK)
+        return nullptr;
+    TakeReagents(bot, bestSpell, bestPlan);
+    Item* item = SignedByCrafter(bot, bot->StoreNewItem(dest, bestItem, true, Item::GenerateItemRandomPropertyId(bestItem)));
+    if (!item)
+        return nullptr;
+    // Worn at once, where it is an upgrade.
+    uint8 const slot = botAI->FindEquipSlot(item->GetTemplate(), NULL_SLOT, true);
+    if (slot != NULL_SLOT)
+        CoaMissionMgr::EquipItem(bot, item, slot);
+    ++studyCounters.crafted;
+    if (craftForSelfLog)
+        LOG_INFO("playerbots.loot", "craft for self: {} (level {}) made {} ({}), gain {:.1f}{}, bought {} reagent(s) for {}c",
+                 bot->GetName(), bot->GetLevel(), bestItem, item->GetTemplate()->Name1, bestGain,
+                 slot != NULL_SLOT ? ", worn" : ", kept", bestPlan.vendorUnits + bestPlan.auctionUnits, bestPlan.cost);
+    return item;
+}
+
+bool EnchantForSelf(Player* bot, uint64 buyCap)
+{
+    if (!enchantForSelf || !bot || !bot->HasSkill(SKILL_ENCHANTING))
+        return false;
+
+    StatsWeightCalculator calculator(bot);
+    Item* bestItem = nullptr;
+    SpellInfo const* bestSpell = nullptr;
+    uint32 bestEnchant = 0;
+    float bestGain = 0.0f;
+    ReagentPlan bestPlan;
+    for (auto const& [spellId, playerSpell] : bot->GetSpellMap())
+    {
+        if (!playerSpell || playerSpell->State == PLAYERSPELL_REMOVED || !playerSpell->Active)
+            continue;
+        SpellInfo const* spell = sSpellMgr->GetSpellInfo(spellId);
+        if (!spell)
+            continue;
+        uint32 enchantId = 0;
+        for (SpellEffectInfo const& effect : spell->Effects)
+            if (effect.Effect == SPELL_EFFECT_ENCHANT_ITEM && effect.MiscValue)
+            {
+                enchantId = uint32(effect.MiscValue);
+                break;
+            }
+        SpellItemEnchantmentEntry const* enchant = enchantId ? sSpellItemEnchantmentStore.LookupEntry(enchantId) : nullptr;
+        if (!enchant || enchant->slot != PERM_ENCHANTMENT_SLOT ||
+            !CoaEnchantSelfRules::Usable(bot->GetLevel(), enchant->requiredLevel, enchant->requiredSkill,
+                                         enchant->requiredSkill ? bot->GetSkillValue(enchant->requiredSkill) : 0,
+                                         enchant->requiredSkillValue))
+            continue;
+        if (enchant->EnchantmentCondition && !bot->EnchantmentFitsRequirements(enchant->EnchantmentCondition, -1))
+            continue;
+        ReagentPlan const plan = PlanReagents(bot, spell);
+        if (plan.missing && (!buyCap || !plan.buyable || plan.cost > buyCap))
+        {
+            studyShort = true;
+            continue;
+        }
+        float const score = calculator.CalculateEnchant(enchantId);
+        for (uint8 slot = EQUIPMENT_SLOT_START; slot < EQUIPMENT_SLOT_END; ++slot)
+        {
+            Item* item = bot->GetItemByPos(INVENTORY_SLOT_BAG_0, slot);
+            if (!item || !item->IsFitToSpellRequirements(spell))
+                continue;
+            uint32 const current = item->GetEnchantmentId(PERM_ENCHANTMENT_SLOT);
+            float const currentScore = current ? calculator.CalculateEnchant(current) : 0.0f;
+            if (!CoaEnchantSelfRules::Replaces(score, currentScore))
+                continue;
+            float const gain = score - currentScore;
+            // Bought reagents: worth it against the piece the enchantment goes on.
+            if (plan.missing &&
+                !CoaSelfStudyRules::WorthBuying(gain, CoaGearScore::ItemScore(bot, item->GetEntry(),
+                                                    item->GetInt32Value(ITEM_FIELD_RANDOM_PROPERTIES_ID), slot),
+                                                studyMinGainPercent))
+                continue;
+            if (gain > bestGain)
+            {
+                bestGain = gain;
+                bestItem = item;
+                bestSpell = spell;
+                bestEnchant = enchantId;
+                bestPlan = plan;
+            }
+        }
+    }
+    if (!bestItem)
+        return false;
+
+    TakeReagents(bot, bestSpell, bestPlan);
+    bot->ApplyEnchantment(bestItem, PERM_ENCHANTMENT_SLOT, false);
+    bestItem->SetEnchantment(PERM_ENCHANTMENT_SLOT, bestEnchant, 0, 0, bot->GetGUID());
+    bot->ApplyEnchantment(bestItem, PERM_ENCHANTMENT_SLOT, true);
+    ++studyCounters.enchanted;
+    if (enchantForSelfLog)
+        LOG_INFO("playerbots.loot", "enchant for self: {} (level {}) put enchantment {} on {} ({}), gain {:.1f}, bought {} reagent(s) for {}c",
+                 bot->GetName(), bot->GetLevel(), bestEnchant, bestItem->GetEntry(), bestItem->GetTemplate()->Name1,
+                 bestGain, bestPlan.vendorUnits + bestPlan.auctionUnits, bestPlan.cost);
+    return true;
+}
+
+namespace
+{
+    // When each bot studies next (game time, seconds); bounded by the number of bots.
+    std::unordered_map<uint64, uint32> nextStudy;
+    uint32 lastSummary = 0;
+
+    bool InCapital(Player* bot)
+    {
+        AreaTableEntry const* zone = sAreaTableStore.LookupEntry(bot->GetZoneId());
+        return zone && (zone->flags & AREA_FLAG_CAPITAL);
+    }
+
+    void Summary(uint32 now)
+    {
+        if (!lastSummary)
+            lastSummary = now;
+        if (now < lastSummary + 3600)
+            return;
+        lastSummary = now;
+        if (studyLog)
+            LOG_INFO("playerbots.loot", "self study (last hour): {} studies, {} crafted, {} enchanted, {} short of "
+                     "reagents, bought {} at a vendor and {} at the auction house for {}c",
+                     studyCounters.studies, studyCounters.crafted, studyCounters.enchanted, studyCounters.noReagents,
+                     studyCounters.vendorUnits, studyCounters.auctionUnits, studyCounters.spent);
+        studyCounters = StudyCounters();
+    }
+}
+
+bool StudyIfDue(Player* bot, PlayerbotAI* botAI)
+{
+    if (!studyEnabled || !bot || !botAI || !bot->IsInWorld() || !bot->IsAlive() || bot->IsInCombat() ||
+        !sRandomPlayerbotMgr.IsRandomBot(bot) || !InCapital(bot))
+        return false;
+    uint32 const now = uint32(GameTime::GetGameTime().count());
+    auto [it, fresh] = nextStudy.try_emplace(bot->GetGUID().GetRawValue(), 0);
+    if (fresh)
+    {
+        // Spread over the first interval, from the guid, so a start does not make a whole city study at once.
+        uint32 const spread = uint32(bot->GetGUID().GetCounter() * 2654435761u) % 1000;
+        it->second = now + CoaSelfStudyRules::FirstStudyDelay(float(spread) / 1000.0f, studyIntervalSeconds);
+    }
+    if (now < it->second)
+        return false;
+    it->second = now + studyIntervalSeconds;
+
+    ++studyCounters.studies;
+    studyShort = false;
+    auto cap = [bot]()
+    {
+        return studyBuy ? CoaSelfStudyRules::SpendCap(bot->GetMoney(), studyMoneyPercent, bot->GetLevel(),
+                                                      studyCopperPerLevel)
+                        : 0;
+    };
+    Item* const made = CraftUpgradeForSelf(bot, botAI, cap());
+    bool const enchanted = EnchantForSelf(bot, cap());
+    if (!made && !enchanted && studyShort)
+        ++studyCounters.noReagents;
+    if (studyLog)
+        LOG_INFO("playerbots.loot", "self study: {} (level {}, {}c) {}{}{}", bot->GetName(), bot->GetLevel(),
+                 bot->GetMoney(), made ? "crafted " : "", enchanted ? "enchanted " : "",
+                 !made && !enchanted ? (studyShort ? "short of reagents" : "nothing to make") : "");
+    Summary(now);
+    return true;
+}
+
+namespace
+{
+    // Every 30 s, the random bots in a capital whose study is due (a few at a time).
+    uint32 scanTimer = 0;
+    void ScanCapitals(uint32 diff)
+    {
+        if (!studyEnabled)
+            return;
+        scanTimer += diff;
+        if (scanTimer < 30 * IN_MILLISECONDS)
+            return;
+        scanTimer = 0;
+        uint32 studied = 0;
+        for (auto const& [guid, player] : ObjectAccessor::GetPlayers())
+        {
+            if (!player || !player->IsInWorld() || player->IsBeingTeleported() || player->IsFlying() ||
+                player->GetMap()->Instanceable())
+                continue;
+            PlayerbotAI* botAI = GET_PLAYERBOT_AI(player);
+            if (!botAI || !botAI->IsBotAI())
+                continue;
+            if (StudyIfDue(player, botAI) && ++studied >= 20)
+                break;
+        }
+        Summary(uint32(GameTime::GetGameTime().count()));
+    }
+}
+
+void ScanCapitalsTick(uint32 diff)
+{
+    ScanCapitals(diff);
 }
 
 } // namespace CoaEconomy::Artisans
@@ -396,8 +767,10 @@ namespace
     class CoaArtisansWorld : public WorldScript
     {
     public:
-        CoaArtisansWorld() : WorldScript("CoaArtisansWorld", {WORLDHOOK_ON_AFTER_CONFIG_LOAD}) { }
+        CoaArtisansWorld() : WorldScript("CoaArtisansWorld", {WORLDHOOK_ON_AFTER_CONFIG_LOAD, WORLDHOOK_ON_UPDATE}) { }
         void OnAfterConfigLoad(bool /*reload*/) override { CoaEconomy::Artisans::LoadSettings(); }
+        // World thread, between two map updates (3.2 SelfStudy).
+        void OnUpdate(uint32 diff) override { CoaEconomy::Artisans::ScanCapitalsTick(diff); }
     };
 }
 

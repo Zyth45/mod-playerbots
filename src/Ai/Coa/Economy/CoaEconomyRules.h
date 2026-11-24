@@ -279,6 +279,25 @@ inline std::uint64_t FairPrice(std::uint64_t value, std::uint64_t reagents, std:
     return value;
 }
 
+// 3.2.1: the band a scanned price joins, for the floor of the unscanned items of its quality and level. Goods sold
+// one at a time (patterns, decks, bags) and goods sold in stacks apart: the epic goods of level 60 had a median of
+// 168 g from patterns and decks, and an Elementium Bar was listed at 94 g each, 1880 g the stack.
+enum class PriceBand { Gear, Single, Stack };
+
+inline PriceBand BandKind(bool gear, std::uint32_t maxStackSize)
+{
+    return gear ? PriceBand::Gear : maxStackSize > 1 ? PriceBand::Stack : PriceBand::Single;
+}
+
+// 3.2.1: a house bot's listing priced over PRICE_SWEEP_TIMES its item's lowest price today (a price of an older
+// version) leaves the house. lowestPerItem 0: unknown, kept.
+constexpr std::uint64_t PRICE_SWEEP_TIMES = 3;
+
+inline bool OverpricedListing(std::uint64_t buyout, std::uint32_t count, std::uint64_t lowestPerItem)
+{
+    return lowestPerItem && count && buyout / count > lowestPerItem * PRICE_SWEEP_TIMES;
+}
+
 // The least price of a better quality: 1.5 times the scaled median of the quality below (0 when unknown).
 // Gear's scanned price tops at 1.5 times its median, so this step puts a better quality at or over the dearest piece
 // of the quality below, slot or not.
@@ -810,6 +829,49 @@ inline std::uint64_t BotListingPrice(std::uint64_t referencePerItem, float patie
 inline std::uint64_t BotBudget(std::uint64_t money, std::uint32_t maxPercent, float thrift)
 {
     return std::uint64_t(double(money) * maxPercent / 100.0 * (1.0 - 0.7 * std::clamp(thrift, 0.0f, 1.0f)));
+}
+
+// 3.2 (BotAuctions.Shop): a bot with no loot to sell still goes to the auction house to buy, when its visit budget
+// reaches ShopThreshold, level x copperPerLevel (a green weapon for a few gold), and its last visit is
+// intervalSeconds old.
+inline std::uint64_t ShopThreshold(std::uint32_t level, std::uint32_t copperPerLevel)
+{
+    return std::uint64_t(level) * copperPerLevel;
+}
+
+inline bool WantsToShop(std::uint64_t budget, std::uint32_t level, std::uint32_t copperPerLevel)
+{
+    return budget > 0 && budget >= ShopThreshold(level, copperPerLevel);
+}
+
+// 3.2 (RemoteSell): a bot lists from afar only what brings more than the vendor once the house's cut is taken
+// (the deposit comes back with the sale).
+inline bool RemoteSellBeatsVendor(std::uint64_t buyout, std::uint32_t cutPercent, std::uint64_t vendorValue)
+{
+    return buyout * (100 - std::min<std::uint32_t>(cutPercent, 100)) / 100 > vendorValue;
+}
+
+// 3.2 (RemoteBuy, RemoteSell): when a bot's next turn comes. Its first one is spread over the interval by spread01
+// (a hash of its guid), so a realm starting does not see every bot trade at once.
+inline std::uint32_t FirstRemoteTurn(std::uint32_t now, float spread01, std::uint32_t intervalSeconds)
+{
+    return now + std::uint32_t(std::clamp(spread01, 0.0f, 0.999f) * float(intervalSeconds));
+}
+
+// 3.2: a wander lasts 5 minutes from its start, whatever its target: an auctioneer picked late in it was never
+// reached (12 picked, 0 reached on the bench). A bot on its way to a trade NPC (an auctioneer, or a vendor it has
+// business with) keeps that goal past the end of the wander, up to KEEP_TRADE_GOAL_MS after it picked it; a path
+// that really fails still drops it.
+constexpr std::uint32_t KEEP_TRADE_GOAL_MS = 3 * 60 * 1000;
+
+inline bool KeepsTradeGoal(bool tradeNpc, bool reached, std::uint32_t sincePickMs)
+{
+    return tradeNpc && !reached && sincePickMs < KEEP_TRADE_GOAL_MS;
+}
+
+inline bool ShopDue(std::uint32_t now, std::uint32_t lastVisit, std::uint32_t intervalSeconds)
+{
+    return !lastVisit || now >= lastVisit + intervalSeconds;
 }
 
 // ---- Artisans (Craft/CoaArtisans, Craft/CoaCraftOrders) ----

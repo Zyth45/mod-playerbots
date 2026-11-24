@@ -6,6 +6,7 @@
 
 #include "CoaBotMute.h"
 #include "CoaStarterWeapon.h"
+#include "CoaMoveAudit.h"
 #include "CoaTrust.h"
 #include "CoaWorldGuilds.h"
 #include "CoaWorldAiBudget.h"
@@ -41,7 +42,7 @@
 #include <algorithm>
 
 // Shown to players at login: bump it with every CoA Bots release.
-static constexpr char const* COA_BOTS_VERSION = "3.1.6";
+static constexpr char const* COA_BOTS_VERSION = "3.2.1";
 
 // For ".playerbots version", which still answers when a host removed the login message.
 char const* CoaBotsVersion() { return COA_BOTS_VERSION; }
@@ -555,7 +556,8 @@ public:
             CoaBossKnowledge::Load();
         CoaTrust::Load();
         CoaBotMute::Load();
-        CoaStarterWeapon::Load();  // the self-found bots that got their starting weapon once  // the players who muted their bots (AiPlayerbot.CoaMute.Enable), table playerbots_coa_mute  // the trust of the players in their bots (AiPlayerbot.CoaTrust.Enable), table playerbots_coa_trust
+        CoaStarterWeapon::Load();
+        CoaMoveAudit::Load();  // the night bench of the odd moves (off by default)  // the self-found bots that got their starting weapon once  // the players who muted their bots (AiPlayerbot.CoaMute.Enable), table playerbots_coa_mute  // the trust of the players in their bots (AiPlayerbot.CoaTrust.Enable), table playerbots_coa_trust
 
         LOG_INFO("server.loading", "Playerbots World Thread Processor initialized");
     }

@@ -22,7 +22,7 @@ void Load();
 // The server's profile of the race; the default profile (every field unset) when it wrote none.
 CoaBotRace::Profile const& Get(std::uint32_t race);
 
-// The core marks the race male-only (a core with AscensionIncarnation.h); false on a core without it.
+// The core marks the race male-only (a core that defines COA_CORE_MALE_ONLY_RACES_HEADER); false otherwise.
 bool CoreMaleOnly(std::uint8_t race);
 
 // Random bots may use the race: the profile, CoACustomRaces.BotsEnable, ExcludedBotRaces and CrashingBotRaces.

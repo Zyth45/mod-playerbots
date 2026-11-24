@@ -16,6 +16,7 @@
 #include "CoaGearScore.h"
 #include "CoaMarketPrices.h"
 #include "CoaMaterials.h"
+#include "CoaMissionMgr.h"
 #include "CoaRealPrices.h"
 #include "CoaSellable.h"
 #include "AccountMgr.h"
@@ -31,6 +32,9 @@
 #include "ObjectAccessor.h"
 #include "ObjectMgr.h"
 #include "Player.h"
+#include "RandomPlayerbotMgr.h"
+#include "World.h"
+#include "PlayerbotFactory.h"
 #include "PlayerbotAI.h"
 #include "Playerbots.h"
 #include "ScriptMgr.h"
@@ -38,10 +42,17 @@
 #include "WorldSession.h"
 
 #include <algorithm>
+#include <cstdio>
+#include <string>
+#include <map>
+#include <array>
+#include <atomic>
+#include <chrono>
 #include <deque>
 #include <mutex>
 #include <unordered_map>
 #include <unordered_set>
+#include <vector>
 
 namespace CoaEconomy::BotAuctions
 {
@@ -60,6 +71,17 @@ namespace
         uint32 maxPerItem = 10;
         uint32 maxPerUpgradeKit = 3;
         bool realHousePrices = false;
+        bool buyLog = false;  // 3.2: BotAuctions.BuyLog
+        bool shopEnable = true;           // 3.2: BotAuctions.Shop.Enable
+        uint32 shopCopperPerLevel = 200;  // BotAuctions.Shop.MinCopperPerLevel
+        uint32 shopIntervalSeconds = 60 * MINUTE;  // BotAuctions.Shop.IntervalMinutes
+        // 3.2: buying and selling from afar (CoaEconomy.RemoteBuy.*, RemoteSell.*), random bots only.
+        bool remoteBuy = true;
+        uint32 remoteBuySeconds = 60 * MINUTE;
+        bool remoteSell = true;
+        uint32 remoteSellSeconds = 120 * MINUTE;
+        uint32 remoteSellMax = 2;
+        uint32 remoteMaxBots = 20;  // RemoteTrade.MaxBotsPerPass: bots served per pass (one pass every 30 s)
         RealPrices::Multipliers multipliers;
     };
     Settings settings;
@@ -100,6 +122,188 @@ namespace
         settings.maxPerUpgradeKit = CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.BotAuctions.MaxPerUpgradeKit", 3);
         settings.realHousePrices = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.BotAuctions.RealHousePrices", true);
         settings.multipliers = RealPrices::LoadMultipliers("AiPlayerbot.CoaEconomy.BotAuctions.RealPriceMultiplier");
+        settings.buyLog = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.BotAuctions.BuyLog", false, false);
+        settings.shopEnable = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.BotAuctions.Shop.Enable", true, false);
+        settings.shopCopperPerLevel =
+            CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.BotAuctions.Shop.MinCopperPerLevel", 200, false);
+        settings.shopIntervalSeconds = std::max<uint32>(5,
+            CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.BotAuctions.Shop.IntervalMinutes", 60, false)) * MINUTE;
+        settings.remoteBuy = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.RemoteBuy.Enable", true, false);
+        settings.remoteBuySeconds = std::max<uint32>(5,
+            CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.RemoteBuy.IntervalMinutes", 60, false)) * MINUTE;
+        settings.remoteSell = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.RemoteSell.Enable", true, false);
+        settings.remoteSellSeconds = std::max<uint32>(5,
+            CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.RemoteSell.IntervalMinutes", 120, false)) * MINUTE;
+        settings.remoteSellMax = CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.RemoteSell.MaxItems", 2, false);
+        settings.remoteMaxBots = std::max<uint32>(1,
+            CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.RemoteTrade.MaxBotsPerPass", 20, false));
+    }
+
+    // 3.2 (BotAuctions.BuyLog): what the visits bought, self-found and classic bots apart; world thread only.
+    struct BuyCounters
+    {
+        uint32 visits[2] = {0, 0}, noBudget[2] = {0, 0}, nothing[2] = {0, 0}, upgrades[2] = {0, 0}, bags[2] = {0, 0};
+        uint64 spent[2] = {0, 0};
+    } buyCounters;
+    uint32 buySummaryAt = 0;
+
+    // 3.2 (BuyLog): the way to a visit. Requests and refusals on the map threads, the visit's exits on the world thread.
+    struct PathCounters
+    {
+        std::atomic<uint32> requests{0}, cooldown{0}, queueFull{0}, queued{0}, shopWants{0};
+        std::atomic<uint32> sought{0}, picked{0}, station{0}, givenUp{0}, timedOut{0};
+        std::atomic<uint32> leftFor[12]{};  // 0..10: NewRpgStatus of the next activity, 11: a reset
+        std::mutex giveUpLock;
+        std::map<std::string, std::array<uint32, 3>> giveUps;  // capital -> gone, no way, refusals
+        std::map<std::string, uint32> noWayReasons;
+        std::map<std::string, std::vector<std::string>> noWaySamples;  // capital -> at most NO_WAY_SAMPLES an hour
+        std::map<std::string, uint32> notReached;                      // capital -> wanders ended short of it
+        std::map<std::string, std::vector<std::string>> notReachedSamples;
+        std::atomic<uint32> shopChecks{0}, shopPoor{0}, shopInterval{0};
+        // 3.2: budget and threshold of the "too poor" checks, for their medians (a sample, at most POOR_SAMPLES).
+        std::mutex poorLock;
+        std::vector<std::pair<uint64, uint64>> poor;
+        uint32 gone = 0, busy = 0, noAi = 0, outOfReach = 0, ran = 0;
+        double outOfReachYards = 0.0;
+    } pathCounters;
+
+    // 3.2 (BuyLog): what the bots bought and listed from afar, and what the passes cost (world thread).
+    struct RemoteCounters
+    {
+        uint32 buyTurns = 0, bought = 0, sellTurns = 0, listed = 0, vendorBetter = 0, passes = 0;
+        uint64 spent = 0, listedValue = 0, passUs = 0, maxPassUs = 0;
+        double gain = 0.0;
+    } remoteCounters;
+    uint32 remoteTimer = 0;
+    std::unordered_map<ObjectGuid::LowType, uint32> nextRemoteBuy, nextRemoteSell;  // world thread
+
+    void BuySummary()
+    {
+        uint32 const now = uint32(GameTime::GetGameTime().count());
+        if (!buySummaryAt)
+            buySummaryAt = now;
+        if (now < buySummaryAt + 3600)
+            return;
+        buySummaryAt = now;
+        if (settings.buyLog)
+            LOG_INFO("playerbots.loot", "auction visits (last hour): {} auctioneers picked by a wander ({} by City Life, "
+                     "{} sought for business), {} given up on the way, {} not reached before the wander ended; "
+                     "{} asked ({} for shopping), {} refused on cooldown, "
+                     "{} refused on a full queue, {} queued; {} ran, {} bots gone, {} dead or fighting, {} without AI, "
+                     "{} out of the auctioneer's reach (average {:.1f} yd)",
+                     pathCounters.picked.exchange(0), pathCounters.station.exchange(0), pathCounters.sought.exchange(0),
+                     pathCounters.givenUp.exchange(0), pathCounters.timedOut.exchange(0), pathCounters.requests.exchange(0), pathCounters.shopWants.exchange(0),
+                     pathCounters.cooldown.exchange(0), pathCounters.queueFull.exchange(0),
+                     pathCounters.queued.exchange(0), pathCounters.ran, pathCounters.gone, pathCounters.busy,
+                     pathCounters.noAi, pathCounters.outOfReach,
+                     pathCounters.outOfReach ? pathCounters.outOfReachYards / pathCounters.outOfReach : 0.0);
+        else
+        {
+            pathCounters.requests = 0;
+            pathCounters.shopWants = 0;
+            pathCounters.cooldown = 0;
+            pathCounters.queueFull = 0;
+            pathCounters.queued = 0;
+            pathCounters.sought = pathCounters.picked = pathCounters.station = pathCounters.givenUp = 0;
+            pathCounters.timedOut = 0;
+        }
+        if (settings.buyLog)
+        {
+            static char const* const names[12] = {"idle", "grind", "camp", "wander", "another NPC wander", "quest",
+                                                  "flight", "rest", "outdoor pvp", "city", "status 10", "reset"};
+            std::string left;
+            uint32 total = 0;
+            for (uint32 i = 0; i < 12; ++i)
+                if (uint32 const n = pathCounters.leftFor[i].exchange(0))
+                {
+                    total += n;
+                    left += (left.empty() ? "" : ", ") + std::string(names[i]) + " " + std::to_string(n);
+                }
+            std::vector<uint64> budgets, thresholds;
+            {
+                std::lock_guard<std::mutex> guard(pathCounters.poorLock);
+                for (auto const& [budget, threshold] : pathCounters.poor)
+                {
+                    budgets.push_back(budget);
+                    thresholds.push_back(threshold);
+                }
+                pathCounters.poor.clear();
+            }
+            auto median = [](std::vector<uint64>& v) -> uint64
+            {
+                if (v.empty())
+                    return 0;
+                std::nth_element(v.begin(), v.begin() + v.size() / 2, v.end());
+                return v[v.size() / 2];
+            };
+            std::string ways;
+            {
+                std::lock_guard<std::mutex> guard(pathCounters.giveUpLock);
+                for (auto const& [capital, n] : pathCounters.giveUps)
+                    ways += (ways.empty() ? "" : "; ") + (capital.empty() ? std::string("outside a capital") : capital) +
+                            " " + std::to_string(n[0]) + " gone, " + std::to_string(n[1]) + " no way, " +
+                            std::to_string(n[2]) + " refused moves";
+                pathCounters.giveUps.clear();
+                std::string reasons;
+                for (auto const& [why, n] : pathCounters.noWayReasons)
+                    reasons += (reasons.empty() ? "" : ", ") + why + " " + std::to_string(n);
+                auto bySite = [](std::map<std::string, std::vector<std::string>> const& samples)
+                {
+                    std::string text;
+                    for (auto const& [capital, list] : samples)
+                    {
+                        text += (text.empty() ? "" : " / ") + (capital.empty() ? std::string("outside a capital") : capital) + ":";
+                        for (std::string const& sample : list)
+                            text += " " + sample + ";";
+                    }
+                    return text;
+                };
+                if (!reasons.empty())
+                    ways += " | no way: " + reasons + " | samples: " + bySite(pathCounters.noWaySamples);
+                std::string notReached;
+                for (auto const& [capital, n] : pathCounters.notReached)
+                    notReached += (notReached.empty() ? "" : ", ") +
+                                  (capital.empty() ? std::string("outside a capital") : capital) + " " + std::to_string(n);
+                if (!notReached.empty())
+                    ways += " | not reached: " + notReached + " | samples: " + bySite(pathCounters.notReachedSamples);
+                pathCounters.noWayReasons.clear();
+                pathCounters.noWaySamples.clear();
+                pathCounters.notReached.clear();
+                pathCounters.notReachedSamples.clear();
+            }
+            LOG_INFO("playerbots.loot", "auction visits (last hour): auctioneers given up by capital: {}",
+                     ways.empty() ? "none" : ways);
+            LOG_INFO("playerbots.loot", "auction visits (last hour): {} wanders to an auctioneer left for another activity"
+                     " ({}); shopping checks {}: {} too poor (median budget {} copper, median threshold {} copper), "
+                     "{} visited within the interval",
+                     total, left.empty() ? "none" : left, pathCounters.shopChecks.exchange(0),
+                     pathCounters.shopPoor.exchange(0), median(budgets), median(thresholds),
+                     pathCounters.shopInterval.exchange(0));
+        }
+        else
+        {
+            for (auto& n : pathCounters.leftFor)
+                n = 0;
+            pathCounters.shopChecks = pathCounters.shopPoor = pathCounters.shopInterval = 0;
+        }
+        pathCounters.gone = pathCounters.busy = pathCounters.noAi = pathCounters.outOfReach = pathCounters.ran = 0;
+        pathCounters.outOfReachYards = 0.0;
+        if (settings.buyLog)
+            for (uint32 kind = 0; kind < 2; ++kind)
+                LOG_INFO("playerbots.loot", "auction buys (last hour, {} bots): {} visits, {} without budget, {} with "
+                         "nothing worth it, {} upgrades and {} bags bought for {}c", kind ? "self-found" : "classic",
+                         buyCounters.visits[kind], buyCounters.noBudget[kind], buyCounters.nothing[kind],
+                         buyCounters.upgrades[kind], buyCounters.bags[kind], buyCounters.spent[kind]);
+        buyCounters = BuyCounters();
+        if (settings.buyLog && (settings.remoteBuy || settings.remoteSell))
+            LOG_INFO("playerbots.loot", "remote trade (last hour): {} buy turns, {} bought for {}c (gain {:.1f}); {} sell "
+                     "turns, {} listed for {}c, {} kept for the vendor; {} passes, {:.2f} ms each on average, {:.2f} ms "
+                     "at most", remoteCounters.buyTurns, remoteCounters.bought, remoteCounters.spent,
+                     remoteCounters.gain, remoteCounters.sellTurns, remoteCounters.listed, remoteCounters.listedValue,
+                     remoteCounters.vendorBetter, remoteCounters.passes,
+                     remoteCounters.passes ? remoteCounters.passUs / 1000.0 / remoteCounters.passes : 0.0,
+                     remoteCounters.maxPassUs / 1000.0);
+        remoteCounters = RemoteCounters();
     }
 
     // The price a bot asks for one item: the market's learned price, else the house's, else a vendor-based guess.
@@ -184,9 +388,71 @@ namespace
 
     // Lists up to ListPerVisit items the bot's item usage marks for the auction house, through the core's packet.
     // crafted: a piece the artisan just made, listed first; held: a piece offered in Trade, kept for its buyer.
-    uint32 ListLoot(Player* bot, PlayerbotAI* botAI, ObjectGuid auctioneer, Creature* npc, Traits const& traits,
-                    Item* crafted, Item* held)
+    // 3.2 (RemoteSell): what the core's CMSG_AUCTION_SELL_ITEM does for one whole stack (Handlers/AuctionHouseHandler
+    // .cpp, the same on both cores), without the auctioneer: deposit, auction, item moved to the house, saved together.
+    bool PostDirect(Player* bot, AuctionHouseObject* house, AuctionHouseEntry const* entry, AuctionHouseId houseId,
+                    Item* item, uint64 bid, uint64 buyout)
     {
+        if (!bid || bid > MAX_MONEY_AMOUNT || buyout > MAX_MONEY_AMOUNT)
+            return false;
+        if (sAuctionMgr->GetAItem(item->GetGUID()) || !item->CanBeTraded() || item->IsNotEmptyBag() ||
+            item->GetTemplate()->HasFlag(ITEM_FLAG_CONJURED) || item->GetUInt32Value(ITEM_FIELD_DURATION))
+            return false;
+        uint32 const etime = settings.durationMinutes * MINUTE;
+        uint32 const deposit = sAuctionMgr->GetAuctionDeposit(entry, etime, item, item->GetCount());
+        if (!bot->HasEnoughMoney(deposit))
+            return false;
+        bot->ModifyMoney(-int32(deposit));
+
+        AuctionEntry* auction = new AuctionEntry;
+        auction->Id = sObjectMgr->GenerateAuctionID();
+        auction->houseId = houseId;
+        auction->item_guid = item->GetGUID();
+        auction->item_template = item->GetEntry();
+        auction->itemCount = item->GetCount();
+        auction->owner = bot->GetGUID();
+        auction->startbid = uint32(bid);
+        auction->bidder = ObjectGuid::Empty;
+        auction->bid = 0;
+        auction->buyout = uint32(buyout);
+        auction->expire_time = GameTime::GetGameTime().count() + uint32(etime * sWorld->getRate(RATE_AUCTION_TIME));
+        auction->deposit = deposit;
+        auction->auctionHouseEntry = entry;
+        sAuctionMgr->AddAItem(item);
+        house->AddAuction(auction);
+        bot->MoveItemFromInventory(item->GetBagSlot(), item->GetSlot(), true);
+
+        CharacterDatabaseTransaction trans = CharacterDatabase.BeginTransaction();
+        item->DeleteFromInventoryDB(trans);
+        item->SaveToDB(trans);
+        auction->SaveToDB(trans);
+        bot->SaveInventoryAndGoldToDB(trans);
+        CharacterDatabase.CommitTransaction(trans);
+        return true;
+    }
+
+    // Where a bot away from any auctioneer trades: its faction's house (the neutral one on a realm that joins them).
+    struct RemoteHouse
+    {
+        AuctionHouseObject* house = nullptr;
+        AuctionHouseEntry const* entry = nullptr;
+        AuctionHouseId id = AuctionHouseId::Neutral;
+    };
+    RemoteHouse RemoteHouseOf(Player* bot)
+    {
+        RemoteHouse remote;
+        remote.id = sWorld->getBoolConfig(CONFIG_ALLOW_TWO_SIDE_INTERACTION_AUCTION) ? AuctionHouseId::Neutral
+                  : bot->GetTeamId() == TEAM_ALLIANCE                           ? AuctionHouseId::Alliance
+                                                                                : AuctionHouseId::Horde;
+        remote.house = sAuctionMgr->GetAuctionsMapByHouseId(remote.id);
+        remote.entry = AuctionHouseMgr::GetAuctionHouseEntryFromHouse(remote.id);
+        return remote;
+    }
+
+    uint32 ListLoot(Player* bot, PlayerbotAI* botAI, ObjectGuid auctioneer, Creature* npc, Traits const& traits,
+                    Item* crafted, Item* held, RemoteHouse const* remote = nullptr)
+    {
+        uint32 const maxItems = remote ? settings.remoteSellMax : settings.listPerVisit;
         std::vector<Item*> loot;
         std::unordered_set<Item*> surplusItems;  // 3.1.4: stock materials beyond the stock, logged when listed
         std::unordered_set<uint32> const stock = Materials::StockReagents(bot);
@@ -194,7 +460,7 @@ namespace
         // Auctions per item already in this house: a bot adds one only while there are fewer than MaxPerItem of it
         // (MaxPerUpgradeKit for an upgrade kit).
         std::unordered_map<uint32, uint32> listed;
-        if (AuctionHouseObject* house = npc ? sAuctionMgr->GetAuctionsMap(npc->GetFaction()) : nullptr)
+        if (AuctionHouseObject* house = remote ? remote->house : npc ? sAuctionMgr->GetAuctionsMap(npc->GetFaction()) : nullptr)
             for (auto const& [id, auction] : house->GetAuctions())
                 if (auction)
                     ++listed[auction->item_template];
@@ -215,7 +481,7 @@ namespace
         {
             if (item == crafted || item == held)
                 return;
-            if (loot.size() >= settings.listPerVisit || item->IsSoulBound() || item->IsInTrade())
+            if (loot.size() >= maxItems || item->IsSoulBound() || item->IsInTrade())
                 return;
             // Never its ammunition, the consumables it uses, a vendor good or an item CoA does not have.
             if (!Sellable::BotMayList(item->GetTemplate(), false))
@@ -244,6 +510,22 @@ namespace
                 CoaEconomyRules::BotListingPrice(ReferencePrice(item->GetTemplate()), traits.patience, item->GetCount()));
             uint64 const bid = std::max<uint64>(1, buyout * 3 / 4);
 
+            if (remote)
+            {
+                // From afar only what the house pays better than the vendor, after its cut.
+                uint64 const vendor = uint64(item->GetTemplate()->SellPrice) * item->GetCount();
+                if (!CoaEconomyRules::RemoteSellBeatsVendor(buyout, remote->entry->cutPercent, vendor))
+                {
+                    ++remoteCounters.vendorBetter;
+                    continue;
+                }
+                if (PostDirect(bot, remote->house, remote->entry, remote->id, item, bid, buyout))
+                {
+                    ++remoteCounters.listed;
+                    remoteCounters.listedValue += buyout;
+                }
+                continue;
+            }
             WorldPacket packet(CMSG_AUCTION_SELL_ITEM);
             packet << auctioneer << uint32(1) << item->GetGUID() << uint32(item->GetCount())
                    << uint32(bid) << uint32(buyout) << uint32(settings.durationMinutes);
@@ -265,14 +547,50 @@ namespace
 
     // One purchase per visit: the best upgrade it can afford (CoA Combat's gear score), else a bag for an empty bag
     // slot. Buyout only, so the item comes at once by mail; it is collected at the next visit.
-    bool BuyOne(Player* bot, ObjectGuid auctioneer, Creature* npc, Traits const& traits)
+    // 3.2 (RemoteBuy): what the core's CMSG_AUCTION_PLACE_BID does for a buyout (Handlers/AuctionHouseHandler.cpp, the
+    // same on both cores), without the auctioneer: the seller is paid and the item comes by mail, at once.
+    bool BuyoutDirect(Player* bot, AuctionHouseObject* house, AuctionEntry* auction)
+    {
+        if (!sScriptMgr->OnPlayerCanPlaceAuctionBid(bot, auction) || auction->owner == bot->GetGUID() ||
+            sCharacterCache->GetCharacterAccountIdByGuid(auction->owner) == bot->GetSession()->GetAccountId() ||
+            !auction->buyout || !bot->HasEnoughMoney(auction->buyout))
+            return false;
+        CharacterDatabaseTransaction trans = CharacterDatabase.BeginTransaction();
+        if (bot->GetGUID() == auction->bidder)
+            bot->ModifyMoney(-int32(auction->buyout - auction->bid));
+        else
+        {
+            bot->ModifyMoney(-int32(auction->buyout));
+            if (auction->bidder)
+                sAuctionMgr->SendAuctionOutbiddedMail(auction, auction->buyout, bot, trans);
+        }
+        auction->bidder = bot->GetGUID();
+        auction->bid = auction->buyout;
+        sAuctionMgr->SendAuctionSalePendingMail(auction, trans);
+        sAuctionMgr->SendAuctionSuccessfulMail(auction, trans);
+        sAuctionMgr->SendAuctionWonMail(auction, trans);
+        sScriptMgr->OnAuctionSuccessful(house, auction);
+        auction->DeleteFromDB(trans);
+        sAuctionMgr->RemoveAItem(auction->item_guid);
+        house->RemoveAuction(auction);
+        bot->SaveInventoryAndGoldToDB(trans);
+        CharacterDatabase.CommitTransaction(trans);
+        return true;
+    }
+
+    bool BuyOne(Player* bot, ObjectGuid auctioneer, AuctionHouseObject* house, Traits const& traits, bool remote = false)
     {
         // A thrifty bot spends down to 30 % of its share.
         uint64 const budget = CoaEconomyRules::BotBudget(bot->GetMoney(), settings.maxBudgetPercent, traits.thrift);
+        uint32 const kind = PlayerbotFactory::SelfFoundAt(bot->GetLevel()) || PlayerbotFactory::IsSelfFoundBot(bot) ? 1 : 0;
+        if (!remote)
+            ++buyCounters.visits[kind];
         if (!budget)
+        {
+            if (!remote)
+                ++buyCounters.noBudget[kind];
             return false;
-
-        AuctionHouseObject* house = sAuctionMgr->GetAuctionsMap(npc->GetFaction());
+        }
         if (!house)
             return false;
 
@@ -314,8 +632,41 @@ namespace
         }
 
         AuctionEntry const* pick = best ? best : bestBag;
+        if (remote)
+        {
+            // From afar: an upgrade only, worn at once (a bag waits for a visit).
+            if (!best)
+                return false;
+            ObjectGuid const itemGuid = best->item_guid;
+            uint32 const entry = best->item_template, price = best->buyout;
+            if (!BuyoutDirect(bot, house, const_cast<AuctionEntry*>(best)))
+                return false;
+            ++remoteCounters.bought;
+            remoteCounters.spent += price;
+            remoteCounters.gain += bestGain;
+            CollectAuctionMail(bot);
+            Item* item = bot->GetItemByGuid(itemGuid);
+            PlayerbotAI* botAI = GET_PLAYERBOT_AI(bot);
+            uint8 const slot = item && botAI ? botAI->FindEquipSlot(item->GetTemplate(), NULL_SLOT, true) : uint8(NULL_SLOT);
+            if (slot != NULL_SLOT)
+                CoaMissionMgr::EquipItem(bot, item, slot);
+            if (settings.buyLog)
+                LOG_INFO("playerbots.loot", "remote buy: {} (level {}, {}, budget {}c) bought {} for {}c (gain {:.1f}){}",
+                         bot->GetName(), bot->GetLevel(), kind ? "self-found" : "classic", budget, entry, price,
+                         bestGain, slot != NULL_SLOT ? ", worn" : (item ? ", kept" : ", in the mail"));
+            return true;
+        }
         if (!pick)
+        {
+            ++buyCounters.nothing[kind];
             return false;
+        }
+        ++(best ? buyCounters.upgrades[kind] : buyCounters.bags[kind]);
+        buyCounters.spent[kind] += pick->buyout;
+        if (settings.buyLog)
+            LOG_INFO("playerbots.loot", "auction buy: {} (level {}, {}, {}c, budget {}c) bought {} for {}c ({}, gain {:.1f})",
+                     bot->GetName(), bot->GetLevel(), kind ? "self-found" : "classic", bot->GetMoney(), budget,
+                     pick->item_template, pick->buyout, best ? "an upgrade" : "a bag", best ? bestGain : 0.0f);
 
         WorldPacket packet(CMSG_AUCTION_PLACE_BID);
         packet << auctioneer << uint32(pick->Id) << uint32(pick->buyout);
@@ -326,15 +677,32 @@ namespace
     void RunVisit(Visit const& visit)
     {
         Player* bot = ObjectAccessor::FindPlayer(visit.bot);
-        if (!bot || !bot->IsInWorld() || !bot->IsAlive() || bot->IsInCombat())
+        if (!bot || !bot->IsInWorld())
+        {
+            ++pathCounters.gone;
             return;
+        }
+        if (!bot->IsAlive() || bot->IsInCombat())
+        {
+            ++pathCounters.busy;
+            return;
+        }
         PlayerbotAI* botAI = GET_PLAYERBOT_AI(bot);
         if (!botAI)
+        {
+            ++pathCounters.noAi;
             return;
+        }
         // The core's handlers check the range again; a bot that walked off simply does nothing.
         Creature* npc = bot->GetNPCIfCanInteractWith(visit.auctioneer, UNIT_NPC_FLAG_AUCTIONEER);
         if (!npc)
+        {
+            ++pathCounters.outOfReach;
+            if (Creature* there = ObjectAccessor::GetCreature(*bot, visit.auctioneer))
+                pathCounters.outOfReachYards += bot->GetDistance(there);
             return;
+        }
+        ++pathCounters.ran;
 
         Traits const traits = TraitsFor(bot->GetGUID());
         LOG_DEBUG("playerbots.coa", "CoaEconomy: {} visits the auctioneer", bot->GetName());
@@ -344,6 +712,13 @@ namespace
         Materials::Process(bot, botAI);
         // Guild stock: intermediates from the bot's own materials, and the extra full stacks to its bank.
         Materials::TendGuildStock(bot);
+        // 3.2: its hourly study (craft or enchant for itself, missing reagents bought), when due; else, with
+        // SelfStudy off, what it can make with the reagents it holds.
+        if (!Artisans::StudyIfDue(bot, botAI))
+        {
+            Artisans::CraftUpgradeForSelf(bot, botAI);
+            Artisans::EnchantForSelf(bot);
+        }
 
         // An artisan makes a piece worth more than its materials and puts it up with its loot.
         Item* crafted = nullptr;
@@ -358,13 +733,84 @@ namespace
 
         ListLoot(bot, botAI, visit.auctioneer, npc, traits, crafted, held);
         // One purchase per visit: an upgrade or a bag, else a cheap lot for the artisan's stock.
-        if (!BuyOne(bot, visit.auctioneer, npc, traits))
+        if (!BuyOne(bot, visit.auctioneer, sAuctionMgr->GetAuctionsMap(npc->GetFaction()), traits))
             Materials::BuyStock(bot, visit.auctioneer, npc,
                 CoaEconomyRules::BotBudget(bot->GetMoney(), settings.maxBudgetPercent, traits.thrift));
     }
 
-    void ProcessQueue()
+    // A bot's turn: false until its first turn (spread over the interval) or its next one comes.
+    bool RemoteDue(std::unordered_map<ObjectGuid::LowType, uint32>& next, ObjectGuid guid, uint32 now,
+                   uint32 interval, uint32 salt)
     {
+        auto it = next.find(guid.GetCounter());
+        if (it == next.end())
+        {
+            next[guid.GetCounter()] = CoaEconomyRules::FirstRemoteTurn(now, Hash01(guid, salt), interval);
+            return false;
+        }
+        if (now < it->second)
+            return false;
+        it->second = now + interval;
+        return true;
+    }
+
+    // 3.2: every 30 s, at most RemoteTrade.MaxBotsPerPass random bots whose turn has come buy (RemoteBuy) or list
+    // (RemoteSell) at their faction's house from where they are; never a player's bot or alt, never in combat, in a
+    // dungeon or a battleground. A bot left out by the cap keeps its turn for the next pass.
+    void RemoteTrade(uint32 diff)
+    {
+        if (!settings.remoteBuy && !settings.remoteSell)
+            return;
+        remoteTimer += diff;
+        if (remoteTimer < 30 * IN_MILLISECONDS)
+            return;
+        remoteTimer = 0;
+        auto const start = std::chrono::steady_clock::now();
+        uint32 const now = uint32(GameTime::GetGameTime().count());
+        uint32 served = 0;
+        for (auto const& [guid, bot] : ObjectAccessor::GetPlayers())
+        {
+            if (served >= settings.remoteMaxBots)
+                break;
+            if (!bot || !bot->IsInWorld() || bot->IsBeingTeleported() || bot->IsInFlight() || !bot->IsAlive() ||
+                bot->IsInCombat() || bot->GetMap()->Instanceable() || !sRandomPlayerbotMgr.IsRandomBot(bot))
+                continue;
+            PlayerbotAI* botAI = GET_PLAYERBOT_AI(bot);
+            if (!botAI || !botAI->IsBotAI())
+                continue;
+            bool const buy = settings.remoteBuy && RemoteDue(nextRemoteBuy, bot->GetGUID(), now, settings.remoteBuySeconds, 3);
+            bool const sell = settings.remoteSell && !sCoaMissionMgr.IsOnMission(bot) &&
+                              RemoteDue(nextRemoteSell, bot->GetGUID(), now, settings.remoteSellSeconds, 4);
+            if (!buy && !sell)
+                continue;
+            RemoteHouse const remote = RemoteHouseOf(bot);
+            if (!remote.house || !remote.entry)
+                continue;
+            ++served;
+            Traits const traits = TraitsFor(bot->GetGUID());
+            CollectAuctionMail(bot);
+            if (sell)
+            {
+                ++remoteCounters.sellTurns;
+                ListLoot(bot, botAI, ObjectGuid::Empty, nullptr, traits, nullptr, nullptr, &remote);
+            }
+            if (buy)
+            {
+                ++remoteCounters.buyTurns;
+                BuyOne(bot, ObjectGuid::Empty, remote.house, traits, true);
+            }
+        }
+        uint64 const us = uint64(std::chrono::duration_cast<std::chrono::microseconds>(
+            std::chrono::steady_clock::now() - start).count());
+        ++remoteCounters.passes;
+        remoteCounters.passUs += us;
+        remoteCounters.maxPassUs = std::max(remoteCounters.maxPassUs, us);
+    }
+
+    void ProcessQueue(uint32 diff)
+    {
+        BuySummary();
+        RemoteTrade(diff);
         for (uint32 i = 0; i < settings.visitsPerTick; ++i)
         {
             Visit visit;
@@ -453,7 +899,7 @@ namespace
         void OnAfterConfigLoad(bool /*reload*/) override { LoadSettings(); }
         void OnStartup() override { TakeBackForbiddenListings(); }
         // World thread, between two map updates: no bot is being updated meanwhile.
-        void OnUpdate(uint32 /*diff*/) override { ProcessQueue(); }
+        void OnUpdate(uint32 diff) override { ProcessQueue(diff); }
     };
 }
 
@@ -483,15 +929,145 @@ bool RequestVisit(Player* bot, ObjectGuid auctioneer)
     if (!settings.enabled || !bot)
         return false;
     uint32 const now = uint32(GameTime::GetGameTime().count());
+    ++pathCounters.requests;
     std::lock_guard<std::mutex> guard(queueLock);
     uint32& last = lastVisit[bot->GetGUID().GetCounter()];
     if (last && now < last + settings.cooldownSeconds)
+    {
+        ++pathCounters.cooldown;
         return false;
+    }
     if (queue.size() >= MaxQueue)
+    {
+        ++pathCounters.queueFull;
         return false;
+    }
     last = now;
     queue.push_back({bot->GetGUID(), auctioneer});
+    ++pathCounters.queued;
     return true;
+}
+
+void NoteWay(Way way)
+{
+    if (!settings.buyLog)
+        return;
+    switch (way)
+    {
+        case Way::Sought: ++pathCounters.sought; break;
+        case Way::Picked: ++pathCounters.picked; break;
+        case Way::Station: ++pathCounters.station; break;
+        case Way::GivenUp: ++pathCounters.givenUp; break;
+        case Way::TimedOut: ++pathCounters.timedOut; break;
+    }
+}
+
+void NoteLeftFor(int nextStatus)
+{
+    if (!settings.buyLog)
+        return;
+    uint32 const slot = nextStatus >= 0 && nextStatus <= 10 ? uint32(nextStatus) : 11;
+    ++pathCounters.leftFor[slot];
+}
+
+void NoteGiveUp(int why, char const* capital)
+{
+    if (!settings.buyLog || why < 1 || why > 3)
+        return;
+    std::lock_guard<std::mutex> guard(pathCounters.giveUpLock);
+    if (pathCounters.giveUps.size() < 64 || pathCounters.giveUps.count(capital ? capital : ""))
+        ++pathCounters.giveUps[capital ? capital : ""][why - 1];
+}
+
+constexpr size_t SITE_SAMPLES = 8;  // per capital and hour
+constexpr size_t SITES = 64;
+
+void NoteNoWay(char const* capital, char const* reason, uint32 entry, float x, float y, float z, float gap)
+{
+    if (!settings.buyLog)
+        return;
+    std::lock_guard<std::mutex> guard(pathCounters.giveUpLock);
+    std::string const why = reason ? reason : "";
+    std::string const site = capital ? capital : "";
+    ++pathCounters.noWayReasons[why];
+    if (pathCounters.noWaySamples.size() >= SITES && !pathCounters.noWaySamples.count(site))
+        return;
+    std::vector<std::string>& samples = pathCounters.noWaySamples[site];
+    if (samples.size() < SITE_SAMPLES)
+    {
+        char sample[160];
+        std::snprintf(sample, sizeof(sample), "entry %u from %.1f %.1f %.1f, %s (end %.1f yd off)", entry, x, y, z,
+                      why.c_str(), gap);
+        samples.emplace_back(sample);
+    }
+}
+
+void NoteNotReached(char const* capital, uint32 entry, float x, float y, float z, float toNpc, bool moving,
+                    uint32 refusals)
+{
+    if (!settings.buyLog)
+        return;
+    std::lock_guard<std::mutex> guard(pathCounters.giveUpLock);
+    std::string const site = capital ? capital : "";
+    if (pathCounters.notReached.size() >= SITES && !pathCounters.notReached.count(site))
+        return;
+    ++pathCounters.notReached[site];
+    std::vector<std::string>& samples = pathCounters.notReachedSamples[site];
+    if (samples.size() < SITE_SAMPLES)
+    {
+        char sample[160];
+        std::snprintf(sample, sizeof(sample), "entry %u from %.1f %.1f %.1f, %.1f yd off, %s, %u refused", entry, x,
+                      y, z, toNpc, moving ? "moving" : "still", refusals);
+        samples.emplace_back(sample);
+    }
+}
+
+void NoteShopNo(ShopNo why)
+{
+    if (!settings.buyLog)
+        return;
+    ++(why == ShopNo::Poor ? pathCounters.shopPoor : pathCounters.shopInterval);
+}
+
+bool WantsToShop(Player* bot)
+{
+    if (!settings.enabled || !settings.shopEnable || !bot)
+        return false;
+    if (settings.buyLog)
+        ++pathCounters.shopChecks;
+    uint64 const budget = CoaEconomyRules::BotBudget(bot->GetMoney(), settings.maxBudgetPercent, TraitsFor(bot->GetGUID()).thrift);
+    if (!CoaEconomyRules::WantsToShop(budget, bot->GetLevel(), settings.shopCopperPerLevel))
+    {
+        NoteShopNo(ShopNo::Poor);
+        if (settings.buyLog)
+        {
+            constexpr size_t POOR_SAMPLES = 4096;
+            std::lock_guard<std::mutex> guard(pathCounters.poorLock);
+            if (pathCounters.poor.size() < POOR_SAMPLES)
+                pathCounters.poor.emplace_back(budget,
+                                               CoaEconomyRules::ShopThreshold(bot->GetLevel(), settings.shopCopperPerLevel));
+        }
+        return false;
+    }
+    uint32 const now = uint32(GameTime::GetGameTime().count());
+    std::lock_guard<std::mutex> guard(queueLock);
+    auto found = lastVisit.find(bot->GetGUID().GetCounter());
+    if (!CoaEconomyRules::ShopDue(now, found == lastVisit.end() ? 0 : found->second, settings.shopIntervalSeconds))
+    {
+        NoteShopNo(ShopNo::Interval);
+        return false;
+    }
+    ++pathCounters.shopWants;
+    return true;
+}
+
+bool HasPendingVisit(ObjectGuid bot)
+{
+    std::lock_guard<std::mutex> guard(queueLock);
+    for (Visit const& visit : queue)
+        if (visit.bot == bot)
+            return true;
+    return false;
 }
 
 } // namespace CoaEconomy::BotAuctions

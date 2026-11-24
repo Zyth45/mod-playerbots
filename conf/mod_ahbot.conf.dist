@@ -939,6 +939,9 @@ AuctionHouseBot.PriceMultiplier.CategoryPermanent.QualityHeirloom   = 1.0
 #        is no custom limit and it will stack as large as the items allow. Note
 #        that this will not let you set a maximum stack size larger than the
 #        core server or item max stack size.
+#        3.2: CoA items stack to 1000, so a full stack is no listing a player makes (980 Elementium
+#        Shards in one lot). The defaults are the stacks of the original game: 20, and 200 for arrows and bullets.
+#        The stocked crafting materials follow the same cap.
 ###############################################################################
 
 AuctionHouseBot.ListingStack.RandomRatio.Consumable = 50
@@ -973,21 +976,21 @@ AuctionHouseBot.ListingStack.RandomStackIncrement.Key = 1
 AuctionHouseBot.ListingStack.RandomStackIncrement.Misc = 1
 AuctionHouseBot.ListingStack.RandomStackIncrement.Glyph = 1
 
-AuctionHouseBot.ListingStack.MaxStackSize.Consumable = 0
+AuctionHouseBot.ListingStack.MaxStackSize.Consumable = 20
 AuctionHouseBot.ListingStack.MaxStackSize.Container = 0
 AuctionHouseBot.ListingStack.MaxStackSize.Weapon = 0
-AuctionHouseBot.ListingStack.MaxStackSize.Gem = 0
+AuctionHouseBot.ListingStack.MaxStackSize.Gem = 20
 AuctionHouseBot.ListingStack.MaxStackSize.Armor = 0
-AuctionHouseBot.ListingStack.MaxStackSize.Reagent = 0
-AuctionHouseBot.ListingStack.MaxStackSize.Projectile = 0
-AuctionHouseBot.ListingStack.MaxStackSize.TradeGood = 0
-AuctionHouseBot.ListingStack.MaxStackSize.Generic = 0
+AuctionHouseBot.ListingStack.MaxStackSize.Reagent = 20
+AuctionHouseBot.ListingStack.MaxStackSize.Projectile = 200
+AuctionHouseBot.ListingStack.MaxStackSize.TradeGood = 20
+AuctionHouseBot.ListingStack.MaxStackSize.Generic = 20
 AuctionHouseBot.ListingStack.MaxStackSize.Recipe = 0
 AuctionHouseBot.ListingStack.MaxStackSize.Quiver = 0
-AuctionHouseBot.ListingStack.MaxStackSize.Quest = 0
-AuctionHouseBot.ListingStack.MaxStackSize.Key = 0
-AuctionHouseBot.ListingStack.MaxStackSize.Misc = 0
-AuctionHouseBot.ListingStack.MaxStackSize.Glyph = 0
+AuctionHouseBot.ListingStack.MaxStackSize.Quest = 20
+AuctionHouseBot.ListingStack.MaxStackSize.Key = 20
+AuctionHouseBot.ListingStack.MaxStackSize.Misc = 20
+AuctionHouseBot.ListingStack.MaxStackSize.Glyph = 20
 
 ###############################################################################
 #    AuctionHouseBot.ListedItemLevelRestrict.Enabled

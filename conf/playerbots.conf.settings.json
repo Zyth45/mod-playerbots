@@ -1,11 +1,11 @@
 {
  "format": 1,
  "module": "SquidBots (mod-playerbots for Conquest of Azeroth)",
- "version": "3.1.6",
- "tag": "v3.1.6",
+ "version": "3.2.1",
+ "tag": "v3.2.1",
  "commit": "6bd23989",
  "file": "configs/modules/playerbots.conf",
- "notes": "The options a server owner usually changes, not all of playerbots.conf.dist. default = value in playerbots.conf.dist; default_if_missing = what the code uses when the key is absent; min/max where the code or the meaning bounds the value; coa = option added for Conquest of Azeroth; new_in / changed_in compare with 3.1.5. Every option needs a world server restart, except those whose description in the .dist says \".reload config\". commit = the commit the options were read from; the build itself is identified by its tag.",
+ "notes": "The options a server owner usually changes, not all of playerbots.conf.dist. default = value in playerbots.conf.dist; default_if_missing = what the code uses when the key is absent; min/max where the code or the meaning bounds the value; coa = option added for Conquest of Azeroth; new_in / changed_in compare with 3.2. Every option needs a world server restart, except those whose description in the .dist says \".reload config\". commit = the commit the options were read from; the build itself is identified by its tag.",
  "groups": {
   "population": "Population",
   "party": "Groups and players' bots",
@@ -239,6 +239,26 @@
    "type": "int",
    "default": 30,
    "coa": true
+  },
+  {
+   "key": "AiPlayerbot.CoaSelfFound.Rolls",
+   "group": "party",
+   "title": "Self-found bots roll need on upgrades",
+   "description": "Self-found bots roll need in dungeons on what is an upgrade for them, greed on the rest; the dungeon simulation gives its loot to the member it upgrades.",
+   "type": "bool",
+   "default": true,
+   "coa": true,
+   "new_in": "3.2"
+  },
+  {
+   "key": "AiPlayerbot.CoaSelfFound.RollLog",
+   "group": "party",
+   "title": "Log self-found rolls",
+   "description": "Diagnostic: each roll of a self-found bot in BotLoot.log.",
+   "type": "bool",
+   "default": false,
+   "coa": true,
+   "new_in": "3.2"
   },
   {
    "key": "AiPlayerbot.CoaSpecRotations",
@@ -645,6 +665,69 @@
    "coa": true
   },
   {
+   "key": "AiPlayerbot.Coa.HideLoginAchievementsMinutes",
+   "group": "chat",
+   "title": "Hide achievements of a bot coming online (minutes)",
+   "description": "The achievements a random bot earns in its first minutes online stay earned but are not announced (guild, nearby, realm). Never a real player or a player's alts. 0: every achievement announced.",
+   "type": "int",
+   "default": 3,
+   "coa": true,
+   "min": 0,
+   "new_in": "3.2"
+  },
+  {
+   "key": "AiPlayerbot.Coa.AchievementAnnounceGapSeconds",
+   "group": "chat",
+   "title": "One bot achievement announced per (seconds)",
+   "description": "A random bot announces at most one achievement in this many seconds; the others are earned without a word. Simulated battleground and dungeon credits are never announced. Never a real player or a player's alts. 0: every achievement announced.",
+   "type": "int",
+   "default": 60,
+   "coa": true,
+   "min": 0,
+   "new_in": "3.2"
+  },
+  {
+   "key": "AiPlayerbot.Coa.AchievementAnnounceRealmGapSeconds",
+   "group": "chat",
+   "title": "One bot achievement announced realm-wide per (seconds)",
+   "description": "On top of the limit per bot: at most one random bot achievement announced in the whole realm in this many seconds (a Server First counts too). Achievements are always earned, only the text is held. Never a real player or a player's alts. 0: no realm limit.",
+   "type": "int",
+   "default": 60,
+   "coa": true,
+   "min": 0,
+   "new_in": "3.2"
+  },
+  {
+   "key": "AiPlayerbot.CoaLfgRolePriority",
+   "group": "party",
+   "title": "Missing dungeon finder role first",
+   "description": "While a queued party of real players misses a tank or a healer, a free bot of that role queues within seconds instead of at its random roll.",
+   "type": "bool",
+   "default": true,
+   "coa": true,
+   "new_in": "3.2.1"
+  },
+  {
+   "key": "AiPlayerbot.Coa.HideReplayedAchievements",
+   "group": "chat",
+   "title": "Hide level achievements earned again after a restart",
+   "description": "The server keeps no bot achievement, so after a restart a bot earns them again at its first level-up. A level achievement below the bot's level is then earned without a word. Never a real player or a player's alts.",
+   "type": "bool",
+   "default": true,
+   "coa": true,
+   "new_in": "3.2.1"
+  },
+  {
+   "key": "AiPlayerbot.Coa.AchievementAnnounceLog",
+   "group": "chat",
+   "title": "Log bot achievement announces",
+   "description": "Diagnostic: every hour, the random bot achievements shown and muted and why, in CoaBots.log.",
+   "type": "bool",
+   "default": false,
+   "coa": true,
+   "new_in": "3.2.1"
+  },
+  {
    "key": "AiPlayerbot.CoaStatusFile",
    "group": "other",
    "title": "Dashboard status file",
@@ -762,6 +845,47 @@
    "default": 5,
    "min": 1,
    "coa": true
+  },
+  {
+   "key": "AiPlayerbot.CoaWhy.Enable",
+   "group": "other",
+   "title": ".squidbots why",
+   "description": "\".squidbots why [name]\" on a selected bot tells what it is doing (status, destination, path, last move, how long it has stood still) in the chat and in the why file, to send to the SquidBots team.",
+   "type": "bool",
+   "default": true,
+   "coa": true,
+   "new_in": "3.2"
+  },
+  {
+   "key": "AiPlayerbot.CoaWhy.File",
+   "group": "other",
+   "title": "Why file",
+   "description": "The file .squidbots why writes to, in the server's logs folder.",
+   "type": "string",
+   "default": "squidbots_why.log",
+   "coa": true,
+   "new_in": "3.2"
+  },
+  {
+   "key": "AiPlayerbot.CoaWhy.GmOnly",
+   "group": "other",
+   "title": ".squidbots why for game masters only",
+   "description": "1: only game master accounts may use .squidbots why; the others are told so.",
+   "type": "bool",
+   "default": false,
+   "coa": true,
+   "new_in": "3.2"
+  },
+  {
+   "key": "AiPlayerbot.CoaWhy.Cooldown",
+   "group": "other",
+   "title": ".squidbots why cooldown (seconds)",
+   "description": "Seconds between two .squidbots why of one player.",
+   "type": "int",
+   "default": 5,
+   "coa": true,
+   "min": 0,
+   "new_in": "3.2"
   },
   {
    "key": "AiPlayerbot.CoaLive.Enable",
@@ -933,6 +1057,227 @@
    "type": "int",
    "default": 1,
    "coa": true
+  },
+  {
+   "key": "AiPlayerbot.CoaEconomy.CraftForSelf.Enable",
+   "group": "economy",
+   "title": "Bots craft upgrades for themselves",
+   "description": "A bot with a profession makes for itself the best upgrade among its recipes and wears it. Self-found and classic bots alike.",
+   "type": "bool",
+   "default": true,
+   "coa": true,
+   "new_in": "3.2"
+  },
+  {
+   "key": "AiPlayerbot.CoaEconomy.CraftForSelf.Log",
+   "group": "economy",
+   "title": "Log crafts for self",
+   "description": "Diagnostic: each piece a bot makes for itself, in BotLoot.log.",
+   "type": "bool",
+   "default": false,
+   "coa": true,
+   "new_in": "3.2"
+  },
+  {
+   "key": "AiPlayerbot.CoaEconomy.EnchantForSelf.Enable",
+   "group": "economy",
+   "title": "Enchanter bots enchant their own gear",
+   "description": "An enchanter bot puts on a piece it wears the best permanent enchantment it knows, never replacing a better or equal one.",
+   "type": "bool",
+   "default": true,
+   "coa": true,
+   "new_in": "3.2"
+  },
+  {
+   "key": "AiPlayerbot.CoaEconomy.EnchantForSelf.Log",
+   "group": "economy",
+   "title": "Log enchantments for self",
+   "description": "Diagnostic: each enchantment a bot puts on its own gear, in BotLoot.log.",
+   "type": "bool",
+   "default": false,
+   "coa": true,
+   "new_in": "3.2"
+  },
+  {
+   "key": "AiPlayerbot.CoaEconomy.SelfStudy.Enable",
+   "group": "economy",
+   "title": "Hourly craft study in a capital",
+   "description": "Once an hour in a capital, a random bot studies what it could craft or enchant for itself.",
+   "type": "bool",
+   "default": true,
+   "coa": true,
+   "new_in": "3.2"
+  },
+  {
+   "key": "AiPlayerbot.CoaEconomy.SelfStudy.IntervalMinutes",
+   "group": "economy",
+   "title": "Minutes between two studies",
+   "description": "How often a bot studies (at least 5 minutes).",
+   "type": "int",
+   "default": 60,
+   "coa": true,
+   "min": 5,
+   "new_in": "3.2"
+  },
+  {
+   "key": "AiPlayerbot.CoaEconomy.SelfStudy.BuyReagents",
+   "group": "economy",
+   "title": "Buy missing reagents",
+   "description": "The study buys the reagents a bot lacks, a vendor's first, the auction house's next. Reagents only, never a finished item. 0: only the reagents it holds.",
+   "type": "bool",
+   "default": true,
+   "coa": true,
+   "new_in": "3.2"
+  },
+  {
+   "key": "AiPlayerbot.CoaEconomy.SelfStudy.MaxGoldPercent",
+   "group": "economy",
+   "title": "Reagent budget (percent of gold)",
+   "description": "One study spends at most this share of the bot's gold on reagents.",
+   "type": "int",
+   "default": 10,
+   "coa": true,
+   "min": 0,
+   "max": 100,
+   "new_in": "3.2"
+  },
+  {
+   "key": "AiPlayerbot.CoaEconomy.SelfStudy.MaxCopperPerLevel",
+   "group": "economy",
+   "title": "Reagent budget per level (copper)",
+   "description": "One study spends at most this many copper times the bot's level (2500: 15 gold at level 60).",
+   "type": "int",
+   "default": 2500,
+   "coa": true,
+   "min": 0,
+   "new_in": "3.2"
+  },
+  {
+   "key": "AiPlayerbot.CoaEconomy.SelfStudy.MinGainPercent",
+   "group": "economy",
+   "title": "Minimum gain to buy reagents",
+   "description": "Reagents are bought only when the piece gains at least this percent over what it replaces.",
+   "type": "int",
+   "default": 5,
+   "coa": true,
+   "min": 0,
+   "new_in": "3.2"
+  },
+  {
+   "key": "AiPlayerbot.CoaEconomy.SelfStudy.Log",
+   "group": "economy",
+   "title": "Log studies",
+   "description": "Diagnostic: each study and an hourly count (studies, crafts, enchantments, short of reagents, reagents bought, gold spent) in BotLoot.log.",
+   "type": "bool",
+   "default": false,
+   "coa": true,
+   "new_in": "3.2"
+  },
+  {
+   "key": "AiPlayerbot.CoaEconomy.BotAuctions.BuyLog",
+   "group": "economy",
+   "title": "Log auction house buys",
+   "description": "Diagnostic: each piece or bag a bot buys at the auction house, and an hourly count of self-found and classic bots apart, in BotLoot.log.",
+   "type": "bool",
+   "default": false,
+   "coa": true,
+   "new_in": "3.2"
+  },
+  {
+   "key": "AiPlayerbot.CoaEconomy.BotAuctions.Shop.Enable",
+   "group": "economy",
+   "title": "Bots go to the auction house to buy",
+   "description": "A bot with nothing to sell still goes to the auction house to buy an upgrade or a bag when it has gold enough, at most once an hour.",
+   "type": "bool",
+   "default": true,
+   "coa": true,
+   "new_in": "3.2"
+  },
+  {
+   "key": "AiPlayerbot.CoaEconomy.BotAuctions.Shop.MinCopperPerLevel",
+   "group": "economy",
+   "title": "Shopping budget per level (copper)",
+   "description": "A bot goes shopping when what it may spend in a visit reaches its level times this many copper (200: 40 silver at level 20, about 2 gold carried).",
+   "type": "int",
+   "default": 200,
+   "coa": true,
+   "min": 0,
+   "new_in": "3.2"
+  },
+  {
+   "key": "AiPlayerbot.CoaEconomy.BotAuctions.Shop.IntervalMinutes",
+   "group": "economy",
+   "title": "Minutes between two shopping visits",
+   "description": "Least time between two shopping visits of a bot (at least 5).",
+   "type": "int",
+   "default": 60,
+   "coa": true,
+   "min": 5,
+   "new_in": "3.2"
+  },
+  {
+   "key": "AiPlayerbot.CoaEconomy.RemoteBuy.Enable",
+   "group": "economy",
+   "title": "Bots buy upgrades from afar",
+   "description": "Random bots buy at their faction's auction house from where they are, once an hour: the best upgrade they can afford, worn at once. Real auctions: the seller is paid.",
+   "type": "bool",
+   "default": true,
+   "coa": true,
+   "new_in": "3.2"
+  },
+  {
+   "key": "AiPlayerbot.CoaEconomy.RemoteBuy.IntervalMinutes",
+   "group": "economy",
+   "title": "Minutes between two remote buys",
+   "description": "How often a bot buys from afar (at least 5).",
+   "type": "int",
+   "default": 60,
+   "coa": true,
+   "min": 5,
+   "new_in": "3.2"
+  },
+  {
+   "key": "AiPlayerbot.CoaEconomy.RemoteSell.Enable",
+   "group": "economy",
+   "title": "Bots list loot from afar",
+   "description": "Random bots list a few items at their faction's auction house from where they are, every two hours, at the usual price, only when the house pays more than the vendor.",
+   "type": "bool",
+   "default": true,
+   "coa": true,
+   "new_in": "3.2"
+  },
+  {
+   "key": "AiPlayerbot.CoaEconomy.RemoteSell.IntervalMinutes",
+   "group": "economy",
+   "title": "Minutes between two remote listings",
+   "description": "How often a bot lists from afar (at least 5).",
+   "type": "int",
+   "default": 120,
+   "coa": true,
+   "min": 5,
+   "new_in": "3.2"
+  },
+  {
+   "key": "AiPlayerbot.CoaEconomy.RemoteSell.MaxItems",
+   "group": "economy",
+   "title": "Items listed from afar",
+   "description": "Items a bot lists at most from afar each time.",
+   "type": "int",
+   "default": 2,
+   "coa": true,
+   "min": 0,
+   "new_in": "3.2"
+  },
+  {
+   "key": "AiPlayerbot.CoaEconomy.RemoteTrade.MaxBotsPerPass",
+   "group": "economy",
+   "title": "Bots per remote trade pass",
+   "description": "Bots served per pass (one pass every 30 seconds); the others keep their turn for the next pass.",
+   "type": "int",
+   "default": 20,
+   "coa": true,
+   "min": 1,
+   "new_in": "3.2"
   },
   {
    "key": "AiPlayerbot.CoaCombat.MoltenCore.Enable",

@@ -9,6 +9,8 @@
 
 #include "CoaWorldBots.h"  // CoA World: CoaWorldQuestQuarantined, CoaWorldAreaTooHigh
 #include "CoaRpgTrade.h"
+#include "CoaBotAuctions.h"
+#include "CoaSafeMove.h"
 #include "CoaQuestLogRules.h"
 #include "NewRpgBaseAction.h"
 #include "BroadcastHelper.h"
@@ -273,6 +275,14 @@ bool NewRpgBaseAction::MoveWorldObjectTo(ObjectGuid guid, float distance)
         x = object->GetPositionX();
         y = object->GetPositionY();
         z = object->GetPositionZ();
+    }
+    // CoA (3.2): in a capital, the city guard refuses a stop off the navmesh (a banker or an auctioneer behind its
+    // counter) and the NPC was given up while the bot stood still: the walkable point nearest the NPC is taken.
+    if (sRandomPlayerbotMgr.IsRandomBot(bot) && !botAI->HasGameClientMaster() && !bot->IsInCombat())
+    {
+        AreaTableEntry const* zone = sAreaTableStore.LookupEntry(bot->GetZoneId());
+        if (zone && (zone->flags & AREA_FLAG_CAPITAL))
+            CoaSafeMove::StandByNpc(bot, object, x, y, z);
     }
     return MoveTo(mapId, x, y, z, false, false, false, true);
 }
@@ -806,7 +816,13 @@ ObjectGuid NewRpgBaseAction::ChooseNpcOrGameObjectToInteract(bool questgiverOnly
     {
         ObjectGuid const tradeNpc = CoaEconomy::RpgTrade::ChooseTradeNpc(botAI, possibleTargets, distanceLimit);
         if (!tradeNpc.IsEmpty())
+        {
+            // 3.2 (BuyLog): an auctioneer its business picked.
+            if (Creature* npc = ObjectAccessor::GetCreature(*bot, tradeNpc))
+                if (npc->HasNpcFlag(UNIT_NPC_FLAG_AUCTIONEER))
+                    CoaEconomy::BotAuctions::NoteWay(CoaEconomy::BotAuctions::Way::Sought);
             return tradeNpc;
+        }
     }
 
     if (possibleTargets.empty())

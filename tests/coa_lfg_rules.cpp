@@ -27,5 +27,10 @@ int main()
     assert(CoaLfgProposalDecision(false, true, false, false, 0, proposal) == CoaLfgProposalAnswer::DoNotAnswer);
     assert(CoaLfgProposalDecision(false, true, true, false, proposal - 1, proposal) == CoaLfgProposalAnswer::DoNotAnswer);
     assert(CoaLfgProposalDecision(true, false, false, false, 0, proposal) == CoaLfgProposalAnswer::DoNotAnswer);
+    // 3.2.1: the role a queued party misses comes first.
+    assert(CoaLfgRoleWanted(true, false, true, false));    // a tank, a tank missing
+    assert(CoaLfgRoleWanted(false, true, false, true));    // a healer, a healer missing
+    assert(!CoaLfgRoleWanted(false, true, true, false));   // a healer while only a tank is missing
+    assert(!CoaLfgRoleWanted(false, false, true, true));   // a damage dealer: its random roll as before
     return 0;
 }

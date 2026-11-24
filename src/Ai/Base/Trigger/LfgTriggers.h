@@ -19,6 +19,16 @@ public:
     bool IsActive() override;
 };
 
+// 3.2.1 (AiPlayerbot.CoaLfgRolePriority): a queued party of real players of its team misses the role this free random
+// bot plays (CoaLfgRoleWanted): it queues now, not at its random roll.
+class LfgRoleWantedTrigger : public Trigger
+{
+public:
+    LfgRoleWantedTrigger(PlayerbotAI* botAI) : Trigger(botAI, "lfg role wanted", 5000) {}
+
+    bool IsActive() override;
+};
+
 class UnknownDungeonTrigger : public Trigger
 {
 public:

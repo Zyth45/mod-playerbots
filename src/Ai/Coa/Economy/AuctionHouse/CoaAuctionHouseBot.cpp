@@ -354,6 +354,75 @@ AuctionHouseBot::~AuctionHouseBot()
 {
 }
 
+uint32 AuctionHouseBot::ListingStackCap(ItemTemplate const* itemProto) const
+{
+    uint32 cap = 0;
+    switch (itemProto->Class)
+    {
+        case ITEM_CLASS_CONSUMABLE:     cap = MaximumStackSizeConsumable; break;
+        case ITEM_CLASS_CONTAINER:      cap = MaximumStackSizeContainer; break;
+        case ITEM_CLASS_WEAPON:         cap = MaximumStackSizeWeapon; break;
+        case ITEM_CLASS_GEM:            cap = MaximumStackSizeGem; break;
+        case ITEM_CLASS_REAGENT:        cap = MaximumStackSizeReagent; break;
+        case ITEM_CLASS_ARMOR:          cap = MaximumStackSizeArmor; break;
+        case ITEM_CLASS_PROJECTILE:     cap = MaximumStackSizeProjectile; break;
+        case ITEM_CLASS_TRADE_GOODS:    cap = MaximumStackSizeTradeGood; break;
+        case ITEM_CLASS_GENERIC:        cap = MaximumStackSizeGeneric; break;
+        case ITEM_CLASS_RECIPE:         cap = MaximumStackSizeRecipe; break;
+        case ITEM_CLASS_QUIVER:         cap = MaximumStackSizeQuiver; break;
+        case ITEM_CLASS_QUEST:          cap = MaximumStackSizeQuest; break;
+        case ITEM_CLASS_KEY:            cap = MaximumStackSizeKey; break;
+        case ITEM_CLASS_MISC:           cap = MaximumStackSizeMisc; break;
+        case ITEM_CLASS_GLYPH:          cap = MaximumStackSizeGlyph; break;
+        default:                        cap = 0; break;
+    }
+    uint32 const most = itemProto->GetMaxStackSize();
+    return cap ? std::min(cap, most) : most;
+}
+
+uint32 AuctionHouseBot::RemoveOversizedStacks(AuctionHouseObject* auctionHouse, uint32 houseId)
+{
+    if (!auctionHouse)
+        return 0;
+    // 3.2.1: once a start, its listings priced at over 3 times what it would ask today (a price floor of an older
+    // version: Elementium Bars at 94 g each) leave the house too.
+    bool const priceSweep = PriceSweptHouses.insert(houseId).second;
+    uint32 overpriced = 0;
+    std::vector<AuctionEntry*> oversized;
+    for (auto const& [id, auction] : auctionHouse->GetAuctions())
+    {
+        if (!auction || !IsHouseCharacter(auction->owner.GetCounter()))
+            continue;
+        ItemTemplate const* proto = sObjectMgr->GetItemTemplate(auction->item_template);
+        if (!proto)
+            continue;
+        if (auction->itemCount > std::max<uint32>(1, ListingStackCap(proto)))
+            oversized.push_back(auction);
+        else if (priceSweep && CoaEconomyRules::OverpricedListing(auction->buyout, auction->itemCount,
+                                                                  GetHouseLowestBuyoutPerItem(proto)))
+        {
+            oversized.push_back(auction);
+            ++overpriced;
+        }
+    }
+    if (oversized.empty())
+        return 0;
+    auto trans = CharacterDatabase.BeginTransaction();
+    for (AuctionEntry* auction : oversized)
+    {
+        if (auction->bidder)
+            sAuctionMgr->SendAuctionCancelledToBidderMail(auction, trans);  // the bid goes back to its bidder
+        sAuctionMgr->RemoveAItem(auction->item_guid, true, &trans);       // the house bot's item, deleted
+        auction->DeleteFromDB(trans);
+        auctionHouse->RemoveAuction(auction);
+    }
+    CharacterDatabase.CommitTransaction(trans);
+    LOG_INFO("playerbots.coa", "CoaEconomy: house bot took {} of its auctions off house {} ({} with a stack above "
+             "MaxStackSize.*, {} priced over 3 times its price today)", uint32(oversized.size()), houseId,
+             uint32(oversized.size()) - overpriced, overpriced);
+    return uint32(oversized.size());
+}
+
 uint32 AuctionHouseBot::GetStackSizeForItem(ItemTemplate const* itemProto) const
 {
     // Determine the stack ratio based on class type
@@ -1355,6 +1424,9 @@ void AuctionHouseBot::AddNewAuctions(std::vector<Player*> AHBPlayers, FactionSpe
         return;
     }
 
+    // 3.2: its stacks listed before the MaxStackSize.* caps (980 Elementium Shards in one lot) leave the house.
+    RemoveOversizedStacks(auctionHouse, config->GetAHID());
+
     // CoA Economy: its own auctions only (CoaEconomyRules::HouseSellerCount): the bots' auctions no longer fill its
     // quota, which kept it from ever listing on a realm with many bots (and with it, the house's epic gear).
     std::unordered_set<uint32> sellers;
@@ -1703,7 +1775,8 @@ uint32 AuctionHouseBot::ListMaterialFloor(std::vector<Player*> const& AHBPlayers
             continue;
         auto const low = lowestOther.find(itemId);
         uint64 const lowest = low == lowestOther.end() ? 0 : low->second;
-        uint32 const stackCount = std::max<uint32>(1, proto->GetMaxStackSize());
+        // 3.2: a stocked material is listed in a stack of the class cap (MaxStackSize.*), not a full CoA stack of 1000.
+        uint32 const stackCount = std::max<uint32>(1, ListingStackCap(proto));
 
         for (uint32 n = 0; n < want; ++n)
         {
@@ -2638,6 +2711,8 @@ uint64 AuctionHouseBot::GetReferencePricePerItem(ItemTemplate const* itemProto)
     return GetHouseLowestBuyoutPerItem(itemProto);
 }
 
+thread_local bool AuctionHouseBot::PriceRollLowest = false;
+
 uint64 AuctionHouseBot::GetHouseLowestBuyoutPerItem(ItemTemplate const* itemProto)
 {
     uint64 bid = 0;
@@ -3008,21 +3083,21 @@ void AuctionHouseBot::InitializeConfiguration()
     RandomStackIncrementGlyph = GetRandomStackIncrementValue("AuctionHouseBot.ListingStack.RandomStackIncrement.Glyph", 1);
 
     // Max stack size
-    MaximumStackSizeConsumable = CoaEconomy::Conf::Get<uint32>("AuctionHouseBot.ListingStack.MaxStackSize.Consumable", 0);
+    MaximumStackSizeConsumable = CoaEconomy::Conf::Get<uint32>("AuctionHouseBot.ListingStack.MaxStackSize.Consumable", 20);
     MaximumStackSizeContainer = CoaEconomy::Conf::Get<uint32>("AuctionHouseBot.ListingStack.MaxStackSize.Container", 0);
     MaximumStackSizeWeapon = CoaEconomy::Conf::Get<uint32>("AuctionHouseBot.ListingStack.MaxStackSize.Weapon", 0);
-    MaximumStackSizeGem = CoaEconomy::Conf::Get<uint32>("AuctionHouseBot.ListingStack.MaxStackSize.Gem", 0);
+    MaximumStackSizeGem = CoaEconomy::Conf::Get<uint32>("AuctionHouseBot.ListingStack.MaxStackSize.Gem", 20);
     MaximumStackSizeArmor = CoaEconomy::Conf::Get<uint32>("AuctionHouseBot.ListingStack.MaxStackSize.Armor", 0);
-    MaximumStackSizeReagent = CoaEconomy::Conf::Get<uint32>("AuctionHouseBot.ListingStack.MaxStackSize.Reagent", 0);
-    MaximumStackSizeProjectile = CoaEconomy::Conf::Get<uint32>("AuctionHouseBot.ListingStack.MaxStackSize.Projectile", 0);
-    MaximumStackSizeTradeGood = CoaEconomy::Conf::Get<uint32>("AuctionHouseBot.ListingStack.MaxStackSize.TradeGood", 0);
-    MaximumStackSizeGeneric = CoaEconomy::Conf::Get<uint32>("AuctionHouseBot.ListingStack.MaxStackSize.Generic", 0);
+    MaximumStackSizeReagent = CoaEconomy::Conf::Get<uint32>("AuctionHouseBot.ListingStack.MaxStackSize.Reagent", 20);
+    MaximumStackSizeProjectile = CoaEconomy::Conf::Get<uint32>("AuctionHouseBot.ListingStack.MaxStackSize.Projectile", 200);
+    MaximumStackSizeTradeGood = CoaEconomy::Conf::Get<uint32>("AuctionHouseBot.ListingStack.MaxStackSize.TradeGood", 20);
+    MaximumStackSizeGeneric = CoaEconomy::Conf::Get<uint32>("AuctionHouseBot.ListingStack.MaxStackSize.Generic", 20);
     MaximumStackSizeRecipe = CoaEconomy::Conf::Get<uint32>("AuctionHouseBot.ListingStack.MaxStackSize.Recipe", 0);
     MaximumStackSizeQuiver = CoaEconomy::Conf::Get<uint32>("AuctionHouseBot.ListingStack.MaxStackSize.Quiver", 0);
-    MaximumStackSizeQuest = CoaEconomy::Conf::Get<uint32>("AuctionHouseBot.ListingStack.MaxStackSize.Quest", 0);
-    MaximumStackSizeKey = CoaEconomy::Conf::Get<uint32>("AuctionHouseBot.ListingStack.MaxStackSize.Key", 0);
-    MaximumStackSizeMisc = CoaEconomy::Conf::Get<uint32>("AuctionHouseBot.ListingStack.MaxStackSize.Misc", 0);
-    MaximumStackSizeGlyph = CoaEconomy::Conf::Get<uint32>("AuctionHouseBot.ListingStack.MaxStackSize.Glyph", 0);
+    MaximumStackSizeQuest = CoaEconomy::Conf::Get<uint32>("AuctionHouseBot.ListingStack.MaxStackSize.Quest", 20);
+    MaximumStackSizeKey = CoaEconomy::Conf::Get<uint32>("AuctionHouseBot.ListingStack.MaxStackSize.Key", 20);
+    MaximumStackSizeMisc = CoaEconomy::Conf::Get<uint32>("AuctionHouseBot.ListingStack.MaxStackSize.Misc", 20);
+    MaximumStackSizeGlyph = CoaEconomy::Conf::Get<uint32>("AuctionHouseBot.ListingStack.MaxStackSize.Glyph", 20);
 
     // List proportions
     ItemListProportionNodesSeed.clear();

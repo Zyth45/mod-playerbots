@@ -29,6 +29,38 @@ namespace CoaEconomy::BotAuctions
     // Map thread: the bot stands by an auctioneer. False when the visit is not queued (off, cooldown, queue full).
     bool RequestVisit(Player* bot, ObjectGuid auctioneer);
 
+    // 3.2 (BotAuctions.Shop.*): the bot has gold enough to buy an upgrade and its last visit is old enough, so it goes
+    // to an auctioneer even with nothing to sell.
+    bool WantsToShop(Player* bot);
+
+    // 3.2: its visit is queued and not run yet (City Life keeps the bot by its auctioneer meanwhile: the core's
+    // auction handlers refuse a bot more than 5.5 yards away).
+    bool HasPendingVisit(ObjectGuid bot);
+
+    // 3.2 (BuyLog): the way of a bot to an auctioneer, before RequestVisit, counted for the hourly "auction visits"
+    // line. Sought: its business picked the auctioneer as the next NPC; Picked: a wander took an auctioneer as its
+    // target (Station: City Life's pick); GivenUp: the wander dropped it, no walkable way in a capital; TimedOut: the
+    // wander ended before the bot got there. Reached is "asked" (RequestVisit runs at every auctioneer reached).
+    enum class Way { Sought, Picked, Station, GivenUp, TimedOut };
+    void NoteWay(Way way);
+    // 3.2 (BuyLog): a wander heading for an auctioneer it never reached was replaced by another activity
+    // (NewRpgStatus of the next one; 99: a reset).
+    void NoteLeftFor(int nextStatus);
+    // 3.2 (BuyLog): an auctioneer given up on the way, why (CoaSafeMove::GiveUp: 1 gone, 2 no way, 3 refusals) and
+    // in which capital.
+    void NoteGiveUp(int why, char const* capital);
+    // 3.2 (BuyLog): a "no way" give-up: its reason (CoaSafeMove::NoWayReason), the auctioneer's entry, where the
+    // bot stood and how far the path's end stayed from the NPC. Reasons counted, the first few kept as samples.
+    // 3.2.1: the samples kept per capital (8 an hour each).
+    void NoteNoWay(char const* capital, char const* reason, uint32 entry, float x, float y, float z, float gap);
+    // 3.2.1 (BuyLog): a wander that ended before its auctioneer was reached ("not reached"), per capital, with a few
+    // samples: the auctioneer's entry, where the bot stood, how far from the NPC, moving or not, refused moves in a row.
+    void NoteNotReached(char const* capital, uint32 entry, float x, float y, float z, float toNpc, bool moving,
+                        uint32 refusals);
+    // 3.2 (BuyLog): a WantsToShop check, and why it said no.
+    enum class ShopNo { Poor, Interval };
+    void NoteShopNo(ShopNo why);
+
     // A bot's trading character, stable per character (GUID hash), each in [0, 1]:
     //   thrift   how little of its gold it spends;
     //   patience how close to the market price it lists (an impatient bot undercuts more).

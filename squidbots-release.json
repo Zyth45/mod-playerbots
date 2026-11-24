@@ -1,10 +1,10 @@
 {
  "format": 1,
  "module": "SquidBots (mod-playerbots for Conquest of Azeroth)",
- "version": "3.1.6",
- "tag": "v3.1.6",
- "commit": "6bd23989",
- "previous_version": "3.1.5",
+ "version": "3.2.1",
+ "tag": "v3.2.1",
+ "commit": "2f9382f1",
+ "previous_version": "3.2",
  "notes": "sql: every file of data/sql, applied per database in the stages base, updates, custom, each in name order (create: the database itself; archive: kept for history, never applied). A published file never changes; a change comes as a new file. large: over 30 MB, also attached to the release. new_keys / changed_defaults: playerbots.conf.dist against the previous release; a key missing from a server's playerbots.conf takes the default of the code, equal to the .dist. components: the parts of a full SquidBots install and the tags released together (empty tag: not given for this release). races: the keys a race page writes and the module's own race defaults. optional_core_headers: headers the module uses when the core has them, with a fallback otherwise: the module builds on the official core without any of them. commit = the commit the files were read from; the build itself is identified by its tag.",
  "settings_file": "conf/playerbots.conf.settings.json",
  "sql": [
@@ -1243,76 +1243,44 @@
   }
  ],
  "new_keys": [
-  "AiPlayerbot.CoaGiveToAlt.Enable",
-  "AiPlayerbot.CoaHearthWithMaster",
-  "AiPlayerbot.CoaLive.City.FishingPct",
-  "AiPlayerbot.CoaLive.City.PostChancePct",
-  "AiPlayerbot.CoaLive.City.PostMaxMinutes",
-  "AiPlayerbot.CoaLive.City.PostMinMinutes",
-  "AiPlayerbot.CoaMute.Enable",
-  "AiPlayerbot.CoaPetPassiveOnStay",
-  "AiPlayerbot.CoaSelfFound.StarterWeapon",
-  "AiPlayerbot.CoaTrust.Boss",
-  "AiPlayerbot.CoaTrust.Enable",
-  "AiPlayerbot.CoaTrust.Kill",
-  "AiPlayerbot.CoaTrust.RaidBoss",
-  "AiPlayerbot.CoaTrust.Ranks"
+  "AiPlayerbot.Coa.AchievementAnnounceGapSeconds",
+  "AiPlayerbot.Coa.AchievementAnnounceRealmGapSeconds",
+  "AiPlayerbot.Coa.HideLoginAchievementsMinutes",
+  "AiPlayerbot.CoaEconomy.BotAuctions.BuyLog",
+  "AiPlayerbot.CoaEconomy.BotAuctions.Shop.Enable",
+  "AiPlayerbot.CoaEconomy.BotAuctions.Shop.IntervalMinutes",
+  "AiPlayerbot.CoaEconomy.BotAuctions.Shop.MinCopperPerLevel",
+  "AiPlayerbot.CoaEconomy.CraftForSelf.Enable",
+  "AiPlayerbot.CoaEconomy.CraftForSelf.Log",
+  "AiPlayerbot.CoaEconomy.EnchantForSelf.Enable",
+  "AiPlayerbot.CoaEconomy.EnchantForSelf.Log",
+  "AiPlayerbot.CoaEconomy.RemoteBuy.Enable",
+  "AiPlayerbot.CoaEconomy.RemoteBuy.IntervalMinutes",
+  "AiPlayerbot.CoaEconomy.RemoteSell.Enable",
+  "AiPlayerbot.CoaEconomy.RemoteSell.IntervalMinutes",
+  "AiPlayerbot.CoaEconomy.RemoteSell.MaxItems",
+  "AiPlayerbot.CoaEconomy.RemoteTrade.MaxBotsPerPass",
+  "AiPlayerbot.CoaEconomy.SelfStudy.BuyReagents",
+  "AiPlayerbot.CoaEconomy.SelfStudy.Enable",
+  "AiPlayerbot.CoaEconomy.SelfStudy.IntervalMinutes",
+  "AiPlayerbot.CoaEconomy.SelfStudy.Log",
+  "AiPlayerbot.CoaEconomy.SelfStudy.MaxCopperPerLevel",
+  "AiPlayerbot.CoaEconomy.SelfStudy.MaxGoldPercent",
+  "AiPlayerbot.CoaEconomy.SelfStudy.MinGainPercent",
+  "AiPlayerbot.CoaMoveAudit",
+  "AiPlayerbot.CoaMoveAudit.File",
+  "AiPlayerbot.CoaMoveAudit.SampleMs",
+  "AiPlayerbot.CoaMoveAudit.ThrottleSeconds",
+  "AiPlayerbot.CoaSelfFound.RollLog",
+  "AiPlayerbot.CoaSelfFound.Rolls",
+  "AiPlayerbot.CoaWhy.Cooldown",
+  "AiPlayerbot.CoaWhy.Enable",
+  "AiPlayerbot.CoaWhy.File",
+  "AiPlayerbot.CoaWhy.GmOnly"
  ],
- "changed_defaults": [
-  {
-   "key": "AiPlayerbot.CoaCombat.AhnQiraj.Enable",
-   "before": "0",
-   "now": "1"
-  },
-  {
-   "key": "AiPlayerbot.CoaCombat.BlackwingLair.Enable",
-   "before": "0",
-   "now": "1"
-  },
-  {
-   "key": "AiPlayerbot.CoaCombat.CallOfTheGrave.Enable",
-   "before": "0",
-   "now": "1"
-  },
-  {
-   "key": "AiPlayerbot.CoaCombat.CombatPurge.Enable",
-   "before": "0",
-   "now": "1"
-  },
-  {
-   "key": "AiPlayerbot.CoaCombat.GearScore.Enable",
-   "before": "0",
-   "now": "1"
-  },
-  {
-   "key": "AiPlayerbot.CoaCombat.LootNeedMinUpgradePct",
-   "before": "0",
-   "now": "10"
-  },
-  {
-   "key": "AiPlayerbot.CoaCombat.PlayerLed.Enable",
-   "before": "0",
-   "now": "1"
-  },
-  {
-   "key": "AiPlayerbot.CoaCombat.StuckCombat.Enable",
-   "before": "0",
-   "now": "1"
-  },
-  {
-   "key": "AiPlayerbot.CoaCombat.SunkenTemple.Enable",
-   "before": "0",
-   "now": "1"
-  },
-  {
-   "key": "AiPlayerbot.CoaCombat.ZulGurub.Enable",
-   "before": "0",
-   "now": "1"
-  }
- ],
+ "changed_defaults": [],
  "optional_core_headers": [
   "AscensionCompanionLoot.h",
-  "AscensionIncarnation.h",
   "CoaDungeonClearLink.h",
   "CoaMaterials.h"
  ],
@@ -1403,7 +1371,7 @@
    "name": "SquidBots module (mod-playerbots)",
    "kind": "server module",
    "required": true,
-   "tag": "v3.1.6",
+   "tag": "v3.2",
    "repository": "https://github.com/Zyth45/mod-playerbots"
   },
   {
@@ -1417,7 +1385,7 @@
    "name": "SquidBots addon",
    "kind": "client addon",
    "required": false,
-   "tag": "v3.1.6",
+   "tag": "v3.2",
    "repository": "https://github.com/Zyth45/squidbots-addon"
   },
   {

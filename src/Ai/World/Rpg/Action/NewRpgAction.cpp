@@ -5,8 +5,12 @@
  */
 
 #include "NewRpgAction.h"
+#include "CoaBotAuctions.h"
 #include "CoaCityLife.h"
 #include "CoaRpgTrade.h"
+#include "CoaSafeMove.h"
+#include "CoaSafeMoveRules.h"
+#include "CoaEconomyRules.h"
 #include "AreaDefines.h"
 #include "BroadcastHelper.h"
 #include "ChatHelper.h"
@@ -350,6 +354,30 @@ bool NewRpgStatusUpdateAction::Execute(Event /*event*/)
         {
             if (info.HasStatusPersisted(info.cityStayMs ? info.cityStayMs : statusWanderNpcDuration))
             {
+                if (auto* wander = std::get_if<NewRpgInfo::WanderNpc>(&info.data))
+                {
+                    Creature* npc = wander->npcOrGo.IsCreature() ? ObjectAccessor::GetCreature(*bot, wander->npcOrGo)
+                                                                 : nullptr;
+                    bool const auctioneer = npc && npc->HasNpcFlag(UNIT_NPC_FLAG_AUCTIONEER);
+                    bool const trade = auctioneer || (npc && npc->HasNpcFlag(UNIT_NPC_FLAG_VENDOR) &&
+                                                      CoaEconomy::RpgTrade::WantsTrade(botAI));
+                    // 3.2: on its way to a trade NPC, the bot gets there before the wander ends.
+                    if (CoaEconomyRules::KeepsTradeGoal(trade, wander->lastReach != 0,
+                                                        wander->pickedAt ? GetMSTimeDiffToNow(wander->pickedAt) : 0))
+                        break;
+                    // 3.2 (BuyLog): an auctioneer the wander never got to (counted here, not as left for idle).
+                    if ((auctioneer || wander->toAuctioneer) && !wander->lastReach)
+                    {
+                        CoaEconomy::BotAuctions::NoteWay(CoaEconomy::BotAuctions::Way::TimedOut);
+                        // 3.2.1: where it stood, per capital.
+                        AreaTableEntry const* zone = sAreaTableStore.LookupEntry(bot->GetZoneId());
+                        CoaEconomy::BotAuctions::NoteNotReached(
+                            zone && (zone->flags & AREA_FLAG_CAPITAL) ? zone->area_name[0] : "",
+                            npc ? npc->GetEntry() : 0, bot->GetPositionX(), bot->GetPositionY(), bot->GetPositionZ(),
+                            npc ? bot->GetExactDist(npc) : 0.0f, bot->isMoving(), wander->refusals);
+                    }
+                    wander->toAuctioneer = false;
+                }
                 info.ChangeToIdle();
                 return true;
             }
@@ -472,8 +500,18 @@ bool NewRpgWanderNpcAction::Execute(Event /*event*/)
     {
         // CoA Live City Life: on a city visit, now and then a station (inn, bank, auction house, forge, dummy).
         ObjectGuid npcOrGo = CoaCityLife::ChooseStation(botAI);
+        bool const station = !npcOrGo.IsEmpty();
         if (npcOrGo.IsEmpty())
             npcOrGo = ChooseNpcOrGameObjectToInteract();
+        // 3.2 (BuyLog): the way to an auctioneer, counted.
+        data.toAuctioneer = false;
+        if (Creature* npc = npcOrGo.IsCreature() ? ObjectAccessor::GetCreature(*bot, npcOrGo) : nullptr)
+            if (npc->HasNpcFlag(UNIT_NPC_FLAG_AUCTIONEER))
+            {
+                data.toAuctioneer = true;
+                CoaEconomy::BotAuctions::NoteWay(station ? CoaEconomy::BotAuctions::Way::Station
+                                                         : CoaEconomy::BotAuctions::Way::Picked);
+            }
         // No npc can be found, switch to IDLE
         if (npcOrGo.IsEmpty())
         {
@@ -482,6 +520,8 @@ bool NewRpgWanderNpcAction::Execute(Event /*event*/)
         }
         data.npcOrGo = npcOrGo;
         data.lastReach = 0;
+        data.refusals = 0;
+        data.pickedAt = getMSTime();
         return true;
     }
 
@@ -492,6 +532,7 @@ bool NewRpgWanderNpcAction::Execute(Event /*event*/)
         if (!data.lastReach)
         {
             data.lastReach = getMSTime();
+            data.givenUp = 0;
             if (bot->CanInteractWithQuestGiver(object))
                 InteractWithNpcOrGameObjectForQuest(data.npcOrGo);
             // CoA Economy: sell, repair or use the auction house, as people do between two quests
@@ -505,18 +546,73 @@ bool NewRpgWanderNpcAction::Execute(Event /*event*/)
 
         // has reached the npc for more than `npcStayTime`, select the next target
         CoaCityLife::Leave(botAI);
+        data.toAuctioneer = false;
         data.npcOrGo = ObjectGuid();
         data.lastReach = 0;
     }
     else
     {
         if (MoveWorldObjectTo(data.npcOrGo))
+        {
+            data.refusals = 0;
             return true;
+        }
         // CoA Live City Life (3.1.6): a station no walkable path leads to (inside a building, off the mesh) is given
         // up for another stop, never reached in a straight line through the walls.
-        if (!IsWaitingForLastMove(MovementPriority::MOVEMENT_NORMAL) && CoaCityLife::Holds(botAI, data.npcOrGo))
+        // 3.2: in a capital, any NPC whose way the city guard refuses (a dead end, a straight line) is given up too,
+        // for another one, instead of tries and small random steps for the whole wander.
+        AreaTableEntry const* zone = sAreaTableStore.LookupEntry(bot->GetZoneId());
+        bool const inCapital = zone && (zone->flags & AREA_FLAG_CAPITAL);
+        if (!IsWaitingForLastMove(MovementPriority::MOVEMENT_NORMAL) &&
+            (CoaCityLife::Holds(botAI, data.npcOrGo) || inCapital))
         {
+            // 3.2: given up only when the NPC is gone, no walkable stop by it exists, or the moves keep being refused
+            // (a move to the same stop within 5 s, a bot that cannot move...): then it waits for the next tick.
+            bool wayExists = false;
+            if (object)
+            {
+                float sx = object->GetPositionX(), sy = object->GetPositionY(), sz = object->GetPositionZ();
+                wayExists = CoaSafeMove::StandByNpc(bot, object, sx, sy, sz);
+            }
+            CoaSafeMove::GiveUp const why = CoaSafeMove::GivesUpNpc(!object, wayExists, ++data.refusals);
+            if (why == CoaSafeMove::GiveUp::No)
+                return false;
+            // 3.2 (Stormwind, Chilton): no way to this auctioneer, another of the same house it can walk to instead.
+            if (why == CoaSafeMove::GiveUp::NoWay && data.toAuctioneer)
+            {
+                ObjectGuid const other = CoaSafeMove::OtherReachableAuctioneer(bot, object);
+                if (!other.IsEmpty())
+                {
+                    data.npcOrGo = other;
+                    data.refusals = 0;
+                    data.pickedAt = getMSTime();
+                    return true;
+                }
+            }
+            // 3.2 (BuyLog): counted from the pick's flag, the NPC may be gone (out of the grid).
+            if (data.toAuctioneer)
+            {
+                CoaEconomy::BotAuctions::NoteWay(CoaEconomy::BotAuctions::Way::GivenUp);
+                CoaEconomy::BotAuctions::NoteGiveUp(int(why), zone ? zone->area_name[0] : "");
+                if (why == CoaSafeMove::GiveUp::NoWay)
+                {
+                    float gap = 0.0f;
+                    char const* reason = CoaSafeMove::NoWayWhy(bot, object, gap);
+                    CoaEconomy::BotAuctions::NoteNoWay(zone ? zone->area_name[0] : "", reason, object->GetEntry(),
+                                                       bot->GetPositionX(),
+                                                       bot->GetPositionY(), bot->GetPositionZ(), gap);
+                }
+            }
+            data.refusals = 0;
+            data.toAuctioneer = false;
             CoaCityLife::Leave(botAI);
+            // 3.2 (".squidbots why": a bot still for minutes by the Stormwind bank, WANDER_NPC with no destination):
+            // it picked and gave up NPCs every tick. After a few in a row, the wander ends and it does something else.
+            if (++data.givenUp >= CoaSafeMove::WANDER_GIVE_UPS)
+            {
+                info.ChangeToIdle();
+                return true;
+            }
             data.npcOrGo = ObjectGuid();
             data.lastReach = 0;
             return true;
