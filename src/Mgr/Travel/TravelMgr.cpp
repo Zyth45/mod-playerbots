@@ -24,6 +24,7 @@
 #include "VMapFactory.h"
 #include "VMapMgr2.h"
 #include "DBCStores.h"
+#include "RandomPlayerbotMgr.h"
 #include "ObjectMgr.h"
 #include <iomanip>
 #include <numeric>
@@ -4431,6 +4432,15 @@ std::vector<std::vector<uint32>> TravelMgr::GetOptimalFlightDestinations(Player*
     if (AreaTableEntry const* area = sAreaTableStore.LookupEntry(bot->GetZoneId()))
         botInCapital = (area->flags & AREA_FLAG_CAPITAL) != 0;
 
+    // CoA 3.2.2 (bench of 5f662017: 6 bots of level 14-16 refused map 530 again and again at the Thalassian Pass, on
+    // a flight from the Eastern Plaguelands to Ghostlands): a random bot never flies to a zone of map 530 or 571.
+    bool const randomBot = sRandomPlayerbotMgr.IsRandomBot(bot);
+    auto farZone = [randomBot](uint32 zoneId)
+    {
+        AreaTableEntry const* entry = sAreaTableStore.LookupEntry(zoneId);
+        return randomBot && entry && (entry->mapid == 530 || entry->mapid == 571);
+    };
+
     //Simplify destination delection. Its either target cities (Based on config value) or target world.
     std::vector<uint32> candidateZones;
     if (botLevel >= 10 && !botInCapital && urand(0, 100) < sPlayerbotAIConfig.probTeleToBankers * 100)
@@ -4439,6 +4449,8 @@ std::vector<std::vector<uint32>> TravelMgr::GetOptimalFlightDestinations(Player*
         for (Capital const& capital : capitals)
         {
             if (capital.team != TEAM_NEUTRAL && capital.team != botTeam)
+                continue;
+            if (farZone(capital.zoneId))
                 continue;
             candidateZones.push_back(capital.zoneId);
         }
@@ -4458,6 +4470,8 @@ std::vector<std::vector<uint32>> TravelMgr::GetOptimalFlightDestinations(Player*
                 if (zoneEntry->team == 2 && bot->GetTeamId() == TEAM_HORDE)
                     continue;
             }
+            if (farZone(zoneId))
+                continue;
             if (GetFlightNodesInZone(zoneId, bot->GetTeamId(), fromNode).empty())
                 continue;
             candidateZones.push_back(zoneId);

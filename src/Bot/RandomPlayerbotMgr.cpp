@@ -2365,6 +2365,30 @@ bool CoaRefusesFarMap(Player* bot, uint32 mapId)
     if (master && master != bot && !GET_PLAYERBOT_AI(master))
         return false;  // a real player's bot goes where its player takes it
     ++farGateRefused;
+    // 3.2.2 (bench of 5f662017: refused at a flight's map change, a bot stayed on its taxi at the pass, refused again
+    // each minute): a bot in flight leaves its taxi and goes to its hearth on maps 0/1, from the next update.
+    if (bot->IsInFlight() || !bot->m_taxi.empty())
+    {
+        ObjectGuid const guid = bot->GetGUID();
+        bot->m_Events.AddEventAtOffset(
+            [guid]()
+            {
+                Player* p = ObjectAccessor::FindPlayer(guid);
+                if (!p || !p->IsInWorld() || p->IsBeingTeleported())
+                    return;
+                if (p->IsInFlight())
+                {
+                    p->GetMotionMaster()->Clear();
+                    p->CleanupAfterTaxiFlight();
+                }
+                p->m_taxi.ClearTaxiDestinations();
+                if (PlayerbotAI* ai = GET_PLAYERBOT_AI(p))
+                    ai->rpgInfo.ChangeToIdle();
+                if (!CoaFarMap(p->m_homebindMapId))
+                    p->TeleportTo(p->m_homebindMapId, p->m_homebindX, p->m_homebindY, p->m_homebindZ, p->GetOrientation());
+            },
+            Milliseconds(0));
+    }
     time_t const now = time(nullptr);
     {
         std::lock_guard<std::mutex> guard(farGateLock);
