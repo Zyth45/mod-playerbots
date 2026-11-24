@@ -37,6 +37,10 @@ ObjectGuid OtherReachableAuctioneer(Player* bot, WorldObject* npc);
 Unstick UnstickFromIsland(Player* bot, WorldObject const* npc);
 // 3.2.2: (x, y, z) lies in a banker's or an auctioneer's booth, behind its counter (InBooth).
 bool InNpcBooth(Player* bot, float x, float y, float z);
+// 3.2.3 (NpcStopAside): the stop aside of a still NPC or object at (x, y), its height set on the server's floor (within
+// SIDE_STOP_RISE yards of the NPC's), is walkable: no wall in between from the NPC, not in a booth, no avoided spot, a
+// path to it the core follows, in the NPC's sight. False: the caller stops as before.
+bool AsideStopOk(Player* bot, WorldObject const* npc, float& x, float& y, float& z);
 }  // namespace CoaSafeMove
 
 #endif

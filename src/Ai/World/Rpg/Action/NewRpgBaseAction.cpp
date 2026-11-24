@@ -287,16 +287,25 @@ bool NewRpgBaseAction::MoveWorldObjectTo(ObjectGuid guid, float distance)
     }
     float stop = distance * rnd;
     // CoA 3.2.3 (AiPlayerbot.CoaLive.NpcStopAside): by a still NPC or object, off its axis, not on its face
-    // (CoaSafeMove::AsideOffset, AsideDistance).
+    // (CoaSafeMove::AsideOffset, AsideDistance), when that stop is on walkable ground (CoaSafeMove::AsideStopOk: the
+    // server's floor, not in a booth, no avoided spot, a path to it, in the NPC's sight); else as before.
     if (sPlayerbotAIConfig.standOffObjects && CoaPathProbe::NpcStopAside() &&
         (!object->ToUnit() || !object->ToUnit()->isMoving()))
     {
+        // A square of the city first: its slot, not the anchor NPC (as below).
+        float qx = x, qy = y, qz = z;
+        if (CoaCityLife::SquareSpot(botAI, guid, qx, qy, qz))
+            return MoveTo(mapId, qx, qy, qz, false, false, false, true);
         Creature const* creature = object->ToCreature();
         float const facing = creature ? creature->GetHomePosition().GetOrientation() : object->GetOrientation();
         float const offset = CoaSafeMove::AsideOffset(bot->GetGUID().GetCounter());
-        angle = facing + offset;
-        stop = CoaSafeMove::AsideDistance(object->ToUnit() ? object->ToUnit()->GetCombatReach() : 0.0f,
-                                          bot->GetObjectSize(), offset, distance);
+        float const asideStop = CoaSafeMove::AsideDistance(object->ToUnit() ? object->ToUnit()->GetCombatReach() : 0.0f,
+                                                           bot->GetObjectSize(), offset, distance);
+        float ax = x + cos(facing + offset) * asideStop;
+        float ay = y + sin(facing + offset) * asideStop;
+        float az = z;
+        if (CoaSafeMove::AsideStopOk(bot, object, ax, ay, az))
+            return MoveTo(mapId, ax, ay, az, false, false, false, true);
     }
     x += cos(angle) * stop;
     y += sin(angle) * stop;

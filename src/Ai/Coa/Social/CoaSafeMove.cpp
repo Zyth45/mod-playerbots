@@ -422,6 +422,32 @@ ObjectGuid OtherReachableAuctioneer(Player* bot, WorldObject* npc)
     return ObjectGuid::Empty;
 }
 
+bool AsideStopOk(Player* bot, WorldObject const* npc, float& x, float& y, float& z)
+{
+    if (!bot || !npc || !bot->IsInWorld() || bot->GetMapId() != npc->GetMapId())
+        return false;
+    Map* map = npc->GetMap();
+    if (!map)
+        return false;
+    float const nx = npc->GetPositionX(), ny = npc->GetPositionY(), nz = npc->GetPositionZ();
+    // No wall or counter between the NPC and the stop: the navmesh raycast and the collision checks reach it.
+    float cx = x, cy = y, cz = nz;
+    if (!map->CheckCollisionAndGetValidCoords(npc, nx, ny, nz, cx, cy, cz) ||
+        (cx - x) * (cx - x) + (cy - y) * (cy - y) > 0.25f)
+        return false;
+    float const floorZ = map->GetHeight(npc->GetPhaseMask(), x, y, nz + 0.5f);
+    if (!SideStopFloor(nz, floorZ))
+        return false;
+    if (Avoided(bot->GetMapId(), x, y, floorZ) || InNpcBooth(bot, x, y, floorZ))
+        return false;
+    if (!npc->IsWithinLOS(x, y, floorZ + 1.5f))
+        return false;
+    if (!CanWalkTo(bot, x, y, floorZ))
+        return false;
+    z = floorZ;
+    return true;
+}
+
 bool CanWalkTo(Player* bot, float x, float y, float z, bool* straight)
 {
     if (straight)
