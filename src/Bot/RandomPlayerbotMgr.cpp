@@ -4,6 +4,7 @@
  * or (at your option) any later version.
  */
 
+#include "CoaPopulationRules.h"
 #include "CoaWorldGuildPresence.h"
 #include "CoaEconomyConf.h"
 #include "CoaEconomyRules.h"
@@ -666,13 +667,10 @@ void RandomPlayerbotMgr::AssignAccountTypes()
     if (sPlayerbotAIConfig.maxRandomBots > 0)
     {
         int divisor = RandomPlayerbotFactory::CalculateAvailableCharsPerAccount();
-        int maxBots = sPlayerbotAIConfig.maxRandomBots;
-
-        // Take periodic online-offline into account
-        if (sPlayerbotAIConfig.enablePeriodicOnlineOffline)
-        {
-            maxBots *= sPlayerbotAIConfig.periodicOnlineOfflineRatio;
-        }
+        // Take periodic online-offline into account (CoaPeriodicBotTotal: rounded up)
+        int maxBots = int(CoaPeriodicBotTotal(sPlayerbotAIConfig.maxRandomBots,
+                                              sPlayerbotAIConfig.enablePeriodicOnlineOffline,
+                                              sPlayerbotAIConfig.periodicOnlineOfflineRatio));
 
         // Calculate base accounts needed for RNDbots, ensuring round up for maxBots not cleanly divisible by the divisor
         neededRndBotAccounts = (maxBots + divisor - 1) / divisor;
@@ -793,8 +791,8 @@ uint32 RandomPlayerbotMgr::AddRandomBots()
 
             // Calculate how many accounts can be used
             // With enablePeriodicOnlineOffline, don't use all of rndBotTypeAccounts right away. Fraction results are rounded up
-            uint32 accountsToUseCount = (rndBotTypeAccounts.size() + sPlayerbotAIConfig.periodicOnlineOfflineRatio - 1)
-                                        / sPlayerbotAIConfig.periodicOnlineOfflineRatio;
+            uint32 accountsToUseCount = CoaPeriodicAccountsToUse(uint32(rndBotTypeAccounts.size()),
+                                                                 sPlayerbotAIConfig.periodicOnlineOfflineRatio);
 
             // Randomly select accounts
             std::vector<uint32> shuffledAccounts = rndBotTypeAccounts;

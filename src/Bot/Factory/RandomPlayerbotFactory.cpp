@@ -4,6 +4,7 @@
  * or (at your option) any later version.
  */
 
+#include "CoaPopulationRules.h"
 #include "RandomPlayerbotFactory.h"
 #include "AccountMgr.h"
 #include "ArenaTeamMgr.h"
@@ -458,10 +459,10 @@ uint32 RandomPlayerbotFactory::CalculateTotalAccountCount()
     int divisor = CalculateAvailableCharsPerAccount();
 
     // Calculate max bots
-    int maxBots = sPlayerbotAIConfig.maxRandomBots;
-    // Take periodic online/offline into account
-    if (sPlayerbotAIConfig.enablePeriodicOnlineOffline)
-        maxBots *= sPlayerbotAIConfig.periodicOnlineOfflineRatio;
+    // Take periodic online/offline into account (CoaPeriodicBotTotal: rounded up)
+    int maxBots = int(CoaPeriodicBotTotal(sPlayerbotAIConfig.maxRandomBots,
+                                          sPlayerbotAIConfig.enablePeriodicOnlineOffline,
+                                          sPlayerbotAIConfig.periodicOnlineOfflineRatio));
 
     // Calculate number of accounts needed for RNDbots
     // Result is rounded up for maxBots not cleanly divisible by the divisor
