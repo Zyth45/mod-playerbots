@@ -133,6 +133,8 @@ bool craftForSelf = true;      // AiPlayerbot.CoaEconomy.CraftForSelf.Enable
 bool craftForSelfLog = false;  // AiPlayerbot.CoaEconomy.CraftForSelf.Log
 bool enchantForSelf = true;     // AiPlayerbot.CoaEconomy.EnchantForSelf.Enable
 bool enchantForSelfLog = false; // AiPlayerbot.CoaEconomy.EnchantForSelf.Log
+uint32 enchantPieces = 2;      // AiPlayerbot.CoaEconomy.EnchantForSelf.PiecesPerStudy (3.2.2)
+bool studyRestAreas = true;    // AiPlayerbot.CoaEconomy.SelfStudy.RestAreas (3.2.2)
 // AiPlayerbot.CoaEconomy.SelfStudy.*
 bool studyEnabled = true;
 uint32 studyIntervalSeconds = 3600;
@@ -155,6 +157,9 @@ void LoadSettings()
     craftForSelfLog = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.CraftForSelf.Log", false, false);
     enchantForSelf = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.EnchantForSelf.Enable", true, false);
     enchantForSelfLog = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.EnchantForSelf.Log", false, false);
+    enchantPieces = std::clamp<uint32>(
+        CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.EnchantForSelf.PiecesPerStudy", 2), 1, 4);
+    studyRestAreas = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.SelfStudy.RestAreas", true);
     studyEnabled = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.SelfStudy.Enable", true, false);
     studyIntervalSeconds =
         60 * std::max<uint32>(5, CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.SelfStudy.IntervalMinutes", 60));
@@ -581,11 +586,37 @@ Item* CraftUpgradeForSelf(Player* bot, PlayerbotAI* botAI, uint64 buyCap)
     return item;
 }
 
-bool EnchantForSelf(Player* bot, uint64 buyCap)
+namespace
+{
+    // 3.2.2: the tools the spell asks for, held as the game checks them for a player (a runed rod for most
+    // enchantments: TotemCategory).
+    bool HoldsTools(Player* bot, SpellInfo const* spell)
+    {
+        auto const item = [bot](uint32 id) { return id && bot->HasItemCount(id); };
+        auto const category = [bot](uint32 id) { return id && bot->HasItemTotemCategory(id); };
+        return CoaEnchantSelfRules::HasTools(spell->Totem[0], item(spell->Totem[0]), spell->Totem[1],
+                                             item(spell->Totem[1])) &&
+               CoaEnchantSelfRules::HasTools(spell->TotemCategory[0], category(spell->TotemCategory[0]),
+                                             spell->TotemCategory[1], category(spell->TotemCategory[1]));
+    }
+
+    bool EnchantOnce(Player* bot, uint64 buyCap);
+}
+
+bool EnchantForSelf(Player* bot, uint64 buyCap, uint32 pieces)
 {
     if (!enchantForSelf || !bot || !bot->HasSkill(SKILL_ENCHANTING))
         return false;
+    uint32 done = 0;
+    while (done < std::max<uint32>(1, pieces) && EnchantOnce(bot, buyCap))
+        ++done;
+    return done > 0;
+}
 
+namespace
+{
+bool EnchantOnce(Player* bot, uint64 buyCap)
+{
     StatsWeightCalculator calculator(bot);
     Item* bestItem = nullptr;
     SpellInfo const* bestSpell = nullptr;
@@ -613,6 +644,8 @@ bool EnchantForSelf(Player* bot, uint64 buyCap)
                                          enchant->requiredSkillValue))
             continue;
         if (enchant->EnchantmentCondition && !bot->EnchantmentFitsRequirements(enchant->EnchantmentCondition, -1))
+            continue;
+        if (!HoldsTools(bot, spell))
             continue;
         ReagentPlan const plan = PlanReagents(bot, spell);
         if (plan.missing && (!buyCap || !plan.buyable || plan.cost > buyCap))
@@ -661,6 +694,7 @@ bool EnchantForSelf(Player* bot, uint64 buyCap)
                  bestGain, bestPlan.vendorUnits + bestPlan.auctionUnits, bestPlan.cost);
     return true;
 }
+}
 
 namespace
 {
@@ -693,7 +727,9 @@ namespace
 bool StudyIfDue(Player* bot, PlayerbotAI* botAI)
 {
     if (!studyEnabled || !bot || !botAI || !bot->IsInWorld() || !bot->IsAlive() || bot->IsInCombat() ||
-        !sRandomPlayerbotMgr.IsRandomBot(bot) || !InCapital(bot))
+        !sRandomPlayerbotMgr.IsRandomBot(bot) ||
+        !CoaEnchantSelfRules::StudyPlace(InCapital(bot), studyRestAreas, bot->HasRestFlag(REST_FLAG_IN_CITY),
+                                         bot->HasRestFlag(REST_FLAG_IN_TAVERN)))
         return false;
     uint32 const now = uint32(GameTime::GetGameTime().count());
     auto [it, fresh] = nextStudy.try_emplace(bot->GetGUID().GetRawValue(), 0);
@@ -716,7 +752,7 @@ bool StudyIfDue(Player* bot, PlayerbotAI* botAI)
                         : 0;
     };
     Item* const made = CraftUpgradeForSelf(bot, botAI, cap());
-    bool const enchanted = EnchantForSelf(bot, cap());
+    bool const enchanted = EnchantForSelf(bot, cap(), enchantPieces);
     if (!made && !enchanted && studyShort)
         ++studyCounters.noReagents;
     if (studyLog)

@@ -65,14 +65,17 @@ namespace CoaEconomy::Artisans
     // enchanter bot puts on one piece it wears the best permanent enchantment it knows, with the reagents it holds
     // (nothing bought), when the piece fits the enchantment, the bot's level allows it and it beats the enchantment
     // already there (never replaced by a weaker or equal one). Self-found and classic bots alike. True when done.
-    bool EnchantForSelf(Player* bot, uint64 buyCap = 0);
+    // 3.2.2: never without the tools the enchantment asks for (a runed rod: the spell's totem category), as the game
+    // checks them for a player; up to `pieces` pieces at one try (EnchantForSelf.PiecesPerStudy for a study).
+    bool EnchantForSelf(Player* bot, uint64 buyCap = 0, uint32 pieces = 1);
 
     // CoA 3.2 (AiPlayerbot.CoaEconomy.SelfStudy.*, the user's go of 21/11): at most once per IntervalMinutes, a random
-    // bot in a capital studies what it could craft (CraftUpgradeForSelf) or enchant (EnchantForSelf) for itself,
-    // buying the missing reagents under the study's gold cap. Called by the capital scan and at an auction house
-    // visit; does nothing before the bot's next study is due. World thread only. True when it studied.
+    // bot in a capital (3.2.2, SelfStudy.RestAreas: or a city or an inn it rests in) studies what it could craft
+    // (CraftUpgradeForSelf) or enchant (EnchantForSelf, up to EnchantForSelf.PiecesPerStudy pieces) for itself,
+    // buying the missing reagents under the study's gold cap. Called by the scan and at an auction house visit; does
+    // nothing before the bot's next study is due. World thread only. True when it studied.
     bool StudyIfDue(Player* bot, PlayerbotAI* botAI);
-    // The world script's tick: every 30 s, up to 20 random bots in a capital whose study is due.
+    // The world script's tick: every 30 s, up to 20 random bots in a study place whose study is due.
     void ScanCapitalsTick(uint32 diff);
 
     // What the reagents missing for `times` crafts cost at market price (the held ones are free), copper.

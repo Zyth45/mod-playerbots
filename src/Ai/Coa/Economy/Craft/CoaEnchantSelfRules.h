@@ -24,6 +24,19 @@ inline bool Usable(uint32_t botLevel, uint32_t requiredLevel, uint32_t requiredS
         return false;
     return !requiredSkill || botSkillValue >= requiredSkillValue;
 }
+
+// 3.2.2: the tools a spell asks for (a totem item or a totem category, such as a runed rod), as the game checks
+// them for a player: every one asked for must be held.
+inline bool HasTools(bool asks0, bool holds0, bool asks1, bool holds1)
+{
+    return (!asks0 || holds0) && (!asks1 || holds1);
+}
+
+// 3.2.2 (SelfStudy.RestAreas): where a bot studies: a capital, or, with the key on, any city or inn it rests in.
+inline bool StudyPlace(bool capital, bool restAreas, bool restingInCity, bool restingInInn)
+{
+    return capital || (restAreas && (restingInCity || restingInInn));
+}
 }  // namespace CoaEnchantSelfRules
 
 #endif

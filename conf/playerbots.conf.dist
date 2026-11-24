@@ -6011,10 +6011,13 @@ AiPlayerbot.CoaEconomy.CraftForSelf.Log = 0
 # At an auction house visit, a bot with Enchanting puts on one piece it wears the best permanent enchantment it knows,
 # only with the reagents it already holds (nothing is bought for it), when the piece fits the enchantment and the
 # bot's level allows it, and only when it beats the enchantment already there (never a better or equal one replaced).
-# Self-found and classic bots alike. Log: each enchantment put on, in the playerbots.loot log (BotLoot.log).
-# Default: 1 (enabled); Log: 0 (disabled)
+# Self-found and classic bots alike. Never without the tools the enchantment asks for (a runed rod), as for a player.
+# Log: each enchantment put on, in the playerbots.loot log (BotLoot.log).
+# PiecesPerStudy: at a self study (below), up to this many pieces enchanted, one after the other (1 to 4).
+# Default: 1 (enabled); Log: 0 (disabled); PiecesPerStudy: 2
 AiPlayerbot.CoaEconomy.EnchantForSelf.Enable = 1
 AiPlayerbot.CoaEconomy.EnchantForSelf.Log = 0
+AiPlayerbot.CoaEconomy.EnchantForSelf.PiecesPerStudy = 2
 
 # Self study: at most once per IntervalMinutes, a random bot in a capital studies what it could craft or enchant for
 # itself (the two keys above) and buys the reagents it lacks, a vendor's first, the auction house's next (reagents
@@ -6022,8 +6025,10 @@ AiPlayerbot.CoaEconomy.EnchantForSelf.Log = 0
 # when the piece gains at least MinGainPercent over what it replaces. BuyReagents = 0: only the reagents it holds.
 # Log: each study, and once an hour the counts (studies, crafted, enchanted, short of reagents, reagents bought at a
 # vendor and at the auction house, gold spent), in the playerbots.loot log (BotLoot.log).
-# Default: 1 (enabled), 60 minutes, 1, 10 %, 2500 copper per level, 5 %; Log: 0 (disabled)
+# RestAreas = 1: a bot studies in any city or inn it rests in too, not only in a capital.
+# Default: 1 (enabled), 60 minutes, 1, 10 %, 2500 copper per level, 5 %; Log: 0 (disabled); RestAreas: 1
 AiPlayerbot.CoaEconomy.SelfStudy.Enable = 1
+AiPlayerbot.CoaEconomy.SelfStudy.RestAreas = 1
 AiPlayerbot.CoaEconomy.SelfStudy.IntervalMinutes = 60
 AiPlayerbot.CoaEconomy.SelfStudy.BuyReagents = 1
 AiPlayerbot.CoaEconomy.SelfStudy.MaxGoldPercent = 10
