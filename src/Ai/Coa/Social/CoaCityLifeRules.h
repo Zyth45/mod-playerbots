@@ -233,13 +233,17 @@ inline uint32_t StayMs(uint64_t guid, uint32_t cityStayMs) { return IsResident(g
 constexpr float SEAT_PICK_MAX_DZ = 2.5f;  // a seat this far above or below the bot is not a candidate
 constexpr float SEAT_MAX_DZ = 1.5f;       // at arrival: the chair's height against the bot's
 constexpr float SEAT_MAX_DIST = 4.0f;     // at arrival: 2D distance to the chair
+constexpr float SEAT_ON = 1.5f;           // 3.2.2: a bot this close stands on the chair (no sight asked)
 
 inline bool SeatPickable(float botZ, float seatZ) { return std::fabs(seatZ - botZ) <= SEAT_PICK_MAX_DZ; }
 
 inline bool SeatUsable(float botX, float botY, float botZ, float seatX, float seatY, float seatZ, bool inSight)
 {
     float const dx = seatX - botX, dy = seatY - botY;
-    return inSight && std::fabs(seatZ - botZ) <= SEAT_MAX_DZ && dx * dx + dy * dy <= SEAT_MAX_DIST * SEAT_MAX_DIST;
+    // 3.2.2 (the user: bots standing on chairs): a bot whose stop is the chair itself stands in its model, which hides
+    // the chair from it: on it (SEAT_ON yards), no sight is asked.
+    bool const onIt = dx * dx + dy * dy <= SEAT_ON * SEAT_ON;
+    return (inSight || onIt) && std::fabs(seatZ - botZ) <= SEAT_MAX_DZ && dx * dx + dy * dy <= SEAT_MAX_DIST * SEAT_MAX_DIST;
 }
 // 3.2.2 (the user, 23/11: bots standing on the capitals' squares, by the auction house's door and the quest board, on
 // the square between the bank and the auction house; "on est pas préssé ... essai de tout faire pour la 3.2.2"). A
