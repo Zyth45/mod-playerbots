@@ -2344,13 +2344,15 @@ void CoaHomeFromOutland(Player* bot)
     bot->TeleportTo(start);
 }
 
+}  // namespace (3.2.2: the far map gate and the offline sweep are called from outside this file)
+
 // CoA 3.2.2 (Pilote, bench of 1e991b2d: 9 bots still left map 530 during the bench, the database going from 1 to 5
 // characters there): whatever the caller (a quest, a travel, a hearthstone, a portal, a boat), a random bot with no
 // player for master never teleports to map 530 or 571 from another map: the core's OnPlayerBeforeTeleport asks here.
 // Each refusal is told once a minute per bot with its cause: the spell it casts, its last actions, its RPG status.
-std::mutex farGateLock;
-std::unordered_map<uint64, time_t> farGateTold;
-std::atomic<uint32> farGateRefused{0};
+static std::mutex farGateLock;
+static std::unordered_map<uint64, time_t> farGateTold;
+static std::atomic<uint32> farGateRefused{0};
 
 bool CoaRefusesFarMap(Player* bot, uint32 mapId)
 {
@@ -2452,6 +2454,9 @@ void CoaHomeOfflineFromOutland(std::vector<uint32> const& accounts)
     LOG_INFO("playerbots.coa", "coa: offline random bots on map 530 or 571: {} sent to their hearth, {} to their race's "
              "start, {} left (no start off those maps)", hearth, start, left);
 }
+
+namespace
+{
 
 // CoA 3.2.2 (Pilote: the update shows at once, not at a bot's next randomize): a random bot of a player-less kind, of
 // the ground mount level or more, with no riding skill or no ground mount known, gets at its login the riding of its
