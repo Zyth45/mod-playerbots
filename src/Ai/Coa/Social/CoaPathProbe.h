@@ -82,6 +82,8 @@ void NoteSeatSatAgain();
 // the capital's nearest checked arrival, even in a player's sight; at most once per UNSTICK_EVERY_MS per bot and
 // UNSTICK_PER_HOUR in all. Counted in the hourly line. True when it was moved. Called on the bot's thread.
 bool CityUnstick(Player* bot, bool wandering);
+// 3.2.3 (AiPlayerbot.CoaLive.NpcStopAside, 1): a bot stops by a still NPC or object off its axis (MoveWorldObjectTo).
+bool NpcStopAside();
 }  // namespace CoaPathProbe
 
 void AddSC_coa_path_probe();

@@ -12,6 +12,8 @@
 #include "CoaBotAuctions.h"
 #include "CoaCityLife.h"
 #include "CoaSafeMove.h"
+#include "CoaPathProbe.h"
+#include "CoaSafeMoveRules.h"
 #include "CoaQuestLogRules.h"
 #include "NewRpgBaseAction.h"
 #include "BroadcastHelper.h"
@@ -283,8 +285,21 @@ bool NewRpgBaseAction::MoveWorldObjectTo(ObjectGuid guid, float distance)
         float const reach = bot->GetCombatReach() + (object->ToUnit() ? object->ToUnit()->GetCombatReach() : 0.0f);
         rnd = distance > 0.0f ? std::max(0.5f + 0.5f * rnd, std::min(1.0f, reach / distance)) : rnd;
     }
-    x += cos(angle) * distance * rnd;
-    y += sin(angle) * distance * rnd;
+    float stop = distance * rnd;
+    // CoA 3.2.3 (AiPlayerbot.CoaLive.NpcStopAside): by a still NPC or object, off its axis, not on its face
+    // (CoaSafeMove::AsideOffset, AsideDistance).
+    if (sPlayerbotAIConfig.standOffObjects && CoaPathProbe::NpcStopAside() &&
+        (!object->ToUnit() || !object->ToUnit()->isMoving()))
+    {
+        Creature const* creature = object->ToCreature();
+        float const facing = creature ? creature->GetHomePosition().GetOrientation() : object->GetOrientation();
+        float const offset = CoaSafeMove::AsideOffset(bot->GetGUID().GetCounter());
+        angle = facing + offset;
+        stop = CoaSafeMove::AsideDistance(object->ToUnit() ? object->ToUnit()->GetCombatReach() : 0.0f,
+                                          bot->GetObjectSize(), offset, distance);
+    }
+    x += cos(angle) * stop;
+    y += sin(angle) * stop;
     if (!object->GetMap()->CheckCollisionAndGetValidCoords(object, object->GetPositionX(), object->GetPositionY(),
                                                            object->GetPositionZ(), x, y, z))
     {

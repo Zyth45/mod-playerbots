@@ -3854,6 +3854,16 @@ AiPlayerbot.CoaLive.City.SquareMaxBots = 3
 AiPlayerbot.CoaLive.CityUnstick.Enable = 1
 AiPlayerbot.CoaLive.CityUnstick.StillMinutes = 25
 
+#    AiPlayerbot.CoaLive.NpcStopAside
+#        Description: 3.2.3: a bot that walks to a still NPC or object (trainer, banker, flight master,
+#                     mailbox) stops off its axis, on an angle its own fixes 45 to 75 degrees off the NPC's
+#                     facing, left or right, at the NPC's reach plus its own size, 2 yards at least off the
+#                     axis: no longer on the NPC's face, hiding it from the players. Read again by
+#                     ".reload config".
+#        Default:     1 - on
+
+AiPlayerbot.CoaLive.NpcStopAside = 1
+
 #    AiPlayerbot.CoaLive.PvpStatsKeepDays
 #        Description: 3.2.2: with Battleground.StoreStatistics.Enable (worldserver.conf), the core keeps every
 #                     battleground's statistics forever (with thousands of bots, about 100,000 lines a day). Once a

@@ -296,6 +296,30 @@ inline bool IndoorDismount(bool mounted, bool outdoors, bool inFlight, bool onTr
     return mounted && !outdoors && !inFlight && !onTransport && !inBattleground;
 }
 
+// 3.2.3 (player Agares216, 24/11: bots "cover" trainers, bankers, flight masters and mailboxes, taurens most): a bot
+// stops by a still NPC or object off its axis, on an angle its guid fixes in an arc of the NPC's front, ASIDE_MIN_DEG
+// to ASIDE_MIN_DEG + (ASIDE_STEPS - 1) * ASIDE_STEP_DEG off its facing, left or right; at the NPC's reach plus its own
+// size plus ASIDE_GAP, and at least ASIDE_LATERAL yards off the axis; never past the wanted distance.
+constexpr float ASIDE_MIN_DEG = 45.0f;
+constexpr float ASIDE_STEP_DEG = 10.0f;
+constexpr uint32_t ASIDE_STEPS = 4;
+constexpr float ASIDE_GAP = 0.5f;
+constexpr float ASIDE_LATERAL = 2.0f;
+inline float AsideOffset(uint64_t guid)  // radians, signed (left +, right -)
+{
+    uint32_t const slot = uint32_t(guid % (2 * ASIDE_STEPS));
+    float const deg = ASIDE_MIN_DEG + float(slot / 2) * ASIDE_STEP_DEG;
+    return (slot % 2 ? -1.0f : 1.0f) * deg * 0.017453293f;
+}
+inline float AsideDistance(float npcReach, float botSize, float offset, float maxDistance)
+{
+    float d = npcReach + botSize + ASIDE_GAP;
+    float const s = std::fabs(std::sin(offset));
+    if (s > 0.01f && d * s < ASIDE_LATERAL)
+        d = ASIDE_LATERAL / s;
+    return maxDistance > 0.0f && d > maxDistance ? maxDistance : d;
+}
+
 inline bool Avoided(uint32_t mapId, float x, float y, float z)
 {
     for (AvoidedSpot const& spot : AVOIDED_SPOTS)

@@ -771,6 +771,7 @@ struct StillState
     uint32 unstickAt = 0;  // last move out
 };
 bool cityUnstickOn = true;  // AiPlayerbot.CoaLive.CityUnstick.Enable
+bool npcStopAsideOn = true;  // AiPlayerbot.CoaLive.NpcStopAside
 uint32 stillMinutes = 25;   // AiPlayerbot.CoaLive.CityUnstick.StillMinutes
 std::mutex stillLock;
 std::unordered_map<uint64, StillState> stillBots;
@@ -1103,6 +1104,8 @@ void NoteSeatHeld(Player* bot, WorldObject const* seat, int8_t use)
     seatsHeld[bot->GetGUID().GetRawValue()] = std::move(seen);
 }
 
+bool NpcStopAside() { return npcStopAsideOn; }
+
 bool CityUnstick(Player* bot, bool wandering)
 {
     if (!bot || !bot->IsInWorld() || !bot->IsAlive() || bot->IsInCombat() || bot->InBattleground() ||
@@ -1381,6 +1384,7 @@ public:
         arrivalCheck = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaArrivalCheck", true, false);
         placesOn = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaLive.City.Squares", true, false);
         cityUnstickOn = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaLive.CityUnstick.Enable", true, false);
+        npcStopAsideOn = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaLive.NpcStopAside", true, false);
         stillMinutes =
             std::max<uint32>(5, sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaLive.CityUnstick.StillMinutes", 25, false));
         bool const on = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaPathCheck", false, false);

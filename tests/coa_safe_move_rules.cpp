@@ -161,5 +161,17 @@ int main()
     assert(!IndoorDismount(false, false, false, false, false));
     assert(!IndoorDismount(true, false, true, false, false) && !IndoorDismount(true, false, false, true, false));
     assert(!IndoorDismount(true, false, false, false, true));
+    // 3.2.3: stops by an NPC aside, 45-75 degrees off its facing, both sides, 2 yd at least off its axis.
+    for (uint64_t g = 0; g < 16; ++g)
+    {
+        float const off = AsideOffset(g);
+        float const deg = std::fabs(off) / 0.017453293f;
+        assert(deg >= 44.9f && deg <= 75.1f);
+        float const d = AsideDistance(1.5f, 0.4f, off, 8.0f);
+        assert(d * std::fabs(std::sin(off)) >= ASIDE_LATERAL - 0.01f && d <= 8.0f);
+    }
+    assert(AsideOffset(0) > 0.0f && AsideOffset(1) < 0.0f);
+    assert(AsideDistance(1.5f, 1.5f, AsideOffset(6), 8.0f) >= 3.5f - 0.01f);  // a tauren: reach plus its size
+    assert(AsideDistance(1.5f, 1.5f, AsideOffset(0), 3.0f) == 3.0f);         // never past the wanted distance
     return 0;
 }
