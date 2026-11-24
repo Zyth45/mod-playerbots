@@ -246,7 +246,7 @@ inline bool SeatUsable(float botX, float botY, float botZ, float seatX, float se
 // square: an open space (PlaceOpen), on the city's floor, flat, within PLACE_SERVICE_MAX yards of at least two services of different
 // kinds (an auctioneer, a banker, an innkeeper, a flight master; a quest board, a mailbox), never closer than
 // PLACE_NPC_MIN to an NPC of them (its door, its counter) or PLACE_OBJECT_MIN to an object, off the ways between them
-// (PLACE_PATH_CLEAR yards). At most PLACES_PER_CAPITAL per capital, PLACE_SPACING yards apart. The user's own spots on
+// (refused until 3.2.2, now allowed). At most PLACES_PER_CAPITAL per capital, PLACE_SPACING yards apart. The user's own spots on
 // the Stormwind trade square (23/11, 6 of them, 7 to 60 yards apart, some by the quest board and the mailbox) set these.
 // 3.2.2 (sonde of 603a6549, the user's 31 spots: 17 kept; 8 refused for "no service within 50 yards", 5 "on a way", 1
 // "too close": spots chosen by eye, by a fountain, a quest board, a flight master): a square needs no service around
@@ -255,8 +255,7 @@ constexpr float PLACE_NPC_MIN = 2.0f;
 constexpr float PLACE_OBJECT_MIN = 2.0f;
 constexpr float PLACE_SERVICE_MAX = 50.0f;
 // 3.2.2 (sonde of 2448cbcb, the user's 31 spots: 15 refused for "fewer than two kinds", 6 "on a way"): one kind of
-// service in range is enough, and only standing on the line of a way (PLACE_PATH_CLEAR) is refused.
-constexpr float PLACE_PATH_CLEAR = 0.75f;
+// service in range is enough. (sonde of 5f662017: the last 5 refused were on a way: no longer a refusal.)
 constexpr float PLACE_SPACING = 7.0f;
 constexpr float PLACE_GRID = 3.0f;
 constexpr float PLACE_FLAT_DZ = 0.6f;  // the ground 2 yards around stays this close in height

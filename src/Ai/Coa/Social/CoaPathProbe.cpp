@@ -754,9 +754,8 @@ char const* PlaceReason(Scene const& scene, Query& q, Map* map, float x, float y
             ++nearby;
         }
     }
-    for (auto const& seg : scene.segments)
-        if (CoaCityLife::SegmentDistance(x, y, seg[0], seg[1], seg[2], seg[3]) < CoaCityLife::PLACE_PATH_CLEAR)
-            return "on a way between two services";
+    // 3.2.2 (sonde of 5f662017: the user's 5 spots still refused were all "on a way between two services", none
+    // unfit): a place may lie on a way; bots go through one another, a few standing there block nobody.
     PositionFullTerrainStatus status;
     map->GetFullTerrainStatusForPosition(PHASEMASK_NORMAL, x, y, z + 0.5f, 2.0f, status);
     if (status.liquidInfo.Status != LIQUID_MAP_NO_WATER)
