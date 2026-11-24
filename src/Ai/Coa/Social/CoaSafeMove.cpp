@@ -97,6 +97,21 @@ bool FrontOf(WorldObject const* npc, float x, float y)
     return InFrontOf(home.GetPositionX(), home.GetPositionY(), home.GetOrientation(), x, y);
 }
 
+// 3.2.2: the server sees a floor at the stop (OnServerFloor): no stop on a piece of navmesh between two floors.
+bool ServerFloor(WorldObject const* npc, float x, float y, float z)
+{
+    Map* map = npc->GetMap();
+    return !map || OnServerFloor(z, map->GetHeight(npc->GetPhaseMask(), x, y, z + 0.5f));
+}
+
+// 3.2.2 (the user's eye at Stormwind's bank: Kirsten Burnside's counter, "derrière les grilles de la banque"): no stop
+// behind a banker or an auctioneer, even as a last resort; another NPC with a stop in front is taken instead.
+bool Clerk(WorldObject const* npc)
+{
+    Creature const* creature = npc->ToCreature();
+    return creature && creature->HasNpcFlag(NPCFlags(UNIT_NPC_FLAG_BANKER | UNIT_NPC_FLAG_AUCTIONEER));
+}
+
 // NPCs with no stop in front of them (their facing in the database turned to a wall?), traced once each.
 std::mutex behindLock;
 std::unordered_map<uint64, bool> behindTraced;
@@ -145,7 +160,7 @@ bool RingStopWalks(Player* bot, WorldObject const* npc, float px, float py, floa
         return false;
     stop = path.GetActualEndPosition();
     return ByNpc(bot, npc, stop.x, stop.y, stop.z) && FrontOf(npc, stop.x, stop.y) &&
-           Sees(npc, stop.x, stop.y, stop.z);
+           Sees(npc, stop.x, stop.y, stop.z) && ServerFloor(npc, stop.x, stop.y, stop.z);
 }
 
 bool RingStopByNpc(Player* bot, WorldObject const* npc, float& x, float& y, float& z)
@@ -203,7 +218,7 @@ bool StandByNpc(Player* bot, WorldObject const* npc, float& x, float& y, float& 
     // 3.2.2: a stop behind the NPC (in a bank's booth) is kept as a last resort only (FrontOf).
     bool behind = false;
     G3D::Vector3 behindStop;
-    if (CanWalkTo(bot, x, y, z))
+    if (CanWalkTo(bot, x, y, z) && ServerFloor(npc, x, y, z))
     {
         if (FrontOf(npc, x, y))
         {
@@ -220,7 +235,7 @@ bool StandByNpc(Player* bot, WorldObject const* npc, float& x, float& y, float& 
         G3D::Vector3 const& end = path.GetActualEndPosition();
         // 3.2: no bridge over a dead end short of the NPC (BridgesDeadEnd): on the living bench the bots at the end of
         // it (Stormwind's counter) stood there until their wander ended, the stop by the NPC failing the flat line.
-        if (ByNpc(bot, npc, end.x, end.y, end.z) && Sees(npc, end.x, end.y, end.z))
+        if (ByNpc(bot, npc, end.x, end.y, end.z) && Sees(npc, end.x, end.y, end.z) && ServerFloor(npc, end.x, end.y, end.z))
         {
             if (FrontOf(npc, end.x, end.y))
             {
@@ -241,7 +256,7 @@ bool StandByNpc(Player* bot, WorldObject const* npc, float& x, float& y, float& 
     // behind it: a stop on a ring around it (StandRingPoint), in front of it, the one found before first.
     if (RingStopByNpc(bot, npc, x, y, z))
         return true;
-    if (!behind)
+    if (!behind || Clerk(npc))
         return false;
     TraceBehind(npc);
     x = behindStop.x;

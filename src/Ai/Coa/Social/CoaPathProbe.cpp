@@ -140,11 +140,14 @@ bool FindStop(Query& q, Map* map, dtPolyRef fromRef, float const* fromPt, float 
         bool const front = std::isnan(facing) || CoaSafeMove::InFrontOf(nx, ny, facing, end[2], end[0]);
         // 3.2.2 (sonde of 603a6549: every auctioneer of Ironforge and Orgrimmar "not joined", bots reaching them in game):
         // the reach with the usual sizes, a humanoid NPC's and a player's combat reach (1.5 each), as ByNpc counts them.
-        bool const ok = CoaSafeMove::InInteractionReach(toNpc, 1.5f, 1.5f) && sight && front;
+        // 3.2.2: on a floor the server sees (CoaSafeMove::OnServerFloor), as StandByNpc.
+        bool const floor = !map || CoaSafeMove::OnServerFloor(end[1], map->GetHeight(PHASEMASK_NORMAL, end[2], end[0],
+                                                                                         end[1] + 0.5f));
+        bool const ok = CoaSafeMove::InInteractionReach(toNpc, 1.5f, 1.5f) && sight && front && floor;
         if (how && (ok || what == "direct path"))
             *how += (how->empty() ? "" : "; ") + what + Fmt(": end %.2f %.2f %.2f,", end[2], end[0], end[1]) +
                     Fmt(" %.2f yd from the NPC", toNpc) + (seenLow ? "" : sight ? ", at the counter" : ", out of sight") +
-                    (front ? "" : ", BEHIND it");
+                    (front ? "" : ", BEHIND it") + (floor ? "" : ", NO SERVER FLOOR");
         if (ok)
         {
             sx = end[2];
@@ -365,13 +368,15 @@ bool ServerSeesFloor(Map* map, float x, float y, float z)
 int RelocateToCity(Query& q, Map* map, float x, float y, float z, float& nx, float& ny, float& nz)
 {
     int const here = OnCityFloor(q, x, y, z);
+    uint32 const mapId = map ? map->GetId() : 0;
     if (here == 1)
     {
         // 3.2.2 (sonde of 2448cbcb): the height of the navmesh's floor nearest z, when the server sees it too.
         float const at[3] = {y, z, x};
         float on[3];
         Snap(*q.query, q.filter, at, on);
-        if (ServerSeesFloor(map, on[2], on[0], on[1]))
+        // 3.2.2 (the user's eye): never on an avoided spot (CoaSafeMove::Avoided).
+        if (ServerSeesFloor(map, on[2], on[0], on[1]) && !CoaSafeMove::Avoided(mapId, on[2], on[0], on[1]))
         {
             nx = on[2];
             ny = on[0];
@@ -390,7 +395,8 @@ int RelocateToCity(Query& q, Map* map, float x, float y, float z, float& nx, flo
             if (!Snap(*q.query, q.filter, probe, snapped) || std::fabs(snapped[1] - z) > 4.0f)
                 continue;
             if (OnCityFloor(q, snapped[2], snapped[0], snapped[1]) == 1 &&
-                ServerSeesFloor(map, snapped[2], snapped[0], snapped[1]))
+                ServerSeesFloor(map, snapped[2], snapped[0], snapped[1]) &&
+                !CoaSafeMove::Avoided(mapId, snapped[2], snapped[0], snapped[1]))
             {
                 nx = snapped[2];
                 ny = snapped[0];

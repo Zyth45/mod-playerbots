@@ -348,6 +348,9 @@ bool NewRpgBaseAction::MoveRandomNear(float moveStep, MovementPriority priority,
         // in a banker's or an auctioneer's booth.
         if (inCapital && CoaSafeMove::InNpcBooth(bot, dx, dy, dz))
             continue;
+        // 3.2.2 (the user's eye): nor on a spot the players see otherwise (a pole, a planter, a platform).
+        if (CoaSafeMove::Avoided(bot->GetMapId(), dx, dy, dz))
+            continue;
 
         bool moved = MoveTo(bot->GetMapId(), dx, dy, dz, false, false, false, true, priority);
         if (moved)

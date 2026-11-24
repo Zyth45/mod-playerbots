@@ -198,6 +198,44 @@ inline bool InFrontOf(float npcX, float npcY, float facing, float x, float y)
     return (x - npcX) * std::cos(facing) + (y - npcY) * std::sin(facing) >= STAND_FRONT;
 }
 
+// 3.2.2 (the user's eye on the .go of 24/11): spots where the server's floor is not the one the players see, or that
+// lie in a piece of the decor the server does not know. No arrival and no random step ends within radius yards of one
+// (and AVOIDED_RISE yards of its height). Stops by an NPC are not concerned (Thunder Bluff's wind rider master).
+struct AvoidedSpot
+{
+    uint32_t mapId;
+    float x, y, z, radius;
+};
+constexpr float AVOIDED_RISE = 4.0f;
+constexpr AvoidedSpot AVOIDED_SPOTS[] = {
+    // Thunder Bluff, the wind riders' platform: the server's floor at 177.2-177.4, the client's at 180.5 (the user fell
+    // from -1197.6 32.0 177.7 down the tower's spiral stairs, 3 or 4 floors).
+    {1, -1197.6f, 32.0f, 177.5f, 12.0f},
+    // Thunder Bluff, a tent's pole the server does not know ("ce point me tp PILE dedans").
+    {1, -1265.16f, 24.39f, 128.8f, 1.5f},
+    // Stormwind, the bank's square: a tree's planter ("je suis sur le bac de l'arbre").
+    {0, -8891.2f, 648.0f, 97.3f, 3.0f},
+};
+
+inline bool Avoided(uint32_t mapId, float x, float y, float z)
+{
+    for (AvoidedSpot const& spot : AVOIDED_SPOTS)
+        if (spot.mapId == mapId && std::fabs(z - spot.z) <= AVOIDED_RISE &&
+            (x - spot.x) * (x - spot.x) + (y - spot.y) * (y - spot.y) <= spot.radius * spot.radius)
+            return true;
+    return false;
+}
+
+// 3.2.2 (the user's eye, Darnassus 9863.50 2345.68 1327.3: "je tombe d'environ la hauteur du personnage, juste en
+// dessous du plafond", a bot by the auctioneers stood there, the server's ground 5 yards lower): a stop by an NPC lies
+// on a floor the server sees, its height (GetHeight from just over it) within STOP_FLOOR_AGREE yards.
+constexpr float STOP_FLOOR_AGREE = 1.5f;
+
+inline bool OnServerFloor(float z, float ground)
+{
+    return ground > -100000.0f && std::fabs(ground - z) <= STOP_FLOOR_AGREE;
+}
+
 // 3.2.2 (Pilote, bench of 96b4114c: Timo online behind Ironforge's bankers 2460 and 2461, 2 yards behind each, while
 // StandByNpc traced no stop behind them): a random step (MoveRandomNear: a wander, a nudge after a failed path) may end
 // in a booth. A point within BOOTH_RANGE yards of a banker or an auctioneer, at most BOOTH_RISE yards above or under
