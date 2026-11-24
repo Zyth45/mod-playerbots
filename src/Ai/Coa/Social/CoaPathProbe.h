@@ -74,6 +74,8 @@ void NotePlaceTaken();
 // arrival, and, while a bot holds a seat, its stand state (its latest per bot, for the hourly "seats" line).
 void NoteSeatUse(bool used);
 void NoteSeatHeld(Player* bot, WorldObject const* seat, int8_t use);
+// 3.2.2: a seat holder found standing on its seat sat on it again (the "seats" line).
+void NoteSeatSatAgain();
 // 3.2.2 (the user: bots in the Stormwind inn's floor, a bot still for an hour there): a random bot of a capital (no
 // fight, battleground or group with a player) in the floor (BuriedUnder: checked at its first look, then every
 // BURIED_EVERY_MS), or still for StillMinutes on a wander (wandering: no target reached, no City Life post), is put on

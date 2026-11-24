@@ -757,7 +757,7 @@ struct SeatSeen
     float x, y, z;
     uint32 entry;
 };
-std::atomic<uint32> seatsUsed{0}, seatsRefused{0};
+std::atomic<uint32> seatsUsed{0}, seatsRefused{0}, seatsSatAgain{0};
 std::mutex seatsLock;
 std::map<uint64, SeatSeen> seatsHeld;
 // 3.2.2 (CityUnstick, the user: bots in the Stormwind inn's floor, a bot still for an hour by the inn): random bots of
@@ -1052,7 +1052,8 @@ std::vector<std::string> PlacesReport()
             }
         }
         lines.push_back("seats: " + std::to_string(seatsUsed.exchange(0)) + " used, " +
-                        std::to_string(seatsRefused.exchange(0)) + " refused (SeatUsable); held " +
+                        std::to_string(seatsRefused.exchange(0)) + " refused (SeatUsable), " +
+                        std::to_string(seatsSatAgain.exchange(0)) + " sat again; held " +
                         std::to_string(count[0]) + " chair-sit / " + std::to_string(count[1]) + " sit / " +
                         std::to_string(count[2]) + " stand" + sample);
         seatsHeld.clear();
@@ -1080,6 +1081,8 @@ std::vector<std::string> PlacesReport()
 void NotePlaceTaken() { ++placesTaken; }
 
 void NoteSeatUse(bool used) { ++(used ? seatsUsed : seatsRefused); }
+
+void NoteSeatSatAgain() { ++seatsSatAgain; }
 
 void NoteSeatHeld(Player* bot, WorldObject const* seat, int8_t use)
 {

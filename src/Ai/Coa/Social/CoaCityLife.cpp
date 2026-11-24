@@ -16,6 +16,7 @@
 #include "DBCStores.h"
 #include "GameObject.h"
 #include "GameTime.h"
+#include "Group.h"
 #include "GridNotifiers.h"
 #include "GridNotifiersImpl.h"
 #include "Player.h"
@@ -49,8 +50,11 @@ struct Holding
     float px = 0.0f, py = 0.0f, pz = 0.0f, cx = 0.0f, cy = 0.0f;
     bool sitting = false;
     int8 seat = 0;  // 3.2.2 (measure only): a seat's use at arrival, 1 used (Use), -1 refused (SeatUsable)
+    uint8 satAgain = 0;      // 3.2.2: times the bot, found standing on its seat, sat on it again (2 at most)
+    uint64 satAgainMs = 0;
 };
 constexpr uint64 HOLD_MS = 15 * MINUTE * IN_MILLISECONDS;
+constexpr uint64 SAT_AGAIN_MS = 10 * IN_MILLISECONDS;  // 3.2.2: a seat holder found standing sits again after
 constexpr uint64 POST_MARGIN_MS = 5 * MINUTE * IN_MILLISECONDS;  // a long post is held this much past its end
 
 std::mutex cityLock;
@@ -380,6 +384,15 @@ bool KeepsSeated(PlayerbotAI* botAI)
 {
     if (!Enabled() || !botAI || !botAI->GetBot()->IsSitState())
         return false;
+    // Never for a bot a player deals with: in his group, or trading with him.
+    Player* bot = botAI->GetBot();
+    if (bot->GetTradeData())
+        return false;
+    if (Group* group = bot->GetGroup())
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+            if (Player* member = ref->GetSource())
+                if (member != bot && member->GetSession() && !member->GetSession()->IsBot())
+                    return false;
     std::lock_guard<std::mutex> guard(cityLock);
     auto const it = holding.find(botAI->GetBot()->GetGUID().GetRawValue());
     return it != holding.end() && (it->second.kind == Station::Seat || it->second.sitting);
@@ -395,6 +408,7 @@ uint32 WhileStaying(PlayerbotAI* botAI, WorldObject* object, uint32 defaultMs)
     uint32 stay = 0;
     bool stepNow = false;
     bool seatHeld = false;
+    bool sitAgain = false;
     int8 seatUse = 0;
     {
         std::lock_guard<std::mutex> guard(cityLock);
@@ -408,6 +422,21 @@ uint32 WhileStaying(PlayerbotAI* botAI, WorldObject* object, uint32 defaultMs)
         if (it->second.kind == Station::Seat)
             seatUse = it->second.seat;
         seatHeld = it->second.kind == Station::Seat;
+        // 3.2.2 (bench of 3606e5be): a bot that took its seat, found standing on it (still, out of a fight), sits on
+        // it again, at most every SAT_AGAIN_MS and twice a stay: a seat taken by another, or a Use that fails, is
+        // given up (the bot stands by it).
+        if (seatHeld && it->second.seat > 0 && !bot->IsSitState() && !bot->isMoving() && !bot->IsInCombat() &&
+            now >= it->second.satAgainMs + SAT_AGAIN_MS)
+        {
+            if (it->second.satAgain >= 2)
+                it->second.seat = -2;  // given up
+            else
+            {
+                ++it->second.satAgain;
+                it->second.satAgainMs = now;
+                sitAgain = true;
+            }
+        }
         if (it->second.sitting)
             pose.emote = 0;  // 3.2.2: sitting on a square, no talk gestures
         stay = it->second.stayMs;
@@ -435,6 +464,12 @@ uint32 WhileStaying(PlayerbotAI* botAI, WorldObject* object, uint32 defaultMs)
     }
     if (pose.emote && !bot->IsInCombat())
         bot->HandleEmoteCommand(pose.emote);
+    if (sitAgain)
+        if (GameObject* seat = object->ToGameObject())
+        {
+            seat->Use(bot);
+            CoaPathProbe::NoteSeatSatAgain();
+        }
     if (seatHeld)
         CoaPathProbe::NoteSeatHeld(bot, object, seatUse);
     return stay;

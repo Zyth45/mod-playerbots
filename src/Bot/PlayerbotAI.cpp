@@ -4604,6 +4604,10 @@ bool PlayerbotAI::CastSpell(uint32 spellId, Unit* target, Item* itemTarget)
     // bot->ClearUnitState(UNIT_STATE_CHASE);
     // bot->ClearUnitState(UNIT_STATE_FOLLOW);
 
+    // CoA 3.2.2 (bench of 3606e5be: 3 seat holders of 4 stood up): out of a fight, a bot seated at its City Life
+    // station casts nothing (its buffs wait for the end of its stay) instead of standing up for the spell.
+    if (!bot->IsInCombat() && !bot->IsStandState() && CoaCityLife::KeepsSeated(this))
+        return false;
     bool failWithDelay = false;
     if (!bot->IsStandState())
     {
@@ -4859,6 +4863,10 @@ bool PlayerbotAI::CastSpell(uint32 spellId, float x, float y, float z, Item* ite
     // bot->ClearUnitState(UNIT_STATE_CHASE);
     // bot->ClearUnitState(UNIT_STATE_FOLLOW);
 
+    // CoA 3.2.2 (bench of 3606e5be: 3 seat holders of 4 stood up): out of a fight, a bot seated at its City Life
+    // station casts nothing (its buffs wait for the end of its stay) instead of standing up for the spell.
+    if (!bot->IsInCombat() && !bot->IsStandState() && CoaCityLife::KeepsSeated(this))
+        return false;
     bool failWithDelay = false;
     if (!bot->IsStandState())
     {
