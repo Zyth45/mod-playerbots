@@ -801,55 +801,6 @@ bool SpendAltBotTalentPoints(Player* bot)
 
 namespace
 {
-constexpr char const* CoaClassNames[] =
-{
-    "Barbarian", "Witch Doctor", "Felsworn", "Witch Hunter", "Stormbringer", "Knight of Xoroth", "Guardian",
-    "Templar", "Bloodmage", "Ranger", "Chronomancer", "Necromancer", "Pyromancer", "Cultist", "Starcaller",
-    "Sun Cleric", "Tinker", "Venomancer", "Reaper", "Primalist", "Runemaster"
-};
-constexpr uint8 FirstCoaClass = 12;
-
-std::string Folded(std::string const& text)
-{
-    std::string folded;
-    for (char c : text)
-        if (std::isalnum(static_cast<unsigned char>(c)))
-            folded += char(std::tolower(static_cast<unsigned char>(c)));
-    return folded;
-}
-}  // namespace
-
-char const* CoaClassName(uint8 classId)
-{
-    if (classId < FirstCoaClass || classId >= FirstCoaClass + std::size(CoaClassNames))
-        return nullptr;
-    return CoaClassNames[classId - FirstCoaClass];
-}
-
-uint8 FindCoaClass(std::string const& name)
-{
-    std::string const wanted = Folded(name);
-    if (wanted.empty())
-        return 0;
-
-    uint8 found = 0;
-    for (uint8 i = 0; i < std::size(CoaClassNames); ++i)
-    {
-        std::string const candidate = Folded(CoaClassNames[i]);
-        if (candidate == wanted)
-            return FirstCoaClass + i;
-        if (candidate.rfind(wanted, 0) == 0)
-        {
-            if (found)
-                return 0;  // "wi" is Witch Doctor and Witch Hunter: say which
-            found = FirstCoaClass + i;
-        }
-    }
-    return found;
-}
-
-namespace
-{
 // The classes of the original game, on a Warcraft Reborn realm (anywhere else they are no recruit): their role is
 // the tree of their Character Advancement build, which they change through the tree's build.
 bool IsStockClass(uint8 classId)
@@ -1818,7 +1769,7 @@ bool RecruitCoaRaid(Player* master, uint32 size, uint32 tanks, uint32 heals, std
         for (uint32 i = 0; i < wanted[uint8(role)]; ++i)
         {
             std::vector<uint8> classes;
-            for (uint8 classId = CLASS_WARRIOR; classId < FirstCoaClass + std::size(CoaClassNames); ++classId)
+            for (uint8 classId = CLASS_WARRIOR; classId < COA_END_CLASS; ++classId)
                 if (ClassCanPlay(classId, role))
                     classes.push_back(classId);
             std::shuffle(classes.begin(), classes.end(), shuffler);

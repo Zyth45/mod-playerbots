@@ -7,6 +7,7 @@
 #ifndef _PLAYERBOT_COASPECIALIZATION_H
 #define _PLAYERBOT_COASPECIALIZATION_H
 
+#include "CoaClassNames.h"
 #include "Define.h"
 #include "ObjectGuid.h"
 
@@ -172,12 +173,7 @@ bool SpendAltBotTalentPoints(Player* bot);
 // Brings the nearest free random bot able to fill `role` into the master's group: raised to
 // the master's level, given a specialization of that role, teleported next to the master.
 // Returns false with the reason in `message` when no bot can be recruited.
-// Name of one of the 21 CoA classes, or nullptr.
-char const* CoaClassName(uint8 classId);
-
-// A CoA class from its name as typed in a command: case, spaces and apostrophes do not matter, and a
-// beginning shared by no other class is enough ("sun" is Sun Cleric). 0 when none, or several, match.
-uint8 FindCoaClass(std::string const& name);
+// CoaClassName, FindCoaClass: CoaClassNames.h.
 
 // A raid, or a heroic or mythic dungeon: where the master is, or what its group and dungeon difficulty set it up for.
 bool CoaHardContent(Player* master);

@@ -1286,53 +1286,15 @@ std::vector<std::string> PlayerbotHolder::HandlePlayerbotCommand(char const* arg
         if (!charname)
         {
             messages.push_back(
-                "addclass: invalid CLASSNAME(warrior/paladin/hunter/rogue/priest/shaman/mage/warlock/druid/dk)");
+                "addclass: invalid CLASSNAME (warrior/paladin/hunter/rogue/priest/shaman/mage/warlock/druid/dk, or a "
+                "CoA class: barbarian, witchdoctor, sun ...)");
             return messages;
         }
-        uint8 claz;
-        if (!strcmp(charname, "warrior"))
+        // 3.2.3: the CoA classes too, by name (the AddClass accounts of a CoA realm hold only them).
+        uint8 claz = AddclassClassFromName(charname);
+        if (!claz)
         {
-            claz = 1;
-        }
-        else if (!strcmp(charname, "paladin"))
-        {
-            claz = 2;
-        }
-        else if (!strcmp(charname, "hunter"))
-        {
-            claz = 3;
-        }
-        else if (!strcmp(charname, "rogue"))
-        {
-            claz = 4;
-        }
-        else if (!strcmp(charname, "priest"))
-        {
-            claz = 5;
-        }
-        else if (!strcmp(charname, "shaman"))
-        {
-            claz = 7;
-        }
-        else if (!strcmp(charname, "mage"))
-        {
-            claz = 8;
-        }
-        else if (!strcmp(charname, "warlock"))
-        {
-            claz = 9;
-        }
-        else if (!strcmp(charname, "druid"))
-        {
-            claz = 11;
-        }
-        else if (!strcmp(charname, "dk"))
-        {
-            claz = 6;
-        }
-        else
-        {
-            messages.push_back("Error: Invalid Class. Try again.");
+            messages.push_back("Error: Invalid Class (or a beginning shared by two CoA classes). Try again.");
             return messages;
         }
         //  Added for gender choice : Parsing gender
