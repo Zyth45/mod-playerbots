@@ -2964,6 +2964,31 @@ AiPlayerbot.CoaWorld.DungeonSim.XpPct = 100
 
 AiPlayerbot.CoaWorld.DungeonSim.Announce = 1
 
+#    AiPlayerbot.CoaWorld.ItemOrigin.Enable
+#        Description: Where each worn piece came from, for the dashboard's armory (table coa_item_origin of the
+#                     characters database, players and bots alike): loot (the creature), quest, vendor (the NPC),
+#                     auction, start (auto-gear, a bot's equipment), dungeonsim (a simulated dungeon's loot). One row
+#                     per piece, written when it is worn; a piece made by its wearer shows its creator instead, a
+#                     piece traded or mailed stays unknown. Rows are written in groups every minute, and one
+#                     CoaBots.log line an hour counts them by level band ("gear (last hour)").
+#        Default:     1 - on (3.2.3)
+#                     0 - off: nothing is written (the table stays, the armory shows what it has)
+
+AiPlayerbot.CoaWorld.ItemOrigin.Enable = 1
+
+#    AiPlayerbot.CoaWorld.ItemOrigin.MinQuality
+#        Description: Lowest quality written (0 grey, 1 white, 2 green, 3 blue, 4 epic).
+#        Default:     2 - green and better
+
+AiPlayerbot.CoaWorld.ItemOrigin.MinQuality = 2
+
+#    AiPlayerbot.CoaWorld.ItemOrigin.PurgeDays
+#        Description: Rows older than this many days are deleted (at start-up and once a day), as are the rows of
+#                     items that no longer exist. 0 = keep them (the rows of deleted items still go).
+#        Default:     90
+
+AiPlayerbot.CoaWorld.ItemOrigin.PurgeDays = 90
+
 #    AiPlayerbot.CoaWorld.WorldPvp.Enable
 #        Description: World PvP of the bots, with two parts below.
 #                     Skirmishes: now and then the posts of a contested zone send their fighters at

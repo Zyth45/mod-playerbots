@@ -27,6 +27,7 @@
 #include "CoaQuietAchievements.h"
 #include "CoaWorldBots.h"
 #include "CoaWorldDungeonSimRules.h"
+#include "CoaWorldItemOrigin.h"
 #include "CoaWorldState.h"
 #include "CoaWorldStateRules.h"
 
@@ -719,7 +720,7 @@ namespace
             {
                 ItemPosCountVec dest;
                 if (bot->CanStoreNewItem(NULL_BAG, NULL_SLOT, dest, itemId, count) == EQUIP_ERR_OK)
-                    bot->StoreNewItem(dest, itemId, true);
+                    CoaWorld::NoteItemOrigin(bot->StoreNewItem(dest, itemId, true), "dungeonsim", run.dungeon->mapId);
             }
         }
 
