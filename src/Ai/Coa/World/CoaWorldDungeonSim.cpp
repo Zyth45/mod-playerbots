@@ -648,7 +648,7 @@ namespace
                 items += uint32(reward.items.size());
             _today.items += items;
             _last.push_front({ run.dungeon, uint32(run.members.size()), uint32(run.insideUntil - run.enteredAt),
-                               uint32(run.killed.size()), now });
+                               uint32(run.killed.size()), run.level, now });
             if (_last.size() > 8)
                 _last.pop_back();
         }
@@ -677,7 +677,8 @@ namespace
             std::string last = "[";
             for (Done const& d : _last)
                 last += std::string(last.size() > 1 ? "," : "") + "{\"dungeon\":" + std::to_string(d.dungeon->mapId) +
-                        ",\"dungeonName\":" + Quote(d.dungeon->name) + ",\"bots\":" + std::to_string(d.bots) +
+                        ",\"dungeonName\":" + Quote(d.dungeon->name) + ",\"level\":" + std::to_string(d.level) +
+                        ",\"bots\":" + std::to_string(d.bots) +
                         ",\"durationS\":" + std::to_string(d.durationS) + ",\"bossesKilled\":" + std::to_string(d.bosses) +
                         ",\"at\":" + std::to_string(int64(d.at)) + "}";
             return "{\"running\":" + running + "],\"today\":{\"since\":" + std::to_string(_today.since) +
@@ -695,6 +696,7 @@ namespace
         {
             DungeonDef const* dungeon;
             uint32 bots, durationS, bosses;
+            uint32 level;  // the group's mean level
             time_t at;
         };
         Today _today;

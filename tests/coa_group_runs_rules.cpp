@@ -15,19 +15,23 @@ int main()
     seen.mix.Add(Kind::Bot);
     seen.leader = "Jaina";
     seen.bossesTotal = 6;
+    seen.levelSum = 18 + 21;  // the mean level, rounded: 20
+    seen.levelCount = 2;
     book.Seen(seen, 1000);
     book.Close(1000, 0);
     assert(book.Running() == 1);
     std::string j = book.Json();
     assert(j.find("\"running\":[{\"instance\":7,\"map\":36,\"dungeon\":null,\"dungeonName\":\"The Deadmines\",\"kind\":"
                   "\"dungeon\",\"difficulty\":0,\"players\":1,\"alts\":0,\"bots\":1,\"leader\":\"Jaina\","
-                  "\"startedAt\":1000,\"bossesKilled\":0,\"bossesTotal\":6,\"wipes\":0,\"dc\":null}]") !=
+                  "\"level\":20,\"startedAt\":1000,\"bossesKilled\":0,\"bossesTotal\":6,\"wipes\":0,\"dc\":null}]") !=
            std::string::npos);
 
     book.Kill(7, 639, false, 1100);
     book.Kill(7, 639, false, 1101);  // the same boss twice: one
     book.Wipe(7);
     book.Kill(99, 1, false, 1200);   // an instance not seen yet: nothing
+    seen.levelSum = 60;              // a later pass at another level: the first one stays
+    seen.levelCount = 1;
     book.Seen(seen, 1500);           // startedAt kept
     book.Close(1700, 0);
     assert(book.Running() == 1);     // gone less than 5 min
@@ -37,6 +41,8 @@ int main()
     j = book.Json();
     assert(j.find("\"today\":{\"since\":0,\"runs\":1,\"cleared\":1,\"wipes\":1,\"bossKills\":2}") != std::string::npos);
     assert(j.find("\"last\":[{\"instance\":7,") != std::string::npos);
+    assert(j.find("\"difficulty\":0,\"level\":20,\"startedAt\":1000,\"endedAt\":1500,") != std::string::npos);
+    assert(MeanLevel(0, 0) == 0 && MeanLevel(59, 2) == 30 && MeanLevel(58, 2) == 29 && MeanLevel(300, 5) == 60);
     assert(j.find("\"startedAt\":1000,\"endedAt\":1500,\"result\":\"clear\",\"bossesKilled\":2,\"bossesTotal\":6,"
                   "\"wipes\":1,") != std::string::npos);
     assert(j.find("\"byDungeon\":[{\"dungeon\":null,\"map\":36,\"dungeonName\":\"The Deadmines\",\"runs\":1,"
