@@ -9,6 +9,7 @@
 #include "CoaEconomyRules.h"
 #include "CoaWorldBgSim.h"
 #include "RandomPlayerbotMgr.h"
+#include "CoaLfgRules.h"
 #include "CoaPathProbe.h"
 #include "GameTime.h"
 #include "Group.h"
@@ -2830,31 +2831,26 @@ void RandomPlayerbotMgr::PrepareAddclassCache()
     // Using accounts marked as type 2 (AddClass)
     int32 collected = 0;
 
+    // CoA 3.2.2 (Dungeon Clear, issue 62): every class below MAX_CLASSES, the CoA classes 12-32 too (the loop stopped
+    // at the druid, so the queue fill found no CoA class in the cache); one query per account.
     for (uint32 accountId : addClassTypeAccounts)
     {
-        for (uint8 claz = CLASS_WARRIOR; claz <= CLASS_DRUID; claz++)
+        QueryResult results = CharacterDatabase.Query(
+            "SELECT guid, race, class FROM characters WHERE account = {} AND online = 0", accountId);
+        if (!results)
+            continue;
+        do
         {
-            if (claz == 10)
+            Field* fields = results->Fetch();
+            uint8 claz = fields[2].Get<uint8>();
+            if (!CoaAddclassCacheClass(claz, MAX_CLASSES))
                 continue;
-
-            QueryResult results = CharacterDatabase.Query(
-                "SELECT guid, race FROM characters "
-                "WHERE account = {} AND class = '{}' AND online = 0",
-                accountId, claz);
-
-            if (results)
-            {
-                do
-                {
-                    Field* fields = results->Fetch();
-                    ObjectGuid guid = ObjectGuid(HighGuid::Player, fields[0].Get<uint32>());
-                    uint32 race = fields[1].Get<uint32>();
-                    bool isAlliance = IsAlliance(uint8(race));  // added races too (ChrRaces, AiPlayerbot.BotRace.<id>)
-                    addclassCache[GetTeamClassIdx(isAlliance, claz)].insert(guid);
-                    collected++;
-                } while (results->NextRow());
-            }
-        }
+            ObjectGuid guid = ObjectGuid(HighGuid::Player, fields[0].Get<uint32>());
+            uint32 race = fields[1].Get<uint32>();
+            bool isAlliance = IsAlliance(uint8(race));  // added races too (ChrRaces, AiPlayerbot.BotRace.<id>)
+            addclassCache[GetTeamClassIdx(isAlliance, claz)].insert(guid);
+            collected++;
+        } while (results->NextRow());
     }
 
     LOG_INFO("playerbots", ">> {} characters collected for addclass command from {} AddClass accounts.", collected, addClassTypeAccounts.size());
@@ -3437,10 +3433,10 @@ bool RandomPlayerbotMgr::IsAddclassBot(ObjectGuid::LowType bot)
 {
     ObjectGuid guid = ObjectGuid::Create<HighGuid::Player>(bot);
 
-    // Check the cache with faction considerations
-    for (uint8 claz = CLASS_WARRIOR; claz <= CLASS_DRUID; claz++)
+    // Check the cache with faction considerations (CoA 3.2.2: the CoA classes too)
+    for (uint8 claz = CLASS_WARRIOR; claz < MAX_CLASSES; claz++)
     {
-        if (claz == 10)
+        if (!CoaAddclassCacheClass(claz, MAX_CLASSES))
             continue;
 
         for (uint8 isAlliance = 0; isAlliance <= 1; isAlliance++)
