@@ -35,6 +35,7 @@ int main()
     assert(UnderFloor(97.7f, 99.6f));
     assert(!UnderFloor(97.7f, 97.7f));     // its own floor
     assert(!UnderFloor(97.7f, -200000.0f));
+    assert(!UnderFloor(1317.65f, 1322.0f));  // 3.2.2: the next storey over Darnassus's bank, not a floor it is under
     // 3.2.2: Ironforge's bank: on the model's floor at 503.94, never under a floor; under Stormwind's bank, no model.
     assert(OnModelFloor(504.17f, 503.94f));
     assert(!OnModelFloor(97.7f, -200000.0f));

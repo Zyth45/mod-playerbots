@@ -106,10 +106,19 @@ inline bool InWall(uint32_t openDirections) { return openDirections <= INWALL_MA
 constexpr float UNDERFLOOR_MIN = 1.0f;
 constexpr float UNDERFLOOR_MAX = 6.0f;
 
+// 3.2.2 (bench of 5f662017: 50 lines at Darnassus's bank, bots still on its ground floor, a floor above them): a floor
+// over a bot is one it is under only when too low to stand under, UNDERFLOOR_HEADROOM yards at most (Stormwind's bank:
+// 1.9); higher, it is the next storey.
+constexpr float UNDERFLOOR_HEADROOM = 2.5f;
+
 inline bool UnderFloor(float z, float floorAbove)
 {
-    return floorAbove > -100000.0f && floorAbove - z >= UNDERFLOOR_MIN && floorAbove - z <= UNDERFLOOR_MAX;
+    return floorAbove > -100000.0f && floorAbove - z >= UNDERFLOOR_MIN && floorAbove - z <= UNDERFLOOR_HEADROOM;
 }
+
+// 3.2.2 (same bench): two samples seconds apart in a straight line say nothing of a wall when the bot walked far: it
+// went round the corner. Checked over WALL_MAX_FLAT yards at most, as the terrain.
+constexpr float WALL_MAX_FLAT = 8.0f;
 
 // 3.2.2 (Pilote): a bot whose feet are within ON_MODEL yards over a model's floor of the vmap stands on a building's
 // floor: never "underfloor".
@@ -122,6 +131,9 @@ inline bool OnModelFloor(float z, float modelZ)
 
 // 3.2.2: two samples further apart than this (a logout, an AI asleep) are not compared.
 constexpr uint64_t SAMPLE_GAP_MS = 30000;
+
+// 3.2.2: a move noted this long before a line is its cause.
+constexpr uint64_t CAUSE_MS = 15000;
 
 // 3.2.2: and the SUMMARY_TOP zones and causes with the most lines of each kind.
 constexpr size_t SUMMARY_TOP = 5;
