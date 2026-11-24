@@ -358,6 +358,22 @@ inline bool CityPathChecked(bool randomBot, bool realMaster, bool inCombat, bool
 {
     return randomBot && !realMaster && !inCombat && generatePath && capital && normalPriority;
 }
+
+// 3.2.3 (user in game, 24/11: a bot an hour under the Stormwind inn's floor, wandering to Human Commoner 18927): an NPC
+// that walks by itself (waypoints, random moves) is no wander target: its spot changes, the path to it ends anywhere
+// (under a floor, in a wall). The race commoners of the festivals walk the capitals' streets, whatever their spawn's
+// movement says.
+constexpr uint32_t WANDER_EXCLUDED_NPCS[] = {18927, 19148, 19169, 19171, 19172, 19173, 19175, 19176, 19177, 19178, 20102};
+
+inline bool WanderNpcRefused(uint32_t entry, bool walksByItself)
+{
+    if (walksByItself)
+        return true;
+    for (uint32_t excluded : WANDER_EXCLUDED_NPCS)
+        if (entry == excluded)
+            return true;
+    return false;
+}
 }  // namespace CoaSafeMove
 
 #endif

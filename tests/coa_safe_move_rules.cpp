@@ -142,5 +142,9 @@ int main()
     assert(StillGain(1000) == 1000 && StillGain(STILL_SLEPT_MS + 1) == 0);
     assert(UnstickAllowed(0, 0, 0) && !UnstickAllowed(5, 1000, 0) && UnstickAllowed(5, UNSTICK_EVERY_MS, 0));
     assert(!UnstickAllowed(0, 0, UNSTICK_PER_HOUR));
+    // 3.2.3: no wander to an NPC that walks, nor to a festival commoner (18927 Human ... 20102 Goblin).
+    assert(WanderNpcRefused(18927, false) && WanderNpcRefused(19176, false) && WanderNpcRefused(20102, false));
+    assert(WanderNpcRefused(2455, true));    // any NPC on waypoints or random moves
+    assert(!WanderNpcRefused(2455, false));  // a banker standing at its counter
     return 0;
 }
