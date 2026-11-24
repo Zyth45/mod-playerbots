@@ -359,6 +359,22 @@ bool NewRpgStatusUpdateAction::Execute(Event /*event*/)
         }
         case RPG_WANDER_NPC:
         {
+            // 3.2.2 (Pilote, bench of 96b4114c: auctioneers not reached 11 % the first hour, 25 % the second, the
+            // bots still 70 to 150 yards off, the wander's action last run 190 to 880 s before, nothing run since): the
+            // bot's AI slept (no player near it) and woke up past its stay, this check first on its tick. The time
+            // asleep is not part of the stay: the wander goes on where it stopped.
+            if (auto* wander = std::get_if<NewRpgInfo::WanderNpc>(&info.data))
+            {
+                constexpr uint32 WANDER_SLEPT_MS = 30 * IN_MILLISECONDS;
+                uint32 const slept = wander->lastRun ? GetMSTimeDiffToNow(wander->lastRun) : 0;
+                if (slept > WANDER_SLEPT_MS)
+                {
+                    info.startT += slept;
+                    wander->lastRun = getMSTime();
+                    if (wander->lastReach)
+                        wander->lastReach += slept;
+                }
+            }
             if (info.HasStatusPersisted(info.cityStayMs ? info.cityStayMs : statusWanderNpcDuration))
             {
                 if (auto* wander = std::get_if<NewRpgInfo::WanderNpc>(&info.data))
