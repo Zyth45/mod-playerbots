@@ -401,6 +401,47 @@ int RelocateToCity(Query& q, Map* map, float x, float y, float z, float& nx, flo
     return 0;
 }
 
+// 3.2.2: an arrival joins its capital when a bot finds a stop by half of its services or more from there.
+bool ArrivalJoinsCity(uint32 reached, uint32 targets)
+{
+    return !targets || reached * 2 >= targets;
+}
+
+// How many of the capital's services a bot finds a stop by from (x, y, z).
+uint32 StopsFrom(Query& q, Map* map, std::vector<Spot> const& targets, float x, float y, float z)
+{
+    float const at[3] = {y, z, x};
+    float fromPt[3];
+    dtPolyRef const fromRef = Snap(*q.query, q.filter, at, fromPt);
+    if (!fromRef)
+        return 0;
+    uint32 reached = 0;
+    for (Spot const& to : targets)
+    {
+        float sx, sy, sz;
+        if (FindStop(q, map, fromRef, fromPt, to.x, to.y, to.z, x, y, nullptr, sx, sy, sz, to.o))
+            ++reached;
+    }
+    return reached;
+}
+
+// 3.2.2 (Pilote: never drop a capital's last arrival): the most services reached from one of the capital's own
+// arrivals (its bankers, innkeepers, flight masters), once per capital. An arrival as good as that one is kept.
+std::map<std::pair<uint32, uint32>, uint32> bestStops;
+
+uint32 BestStops(Query& q, Map* map, std::pair<uint32, uint32> const& key,
+                 std::pair<std::vector<Spot>, std::vector<Spot>> const& lists)
+{
+    auto found = bestStops.find(key);
+    if (found != bestStops.end())
+        return found->second;
+    uint32 best = 0;
+    for (Spot const& from : lists.first)
+        best = std::max(best, StopsFrom(q, map, lists.second, from.x, from.y, from.z));
+    bestStops[key] = best;
+    return best;
+}
+
 void JudgeArrival(std::tuple<uint32, int32, int32> const& key, float x, float y, float z)
 {
     uint32 const mapId = std::get<0>(key);
@@ -423,6 +464,21 @@ void JudgeArrival(std::tuple<uint32, int32, int32> const& key, float x, float y,
                        : here == 2 ? CoaPathProbe::Arrival::Moved
                        : here == 0 ? CoaPathProbe::Arrival::Dropped
                                    : CoaPathProbe::Arrival::Unknown;
+        // 3.2.2 (sonde of 5f662017: Darnassus's arrival 6735 on the city's floor, its paths to the auctioneers' terrace
+        // ending 16 yards short, on the floor under it): an arrival from which a bot finds a stop by fewer than half of
+        // the capital's services is dropped.
+        if (verdict.hasPoint)
+        {
+            uint32 const targets = uint32(capital->second.second.size());
+            uint32 const reached = StopsFrom(q, map, capital->second.second, verdict.x, verdict.y, verdict.z);
+            if (!ArrivalJoinsCity(reached, targets) && reached < BestStops(q, map, capital->first, capital->second))
+            {
+                verdict.kind = CoaPathProbe::Arrival::Dropped;
+                verdict.hasPoint = false;
+                LOG_INFO("playerbots.coa", "arrival check: map {} {:.1f} {:.1f} {:.1f}: a stop by {} of the city's {} "
+                         "services only, dropped", mapId, x, y, z, reached, targets);
+            }
+        }
     }
     AreaTableEntry const* zone = sAreaTableStore.LookupEntry(zoneId);
     std::lock_guard<std::mutex> guard(arrivalsLock);
