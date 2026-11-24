@@ -128,15 +128,20 @@ public:
         // What an alt on a gathering mission gathers is mailed to its owner at the end.
         sCoaMissionMgr.OnLoot(player, item, count, lootguid);
 
-        ItemTemplate const* proto = item->GetTemplate();
-        if (!proto || proto->Quality < sPlayerbotAIConfig.lootLogMinQuality)
-            return;
-
         // CoA 3.2.2 (the dashboard's last dungeon and raid loots): in a dungeon or a raid, the map and the creature
         // looted (0: a chest, an item) end the line; its start is unchanged (the dashboard's rare finds read it).
+        // There, uncommon items are written too (low levels' dungeons give mostly green and blue ones).
         Map* map = player->GetMap();
+        bool const dungeon = map && map->IsDungeon();
+        uint32 const minQuality =
+            dungeon ? std::min<uint32>(sPlayerbotAIConfig.lootLogMinQuality, ITEM_QUALITY_UNCOMMON)
+                    : sPlayerbotAIConfig.lootLogMinQuality;
+        ItemTemplate const* proto = item->GetTemplate();
+        if (!proto || proto->Quality < minQuality)
+            return;
+
         std::string const where =
-            map && map->IsDungeon()
+            dungeon
                 ? " map " + std::to_string(map->GetId()) + (map->IsRaid() ? " raid" : " dungeon") + " boss " +
                       std::to_string(lootguid.IsCreature() ? lootguid.GetEntry() : 0)
                 : "";
