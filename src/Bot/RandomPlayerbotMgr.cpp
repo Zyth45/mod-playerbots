@@ -2468,6 +2468,9 @@ void CoaRidingAtLogin(Player* bot)
         GET_PLAYERBOT_AI(bot)->HasGameClientMaster() ||
         bot->GetLevel() < sPlayerbotAIConfig.useGroundMountAtMinLevel)
         return;
+    // 3.2.2: the trainer's spell learned by mistake before (CoaMountRule::NOVICE_RIDING_TEACHER) goes.
+    if (bot->HasSpell(CoaMountRule::NOVICE_RIDING_TEACHER))
+        bot->removeSpell(CoaMountRule::NOVICE_RIDING_TEACHER, SPEC_MASK_ALL, false);
     bool const riding = bot->GetSkillValue(SKILL_RIDING) > 0;
     bool mount = false;
     for (auto const& [spellId, state] : bot->GetSpellMap())

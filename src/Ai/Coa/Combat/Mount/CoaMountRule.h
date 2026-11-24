@@ -27,9 +27,12 @@ namespace CoaMountRule
     {
         return botMounted && !masterMounted;
     }
-// CoA 3.2.2: the riding a random bot learns at its level: Novice (33378) under APPRENTICE_RIDING_LEVEL, Apprentice
+// CoA 3.2.2: the riding a random bot learns at its level: Novice (33379) under APPRENTICE_RIDING_LEVEL, Apprentice
 // (33388) from it (CoA's trainer teaches 33388 at level 20; Novice Riding is CoA's own step at 50 skill, the quest at 5).
-constexpr uint32_t NOVICE_RIDING_SPELL = 33378;
+// 33379 is the riding itself (SPELL_EFFECT_SKILL 762); 33378 is the trainer's spell that teaches it (LEARN_SPELL 33379,
+// SKILL_STEP): learned as a spell, it gave no riding skill (sonde of 5f662017: the bots' riding fell at each save).
+constexpr uint32_t NOVICE_RIDING_SPELL = 33379;
+constexpr uint32_t NOVICE_RIDING_TEACHER = 33378;
 constexpr uint32_t APPRENTICE_RIDING_SPELL = 33388;
 constexpr uint32_t APPRENTICE_RIDING_LEVEL = 20;
 

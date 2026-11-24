@@ -3958,7 +3958,7 @@ void PlayerbotFactory::InitSkills()
     bot->UpdateSkillsForLevel();
 
     bot->SetSkill(SKILL_RIDING, 0, 0, 0);
-    // CoA 3.2.2: Novice Riding (33378, the quest "Path to Ascension: Novice Rider" at level 5, a 40% ground mount: the
+    // CoA 3.2.2: Novice Riding (33379, the quest "Path to Ascension: Novice Rider" at level 5, a 40% ground mount: the
     // core's GetRidingGroundMountSpeed) from the ground mount level, Apprentice Riding (33388, 60%) from level 20, its
     // trainer's level in CoA's world database. Before, Apprentice came at the ground mount level, 20.
     if (bot->GetLevel() >= sPlayerbotAIConfig.useGroundMountAtMinLevel)

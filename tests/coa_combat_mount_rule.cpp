@@ -30,6 +30,7 @@ int main()
     // 3.2.2: Novice Riding under 20, Apprentice from 20 (CoA's trainer); a stable mount of its own per bot.
     assert(CoaMountRule::NoviceOrApprentice(5) == CoaMountRule::NOVICE_RIDING_SPELL);
     assert(CoaMountRule::NoviceOrApprentice(19) == CoaMountRule::NOVICE_RIDING_SPELL);
+    assert(CoaMountRule::NOVICE_RIDING_SPELL == 33379 && CoaMountRule::NOVICE_RIDING_TEACHER == 33378);  // the riding, not its teacher
     assert(CoaMountRule::NoviceOrApprentice(20) == CoaMountRule::APPRENTICE_RIDING_SPELL);
     assert(CoaMountRule::StableMountIndex(12345, 4) == CoaMountRule::StableMountIndex(12345, 4));
     assert(CoaMountRule::StableMountIndex(12345, 4) < 4 && CoaMountRule::StableMountIndex(7, 0) == 0);
