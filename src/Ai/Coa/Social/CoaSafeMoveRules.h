@@ -215,6 +215,8 @@ constexpr AvoidedSpot AVOIDED_SPOTS[] = {
     {1, -1265.16f, 24.39f, 128.8f, 1.5f},
     // Stormwind, the bank's square: a tree's planter ("je suis sur le bac de l'arbre").
     {0, -8891.2f, 648.0f, 97.3f, 3.0f},
+    // Stormwind, the bank: a bench ("sur le banc pas vraiment au sol").
+    {0, -8895.2f, 642.5f, 100.7f, 2.0f},
 };
 
 inline bool Avoided(uint32_t mapId, float x, float y, float z)
