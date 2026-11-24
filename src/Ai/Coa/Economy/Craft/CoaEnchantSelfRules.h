@@ -37,6 +37,22 @@ inline bool StudyPlace(bool capital, bool restAreas, bool restingInCity, bool re
 {
     return capital || (restAreas && (restingInCity || restingInInn));
 }
+
+// 3.2.2 (EnchantForSelf.Reagents): an enchanter keeps one stack (in its bags) of each reagent of the enchantments it
+// knows; only the rest is sold, at a vendor or at the auction house.
+inline bool KeepsReagent(uint32_t heldInBags, uint32_t stackSize)
+{
+    return heldInBags <= (stackSize ? stackSize : 1);
+}
+
+// 3.2.2: a green or better piece is disenchanted rather than sold: a bound piece it does not wear (one it replaced by
+// a better one, bound loot: the item usage "disenchant", sellable only at a vendor) always; one it would sell (loot it cannot wear) when the dust is worth
+// more; a green one of those also, whatever the prices, while the enchanter is short of its reagents (a blue or an
+// epic piece is still sold then, unless the dust is worth more).
+inline bool Disenchants(bool boundReplaced, bool worthMore, bool shortOfReagents, bool green)
+{
+    return boundReplaced || worthMore || (shortOfReagents && green);
+}
 }  // namespace CoaEnchantSelfRules
 
 #endif

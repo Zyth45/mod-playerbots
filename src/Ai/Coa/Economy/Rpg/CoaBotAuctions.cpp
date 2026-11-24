@@ -464,6 +464,7 @@ namespace
         std::vector<Item*> loot;
         std::unordered_set<Item*> surplusItems;  // 3.1.4: stock materials beyond the stock, logged when listed
         std::unordered_set<uint32> const stock = Materials::StockReagents(bot);
+        std::unordered_set<uint32> const enchanting = Artisans::EnchantReagents(bot);  // 3.2.2
 
         // Auctions per item already in this house: a bot adds one only while there are fewer than MaxPerItem of it
         // (MaxPerUpgradeKit for an upgrade kit).
@@ -496,6 +497,9 @@ namespace
                 return;
             // An artisan keeps the reagents of its recipes (Artisans.Stock), and the guild stock its kinds.
             if (Materials::KeepsInStock(bot, item, stock))
+                return;
+            // 3.2.2: an enchanter keeps one stack of each reagent of its enchantments in its bags.
+            if (Artisans::KeepsForEnchanting(bot, item, enchanting))
                 return;
             // 3.1.4: beyond that stock, a material of its stock is surplus, sold whatever its use for a profession.
             bool const surplus = stock.count(item->GetEntry()) != 0;

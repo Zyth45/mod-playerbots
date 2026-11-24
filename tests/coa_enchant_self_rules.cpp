@@ -29,5 +29,17 @@ int main()
     assert(StudyPlace(false, true, true, false));   // a city it rests in
     assert(StudyPlace(false, true, false, true));   // an inn
     assert(!StudyPlace(false, true, false, false)); // out in the wild
+    // 3.2.2: one stack of each reagent kept, the rest sold.
+    assert(KeepsReagent(0, 20));
+    assert(KeepsReagent(20, 20));
+    assert(!KeepsReagent(21, 20));
+    assert(KeepsReagent(1, 0)); // an unstackable reagent: one kept
+    assert(!KeepsReagent(2, 0));
+    // 3.2.2: disenchant or sell.
+    assert(Disenchants(false, true, false, false));   // dust worth more: always
+    assert(!Disenchants(false, false, false, true));  // a green, reagents in hand: sold
+    assert(Disenchants(false, false, true, true));    // a green, short of reagents: disenchanted
+    assert(!Disenchants(false, false, true, false));  // a blue or an epic, short: still sold
+    assert(Disenchants(true, false, false, false));   // a bound piece it replaced: always
     return 0;
 }

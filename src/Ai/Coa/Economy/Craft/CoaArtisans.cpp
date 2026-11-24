@@ -135,6 +135,7 @@ bool enchantForSelf = true;     // AiPlayerbot.CoaEconomy.EnchantForSelf.Enable
 bool enchantForSelfLog = false; // AiPlayerbot.CoaEconomy.EnchantForSelf.Log
 uint32 enchantPieces = 2;      // AiPlayerbot.CoaEconomy.EnchantForSelf.PiecesPerStudy (3.2.2)
 bool studyRestAreas = true;    // AiPlayerbot.CoaEconomy.SelfStudy.RestAreas (3.2.2)
+bool enchantReagents = true;   // AiPlayerbot.CoaEconomy.EnchantForSelf.Reagents (3.2.2)
 // AiPlayerbot.CoaEconomy.SelfStudy.*
 bool studyEnabled = true;
 uint32 studyIntervalSeconds = 3600;
@@ -160,6 +161,7 @@ void LoadSettings()
     enchantPieces = std::clamp<uint32>(
         CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.EnchantForSelf.PiecesPerStudy", 2), 1, 4);
     studyRestAreas = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.SelfStudy.RestAreas", true);
+    enchantReagents = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.EnchantForSelf.Reagents", true);
     studyEnabled = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.SelfStudy.Enable", true, false);
     studyIntervalSeconds =
         60 * std::max<uint32>(5, CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.SelfStudy.IntervalMinutes", 60));
@@ -601,6 +603,63 @@ namespace
     }
 
     bool EnchantOnce(Player* bot, uint64 buyCap);
+
+    // The permanent enchantment a known spell puts on, when the bot's level and skill allow it; null otherwise.
+    SpellItemEnchantmentEntry const* UsablePermanentEnchant(Player* bot, SpellInfo const* spell, uint32& enchantId)
+    {
+        enchantId = 0;
+        for (SpellEffectInfo const& effect : spell->Effects)
+            if (effect.Effect == SPELL_EFFECT_ENCHANT_ITEM && effect.MiscValue)
+            {
+                enchantId = uint32(effect.MiscValue);
+                break;
+            }
+        SpellItemEnchantmentEntry const* enchant = enchantId ? sSpellItemEnchantmentStore.LookupEntry(enchantId) : nullptr;
+        if (!enchant || enchant->slot != PERM_ENCHANTMENT_SLOT ||
+            !CoaEnchantSelfRules::Usable(bot->GetLevel(), enchant->requiredLevel, enchant->requiredSkill,
+                                         enchant->requiredSkill ? bot->GetSkillValue(enchant->requiredSkill) : 0,
+                                         enchant->requiredSkillValue))
+            return nullptr;
+        return enchant;
+    }
+}
+
+std::unordered_set<uint32> EnchantReagents(Player* bot)
+{
+    std::unordered_set<uint32> reagents;
+    if (!enchantForSelf || !enchantReagents || !bot || !bot->HasSkill(SKILL_ENCHANTING))
+        return reagents;
+    for (auto const& [spellId, playerSpell] : bot->GetSpellMap())
+    {
+        if (!playerSpell || playerSpell->State == PLAYERSPELL_REMOVED || !playerSpell->Active)
+            continue;
+        SpellInfo const* spell = sSpellMgr->GetSpellInfo(spellId);
+        uint32 enchantId = 0;
+        if (!spell || !UsablePermanentEnchant(bot, spell, enchantId))
+            continue;
+        for (uint8 i = 0; i < MAX_SPELL_REAGENTS; ++i)
+            if (spell->Reagent[i] > 0 && spell->ReagentCount[i])
+                reagents.insert(uint32(spell->Reagent[i]));
+    }
+    return reagents;
+}
+
+bool KeepsForEnchanting(Player* bot, Item* item, std::unordered_set<uint32> const& reagents)
+{
+    if (!bot || !item || !reagents.count(item->GetEntry()))
+        return false;
+    return CoaEnchantSelfRules::KeepsReagent(bot->GetItemCount(item->GetEntry()), item->GetTemplate()->GetMaxStackSize());
+}
+
+bool ShortOfEnchantReagents(Player* bot, std::unordered_set<uint32> const& reagents)
+{
+    for (uint32 reagent : reagents)
+    {
+        ItemTemplate const* proto = sObjectMgr->GetItemTemplate(reagent);
+        if (proto && bot->GetItemCount(reagent) < std::max<uint32>(1, proto->GetMaxStackSize()))
+            return true;
+    }
+    return false;
 }
 
 bool EnchantForSelf(Player* bot, uint64 buyCap, uint32 pieces)
@@ -631,17 +690,8 @@ bool EnchantOnce(Player* bot, uint64 buyCap)
         if (!spell)
             continue;
         uint32 enchantId = 0;
-        for (SpellEffectInfo const& effect : spell->Effects)
-            if (effect.Effect == SPELL_EFFECT_ENCHANT_ITEM && effect.MiscValue)
-            {
-                enchantId = uint32(effect.MiscValue);
-                break;
-            }
-        SpellItemEnchantmentEntry const* enchant = enchantId ? sSpellItemEnchantmentStore.LookupEntry(enchantId) : nullptr;
-        if (!enchant || enchant->slot != PERM_ENCHANTMENT_SLOT ||
-            !CoaEnchantSelfRules::Usable(bot->GetLevel(), enchant->requiredLevel, enchant->requiredSkill,
-                                         enchant->requiredSkill ? bot->GetSkillValue(enchant->requiredSkill) : 0,
-                                         enchant->requiredSkillValue))
+        SpellItemEnchantmentEntry const* enchant = UsablePermanentEnchant(bot, spell, enchantId);
+        if (!enchant)
             continue;
         if (enchant->EnchantmentCondition && !bot->EnchantmentFitsRequirements(enchant->EnchantmentCondition, -1))
             continue;

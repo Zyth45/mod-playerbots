@@ -11,6 +11,7 @@
 #include "Define.h"
 
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 class Item;
@@ -69,6 +70,12 @@ namespace CoaEconomy::Artisans
     // checks them for a player; up to `pieces` pieces at one try (EnchantForSelf.PiecesPerStudy for a study).
     bool EnchantForSelf(Player* bot, uint64 buyCap = 0, uint32 pieces = 1);
 
+    // 3.2.2 (EnchantForSelf.Reagents): the reagents of the permanent enchantments an enchanter bot knows and may put
+    // on (empty when off, or for a bot without Enchanting). It keeps one stack of each in its bags (KeepsForEnchanting:
+    // true while that item is not beyond it), and is short of them while one is under a full stack.
+    std::unordered_set<uint32> EnchantReagents(Player* bot);
+    bool KeepsForEnchanting(Player* bot, Item* item, std::unordered_set<uint32> const& reagents);
+    bool ShortOfEnchantReagents(Player* bot, std::unordered_set<uint32> const& reagents);
     // CoA 3.2 (AiPlayerbot.CoaEconomy.SelfStudy.*, the user's go of 21/11): at most once per IntervalMinutes, a random
     // bot in a capital (3.2.2, SelfStudy.RestAreas: or a city or an inn it rests in) studies what it could craft
     // (CraftUpgradeForSelf) or enchant (EnchantForSelf, up to EnchantForSelf.PiecesPerStudy pieces) for itself,

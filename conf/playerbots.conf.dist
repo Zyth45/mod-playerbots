@@ -6014,10 +6014,16 @@ AiPlayerbot.CoaEconomy.CraftForSelf.Log = 0
 # Self-found and classic bots alike. Never without the tools the enchantment asks for (a runed rod), as for a player.
 # Log: each enchantment put on, in the playerbots.loot log (BotLoot.log).
 # PiecesPerStudy: at a self study (below), up to this many pieces enchanted, one after the other (1 to 4).
-# Default: 1 (enabled); Log: 0 (disabled); PiecesPerStudy: 2
+# Reagents = 1: an enchanter keeps one stack in its bags of each reagent of the enchantments it knows (sold beyond
+# that, at a vendor or at the auction house), and at a vendor disenchants the bound pieces it no longer wears (the one
+# it replaced), and the green or better pieces it would sell when the dust is worth more, a green one whatever the
+# prices while it is short of its reagents
+# (Materials.Disenchant and Materials.PerVisit apply).
+# Default: 1 (enabled); Log: 0 (disabled); PiecesPerStudy: 2; Reagents: 1
 AiPlayerbot.CoaEconomy.EnchantForSelf.Enable = 1
 AiPlayerbot.CoaEconomy.EnchantForSelf.Log = 0
 AiPlayerbot.CoaEconomy.EnchantForSelf.PiecesPerStudy = 2
+AiPlayerbot.CoaEconomy.EnchantForSelf.Reagents = 1
 
 # Self study: at most once per IntervalMinutes, a random bot in a capital studies what it could craft or enchant for
 # itself (the two keys above) and buys the reagents it lacks, a vendor's first, the auction house's next (reagents

@@ -64,6 +64,7 @@
 {"AiPlayerbot.CoaEconomy.EnchantForSelf.Enable", R"coa(1)coa"},
 {"AiPlayerbot.CoaEconomy.EnchantForSelf.Log", R"coa(0)coa"},
 {"AiPlayerbot.CoaEconomy.EnchantForSelf.PiecesPerStudy", R"coa(2)coa"},
+{"AiPlayerbot.CoaEconomy.EnchantForSelf.Reagents", R"coa(1)coa"},
 {"AiPlayerbot.CoaEconomy.Filter.AllowBloodforged", R"coa(0)coa"},
 {"AiPlayerbot.CoaEconomy.Filter.Bloodforged", R"coa(1)coa"},
 {"AiPlayerbot.CoaEconomy.Filter.Deprecated", R"coa(1)coa"},
