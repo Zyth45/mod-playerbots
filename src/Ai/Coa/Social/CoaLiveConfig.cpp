@@ -130,6 +130,7 @@ void PlayerbotAIConfig::LoadCoaLiveConfig()
     coaLiveCityPostMaxMinutes = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaLive.City.PostMaxMinutes", 60);
     coaMute = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaMute.Enable", true);
     coaLfgRolePriority = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaLfgRolePriority", true, false);
+    coaLivePvpStatsKeepDays = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaLive.PvpStatsKeepDays", 30, false);
     coaLiveCitySquares = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaLive.City.Squares", true, false);
     coaLiveCitySquareMaxBots =
         std::clamp<uint32>(sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaLive.City.SquareMaxBots", 3, false), 1, 3);

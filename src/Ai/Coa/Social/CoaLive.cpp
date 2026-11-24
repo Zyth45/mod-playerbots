@@ -812,6 +812,27 @@ std::unordered_map<uint64, uint64> fishingUntil;  // bot -> end of its time at t
 
 bool ImmersionEnabled() { return sPlayerbotAIConfig.coaLiveImmersionEnable; }
 
+// 3.2.2 (the user: the battlegrounds' statistics on by default for the dashboard): the core never empties
+// pvpstats_battlegrounds and pvpstats_players (thousands of bots: about 100,000 lines a day). Once a day, the lines of
+// battlegrounds older than PvpStatsKeepDays days go, players' lines first, in one transaction (async).
+uint64 nextPvpStatsPurge = 0;
+void PurgePvpStats(uint64 nowMs)
+{
+    uint32 const days = sPlayerbotAIConfig.coaLivePvpStatsKeepDays;
+    if (!days || nowMs < nextPvpStatsPurge)
+        return;
+    bool const first = !nextPvpStatsPurge;
+    nextPvpStatsPurge = nowMs + (first ? 10 * MINUTE : DAY) * uint64(IN_MILLISECONDS);
+    if (first)
+        return;  // 10 minutes after the start, then once a day
+    CharacterDatabaseTransaction trans = CharacterDatabase.BeginTransaction();
+    trans->Append("DELETE p FROM pvpstats_players p JOIN pvpstats_battlegrounds b ON b.id = p.battleground_id "
+                  "WHERE b.date < NOW() - INTERVAL {} DAY", days);
+    trans->Append("DELETE FROM pvpstats_battlegrounds WHERE date < NOW() - INTERVAL {} DAY", days);
+    CharacterDatabase.CommitTransaction(trans);
+    LOG_INFO("playerbots.coa", "pvp stats: battlegrounds older than {} days purged", days);
+}
+
 // The random bots online, for the fishing cap: one pass every 5 s on the world thread, only while Immersion is on.
 void CountOnlineRandomBots(uint64 nowMs)
 {
@@ -2740,6 +2761,7 @@ public:
     {
         CoaWorldFile::Tick(GameTime::GetGameTimeMS().count());  // world.json, only while the dashboard watches
         CountOnlineRandomBots(GameTime::GetGameTimeMS().count());
+        PurgePvpStats(GameTime::GetGameTimeMS().count());
         CoaCatchUp::Tick(GameTime::GetGameTimeMS().count());  // the human front of a new living realm
         CoaSoul::Flush(GameTime::GetGameTimeMS().count());       // new souls into their table
         if (Enabled())

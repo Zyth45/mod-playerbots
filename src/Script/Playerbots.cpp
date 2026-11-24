@@ -132,9 +132,17 @@ public:
         if (!proto || proto->Quality < sPlayerbotAIConfig.lootLogMinQuality)
             return;
 
-        LOG_INFO("playerbots.loot", "{} (class {} level {}) looted {} ({}) quality {} ilvl {} x{}",
+        // CoA 3.2.2 (the dashboard's last dungeon and raid loots): in a dungeon or a raid, the map and the creature
+        // looted (0: a chest, an item) end the line; its start is unchanged (the dashboard's rare finds read it).
+        Map* map = player->GetMap();
+        std::string const where =
+            map && map->IsDungeon()
+                ? " map " + std::to_string(map->GetId()) + (map->IsRaid() ? " raid" : " dungeon") + " boss " +
+                      std::to_string(lootguid.IsCreature() ? lootguid.GetEntry() : 0)
+                : "";
+        LOG_INFO("playerbots.loot", "{} (class {} level {}) looted {} ({}) quality {} ilvl {} x{}{}",
                  player->GetName(), uint32(player->getClass()), uint32(player->GetLevel()), proto->Name1,
-                 proto->ItemId, uint32(proto->Quality), uint32(proto->ItemLevel), count);
+                 proto->ItemId, uint32(proto->Quality), uint32(proto->ItemLevel), count, where);
     }
 
     // A client joins the channels of the zone it enters. A bot did it once, at login, and then

@@ -3853,6 +3853,15 @@ AiPlayerbot.CoaLive.City.SquareMaxBots = 3
 AiPlayerbot.CoaLive.CityUnstick.Enable = 1
 AiPlayerbot.CoaLive.CityUnstick.StillMinutes = 25
 
+#    AiPlayerbot.CoaLive.PvpStatsKeepDays
+#        Description: 3.2.2: with Battleground.StoreStatistics.Enable (worldserver.conf), the core keeps every
+#                     battleground's statistics forever (with thousands of bots, about 100,000 lines a day). Once a
+#                     day, the battlegrounds older than this many days and their players' lines are deleted.
+#                     0: never deleted.
+#        Default:     30
+
+AiPlayerbot.CoaLive.PvpStatsKeepDays = 30
+
 #    AiPlayerbot.CoaLive.Sheath.Enable
 #        Description: Bots draw their weapon in a fight (the ranged one for a ranged bot) and put it
 #                     away out of it, on a mount and in flight, as a player's client does (#11610).
