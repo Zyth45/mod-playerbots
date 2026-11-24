@@ -13,6 +13,8 @@
 #include <chrono>
 #include "CoaWorldBgPace.h"
 #include "Playerbots.h"
+#include "Group.h"
+#include "LootMgr.h"
 #include "CoaSpecialization.h"
 #include "BattleGroundTactics.h"
 #include "CoaBossKnowledge.h"
@@ -105,6 +107,7 @@ public:
         PLAYERHOOK_ON_GIVE_EXP,
         PLAYERHOOK_ON_UPDATE_ZONE,
         PLAYERHOOK_ON_LOOT_ITEM,
+        PLAYERHOOK_ON_GROUP_ROLL_REWARD_ITEM,
         PLAYERHOOK_ON_BEFORE_TELEPORT,
         PLAYERHOOK_ON_PLAYER_JUST_DIED
     }) {}
@@ -132,13 +135,31 @@ public:
         if (!proto || proto->Quality < sPlayerbotAIConfig.lootLogMinQuality)
             return;
 
-        // CoA 3.2.2 (the dashboard's last dungeon and raid loots): in a dungeon or a raid, the map and the creature
-        // looted (0: a chest, an item) end the line; its start is unchanged (the dashboard's rare finds read it).
+        LogLoot(player, proto, count, lootguid);
+    }
+
+    // CoA 3.2.2 (bench of 3606e5be: no dungeon line in an hour of self-found runs): in a group, a rare item is rolled
+    // for, and the winner gets it through the roll (Group::CountTheRoll), never through OnPlayerLootItem.
+    void OnPlayerGroupRollRewardItem(Player* player, Item* item, uint32 count, RollVote /*voteType*/, Roll* roll) override
+    {
+        if (!player || !item || !GET_PLAYERBOT_AI(player))
+            return;
+        ItemTemplate const* proto = item->GetTemplate();
+        if (!proto || proto->Quality < sPlayerbotAIConfig.lootLogMinQuality)
+            return;
+        Loot const* loot = roll ? roll->getTarget() : nullptr;
+        LogLoot(player, proto, count, loot ? loot->sourceWorldObjectGUID : ObjectGuid::Empty);
+    }
+
+    // CoA 3.2.2 (the dashboard's last dungeon and raid loots): in a dungeon or a raid, the map and the creature
+    // looted (0: a chest, an item) end the line; its start is unchanged (the dashboard's rare finds read it).
+    static void LogLoot(Player* player, ItemTemplate const* proto, uint32 count, ObjectGuid source)
+    {
         Map* map = player->GetMap();
         std::string const where =
             map && map->IsDungeon()
                 ? " map " + std::to_string(map->GetId()) + (map->IsRaid() ? " raid" : " dungeon") + " boss " +
-                      std::to_string(lootguid.IsCreature() ? lootguid.GetEntry() : 0)
+                      std::to_string(source.IsCreature() ? source.GetEntry() : 0)
                 : "";
         LOG_INFO("playerbots.loot", "{} (class {} level {}) looted {} ({}) quality {} ilvl {} x{}{}",
                  player->GetName(), uint32(player->getClass()), uint32(player->GetLevel()), proto->Name1,
