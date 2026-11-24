@@ -27,6 +27,7 @@
 #include "Timer.h"
 #include "WorldSession.h"
 #include "Player.h"
+#include "Group.h"
 
 #include <algorithm>
 #include <set>
@@ -282,6 +283,8 @@ struct Spot
 // (map, capital zone) -> the arrivals and the targets, from the spawns.
 using Capitals = std::map<std::pair<uint32, uint32>, std::pair<std::vector<Spot>, std::vector<Spot>>>;
 
+std::atomic<bool> capitalsReady{false};  // 3.2.2: CapitalSpots built (CityUnstick reads it from the map threads)
+
 Capitals const& CapitalSpots()
 {
     static Capitals capitals;
@@ -311,6 +314,7 @@ Capitals const& CapitalSpots()
         if (proto->npcflag & targetFlags)
             lists.second.push_back({data.id, data.posX, data.posY, data.posZ, data.orientation});
     }
+    capitalsReady = true;
     return capitals;
 }
 
@@ -756,6 +760,23 @@ struct SeatSeen
 std::atomic<uint32> seatsUsed{0}, seatsRefused{0};
 std::mutex seatsLock;
 std::map<uint64, SeatSeen> seatsHeld;
+// 3.2.2 (CityUnstick, the user: bots in the Stormwind inn's floor, a bot still for an hour by the inn): random bots of
+// a capital in the floor, or still on a wander whose targets no step reaches, put on the city's nearest checked arrival.
+struct StillState
+{
+    float x = 0.0f, y = 0.0f, z = 0.0f;
+    uint32 lastMs = 0;     // last look (getMSTime)
+    uint32 stillMs = 0;    // time still on a wander, the AI awake
+    uint32 buriedAt = 0;   // last floor check
+    uint32 unstickAt = 0;  // last move out
+};
+bool cityUnstickOn = true;  // AiPlayerbot.CoaLive.CityUnstick.Enable
+uint32 stillMinutes = 25;   // AiPlayerbot.CoaLive.CityUnstick.StillMinutes
+std::mutex stillLock;
+std::unordered_map<uint64, StillState> stillBots;
+std::map<std::string, uint32> stillByZone;  // since the last report
+std::vector<std::string> unstickSamples;    // up to 3 since the last report
+std::atomic<uint32> unstuckBuried{0}, unstuckStill{0}, unstickCapped{0}, unstickNoArrival{0}, unstickHour{0};
 std::atomic<uint32> rescued{0}, rescueSeen{0};  // 3.2.2: RescueFromPatch
 uint32 placeIds = 0;
 
@@ -1036,6 +1057,23 @@ std::vector<std::string> PlacesReport()
                         std::to_string(count[2]) + " stand" + sample);
         seatsHeld.clear();
     }
+    {
+        std::lock_guard<std::mutex> stillGuard(stillLock);
+        std::string zones;
+        for (auto const& [zone, count] : stillByZone)
+            zones += (zones.empty() ? "" : ", ") + zone + " " + std::to_string(count);
+        std::string samples;
+        for (std::string const& sample : unstickSamples)
+            samples += " | " + sample;
+        lines.push_back(std::string("city unstick") + (cityUnstickOn ? "" : " (off: counted, not moved)") + ": " +
+                        std::to_string(unstuckBuried.exchange(0)) + " in the floor, " +
+                        std::to_string(unstuckStill.exchange(0)) + " still, " + std::to_string(unstickCapped.exchange(0)) +
+                        " over the hour's cap, " + std::to_string(unstickNoArrival.exchange(0)) +
+                        " with no checked arrival; found in capitals: " + (zones.empty() ? "none" : zones) + samples);
+        stillByZone.clear();
+        unstickSamples.clear();
+        unstickHour = 0;
+    }
     return lines;
 }
 
@@ -1060,6 +1098,118 @@ void NoteSeatHeld(Player* bot, WorldObject const* seat, int8_t use)
     seen.entry = seat->GetEntry();
     std::lock_guard<std::mutex> guard(seatsLock);
     seatsHeld[bot->GetGUID().GetRawValue()] = std::move(seen);
+}
+
+bool CityUnstick(Player* bot, bool wandering)
+{
+    if (!bot || !bot->IsInWorld() || !bot->IsAlive() || bot->IsInCombat() || bot->InBattleground() ||
+        bot->IsBeingTeleported() || bot->GetMap()->Instanceable() || !capitalsReady)
+        return false;
+    if (Group* group = bot->GetGroup())
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+            if (Player* member = ref->GetSource())
+                if (member != bot && member->GetSession() && !member->GetSession()->IsBot())
+                    return false;  // in a group with a player: the player leads it
+    uint32 const zoneId = bot->GetZoneId();
+    AreaTableEntry const* zone = sAreaTableStore.LookupEntry(zoneId);
+    if (!zone || !(zone->flags & AREA_FLAG_CAPITAL))
+        return false;
+    uint32 const now = getMSTime();
+    float const x = bot->GetPositionX(), y = bot->GetPositionY(), z = bot->GetPositionZ();
+    bool checkFloor = false, still = false;
+    {
+        std::lock_guard<std::mutex> guard(stillLock);
+        StillState& state = stillBots[bot->GetGUID().GetRawValue()];
+        if (!state.lastMs || std::fabs(x - state.x) > 1.0f || std::fabs(y - state.y) > 1.0f ||
+            std::fabs(z - state.z) > 1.0f)
+        {
+            state.x = x;
+            state.y = y;
+            state.z = z;
+            state.stillMs = 0;
+        }
+        else
+            state.stillMs = wandering ? state.stillMs + CoaSafeMove::StillGain(getMSTimeDiff(state.lastMs, now)) : 0;
+        state.lastMs = now;
+        still = state.stillMs >= stillMinutes * MINUTE * IN_MILLISECONDS;
+        checkFloor = !state.buriedAt || getMSTimeDiff(state.buriedAt, now) >= CoaSafeMove::BURIED_EVERY_MS;
+        if (checkFloor)
+            state.buriedAt = now;
+        if (!still && !checkFloor)
+            return false;
+        if (!CoaSafeMove::UnstickAllowed(state.unstickAt, getMSTimeDiff(state.unstickAt, now), unstickHour))
+        {
+            if (unstickHour >= CoaSafeMove::UNSTICK_PER_HOUR)
+                ++unstickCapped;
+            return false;
+        }
+    }
+    // In the floor: the navmesh's floor (the city's) over the bot by more than CITY_FLOOR_AGREE yards.
+    bool buried = false;
+    float meshZ = z;
+    if (checkFloor)
+    {
+        dtNavMesh const* navMesh = bot->GetMap()->GetMapCollisionData().GetMMapData().GetNavMesh();
+        Query q;
+        q.query = navMesh ? MMAP::MMapMgr::CreateNavMeshQuery(const_cast<dtNavMesh*>(navMesh)) : nullptr;
+        q.filter.setIncludeFlags(NAV_GROUND | NAV_WATER | NAV_MAGMA | NAV_SLIME);
+        q.filter.setExcludeFlags(0);
+        float const at[3] = {y, z, x};
+        float on[3];
+        if (q.query && Snap(*q.query, q.filter, at, on))
+        {
+            meshZ = on[1];
+            buried = CoaSafeMove::BuriedUnder(z, meshZ) && OnCityFloor(q, on[2], on[0], on[1]) == 1;
+        }
+    }
+    if (!buried && !still)
+        return false;
+    {
+        std::lock_guard<std::mutex> guard(stillLock);
+        ++stillByZone[zone->area_name[0]];
+        if (unstickSamples.size() < 3)
+            unstickSamples.push_back(bot->GetName() + (buried ? " in the floor" : " still") +
+                                     Fmt(" %.1f %.1f %.1f (navmesh %.1f)", x, y, z, meshZ));
+    }
+    // The capital's nearest arrival, as the arrival check put it (CapitalSpots, ArrivalVerdict).
+    auto const capital = CapitalSpots().find({bot->GetMapId(), zoneId});
+    float bestX = 0.0f, bestY = 0.0f, bestZ = 0.0f, bestDist = -1.0f;
+    if (capital != CapitalSpots().end())
+        for (Spot const& spot : capital->second.first)
+        {
+            float ax = spot.x, ay = spot.y, az = spot.z;
+            Arrival const kind = ArrivalVerdict(bot->GetMapId(), ax, ay, az);
+            if (kind != Arrival::Ok && kind != Arrival::Moved)
+                continue;
+            float const dist = std::hypot(ax - x, ay - y);
+            if (dist > 1.0f && (bestDist < 0.0f || dist < bestDist))
+            {
+                bestX = ax;
+                bestY = ay;
+                bestZ = az;
+                bestDist = dist;
+            }
+        }
+    if (bestDist < 0.0f)
+    {
+        ++unstickNoArrival;
+        return false;
+    }
+    ++(buried ? unstuckBuried : unstuckStill);
+    LOG_INFO("playerbots.coa", "city unstick: {} {} at map {} {:.1f} {:.1f} {:.1f} (navmesh {:.1f}) -> arrival {:.1f} {:.1f} {:.1f}{}",
+             bot->GetName(), buried ? "in the floor" : "still", bot->GetMapId(), x, y, z, meshZ, bestX, bestY, bestZ,
+             cityUnstickOn ? "" : " (off: not moved)");
+    {
+        std::lock_guard<std::mutex> guard(stillLock);
+        StillState& state = stillBots[bot->GetGUID().GetRawValue()];
+        state.unstickAt = now ? now : 1;
+        state.stillMs = 0;
+    }
+    if (!cityUnstickOn)
+        return false;
+    ++unstickHour;
+    bot->NearTeleportTo(bestX, bestY, bestZ, bot->GetOrientation());
+    return true;
 }
 
 namespace
@@ -1227,6 +1377,9 @@ public:
     {
         arrivalCheck = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaArrivalCheck", true, false);
         placesOn = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaLive.City.Squares", true, false);
+        cityUnstickOn = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaLive.CityUnstick.Enable", true, false);
+        stillMinutes =
+            std::max<uint32>(5, sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaLive.CityUnstick.StillMinutes", 25, false));
         bool const on = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaPathCheck", false, false);
         checkDelayMs = on ? 1000 * std::max<uint32>(
                                        1, sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaPathCheck.DelaySeconds", 300, false))

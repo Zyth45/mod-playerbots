@@ -257,6 +257,20 @@ bool NewRpgStatusUpdateAction::Execute(Event /*event*/)
         CoaPathProbe::RescueFromPatch(bot))
         return true;
     NewRpgInfo& info = botAI->rpgInfo;
+    // 3.2.2 (the user: bots in the Stormwind inn's floor, one still there for an hour): in the floor, or still on a
+    // wander no step leads anywhere, put on the capital's nearest checked arrival (CityUnstick).
+    if (RandomPlayerbotMgr::instance().IsRandomBot(bot) && !botAI->HasGameClientMaster())
+    {
+        bool wandering = false;
+        if (info.GetStatus() == RPG_WANDER_NPC)
+            if (auto const* wander = std::get_if<NewRpgInfo::WanderNpc>(&info.data))
+                wandering = !wander->lastReach && !(wander->npcOrGo && CoaCityLife::Holds(botAI, wander->npcOrGo));
+        if (CoaPathProbe::CityUnstick(bot, wandering))
+        {
+            info.ChangeToIdle();
+            return true;
+        }
+    }
     NewRpgStatus status = info.GetStatus();
     switch (status)
     {

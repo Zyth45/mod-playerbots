@@ -135,5 +135,12 @@ int main()
         assert(!FixedArrival(0, -8893.8f, 643.9f, 110.0f, fx, fy, fz));    // another floor
         assert(Avoided(0, -8893.8f, 643.9f, 98.3f) && !Avoided(0, -8897.6f, 640.0f, 99.7f));
     }
+    // 3.2.2: the Stormwind inn: a step aimed at the navmesh's 97.9 where the server's floor is 96.1 is refused; a bot at
+    // 96.1 under the navmesh's 97.9 is in the floor; a bot standing on its floor (0.3 yard of mesh error) is not.
+    assert(!CityFloorAgrees(97.9f, 96.1f) && !CityFloorAgrees(97.9f, 97.1f) && CityFloorAgrees(97.9f, 97.5f));
+    assert(BuriedUnder(96.1f, 97.9f) && BuriedUnder(97.1f, 97.9f) && !BuriedUnder(97.6f, 97.9f) && !BuriedUnder(98.5f, 97.9f));
+    assert(StillGain(1000) == 1000 && StillGain(STILL_SLEPT_MS + 1) == 0);
+    assert(UnstickAllowed(0, 0, 0) && !UnstickAllowed(5, 1000, 0) && UnstickAllowed(5, UNSTICK_EVERY_MS, 0));
+    assert(!UnstickAllowed(0, 0, UNSTICK_PER_HOUR));
     return 0;
 }

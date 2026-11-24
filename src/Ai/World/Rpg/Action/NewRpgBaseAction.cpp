@@ -338,6 +338,16 @@ bool NewRpgBaseAction::MoveRandomNear(float moveStep, MovementPriority priority,
         if (!canReach)
             continue;
 
+        // CoA 3.2.2 (the user: a bot in the Stormwind inn's floor after a step aimed at 97.9, the server's floor at
+        // 96.1): in a capital, the step's end where the navmesh's floor and the server's agree (CityFloorAgrees).
+        if (inCapital)
+        {
+            G3D::Vector3 const& end = path.GetEndPosition();
+            float const ground = map->GetHeight(bot->GetPhaseMask(), end.x, end.y, end.z + 0.5f);
+            if (ground <= INVALID_HEIGHT || !CoaSafeMove::CityFloorAgrees(end.z, ground))
+                continue;
+        }
+
         if (!map->CanReachPositionAndGetValidCoords(bot, dx, dy, dz))
             continue;
 

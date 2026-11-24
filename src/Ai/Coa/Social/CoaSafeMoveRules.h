@@ -221,6 +221,23 @@ constexpr AvoidedSpot AVOIDED_SPOTS[] = {
     {0, -8892.5f, 643.3f, 99.5f, 4.5f},
 };
 
+// 3.2.2 (the user: a bot in the Stormwind inn's floor after a random step): inside a capital, a random step ends only
+// where the navmesh's floor and the server's agree within CITY_FLOOR_AGREE yards (a refused step: another sample).
+constexpr float CITY_FLOOR_AGREE = 0.7f;
+inline bool CityFloorAgrees(float meshZ, float serverZ) { return std::fabs(serverZ - meshZ) <= CITY_FLOOR_AGREE; }
+// 3.2.2: a bot whose navmesh floor lies over it by more than CITY_FLOOR_AGREE yards is in the floor (CityUnstick).
+inline bool BuriedUnder(float botZ, float meshZ) { return meshZ - botZ > CITY_FLOOR_AGREE; }
+// 3.2.2 (CityUnstick): time still counts only while the bot's AI runs: a gap over STILL_SLEPT_MS is time asleep.
+constexpr uint32_t STILL_SLEPT_MS = 30 * 1000;
+inline uint32_t StillGain(uint32_t gapMs) { return gapMs > STILL_SLEPT_MS ? 0 : gapMs; }
+constexpr uint32_t UNSTICK_EVERY_MS = 30 * 60 * 1000;  // a bot is moved out at most once in this time
+constexpr uint32_t UNSTICK_PER_HOUR = 100;              // and the server moves at most this many an hour
+constexpr uint32_t BURIED_EVERY_MS = 10 * 60 * 1000;    // a bot is checked for the floor at most this often
+inline bool UnstickAllowed(uint32_t lastUnstickMs, uint32_t sinceLastMs, uint32_t thisHour)
+{
+    return (!lastUnstickMs || sinceLastMs >= UNSTICK_EVERY_MS) && thisHour < UNSTICK_PER_HOUR;
+}
+
 // 3.2.2 (Pilote, the user's eye): an arrival in one of these zones goes straight to a spot checked in game, instead
 // of a search around it (the search fell back on the furniture around the Stormwind bank's stairs).
 struct FixedArrivalSpot
