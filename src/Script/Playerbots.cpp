@@ -205,6 +205,8 @@ public:
     bool OnPlayerBeforeTeleport(Player* player, uint32 mapid, float /*x*/, float /*y*/, float /*z*/,
                                 float /*orientation*/, uint32 /*options*/, Unit* /*target*/) override
     {
+        if (CoaRefusesFarMap(player, mapid))  // CoA 3.2.2: no random bot on map 530 or 571, whatever the caller
+            return false;
         CoaLeaveInstance::OnBeforeTeleport(player, mapid);
 
         /* for now commmented out until proven its actually required

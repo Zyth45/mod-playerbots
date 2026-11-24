@@ -383,4 +383,7 @@ private:
 
 #define sRandomPlayerbotMgr RandomPlayerbotMgr::instance()
 
+// CoA 3.2.2: a random bot with no player for master never teleports to map 530 or 571 (OnPlayerBeforeTeleport).
+bool CoaRefusesFarMap(Player* bot, uint32 mapId);
+
 #endif

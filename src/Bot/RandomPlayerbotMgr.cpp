@@ -54,6 +54,9 @@
 #include "CoaSpecialization.h"
 #include "AscensionSpecialization.h"
 #include "SpellMgr.h"
+#include "Spell.h"
+#include "Engine.h"
+#include <atomic>
 #include "PlayerbotTextMgr.h"
 #include "Playerbots.h"
 #include "Position.h"
@@ -81,6 +84,7 @@
 // --- CoA World (CoA Monde session) ---
 static void CoaSyncBotRulesetPvp(Player* bot);
 static void CoaResetBotPvp(Player* bot);
+void CoaHomeOfflineFromOutland(std::vector<uint32> const& accounts);
 // --- end CoA World ---
 
 struct GuidClassRaceInfo
@@ -741,6 +745,7 @@ void RandomPlayerbotMgr::AssignAccountTypes()
     LOG_INFO("playerbots", "Account type assignment complete: {} RNDbot accounts, {} AddClass accounts, {} unassigned",
              rndBotTypeAccounts.size(), addClassTypeAccounts.size(),
              currentAssignments.size() - rndBotTypeAccounts.size() - addClassTypeAccounts.size());
+    CoaHomeOfflineFromOutland(rndBotTypeAccounts);  // CoA 3.2.2
 }
 
 bool RandomPlayerbotMgr::IsAccountType(uint32 accountId, uint8 accountType)
@@ -2337,6 +2342,115 @@ void CoaHomeFromOutland(Player* bot)
     WorldLocation const start(info->mapId, info->positionX, info->positionY, info->positionZ, info->orientation);
     bot->SetHomebind(start, info->areaId);
     bot->TeleportTo(start);
+}
+
+// CoA 3.2.2 (Pilote, bench of 1e991b2d: 9 bots still left map 530 during the bench, the database going from 1 to 5
+// characters there): whatever the caller (a quest, a travel, a hearthstone, a portal, a boat), a random bot with no
+// player for master never teleports to map 530 or 571 from another map: the core's OnPlayerBeforeTeleport asks here.
+// Each refusal is told once a minute per bot with its cause: the spell it casts, its last actions, its RPG status.
+std::mutex farGateLock;
+std::unordered_map<uint64, time_t> farGateTold;
+std::atomic<uint32> farGateRefused{0};
+
+bool CoaRefusesFarMap(Player* bot, uint32 mapId)
+{
+    if (!bot || !CoaFarMap(mapId) || bot->GetMapId() == mapId || !sRandomPlayerbotMgr.IsRandomBot(bot))
+        return false;
+    PlayerbotAI* botAI = GET_PLAYERBOT_AI(bot);
+    if (!botAI || botAI->HasGameClientMaster())
+        return false;
+    Player* master = botAI->GetMaster();
+    if (master && master != bot && !GET_PLAYERBOT_AI(master))
+        return false;  // a real player's bot goes where its player takes it
+    ++farGateRefused;
+    time_t const now = time(nullptr);
+    {
+        std::lock_guard<std::mutex> guard(farGateLock);
+        if (farGateTold.size() > 4096)
+            farGateTold.clear();
+        time_t& told = farGateTold[bot->GetGUID().GetRawValue()];
+        if (now - told < 60)
+            return true;
+        told = now;
+    }
+    uint32 spellId = 0;
+    for (uint32 slot : {CURRENT_GENERIC_SPELL, CURRENT_CHANNELED_SPELL})
+        if (Spell const* spell = bot->GetCurrentSpell(CurrentSpellTypes(slot)))
+            spellId = spell->m_spellInfo->Id;
+    Engine* const calm = botAI->GetEngine(BOT_STATE_NON_COMBAT);
+    Engine* const fight = botAI->GetEngine(BOT_STATE_COMBAT);
+    LOG_INFO("playerbots.coa", "coa: far map gate: {} (level {}) refused map {} from map {} zone {} ({:.1f} {:.1f} {:.1f}): "
+             "spell {}, last action {} / combat {}, rpg {} ({} refused so far)", bot->GetName(), bot->GetLevel(), mapId,
+             bot->GetMapId(), bot->GetZoneId(), bot->GetPositionX(), bot->GetPositionY(), bot->GetPositionZ(), spellId,
+             calm ? calm->GetLastExecutedAction() : std::string(), fight ? fight->GetLastExecutedAction() : std::string(),
+             botAI->rpgInfo.ToString(), farGateRefused.load());
+    return true;
+}
+
+// 3.2.2 (Pilote: 0 in the database, online and offline): once at startup, the random bots' characters left offline on
+// map 530 or 571 are moved in the database to their hearth when it lies off those maps, else to their race's start
+// (their hearth too). A bot online there goes home at its login and at each refresh (CoaHomeFromOutland).
+void CoaHomeOfflineFromOutland(std::vector<uint32> const& accounts)
+{
+    static bool done = false;
+    if (done || accounts.empty())
+        return;
+    done = true;
+    // Only the random bots' accounts (type 1 of the module, in its random account list): never a player's account, nor
+    // the bots a player added (AddClass accounts, alts).
+    std::string list;
+    for (uint32 account : accounts)
+        if (sPlayerbotAIConfig.IsInRandomAccountList(account))
+            list += (list.empty() ? "" : ",") + std::to_string(account);
+    if (list.empty())
+        return;
+    QueryResult result = CharacterDatabase.Query(
+        "SELECT c.guid, c.race, c.class, h.mapId, h.zoneId, h.posX, h.posY, h.posZ FROM characters c LEFT JOIN "
+        "character_homebind h ON h.guid = c.guid WHERE c.online = 0 AND c.map IN (530, 571) AND c.account IN ({}) AND "
+        "c.guid NOT IN (SELECT memberGuid FROM group_member)",
+        list);
+    if (!result)
+    {
+        LOG_INFO("playerbots.coa", "coa: offline random bots on map 530 or 571: none");
+        return;
+    }
+    uint32 hearth = 0, start = 0, left = 0;
+    do
+    {
+        Field* f = result->Fetch();
+        uint32 const guid = f[0].Get<uint32>();
+        bool const hasHome = !f[3].IsNull();
+        uint32 mapId = hasHome ? f[3].Get<uint16>() : 530;
+        uint32 zoneId = hasHome ? f[4].Get<uint16>() : 0;
+        float x = hasHome ? f[5].Get<float>() : 0.0f;
+        float y = hasHome ? f[6].Get<float>() : 0.0f;
+        float z = hasHome ? f[7].Get<float>() : 0.0f;
+        if (CoaFarMap(mapId))
+        {
+            PlayerInfo const* info = sObjectMgr->GetPlayerInfo(f[1].Get<uint8>(), f[2].Get<uint8>());
+            if (!info || CoaFarMap(info->mapId))
+            {
+                ++left;
+                continue;
+            }
+            mapId = info->mapId;
+            zoneId = info->areaId;
+            x = info->positionX;
+            y = info->positionY;
+            z = info->positionZ;
+            CharacterDatabase.Execute("REPLACE INTO character_homebind (guid, mapId, zoneId, posX, posY, posZ) VALUES "
+                                      "({}, {}, {}, {}, {}, {})", guid, mapId, zoneId, x, y, z);
+            ++start;
+        }
+        else
+            ++hearth;
+        CharacterDatabase.Execute("UPDATE characters SET map = {}, zone = {}, position_x = {}, position_y = {}, "
+                                  "position_z = {}, instance_id = 0, transguid = 0, trans_x = 0, trans_y = 0, trans_z = 0, trans_o = 0, "
+                                  "taxi_path = '' WHERE guid = {} AND online = 0",
+                                  mapId, zoneId, x, y, z, guid);
+    } while (result->NextRow());
+    LOG_INFO("playerbots.coa", "coa: offline random bots on map 530 or 571: {} sent to their hearth, {} to their race's "
+             "start, {} left (no start off those maps)", hearth, start, left);
 }
 
 // CoA 3.2.2 (Pilote: the update shows at once, not at a bot's next randomize): a random bot of a player-less kind, of
