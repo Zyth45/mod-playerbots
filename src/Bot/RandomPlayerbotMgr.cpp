@@ -2317,11 +2317,36 @@ std::unordered_map<std::string, WorldLocation> bankArrivals;
 // Draenei's isles) or 571 (Northrend). CoA starts every race on the old continents (playercreateinfo: maps 0, 1, 609).
 bool CoaFarMap(uint32 mapId) { return mapId == 530 || mapId == 571; }
 
+// CoA 3.2.2 (Pilote, bench of 02b229e4: Opuve and Wylniar, level 19, cast their hearthstone toward map 530 from maps 1
+// and 0, refused by the far map gate, again and again): a random bot whose hearth lies on map 530 or 571 gets its race's
+// start (off those maps in CoA) for hearth, at its login, at each refresh and at a refused teleport. Counted.
+std::atomic<uint32> farHearthsMoved{0};
+
+bool CoaHearthFromOutland(Player* bot)
+{
+    if (!bot || !CoaFarMap(bot->m_homebindMapId) || !sRandomPlayerbotMgr.IsRandomBot(bot))
+        return false;
+    PlayerbotAI* botAI = GET_PLAYERBOT_AI(bot);
+    if (!botAI || botAI->HasGameClientMaster())
+        return false;
+    PlayerInfo const* info = sObjectMgr->GetPlayerInfo(bot->getRace(), bot->getClass());
+    if (!info || CoaFarMap(info->mapId))
+        return false;
+    uint32 const fromMap = bot->m_homebindMapId;
+    bot->SetHomebind(WorldLocation(info->mapId, info->positionX, info->positionY, info->positionZ, info->orientation),
+                     info->areaId);
+    LOG_INFO("playerbots.coa", "coa: {} (level {}) had its hearth on map {}: now its race's start, map {} ({} so far)",
+             bot->GetName(), bot->GetLevel(), fromMap, info->mapId, ++farHearthsMoved);
+    return true;
+}
+
 // A random bot there goes home: its hearth when it lies off maps 530 and 571, else its race's start, which then becomes
 // its hearth (a hearth elsewhere is never rewritten). Never in a fight, a group, an instance, or the bot of a player.
 // At its login and at each refresh. Maps 530 and 571 are the open worlds: their dungeons have maps of their own.
 void CoaHomeFromOutland(Player* bot)
 {
+    if (bot && !CoaFarMap(bot->GetMapId()))
+        CoaHearthFromOutland(bot);
     if (!bot || !CoaFarMap(bot->GetMapId()) || !sRandomPlayerbotMgr.IsRandomBot(bot) || bot->IsInCombat() ||
         bot->GetGroup() || !GET_PLAYERBOT_AI(bot) || GET_PLAYERBOT_AI(bot)->HasGameClientMaster() ||
         bot->IsBeingTeleported() || !bot->IsInWorld() || bot->GetMap()->Instanceable())
@@ -2365,6 +2390,7 @@ bool CoaRefusesFarMap(Player* bot, uint32 mapId)
     if (master && master != bot && !GET_PLAYERBOT_AI(master))
         return false;  // a real player's bot goes where its player takes it
     ++farGateRefused;
+    CoaHearthFromOutland(bot);  // 3.2.2: a hearthstone toward map 530 is not cast again
     // 3.2.2 (bench of 5f662017: refused at a flight's map change, a bot stayed on its taxi at the pass, refused again
     // each minute): a bot in flight leaves its taxi and goes to its hearth on maps 0/1, from the next update.
     if (bot->IsInFlight() || !bot->m_taxi.empty())
@@ -2430,6 +2456,33 @@ void CoaHomeOfflineFromOutland(std::vector<uint32> const& accounts)
             list += (list.empty() ? "" : ",") + std::to_string(account);
     if (list.empty())
         return;
+    // 3.2.2 (Pilote, bench of 02b229e4): the hearths left on map 530 or 571 of the random bots offline elsewhere: their
+    // race's start.
+    if (QueryResult hearths = CharacterDatabase.Query(
+            "SELECT c.guid, c.race, c.class FROM characters c JOIN character_homebind h ON h.guid = c.guid WHERE "
+            "c.online = 0 AND h.mapId IN (530, 571) AND c.map NOT IN (530, 571) AND c.account IN ({})",
+            list))
+    {
+        uint32 moved = 0, kept = 0;
+        do
+        {
+            Field* f = hearths->Fetch();
+            PlayerInfo const* info = sObjectMgr->GetPlayerInfo(f[1].Get<uint8>(), f[2].Get<uint8>());
+            if (!info || CoaFarMap(info->mapId))
+            {
+                ++kept;
+                continue;
+            }
+            CharacterDatabase.Execute("REPLACE INTO character_homebind (guid, mapId, zoneId, posX, posY, posZ) VALUES "
+                                      "({}, {}, {}, {}, {}, {})", f[0].Get<uint32>(), info->mapId, info->areaId,
+                                      info->positionX, info->positionY, info->positionZ);
+            ++moved;
+        } while (hearths->NextRow());
+        LOG_INFO("playerbots.coa", "coa: offline random bots with a hearth on map 530 or 571: {} given their race's "
+                 "start, {} kept (no start off those maps)", moved, kept);
+    }
+    else
+        LOG_INFO("playerbots.coa", "coa: offline random bots with a hearth on map 530 or 571: none");
     QueryResult result = CharacterDatabase.Query(
         "SELECT c.guid, c.race, c.class, h.mapId, h.zoneId, h.posX, h.posY, h.posZ FROM characters c LEFT JOIN "
         "character_homebind h ON h.guid = c.guid WHERE c.online = 0 AND c.map IN (530, 571) AND c.account IN ({}) AND "
