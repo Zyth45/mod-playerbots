@@ -300,8 +300,10 @@ bool NewRpgBaseAction::MoveWorldObjectTo(ObjectGuid guid, float distance)
     if (sRandomPlayerbotMgr.IsRandomBot(bot) && !botAI->HasGameClientMaster() && !bot->IsInCombat())
     {
         AreaTableEntry const* zone = sAreaTableStore.LookupEntry(bot->GetZoneId());
-        if (zone && (zone->flags & AREA_FLAG_CAPITAL))
-            CoaSafeMove::StandByNpc(bot, object, x, y, z);
+        // 3.2.2: no stop found, the raw point by the NPC is not taken when it lies in a booth (InNpcBooth).
+        if (zone && (zone->flags & AREA_FLAG_CAPITAL) && !CoaSafeMove::StandByNpc(bot, object, x, y, z) &&
+            CoaSafeMove::InNpcBooth(bot, x, y, z))
+            return false;
     }
     return MoveTo(mapId, x, y, z, false, false, false, true);
 }
@@ -315,6 +317,8 @@ bool NewRpgBaseAction::MoveRandomNear(float moveStep, MovementPriority priority,
     const float x = bot->GetPositionX();
     const float y = bot->GetPositionY();
     const float z = bot->GetPositionZ();
+    AreaTableEntry const* zone = sAreaTableStore.LookupEntry(bot->GetZoneId());
+    bool const inCapital = zone && (zone->flags & AREA_FLAG_CAPITAL);
     // A few fresh samples so a bad roll (water, blocked poly) does not freeze the bot.
     // Each one is a full path query; the caller retries next tick.
     for (int attempt = 0; attempt < 3; ++attempt)
@@ -338,6 +342,11 @@ bool NewRpgBaseAction::MoveRandomNear(float moveStep, MovementPriority priority,
             continue;
 
         if (map->IsInWater(bot->GetPhaseMask(), dx, dy, dz, bot->GetCollisionHeight()))
+            continue;
+
+        // CoA 3.2.2 (Pilote, bench of 96b4114c: a bot behind Ironforge's bankers): in a capital, no random step ends
+        // in a banker's or an auctioneer's booth.
+        if (inCapital && CoaSafeMove::InNpcBooth(bot, dx, dy, dz))
             continue;
 
         bool moved = MoveTo(bot->GetMapId(), dx, dy, dz, false, false, false, true, priority);

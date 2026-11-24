@@ -198,6 +198,18 @@ inline bool InFrontOf(float npcX, float npcY, float facing, float x, float y)
     return (x - npcX) * std::cos(facing) + (y - npcY) * std::sin(facing) >= STAND_FRONT;
 }
 
+// 3.2.2 (Pilote, bench of 96b4114c: Timo online behind Ironforge's bankers 2460 and 2461, 2 yards behind each, while
+// StandByNpc traced no stop behind them): a random step (MoveRandomNear: a wander, a nudge after a failed path) may end
+// in a booth. A point within BOOTH_RANGE yards of a banker or an auctioneer, at most BOOTH_RISE yards above or under
+// it, and not in front of it (InFrontOf), lies in its booth: no random step ends there.
+constexpr float BOOTH_RANGE = 8.0f;
+constexpr float BOOTH_RISE = 3.0f;
+
+inline bool InBooth(float dist, float dz, bool inFront)
+{
+    return dist <= BOOTH_RANGE && std::fabs(dz) <= BOOTH_RISE && !inFront;
+}
+
 // 3.2.2 (sonde of 1e991b2d: the auctioneers of Ironforge and Orgrimmar, Stormwind's banker 137354, on a dais behind a
 // counter: the path's end in front of them at 1.6 to 4.5 yards, "out of sight" at 1.5 yards up): the NPC is seen from
 // the stop at 1.5 yards up or at the eyes (STAND_EYES, over a counter), or the stop is within NPC_STAND_REACH of it

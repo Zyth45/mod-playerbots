@@ -338,6 +338,28 @@ Unstick UnstickFromIsland(Player* bot, WorldObject const* npc)
     return choice;
 }
 
+bool InNpcBooth(Player* bot, float x, float y, float z)
+{
+    if (!bot || !bot->IsInWorld())
+        return false;
+    std::list<Creature*> clerks;
+    struct Check
+    {
+        float x, y, z;
+        bool operator()(Creature* c) const
+        {
+            return c->IsAlive() && c->HasNpcFlag(NPCFlags(UNIT_NPC_FLAG_BANKER | UNIT_NPC_FLAG_AUCTIONEER)) &&
+                   c->GetExactDist2d(x, y) <= BOOTH_RANGE;
+        }
+    } check{x, y, z};
+    Acore::CreatureListSearcher<Check> searcher(bot, clerks, check);
+    Cell::VisitObjects(x, y, bot->GetMap(), searcher, BOOTH_RANGE);
+    for (Creature* clerk : clerks)
+        if (InBooth(clerk->GetExactDist2d(x, y), z - clerk->GetPositionZ(), FrontOf(clerk, x, y)))
+            return true;
+    return false;
+}
+
 ObjectGuid OtherReachableAuctioneer(Player* bot, WorldObject* npc)
 {
     constexpr float AUCTIONEERS_RANGE = 40.0f;

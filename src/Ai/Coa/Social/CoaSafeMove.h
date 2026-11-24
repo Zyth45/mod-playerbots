@@ -35,6 +35,8 @@ ObjectGuid OtherReachableAuctioneer(Player* bot, WorldObject* npc);
 // 3.2.2: a bot whose way to npc found no stop: when it stands on a closed island (its path to the stop another bot
 // walked to stops short), gets it off (UnstickChoice) and says how; NotStuck when there is no known stop or no island.
 Unstick UnstickFromIsland(Player* bot, WorldObject const* npc);
+// 3.2.2: (x, y, z) lies in a banker's or an auctioneer's booth, behind its counter (InBooth).
+bool InNpcBooth(Player* bot, float x, float y, float z);
 }  // namespace CoaSafeMove
 
 #endif
