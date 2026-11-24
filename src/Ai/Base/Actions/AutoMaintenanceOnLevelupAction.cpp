@@ -177,6 +177,10 @@ void AutoMaintenanceOnLevelupAction::LearnTrainerSpells(std::ostringstream* /*ou
 {
     PlayerbotFactory factory(bot, bot->GetLevel());
     factory.InitSkills();
+    // CoA 3.2.2 (sonde of 5f662017: 959 bots of level 5-19 with riding, 30 with a mount): InitSkills gives a random
+    // bot its riding when it reaches the ground mount level; the mount came only at a randomize or a login.
+    if (sRandomPlayerbotMgr.IsRandomBot(bot))
+        factory.InitMounts();
     factory.InitClassSpells();
     factory.InitAvailableSpells();
     factory.InitPet();
