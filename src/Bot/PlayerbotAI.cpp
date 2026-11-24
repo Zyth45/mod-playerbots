@@ -9,6 +9,7 @@
 #include "CoaKeySpells.h"
 
 #include "CoaLive.h"
+#include "CoaCityLife.h"
 #include "CoaChatRules.h"
 #include "CoaPet.h"
 #include "CoaHearthWithMaster.h"
@@ -2125,7 +2126,9 @@ void PlayerbotAI::DoNextAction(bool min)
     }
     else if (bot->m_movementInfo.HasMovementFlag(MOVEMENTFLAG_WALKING))
         bot->m_movementInfo.RemoveMovementFlag(MOVEMENTFLAG_WALKING);
-    else if ((nextAICheckDelay < 1000) && bot->IsSitState() && !(bot->GetInterruptMask() & AURA_INTERRUPT_FLAG_NOT_SEATED))
+    // CoA 3.2.2 (the user: bots standing on chairs): not out of its City Life seat while it holds it.
+    else if ((nextAICheckDelay < 1000) && bot->IsSitState() && !(bot->GetInterruptMask() & AURA_INTERRUPT_FLAG_NOT_SEATED) &&
+             !CoaCityLife::KeepsSeated(this))
         bot->SetStandState(UNIT_STAND_STATE_STAND);
 
     bool hasMountAura = bot->HasAuraType(SPELL_AURA_MOD_INCREASE_MOUNTED_SPEED) ||

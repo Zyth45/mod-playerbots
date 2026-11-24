@@ -376,6 +376,15 @@ void OnReach(PlayerbotAI* botAI, WorldObject* object)
         bot->SetStandState(UNIT_STAND_STATE_KNEEL);
 }
 
+bool KeepsSeated(PlayerbotAI* botAI)
+{
+    if (!Enabled() || !botAI || !botAI->GetBot()->IsSitState())
+        return false;
+    std::lock_guard<std::mutex> guard(cityLock);
+    auto const it = holding.find(botAI->GetBot()->GetGUID().GetRawValue());
+    return it != holding.end() && (it->second.kind == Station::Seat || it->second.sitting);
+}
+
 uint32 WhileStaying(PlayerbotAI* botAI, WorldObject* object, uint32 defaultMs)
 {
     if (!Enabled() || !botAI || !object)

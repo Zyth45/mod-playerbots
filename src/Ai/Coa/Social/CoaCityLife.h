@@ -39,6 +39,9 @@ uint32 VisitMs(Player* bot, uint32 cityStayMs);
 bool HoldsSquare(PlayerbotAI* botAI, ObjectGuid station);
 bool SquareSpot(PlayerbotAI* botAI, ObjectGuid station, float& x, float& y, float& z);
 bool AtSquare(PlayerbotAI* botAI);
+// 3.2.2 (the user: bots standing on chairs): the bot sits at its City Life station (a seat, or a square it sat on):
+// the AI's stand-up of an idle seated bot leaves it seated.
+bool KeepsSeated(PlayerbotAI* botAI);
 }  // namespace CoaCityLife
 
 #endif
