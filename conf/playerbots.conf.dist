@@ -6019,11 +6019,15 @@ AiPlayerbot.CoaEconomy.CraftForSelf.Log = 0
 # it replaced), and the green or better pieces it would sell when the dust is worth more, a green one whatever the
 # prices while it is short of its reagents
 # (Materials.Disenchant and Materials.PerVisit apply).
-# Default: 1 (enabled); Log: 0 (disabled); PiecesPerStudy: 2; Reagents: 1
+# HourlyCount = 1: once an hour, one line in the playerbots.coa log: the enchanter bots online, their tries, the
+# enchantments put on, the items disenchanted, and why a try put nothing on (no recipe for its level or skill, no rod,
+# no reagent, not enough gold for the reagents, no gain on its pieces).
+# Default: 1 (enabled); Log: 0 (disabled); PiecesPerStudy: 2; Reagents: 1; HourlyCount: 1
 AiPlayerbot.CoaEconomy.EnchantForSelf.Enable = 1
 AiPlayerbot.CoaEconomy.EnchantForSelf.Log = 0
 AiPlayerbot.CoaEconomy.EnchantForSelf.PiecesPerStudy = 2
 AiPlayerbot.CoaEconomy.EnchantForSelf.Reagents = 1
+AiPlayerbot.CoaEconomy.EnchantForSelf.HourlyCount = 1
 
 # Self study: at most once per IntervalMinutes, a random bot in a capital studies what it could craft or enchant for
 # itself (the two keys above) and buys the reagents it lacks, a vendor's first, the auction house's next (reagents

@@ -41,5 +41,11 @@ int main()
     assert(Disenchants(false, false, true, true));    // a green, short of reagents: disenchanted
     assert(!Disenchants(false, false, true, false));  // a blue or an epic, short: still sold
     assert(Disenchants(true, false, false, false));   // a bound piece it replaced: always
+    // 3.2.2: one cause per try, the furthest step reached.
+    assert(Cause(false, false, false, false, false) == Refusal::NoRecipe);
+    assert(Cause(true, true, true, true, true) == Refusal::NoGain);   // a piece looked at: no gain
+    assert(Cause(true, false, true, true, true) == Refusal::NoGold);
+    assert(Cause(true, false, false, true, true) == Refusal::NoReagent);
+    assert(Cause(true, false, false, false, true) == Refusal::NoRod);
     return 0;
 }

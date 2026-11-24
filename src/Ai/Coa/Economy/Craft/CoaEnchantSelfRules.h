@@ -53,6 +53,32 @@ inline bool Disenchants(bool boundReplaced, bool worthMore, bool shortOfReagents
 {
     return boundReplaced || worthMore || (shortOfReagents && green);
 }
+
+// 3.2.2: why an enchanter put nothing on, one cause per try (the hourly count in playerbots.coa).
+enum class Refusal : uint32_t
+{
+    None = 0,
+    NoRecipe,  // no permanent enchantment it knows fits its level and skill
+    NoRod,     // the enchantments it could put on ask for a tool it does not hold
+    NoReagent, // reagents missing, and none to buy (no buying at this stop, or not for sale)
+    NoGold,    // reagents for sale, but over its study's gold cap
+    NoGain,    // it could put one on, but none beats what its pieces carry (or the gain is not worth the purchase)
+    Count
+};
+
+// The cause told for a try that put nothing on: the furthest step reached by any enchantment it knows.
+inline Refusal Cause(bool anyUsable, bool reachedPieces, bool goldShort, bool reagentShort, bool rodShort)
+{
+    if (!anyUsable)
+        return Refusal::NoRecipe;
+    if (reachedPieces)
+        return Refusal::NoGain;
+    if (goldShort)
+        return Refusal::NoGold;
+    if (reagentShort)
+        return Refusal::NoReagent;
+    return rodShort ? Refusal::NoRod : Refusal::NoRecipe;
+}
 }  // namespace CoaEnchantSelfRules
 
 #endif

@@ -62,6 +62,7 @@
 {"AiPlayerbot.CoaEconomy.CraftOrders.TradeOfferPercent", R"coa(50)coa"},
 {"AiPlayerbot.CoaEconomy.DataFile.Enable", R"coa(1)coa"},
 {"AiPlayerbot.CoaEconomy.EnchantForSelf.Enable", R"coa(1)coa"},
+{"AiPlayerbot.CoaEconomy.EnchantForSelf.HourlyCount", R"coa(1)coa"},
 {"AiPlayerbot.CoaEconomy.EnchantForSelf.Log", R"coa(0)coa"},
 {"AiPlayerbot.CoaEconomy.EnchantForSelf.PiecesPerStudy", R"coa(2)coa"},
 {"AiPlayerbot.CoaEconomy.EnchantForSelf.Reagents", R"coa(1)coa"},

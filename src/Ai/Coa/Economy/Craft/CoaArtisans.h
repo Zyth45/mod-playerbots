@@ -76,6 +76,8 @@ namespace CoaEconomy::Artisans
     std::unordered_set<uint32> EnchantReagents(Player* bot);
     bool KeepsForEnchanting(Player* bot, Item* item, std::unordered_set<uint32> const& reagents);
     bool ShortOfEnchantReagents(Player* bot, std::unordered_set<uint32> const& reagents);
+    // 3.2.2 (EnchantForSelf.HourlyCount): items an enchanter bot disenchanted, for the hourly line in playerbots.coa.
+    void NoteDisenchants(uint32 count);
     // CoA 3.2 (AiPlayerbot.CoaEconomy.SelfStudy.*, the user's go of 21/11): at most once per IntervalMinutes, a random
     // bot in a capital (3.2.2, SelfStudy.RestAreas: or a city or an inn it rests in) studies what it could craft
     // (CraftUpgradeForSelf) or enchant (EnchantForSelf, up to EnchantForSelf.PiecesPerStudy pieces) for itself,

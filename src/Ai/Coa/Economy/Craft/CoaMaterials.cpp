@@ -238,6 +238,7 @@ namespace
                 Data::RecordBreak(true, made.itemid, made.count, 1);
             ++done;
         }
+        Artisans::NoteDisenchants(done);
         return done;
     }
 
