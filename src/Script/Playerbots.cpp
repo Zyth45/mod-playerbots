@@ -207,6 +207,7 @@ public:
     {
         if (CoaRefusesFarMap(player, mapid))  // CoA 3.2.2: no random bot on map 530 or 571, whatever the caller
             return false;
+        CoaMoveAudit::NoteTeleport(player);  // CoA 3.2.2: a teleport by the server, no anomaly for the move audit
         CoaLeaveInstance::OnBeforeTeleport(player, mapid);
 
         /* for now commmented out until proven its actually required

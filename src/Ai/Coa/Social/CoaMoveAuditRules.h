@@ -111,6 +111,21 @@ inline bool UnderFloor(float z, float floorAbove)
     return floorAbove > -100000.0f && floorAbove - z >= UNDERFLOOR_MIN && floorAbove - z <= UNDERFLOOR_MAX;
 }
 
+// 3.2.2 (Pilote): a bot whose feet are within ON_MODEL yards over a model's floor of the vmap stands on a building's
+// floor: never "underfloor".
+constexpr float ON_MODEL = 0.5f;
+
+inline bool OnModelFloor(float z, float modelZ)
+{
+    return modelZ > -100000.0f && z - modelZ <= ON_MODEL && z - modelZ >= -ON_MODEL;
+}
+
+// 3.2.2: two samples further apart than this (a logout, an AI asleep) are not compared.
+constexpr uint64_t SAMPLE_GAP_MS = 30000;
+
+// 3.2.2: and the SUMMARY_TOP zones and causes with the most lines of each kind.
+constexpr size_t SUMMARY_TOP = 5;
+
 // 3.2.2: the hourly summary keeps SUMMARY_SAMPLES samples per kind.
 constexpr size_t SUMMARY_SAMPLES = 6;
 

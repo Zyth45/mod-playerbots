@@ -21,6 +21,7 @@
 #include "RandomPlayerbotMgr.h"
 #include "ScriptMgr.h"
 #include "Log.h"
+#include <algorithm>
 #include <atomic>
 #include <fstream>
 #include <map>
@@ -65,6 +66,7 @@ struct AuditSample
     uint32 pingMapId = 0;
     float pingX = 0.0f, pingY = 0.0f, pingSpan = 0.0f, pingTravel = 0.0f;
     bool pingSpoiled = false;  // a fight, a flight, water... in the window: not judged
+    uint64 teleportMs = 0;     // 3.2.2: the server's last teleport of the bot (NoteTeleport)
 };
 
 std::mutex stateLock;
@@ -78,12 +80,30 @@ std::ofstream file;
 std::mutex summaryLock;
 std::map<std::string, uint32> hourCounts;
 std::map<std::string, std::vector<std::string>> hourSamples;
+std::map<std::string, std::map<std::string, uint32>> hourZones;   // 3.2.2: kind -> zone -> lines
+std::map<std::string, std::map<std::string, uint32>> hourCauses;  // 3.2.2: kind -> cause -> lines
 std::atomic<uint64> nextSummaryMs{0};
 
-void NoteSummary(std::string const& kind, std::string const& sample)
+// The TOP_N most frequent of a count, "name n, name n".
+std::string Top(std::map<std::string, uint32> const& counts)
+{
+    std::vector<std::pair<uint32, std::string>> sorted;
+    for (auto const& [name, n] : counts)
+        sorted.emplace_back(n, name);
+    std::sort(sorted.begin(), sorted.end(), [](auto const& a, auto const& b) { return a.first > b.first; });
+    std::string text;
+    for (size_t i = 0; i < sorted.size() && i < CoaMoveAuditRules::SUMMARY_TOP; ++i)
+        text += (text.empty() ? "" : ", ") + (sorted[i].second.empty() ? std::string("?") : sorted[i].second) + " " +
+                std::to_string(sorted[i].first);
+    return text;
+}
+
+void NoteSummary(std::string const& kind, std::string const& sample, std::string const& zone, std::string const& cause)
 {
     std::lock_guard<std::mutex> guard(summaryLock);
     ++hourCounts[kind];
+    ++hourZones[kind][zone];
+    ++hourCauses[kind][cause];
     std::vector<std::string>& samples = hourSamples[kind];
     if (samples.size() < CoaMoveAuditRules::SUMMARY_SAMPLES)
         samples.push_back(sample);
@@ -101,15 +121,19 @@ void LogSummaryWhenDue(uint64 nowMs)
         return;
     std::map<std::string, uint32> counts;
     std::map<std::string, std::vector<std::string>> samples;
+    std::map<std::string, std::map<std::string, uint32>> zones, causes;
     {
         std::lock_guard<std::mutex> guard(summaryLock);
         counts.swap(hourCounts);
         samples.swap(hourSamples);
+        zones.swap(hourZones);
+        causes.swap(hourCauses);
     }
     std::string text;
     for (auto const& [kind, n] : counts)
     {
-        text += (text.empty() ? "" : " / ") + kind + " " + std::to_string(n) + ":";
+        text += (text.empty() ? "" : " / ") + kind + " " + std::to_string(n) + " [zones: " + Top(zones[kind]) +
+                "] [causes: " + Top(causes[kind]) + "]:";
         for (std::string const& sample : samples[kind])
             text += " " + sample + ";";
     }
@@ -260,6 +284,14 @@ void NoteOrigin(Player* bot, char const* origin)
     move.atMs = GameTime::GetGameTimeMS().count();
 }
 
+void NoteTeleport(Player* bot)
+{
+    if (!Enabled() || !bot)
+        return;
+    std::lock_guard<std::mutex> guard(stateLock);
+    states[bot->GetGUID().GetRawValue()].teleportMs = GameTime::GetGameTimeMS().count();
+}
+
 void NoteMove(Player* bot, char const* action, float x, float y, float z, bool straight)
 {
     if (!Enabled() || !bot || !bot->IsInWorld())
@@ -312,7 +344,9 @@ void Tick(PlayerbotAI* botAI)
         kinds.push_back("roof");
     float flat = 0.0f, dz = 0.0f;
     uint32 dtMs = 0;
-    bool const comparable = before.atMs && before.mapId == bot->GetMapId();
+    // 3.2.2: not across a teleport by the server, nor across a gap (a logout, an AI asleep): the bot was not walking.
+    bool const comparable = before.atMs && before.mapId == bot->GetMapId() && before.teleportMs <= before.atMs &&
+                            nowMs <= before.atMs + SAMPLE_GAP_MS;
     if (comparable)
     {
         flat = std::hypot(x - before.x, y - before.y);
@@ -347,7 +381,10 @@ void Tick(PlayerbotAI* botAI)
     if (onGround && InCapital(bot->GetZoneId()) && (nowMs / sampleMs) % std::max<uint32>(1, INWALL_EVERY_MS / sampleMs) == 0)
     {
         float const above = map->GetHeight(bot->GetPhaseMask(), x, y, z + UNDERFLOOR_MAX, true, UNDERFLOOR_MAX - 0.5f);
-        if (UnderFloor(z, above))
+        // 3.2.2 (Pilote, bench of 1e991b2d: 473 lines, Ironforge's bank on its floor at 503.94, the terrain at 811): a bot
+        // on a model's floor (the vmap alone, read from just over its feet) is on a building's floor, not under one.
+        float const model = map->GetMapCollisionData().GetStaticTree().getHeight(x, y, z + 0.5f, 2.0f);
+        if (!OnModelFloor(z, model) && UnderFloor(z, above))
             kinds.push_back("underfloor");
     }
     // 3.2.2: inside a wall or a building's model, now and then.
@@ -425,6 +462,7 @@ void Tick(PlayerbotAI* botAI)
 
     Engine* engine = botAI->GetEngine(bot->IsInCombat() ? ::BOT_STATE_COMBAT : ::BOT_STATE_NON_COMBAT);
     std::string const lastAction = engine ? engine->GetLastAction() : "";
+    std::string const lastRun = engine ? engine->GetLastExecutedAction() : "";
     std::string const rpg = botAI->rpgInfo.ToString();
     for (std::string const& kind : due)
     {
@@ -452,10 +490,16 @@ void Tick(PlayerbotAI* botAI)
         sample << "map " << bot->GetMapId() << " " << Num(x) << " " << Num(y) << " " << Num(z) << " (" << Num(flat)
                << " yd in " << dtMs << " ms, floor " << Num(floorZ) << ", "
                << ZoneName(bot->GetZoneId()) << "), " << (lastAction.empty() ? move.action : lastAction) << ", "
-               << (move.origin.empty() ? "no move noted" : move.origin) << " " << PathTypeText(move.pathType);
+               << (move.origin.empty() ? "no move noted" : move.origin) << " " << PathTypeText(move.pathType)
+               // 3.2.2 (Pilote: "air" swimming? flying? a taxi?): the movement flags, moving or not, the generator.
+               << ", flags 0x" << std::hex << bot->GetUnitMovementFlags() << std::dec << (bot->isMoving() ? ", moving" : ", still") << ", "
+               << GeneratorName(bot->GetMotionMaster()->GetCurrentMovementGeneratorType());
+        // 3.2.2: the cause in the hourly count: the action last run, else the move's origin, else "no move".
+        std::string const cause = !lastRun.empty() ? lastRun : !move.origin.empty() ? move.origin : "no move, " +
+                                  std::string(GeneratorName(bot->GetMotionMaster()->GetCurrentMovementGeneratorType()));
         // "roof" stays in the file only: the tree of Teldrassil and the ramps of the cities are floors over the terrain.
         if (kind != "roof")
-            NoteSummary(kind, sample.str());
+            NoteSummary(kind, sample.str(), ZoneName(bot->GetZoneId()), cause);
     }
 }
 }  // namespace CoaMoveAudit

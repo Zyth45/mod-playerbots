@@ -35,6 +35,10 @@ int main()
     assert(UnderFloor(97.7f, 99.6f));
     assert(!UnderFloor(97.7f, 97.7f));     // its own floor
     assert(!UnderFloor(97.7f, -200000.0f));
+    // 3.2.2: Ironforge's bank: on the model's floor at 503.94, never under a floor; under Stormwind's bank, no model.
+    assert(OnModelFloor(504.17f, 503.94f));
+    assert(!OnModelFloor(97.7f, -200000.0f));
+    assert(!OnModelFloor(97.7f, 96.0f));
     // Wall check and jumps.
     assert(CheckWall(2.0f) && !CheckWall(0.2f) && !CheckWall(80.0f));
     assert(HeightJump(2.4f, 1.0f, true) && !HeightJump(2.4f, 1.0f, false) && !HeightJump(2.4f, 6.0f, true));
