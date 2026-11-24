@@ -26,6 +26,7 @@
 
 #include "CoaQuietAchievements.h"
 #include "CoaWorldBots.h"
+#include "CoaWorldDungeonSimRules.h"
 #include "CoaWorldState.h"
 #include "CoaWorldStateRules.h"
 
@@ -99,7 +100,7 @@ namespace
     struct Settings
     {
         bool enabled = false;
-        uint32 groupsPerFaction = 2;
+        uint32 groupsPerFaction = 0;  // 0: one a side for every 250 bots online
         uint32 factionIntervalSeconds = 600;
         uint32 botCooldownMinutes = 120;
         uint32 gatherMinutes = 6;
@@ -130,6 +131,12 @@ namespace
         std::vector<std::pair<uint32, uint32>> items;  // item, count
         bool given = false;
     };
+
+    // Runs a side may have going at once: the configured count, or with 0 one for every 250 bots online.
+    uint32 GroupsWanted()
+    {
+        return CoaWorldDungeonSimRules::GroupsPerFaction(settings.groupsPerFaction, CoaWorld::OnlineRandomBots());
+    }
 
     struct Run
     {
@@ -212,7 +219,7 @@ namespace
                 return;
 
             for (TeamId team : { TEAM_ALLIANCE, TEAM_HORDE })
-                if (RunsOf(team) < settings.groupsPerFaction && now >= _nextStart[team])
+                if (RunsOf(team) < GroupsWanted() && now >= _nextStart[team])
                     if (TryStart(team, nullptr, now))
                         _nextStart[team] = now + settings.factionIntervalSeconds;
         }
@@ -769,7 +776,8 @@ namespace
     {
         auto key = [](char const* name) { return std::string(PREFIX) + name; };
         settings.enabled = sConfigMgr->GetOption<bool>(key("Enable"), true, false);
-        settings.groupsPerFaction = std::min<uint32>(10, sConfigMgr->GetOption<uint32>(key("GroupsPerFaction"), 2, false));
+        // 3.2.3: 0 (the default) = one group a side for every 250 bots online (500 = 2, 1 000 = 4, 2 000 = 8).
+        settings.groupsPerFaction = std::min<uint32>(10, sConfigMgr->GetOption<uint32>(key("GroupsPerFaction"), 0, false));
         settings.factionIntervalSeconds = sConfigMgr->GetOption<uint32>(key("FactionIntervalSeconds"), 600, false);
         settings.botCooldownMinutes = sConfigMgr->GetOption<uint32>(key("BotCooldownMinutes"), 120, false);
         settings.gatherMinutes = std::clamp<uint32>(sConfigMgr->GetOption<uint32>(key("GatherMinutes"), 6, false), 1, 30);

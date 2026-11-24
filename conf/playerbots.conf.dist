@@ -2917,10 +2917,12 @@ AiPlayerbot.CoaWorld.ResourceRush.BotsReturnHome = 1
 AiPlayerbot.CoaWorld.DungeonSim.Enable = 1
 
 #    AiPlayerbot.CoaWorld.DungeonSim.GroupsPerFaction
-#        Description: Simulated runs going on at once for each side (at most 10).
-#        Default:     2
+#        Description: Simulated runs going on at once for each side (at most 10). 0 = proportional: one run a side
+#                     for every 250 bots online, at least 1 (500 bots = 2, 1 000 = 4, 2 000 = 8, about 4 % of the
+#                     bots in a simulated dungeon). 1 to 10 = that many, whatever the bots online.
+#        Default:     0 - proportional (3.2.3; was 2)
 
-AiPlayerbot.CoaWorld.DungeonSim.GroupsPerFaction = 2
+AiPlayerbot.CoaWorld.DungeonSim.GroupsPerFaction = 0
 
 #    AiPlayerbot.CoaWorld.DungeonSim.FactionIntervalSeconds
 #        Description: Seconds between two new runs of the same side.
