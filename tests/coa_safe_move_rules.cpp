@@ -123,5 +123,17 @@ int main()
         StandRingPoint(STAND_RING_TRIES - 1, 1.0f, radius, angle);
         assert(radius == 3.5f && StandsByNpc(radius));
     }
+    // 3.2.2: the Stormwind bank: its arrival on the ledge right of the stairs (-8893.8 643.9 98.3), the bench and the
+    // ledge go to the hall's floor; the hall's floor itself and the bank's other side stay as they are.
+    {
+        float fx = 0.0f, fy = 0.0f, fz = 0.0f;
+        assert(FixedArrival(0, -8893.8f, 643.9f, 98.3f, fx, fy, fz) && fx == -8897.6f && fy == 640.0f && fz == 99.7f);
+        assert(FixedArrival(0, -8895.2f, 642.5f, 100.7f, fx, fy, fz) && FixedArrival(0, -8889.8f, 643.9f, 100.4f, fx, fy, fz));
+        assert(!FixedArrival(0, -8897.6f, 640.0f, 99.7f, fx, fy, fz));     // the spot is out of its own zone
+        assert(!FixedArrival(0, -8914.2f, 629.6f, 99.7f, fx, fy, fz));
+        assert(!FixedArrival(1, -8893.8f, 643.9f, 98.3f, fx, fy, fz));     // another map
+        assert(!FixedArrival(0, -8893.8f, 643.9f, 110.0f, fx, fy, fz));    // another floor
+        assert(Avoided(0, -8893.8f, 643.9f, 98.3f) && !Avoided(0, -8897.6f, 640.0f, 99.7f));
+    }
     return 0;
 }

@@ -367,8 +367,15 @@ bool ServerSeesFloor(Map* map, float x, float y, float z)
 
 int RelocateToCity(Query& q, Map* map, float x, float y, float z, float& nx, float& ny, float& nz)
 {
-    int const here = OnCityFloor(q, x, y, z);
     uint32 const mapId = map ? map->GetId() : 0;
+    // 3.2.2 (Pilote): a zone whose arrival goes to a spot checked in game (CoaSafeMove::FixedArrival).
+    if (CoaSafeMove::FixedArrival(mapId, x, y, z, nx, ny, nz))
+    {
+        LOG_INFO("playerbots.coa", "fixed arrival: map {} {:.1f} {:.1f} {:.1f} -> {:.1f} {:.1f} {:.1f}", mapId, x, y, z,
+                 nx, ny, nz);
+        return 2;
+    }
+    int const here = OnCityFloor(q, x, y, z);
     if (here == 1)
     {
         // 3.2.2 (sonde of 2448cbcb): the height of the navmesh's floor nearest z, when the server sees it too.

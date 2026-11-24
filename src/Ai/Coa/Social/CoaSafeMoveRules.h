@@ -215,9 +215,39 @@ constexpr AvoidedSpot AVOIDED_SPOTS[] = {
     {1, -1265.16f, 24.39f, 128.8f, 1.5f},
     // Stormwind, the bank's square: a tree's planter ("je suis sur le bac de l'arbre").
     {0, -8891.2f, 648.0f, 97.3f, 3.0f},
-    // Stormwind, the bank: a bench ("sur le banc pas vraiment au sol").
-    {0, -8895.2f, 642.5f, 100.7f, 2.0f},
+    // Stormwind, the bank: the bench and the ledge right of the bank's stairs ("sur le banc pas vraiment au sol", "un
+    // peu sur un rebord", "un petit rebord a droite des escalier de la banque pas vraiment au sol"): -8893.8 643.9,
+    // -8895.2 642.5 and -8889.8 643.9 in one disc. The hall's floor at -8897.6 640.0 (checked in game) stays out.
+    {0, -8892.5f, 643.3f, 99.5f, 4.5f},
 };
+
+// 3.2.2 (Pilote, the user's eye): an arrival in one of these zones goes straight to a spot checked in game, instead
+// of a search around it (the search fell back on the furniture around the Stormwind bank's stairs).
+struct FixedArrivalSpot
+{
+    uint32_t mapId;
+    float x, y, radius;  // the zone (2D, within AVOIDED_RISE yards of height of the spot)
+    float fx, fy, fz;    // the spot
+};
+constexpr FixedArrivalSpot FIXED_ARRIVALS[] = {
+    // Stormwind, the bank: the bench and the ledge right of the stairs; the hall's floor ("nickel dans la banque au sol
+    // du bon cote public").
+    {0, -8892.5f, 643.3f, 4.5f, -8897.6f, 640.0f, 99.7f},
+};
+
+inline bool FixedArrival(uint32_t mapId, float x, float y, float z, float& fx, float& fy, float& fz)
+{
+    for (FixedArrivalSpot const& spot : FIXED_ARRIVALS)
+        if (spot.mapId == mapId && std::fabs(z - spot.fz) <= AVOIDED_RISE &&
+            (x - spot.x) * (x - spot.x) + (y - spot.y) * (y - spot.y) <= spot.radius * spot.radius)
+        {
+            fx = spot.fx;
+            fy = spot.fy;
+            fz = spot.fz;
+            return true;
+        }
+    return false;
+}
 
 inline bool Avoided(uint32_t mapId, float x, float y, float z)
 {
