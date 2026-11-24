@@ -3542,8 +3542,6 @@ AiPlayerbot.CoaWorld.Events.Addon = 1
 # points that logger at an appender, and only bots are ever logged.
 # Epics alone are far too rare to watch: a thousand bots grinding their way to 60
 # find a handful a day, where blues arrive all the time.
-# In a dungeon or a raid, uncommon (green) items are written too, with the map and the
-# creature looted at the end of the line (3.2.2: the dashboard's last dungeon loots).
 # Default: 3 (rare)
 AiPlayerbot.LootLogMinQuality = 3
 
