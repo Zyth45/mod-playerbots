@@ -10,6 +10,7 @@
 #include "CoaFishingGear.h"
 #include "CoaMissionMgr.h"
 #include "CoaStarterWeaponRules.h"
+#include "CoaWorldItemOrigin.h"
 #include "DatabaseEnv.h"
 #include "Item.h"
 #include "Player.h"
@@ -99,6 +100,9 @@ bool CoaStarterWeapon::Ensure(Player* bot)
                                bot->GetGUID().GetCounter(), itemId);
     // In hand at once, as a player would (the pole, if any, goes to the bags).
     if (bot->CanUseItem(item) == EQUIP_ERR_OK)
+    {
+        CoaWorld::StartGearScope const startGear;  // CoA World 3.3: "start" in coa_item_origin
         CoaMissionMgr::EquipItem(bot, item, EQUIPMENT_SLOT_MAINHAND);
+    }
     return true;
 }

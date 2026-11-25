@@ -1,6 +1,7 @@
 #include "CoaWorldItemOriginRules.h"
 
 #include <cassert>
+#include <string>
 
 using namespace CoaWorldItemOriginRules;
 
@@ -26,5 +27,12 @@ int main()
     counts[10]["loot"] = 12;
     counts[0]["start"] = 3;
     assert(HourLine(counts) == "1-9: 3 start; 10-19: 12 loot, 2 quest");
+
+    // The worn source: the noted origin; "start" only under the factory or the auto-gear; never a guess.
+    assert(std::string(WornSource("loot", false, false)) == "loot");
+    assert(std::string(WornSource("auction", true, false)) == "auction");
+    assert(std::string(WornSource(nullptr, true, false)) == "start");
+    assert(WornSource(nullptr, false, false) == nullptr);  // a piece worn, its acquisition not seen: no row
+    assert(WornSource(nullptr, true, true) == nullptr);    // made by its wearer: no row
     return 0;
 }

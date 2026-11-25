@@ -11,8 +11,9 @@
  *    looter's gift too), quest, vendor (the NPC),
  *    auction (any win, keyed by the item), dungeonsim (a simulated dungeon's loot, the map).
  *  - When it is worn (one of the 19 equipment slots, green or better), one row is queued: the noted origin, or
- *    "start" for a piece that was never saved (made and equipped at once: auto-gear, a bot's factory). A piece its
- *    wearer made keeps no row (the dashboard reads the creator); a piece traded or mailed keeps "unknown".
+ *    "start" for a piece the factory or the auto-gear puts on (CoaWorld::StartGearScope). Anything else (traded,
+ *    mailed, an origin not seen) gets no row: the armory shows "Origin unknown". A piece its wearer made keeps no
+ *    row (the dashboard reads the creator).
  *  - The queue is written every 60 s in grouped REPLACEs; one CoaBots.log line an hour counts the rows by level band
  *    and source; rows of items gone and rows older than PurgeDays go at start-up and once a day.
  * Only official-core hooks: works the same on the official AzerothCore.
@@ -82,6 +83,7 @@ std::vector<Row> queue;
 HourCounts hour;
 uint32 hourRows = 0;
 bool tableReady = false;
+thread_local uint32 startScopes = 0;  // CoaWorld::StartGearScope: equipping happens in the thread that called it
 
 bool Wanted(ItemTemplate const* proto)
 {
@@ -258,10 +260,10 @@ public:
                 notes.erase(itr);
             }
         }
-        if (note.source)
-            Queue(player, item, note.source, note.detail);
-        else if (item->GetState() == ITEM_NEW && item->GetGuidValue(ITEM_FIELD_CREATOR) != player->GetGUID())
-            Queue(player, item, "start", 0);  // made and worn before any save: auto-gear, a bot's equipment
+        // 3.3 bench: "start" was guessed for any new piece of unseen origin (698 dungeon pieces shown "Starting gear").
+        if (char const* source = WornSource(note.source, startScopes > 0,
+                                            item->GetGuidValue(ITEM_FIELD_CREATOR) == player->GetGUID()))
+            Queue(player, item, source, note.detail);
     }
 };
 
@@ -347,6 +349,9 @@ void CoaWorld::NoteItemOrigin(Item* item, char const* source, uint32 detail)
     std::lock_guard<std::mutex> guard(lock);
     NoteLocked(item->GetGUID().GetCounter(), source, detail);
 }
+
+CoaWorld::StartGearScope::StartGearScope() { ++startScopes; }
+CoaWorld::StartGearScope::~StartGearScope() { --startScopes; }
 
 void AddSC_coa_world_item_origin()
 {

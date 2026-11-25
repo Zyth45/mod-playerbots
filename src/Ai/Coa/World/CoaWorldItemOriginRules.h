@@ -24,6 +24,16 @@ inline bool ArmoryPiece(uint32_t quality, uint32_t inventoryType, uint32_t minQu
            inventoryType != 27;
 }
 
+// The source of a piece worn: the origin noted when it arrived; else "start" when the factory or the auto-gear put it
+// on (inside a CoaWorld::StartGearScope); else none (nullptr: no row, the armory shows "Origin unknown"). A piece its
+// wearer made keeps no row (the dashboard reads the creator). Never a guessed origin.
+inline char const* WornSource(char const* noted, bool startScope, bool madeByWearer)
+{
+    if (noted)
+        return noted;
+    return startScope && !madeByWearer ? "start" : nullptr;
+}
+
 // The level band of the hourly "gear" line: 1-9, 10-19, ..., 80.
 inline uint32_t LevelBand(uint32_t level) { return level / 10 * 10; }
 
