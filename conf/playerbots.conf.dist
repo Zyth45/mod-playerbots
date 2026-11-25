@@ -1791,7 +1791,10 @@ AiPlayerbot.CoaRaidPlayerCooldown = 30
 # Random bots left in the group of a player who logged out (the core keeps him in a raid, and in a
 # party too with LeaveGroupOnLogout.Enabled = 0) stood there with no master until he came back.
 # Once none of the group's players has been connected for this many seconds, its random bots leave
-# it and go back to their own life; the core disbands the group when the last ones are gone. A
+# it and go back to their own life; the core disbands the group when the last ones are gone. A group
+# a real player was seen in and that holds none any more (he left it, then logged out) is released
+# too, and its bots get no bot for master meanwhile; a group of random bots that never held a player
+# (their own leveling parties) is never touched. A
 # player who comes back in time keeps his bots, and one in a battleground, an arena or on a loading
 # screen still counts as connected. While they wait, the bots are neither moved to another level
 # bracket nor randomized or teleported, and a second player still in the group becomes their master.
@@ -4492,6 +4495,19 @@ AiPlayerbot.CoaTrust.Ranks = 0,100,500,1500,4000,10000
 #                     roll (one chance in 20 a check), so the missing role comes first.
 #        Default:     1 (enabled)
 AiPlayerbot.CoaLfgRolePriority = 1
+
+#    AiPlayerbot.CoaLive.StrandedMinutes
+#        Description: The last resort, after AiPlayerbot.CoaOrphanGroupReleaseDelay. A random bot that has not moved
+#                     for this many minutes, alive and out of combat, with nothing to wait for: in a group with no
+#                     real player in it (a group of bots its player left), it leaves the group, drops its master,
+#                     takes its default strategies again and gets off its mount; out of a group, its own life idle or
+#                     resting, only its next goal is chosen again (nothing else changes). A stillness it means is
+#                     never broken: sitting, resting at an inn or in a city, away, fishing or crafting, in a capital
+#                     (AiPlayerbot.CoaLive.CityUnstick watches those). Never in a battleground, a dungeon finder
+#                     group in progress, a queue, a flight, a test or a mission, nor a bot grouped with a real
+#                     player. One line an hour in the log counts the bots of each case.
+#        Default:     10 (0: off)
+AiPlayerbot.CoaLive.StrandedMinutes = 10
 
 # Bots' minimum and maximum level when teleporting in and out of a zone, according to the new RPG strategy
 # Format: AiPlayerbot.ZoneBracket.zoneID = minLevel,maxLevel

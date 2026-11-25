@@ -1,0 +1,2 @@
+### No bot left standing for hours
+When you leave a group of random bots and log out, the bots no longer pick one of them to follow and stand there: they leave the group within 30 seconds and go back to their own life. As a last resort, a random bot in a group of bots that has not moved for 10 minutes leaves it; a bot on its own that idles for 10 minutes just picks its next goal. Bots sitting, resting at an inn, fishing, crafting or living in a capital are left alone. `AiPlayerbot.CoaLive.StrandedMinutes` sets the delay (0 turns it off).

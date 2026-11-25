@@ -19,6 +19,7 @@
 #include "CoaFishingGear.h"
 #include "CoaSafeMoveRules.h"
 #include "CoaBotWhy.h"
+#include "CoaStranded.h"
 #include "CoaMoveAudit.h"
 #include "CurrentTargetValue.h"
 
@@ -591,6 +592,8 @@ void PlayerbotAI::UpdateAI(uint32 elapsed, bool minimal)
     CoaMoveAudit::Tick(this);
     // ".squidbots why" (AiPlayerbot.CoaWhy.Enable): where the bot stands still since when.
     CoaBotWhy::Tick(this);
+    // A random bot still for AiPlayerbot.CoaLive.StrandedMinutes with nothing to wait for: back to its own life.
+    CoaStranded::Tick(this);
     // The CoA talents left by a capped rebuild (AiPlayerbot.CoaLive.TalentsPerUpdate).
     CoaTalentsTick(bot);
     // The level-up maintenance spread over the next updates (AiPlayerbot.CoaLive.MaintenanceSpread).
@@ -636,7 +639,11 @@ void PlayerbotAI::UpdateAIGroupMaster()
     if (master)
         masterBotAI = GET_PLAYERBOT_AI(master);
 
-    if (!master || (masterBotAI && !IsSelfBot(master)))
+    // 3.3.1: a random bot of a group its player left gets no bot for master (it followed it and never left the
+    // group); the group goes at the orphan release (AiPlayerbot.CoaOrphanGroupReleaseDelay).
+    bool const orphanKept = !master && sRandomPlayerbotMgr.IsRandomBot(bot) &&
+                            sPlayerbotAIConfig.coaOrphanGroupReleaseDelay && sRandomPlayerbotMgr.CoaIsOrphanGroup(group);
+    if (!orphanKept && (!master || (masterBotAI && !IsSelfBot(master))))
     {
         Player* newMaster = FindNewMaster();
         if (newMaster)
