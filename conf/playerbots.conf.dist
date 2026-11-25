@@ -3907,9 +3907,10 @@ AiPlayerbot.CoaLive.LevelupTeleportGuard = 1
 #                     there goes home, a hearth there is moved to the race's start, and the bots left offline
 #                     there are moved at startup. 1 turns all of it off: the random bots may go there again by
 #                     portal, boat, flight, hearthstone or quest, and stay. It does not send them there: with a
-#                     level cap of 60 the levelling teleports still never pick an Outland or Northrend zone, nor
-#                     the Exodar's or Silvermoon's bankers; the Blood Elf and Draenei zones (Eversong Woods,
-#                     Ghostlands, Azuremyst and Bloodmyst Isles) come back as levelling destinations. The maps
+#                     level cap of 60 the levelling teleports still never pick an Outland or Northrend zone, and
+#                     no bot is sent to the Exodar or Silvermoon (bankers, city trips); the Blood Elf and
+#                     Draenei starting zones (Eversong Woods, Ghostlands, Azuremyst and Bloodmyst Isles) come
+#                     back as levelling destinations. The maps
 #                     must be in AiPlayerbot.RandomBotMaps (they are by default). The bots of a player are never
 #                     concerned. Read again by ".reload config" (the offline move runs at startup only).
 #        Default:     0 - the random bots stay off maps 530 and 571
