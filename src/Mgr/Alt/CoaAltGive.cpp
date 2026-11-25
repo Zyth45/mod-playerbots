@@ -9,6 +9,7 @@
 #include "Bag.h"
 #include "CoaAltAddon.h"
 #include "CoaAltGiveRules.h"
+#include "CoaWorldItemOrigin.h"
 #include "DatabaseEnv.h"
 #include "Group.h"
 #include "Item.h"
@@ -178,6 +179,9 @@ bool CoaAltGive::Command(PlayerbotAI* botAI, std::string const& command, std::st
         if (stack <= left)
         {
             item->SetGuidValue(ITEM_FIELD_GIFTCREATOR, bot->GetGUID());
+            // 3.3.1: its origin when the receiver wears it is "gift", from this alt (a hand-over beats the origin noted before; a
+            // mail fallback keeps it, a crafted piece stays a craft). A split stack is never an armory piece.
+            CoaWorld::NoteItemOrigin(item, "gift", uint32(bot->GetGUID().GetCounter()));  // detail: the giver
             bot->MoveItemFromInventory(item->GetBagSlot(), item->GetSlot(), true);
             parcel.items.push_back(item);
             left -= stack;
