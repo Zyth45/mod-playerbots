@@ -27,6 +27,7 @@
  *    The CoA mystic enchantments are not covered.
  *  - "craft"/"selfcraft": a piece made with a profession spell (OnPlayerCreateItem) or by a bot's craft
  *    (CoaWorld::NoteCraft), or signed by a maker: "selfcraft" on its maker, "craft" on anyone else.
+ *  - "dungeon" (3.3.1): a piece looted in a dungeon or a raid, group rolls included, instead of "loot".
  *  - Written with the origins every 60 s; each character's events past the 20 last go once an hour.
  * Only official-core hooks: works the same on the official AzerothCore.
  */
@@ -42,6 +43,7 @@
 #include "Item.h"
 #include "LootMgr.h"
 #include "Log.h"
+#include "Map.h"
 #include "ObjectMgr.h"
 #include "Player.h"
 #include "ScriptMgr.h"
@@ -135,6 +137,13 @@ bool Wanted(ItemTemplate const* proto)
 {
     return (settings.enabled || settings.events) && proto &&
            ArmoryPiece(proto->Quality, proto->InventoryType, settings.minQuality);
+}
+
+// 3.3.1: "dungeon" for a piece looted in a dungeon or a raid (not a battleground nor an arena), else "loot".
+char const* LootSourceOf(Player* player)
+{
+    Map const* map = player ? player->FindMap() : nullptr;
+    return LootSource(map && map->IsDungeon());
 }
 
 void NoteLocked(uint32 item, char const* source, uint32 detail, uint32 maker = 0)
@@ -308,19 +317,19 @@ public:
     {
     }
 
-    void OnPlayerLootItem(Player* /*player*/, Item* item, uint32 /*count*/, ObjectGuid lootguid) override
+    void OnPlayerLootItem(Player* player, Item* item, uint32 /*count*/, ObjectGuid lootguid) override
     {
         if (item && Wanted(item->GetTemplate()))
         {
             std::lock_guard<std::mutex> guard(lock);
-            NoteLocked(item->GetGUID().GetCounter(), "loot", lootguid.GetEntry());
+            NoteLocked(item->GetGUID().GetCounter(), LootSourceOf(player), lootguid.GetEntry());
         }
     }
 
     // 3.3 bench (2 940 self-found bots, 35 min: loot 0): in a group, a piece won at a Need or Greed roll and a piece
     // the master looter gives never pass through OnPlayerLootItem (Group.cpp, LootHandler.cpp). Unnoted, it was worn
     // as "start". Its creature (or 0: a chest) is taken from the roll's loot.
-    void OnPlayerGroupRollRewardItem(Player* /*player*/, Item* item, uint32 /*count*/, RollVote /*voteType*/,
+    void OnPlayerGroupRollRewardItem(Player* player, Item* item, uint32 /*count*/, RollVote /*voteType*/,
                                      Roll* roll) override
     {
         if (!item || !Wanted(item->GetTemplate()))
@@ -328,15 +337,16 @@ public:
         Loot* loot = roll ? roll->getLoot() : nullptr;
         ObjectGuid const source = loot ? loot->sourceWorldObjectGUID : ObjectGuid::Empty;
         std::lock_guard<std::mutex> guard(lock);
-        NoteLocked(item->GetGUID().GetCounter(), "loot", source.IsCreature() ? source.GetEntry() : 0);
+        NoteLocked(item->GetGUID().GetCounter(), LootSourceOf(player), source.IsCreature() ? source.GetEntry() : 0);
     }
 
-    void OnPlayerMasterLootItem(Player* /*player*/, Item* item, uint32 /*count*/, ObjectGuid lootguid) override
+    void OnPlayerMasterLootItem(Player* player, Item* item, uint32 /*count*/, ObjectGuid lootguid) override
     {
         if (item && Wanted(item->GetTemplate()))
         {
             std::lock_guard<std::mutex> guard(lock);
-            NoteLocked(item->GetGUID().GetCounter(), "loot", lootguid.IsCreature() ? lootguid.GetEntry() : 0);
+            NoteLocked(item->GetGUID().GetCounter(), LootSourceOf(player),
+                       lootguid.IsCreature() ? lootguid.GetEntry() : 0);
         }
     }
 

@@ -2966,7 +2966,8 @@ AiPlayerbot.CoaWorld.DungeonSim.Announce = 1
 
 #    AiPlayerbot.CoaWorld.ItemOrigin.Enable
 #        Description: Where each worn piece came from, for the dashboard's armory (table coa_item_origin of the
-#                     characters database, players and bots alike): loot (the creature), quest, vendor (the NPC),
+#                     characters database, players and bots alike): loot (the creature), dungeon (looted in a dungeon or a
+#                     raid, 3.3.1), quest, vendor (the NPC),
 #                     auction, start (auto-gear, a bot's equipment), dungeonsim (a simulated dungeon's loot), craft
 #                     and selfcraft (a piece made by another, or by its wearer; 3.3.1). One row per piece, written
 #                     when it is worn; a piece traded or mailed stays unknown. Rows are written in groups every minute, and one

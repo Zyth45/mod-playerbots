@@ -54,6 +54,10 @@ inline bool PassClosed(uint32_t last, uint32_t now, bool all) { return all || no
 // one writes nothing).
 inline bool NewEnchant(uint32_t before, uint32_t after) { return after && after != before; }
 
+// The source of a looted piece (a creature, an object, a group roll, the master looter): "dungeon" when the looter
+// is in a dungeon or a raid map, else "loot". A simulated dungeon's piece stays "dungeonsim".
+inline char const* LootSource(bool inDungeon) { return inDungeon ? "dungeon" : "loot"; }
+
 // The level band of the hourly "gear" line: 1-9, 10-19, ..., 80.
 inline uint32_t LevelBand(uint32_t level) { return level / 10 * 10; }
 
