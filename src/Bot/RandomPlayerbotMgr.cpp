@@ -5,6 +5,7 @@
  */
 
 #include "CoaPopulationRules.h"
+#include "CoaFarMapRules.h"
 #include "CoaLevelupTeleportRules.h"
 #include "Config.h"
 #include "CoaWorldGuildPresence.h"
@@ -2316,7 +2317,8 @@ std::unordered_map<std::string, WorldLocation> bankArrivals;
 // CoA 3.2.2 (the user, 24/11: "à northrend il devrait y avoir 0 bots CoA, ZERO"; 380 bots in map 530 on the showcase,
 // the Exodar, Silvermoon and the zones around): a random bot has no business on map 530 (Outland, the Blood Elves' and
 // Draenei's isles) or 571 (Northrend). CoA starts every race on the old continents (playercreateinfo: maps 0, 1, 609).
-bool CoaFarMap(uint32 mapId) { return mapId == 530 || mapId == 571; }
+// 3.3.1: AiPlayerbot.CoaLive.FarMaps.Allow = 1 opens them: every guard below goes through here (CoaFarMapRules.h).
+bool CoaFarMap(uint32 mapId) { return CoaFarMapBlocked(sPlayerbotAIConfig.coaLiveFarMapsAllow, mapId); }
 
 // CoA 3.2.2 (Pilote, bench of 02b229e4: Opuve and Wylniar, level 19, cast their hearthstone toward map 530 from maps 1
 // and 0, refused by the far map gate, again and again): a random bot whose hearth lies on map 530 or 571 gets its race's
@@ -2446,7 +2448,7 @@ bool CoaRefusesFarMap(Player* bot, uint32 mapId)
 void CoaHomeOfflineFromOutland(std::vector<uint32> const& accounts)
 {
     static bool done = false;
-    if (done || accounts.empty())
+    if (done || accounts.empty() || sPlayerbotAIConfig.coaLiveFarMapsAllow)  // 3.3.1: FarMaps.Allow, no sweep
         return;
     done = true;
     // Only the random bots' accounts (type 1 of the module, in its random account list): never a player's account, nor
