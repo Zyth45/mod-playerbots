@@ -3910,8 +3910,11 @@ AiPlayerbot.CoaLive.LevelupTeleportGuard = 1
 #                     level cap of 60 the levelling teleports still never pick an Outland or Northrend zone, and
 #                     no bot is sent to the Exodar or Silvermoon (bankers, city trips); the Blood Elf and
 #                     Draenei starting zones (Eversong Woods, Ghostlands, Azuremyst and Bloodmyst Isles) come
-#                     back as levelling destinations. The maps
-#                     must be in AiPlayerbot.RandomBotMaps (they are by default). The bots of a player are never
+#                     back as levelling destinations. With AiPlayerbot.RandomBotMaxLevel above 60 (at most
+#                     MaxPlayerLevel of worldserver.conf), the bots over 60 are sent to Outland and Northrend as
+#                     on a WotLK server (their zones, Shattrath's and Dalaran's bankers); the Exodar and
+#                     Silvermoon stay out of the city trips. The maps must be in AiPlayerbot.RandomBotMaps (they
+#                     are by default). The bots of a player are never
 #                     concerned. Read again by ".reload config" (the offline move runs at startup only).
 #        Default:     0 - the random bots stay off maps 530 and 571
 
