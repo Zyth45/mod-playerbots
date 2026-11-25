@@ -6164,6 +6164,17 @@ AiPlayerbot.CoaEconomy.Formulas.Buy.MaxGoldPercent = 25
 AiPlayerbot.CoaEconomy.Formulas.Buy.MaxCopperPerLevel = 10000
 AiPlayerbot.CoaEconomy.Formulas.Buy.PlayerDelayHours = 24
 
+# The economy's facts for the dashboard (3.3.1): the server writes, in the characters database, the formulas a
+# character learned beyond the trainers (table coa_formula_event: from its bags, drawn, bought at the auction house or
+# a vendor, with the price) and the enchantment orders an enchanter bot served (table coa_enchant_order: enchanter,
+# customer, item, enchantment, price, fee). The tables are made at start-up; rows are written once a minute, off the
+# world thread. Rows of characters deleted go; orders older than PurgeDays go (0 = kept); each character keeps its
+# last FormulasPerCharacter formula rows. Read at start-up (Enable) and on reload (the rest).
+# Default: 1 (enabled), PurgeDays 90, FormulasPerCharacter 300
+AiPlayerbot.CoaEconomy.Events.Enable = 1
+AiPlayerbot.CoaEconomy.Events.PurgeDays = 90
+AiPlayerbot.CoaEconomy.Events.FormulasPerCharacter = 300
+
 # Craft on order and artisans in Trade, with CoA Live's lines (bank 3_0_05 of CoA IA MIND) and COD mail. Needs
 # Artisans, and AiPlayerbot.CoaLive.Enable = 1 (without it nothing is said and no order is taken).
 # A player whispers "can you make [item]?" to a bot that knows the recipe: it quotes the market value of the piece

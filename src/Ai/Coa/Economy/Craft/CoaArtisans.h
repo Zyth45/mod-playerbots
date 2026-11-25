@@ -93,7 +93,9 @@ namespace CoaEconomy::Artisans
     // CoA 3.3.1 (AiPlayerbot.CoaEconomy.Formulas.LearnHeld): the bot learns every recipe in its bags it may learn
     // (CoaEconomy::Formulas::Learnable: a formula, a pattern, plans...) and the recipe item is used up, as for a player.
     // Called at each study. World thread only. The number learned.
-    uint32 LearnHeldFormulas(Player* bot);
+    // how and price name the formula just bought (boughtEntry, "auction" or "vendor") for the dashboard's feed
+    // (CoaEconomy::Events); the others are noted "bags".
+    uint32 LearnHeldFormulas(Player* bot, char const* how = "bags", uint32 boughtEntry = 0, uint64 price = 0);
     // CoA 3.3.1 (AiPlayerbot.CoaEconomy.Formulas.RareDraw.*): once a day, an enchanter bot of MinSkill or more has
     // Percent chances to learn one enchanting formula the world gives (a recipe item dropped or sold by a vendor) that it
     // could learn from the item (rank, level, reputation) and does not know. Called at each study. World thread only.

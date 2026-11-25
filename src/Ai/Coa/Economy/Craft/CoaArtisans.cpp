@@ -8,6 +8,7 @@
 
 #include "Bag.h"
 #include "CoaEconomyConf.h"
+#include "CoaEconomyEvents.h"
 #include "CoaEnchantOrderRules.h"
 #include "CoaEnchantSelfRules.h"
 #include "CoaFormulas.h"
@@ -860,7 +861,7 @@ namespace
     }
 }
 
-uint32 LearnHeldFormulas(Player* bot)
+uint32 LearnHeldFormulas(Player* bot, char const* how, uint32 boughtEntry, uint64 price)
 {
     if (!formulasLearnHeld || !bot)
         return 0;
@@ -888,6 +889,12 @@ uint32 LearnHeldFormulas(Player* bot)
         bot->learnSpell(taught, false);
         bot->DestroyItemCount(entry, 1, true);
         ++learned;
+        // 3.3.1 (Events): the dashboard's feed of formulas; the one just bought says where and for how much.
+        bool const bought = boughtEntry && entry == boughtEntry;
+        Events::NoteFormula(bot, Formulas::ProfessionOf(taught), taught, proto, bought ? how : "bags",
+                            bought ? price : 0);
+        if (bought)
+            boughtEntry = 0;
         if (enchantForSelfLog || studyLog)
             LOG_INFO("playerbots.coa", "CoaEconomy: formula learned: {} (level {}) learned {} from {} ({})",
                      bot->GetName(), bot->GetLevel(), taught, entry, proto->Name1);
@@ -953,6 +960,7 @@ uint32 DrawRareFormula(Player* bot)
     uint32 const taught = Formulas::TaughtSpell(proto);
     bot->learnSpell(taught, false);
     ++formulaCounters.drawn;
+    Events::NoteFormula(bot, SKILL_ENCHANTING, taught, proto, "drawn", 0);
     if (enchantForSelfLog || studyLog)
         LOG_INFO("playerbots.coa", "CoaEconomy: formula drawn: {} (enchanting {}) learned {} ({})", bot->GetName(), skill,
                  taught, proto->Name1);
@@ -1003,8 +1011,9 @@ bool BuyFormulaAtVendor(Player* bot, Creature* vendor)
         uint64 const before = bot->GetMoney();
         if (!bot->BuyItemFromVendorSlot(vendor->GetGUID(), slot, sold->item, 1, NULL_BAG, NULL_SLOT))
             continue;
-        NoteFormulaBought(bot, sold->item, before > bot->GetMoney() ? before - bot->GetMoney() : 0, false);
-        LearnHeldFormulas(bot);
+        uint64 const paid = before > bot->GetMoney() ? before - bot->GetMoney() : 0;
+        NoteFormulaBought(bot, sold->item, paid, false);
+        LearnHeldFormulas(bot, "vendor", sold->item, paid);
         return true;
     }
     return false;
@@ -1198,6 +1207,8 @@ namespace
             bot->ModifyMoney(-int32(std::min<uint64>(price, uint64(INT32_MAX))));
             bestBy->ModifyMoney(int32(std::min<uint64>(bestFee, uint64(INT32_MAX))));
             CoaWorld::SetEnchant(bot, item, PERM_ENCHANTMENT_SLOT, bestEnchant, bestBy->GetGUID(), "artisan");
+            // 3.3.1 (Events): who served it and what it earned, for the dashboard's enchanters.
+            Events::NoteOrder(bestBy, bot, item, bestEnchant, price, bestFee);
             orderCounters.paid += price;
             orderCounters.fees += bestFee;
             bool const here = bestBy->GetZoneId() == bot->GetZoneId();

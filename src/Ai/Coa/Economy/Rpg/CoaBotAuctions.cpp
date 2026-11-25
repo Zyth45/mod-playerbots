@@ -629,7 +629,7 @@ namespace
         formulaSeen.erase(id);
         CollectAuctionMail(bot);
         Artisans::NoteFormulaBought(bot, entry, price, true);
-        Artisans::LearnHeldFormulas(bot);
+        Artisans::LearnHeldFormulas(bot, "auction", entry, price);
         return true;
     }
 
