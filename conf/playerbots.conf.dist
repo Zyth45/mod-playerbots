@@ -3901,6 +3901,21 @@ AiPlayerbot.CoaLive.NpcStopAside = 1
 
 AiPlayerbot.CoaLive.LevelupTeleportGuard = 1
 
+#    AiPlayerbot.CoaLive.FarMaps.Allow
+#        Description: 3.3.1: since 3.2.2 the random bots are kept off map 530 (Outland, the Blood Elves' and
+#                     the Draenei's isles) and map 571 (Northrend): a teleport there is refused, a bot found
+#                     there goes home, a hearth there is moved to the race's start, and the bots left offline
+#                     there are moved at startup. 1 turns all of it off: the random bots may go there again by
+#                     portal, boat, flight, hearthstone or quest, and stay. It does not send them there: with a
+#                     level cap of 60 the levelling teleports still never pick an Outland or Northrend zone, nor
+#                     the Exodar's or Silvermoon's bankers; the Blood Elf and Draenei zones (Eversong Woods,
+#                     Ghostlands, Azuremyst and Bloodmyst Isles) come back as levelling destinations. The maps
+#                     must be in AiPlayerbot.RandomBotMaps (they are by default). The bots of a player are never
+#                     concerned. Read again by ".reload config" (the offline move runs at startup only).
+#        Default:     0 - the random bots stay off maps 530 and 571
+
+AiPlayerbot.CoaLive.FarMaps.Allow = 0
+
 #    AiPlayerbot.CoaLive.PvpStatsKeepDays
 #        Description: 3.2.2: with Battleground.StoreStatistics.Enable (worldserver.conf), the core keeps every
 #                     battleground's statistics forever (with thousands of bots, about 100,000 lines a day). Once a

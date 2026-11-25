@@ -8,6 +8,7 @@
 #include "AreaDefines.h"
 #include "CellImpl.h"
 #include "ChatHelper.h"
+#include "CoaFarMapRules.h"
 #include "Corpse.h"
 #include "Creature.h"
 #include "Log.h"
@@ -4438,7 +4439,8 @@ std::vector<std::vector<uint32>> TravelMgr::GetOptimalFlightDestinations(Player*
     auto farZone = [randomBot](uint32 zoneId)
     {
         AreaTableEntry const* entry = sAreaTableStore.LookupEntry(zoneId);
-        return randomBot && entry && (entry->mapid == 530 || entry->mapid == 571);
+        // 3.3.1: open with AiPlayerbot.CoaLive.FarMaps.Allow (CoaFarMapRules.h).
+        return randomBot && entry && CoaFarMapBlocked(sPlayerbotAIConfig.coaLiveFarMapsAllow, entry->mapid);
     };
 
     //Simplify destination delection. Its either target cities (Based on config value) or target world.

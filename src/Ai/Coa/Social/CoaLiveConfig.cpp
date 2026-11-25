@@ -58,6 +58,7 @@ void PlayerbotAIConfig::LoadCoaLiveConfig()
     coaLiveMaintenanceSpread = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaLive.MaintenanceSpread", true);
     coaLiveTrainerDedup = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaLive.TrainerDedup", false);
     coaLiveTalentsPerUpdate = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaLive.TalentsPerUpdate", 2);
+    coaLiveFarMapsAllow = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaLive.FarMaps.Allow", false);
     // Hidden test key (not in the .conf.dist nor in the launcher): the channels speak as if a real player stood
     // in every capital, so a bench without a human can prove the Trade channel.
     coaLiveDebugIgnoreRealPlayer = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaLive.Debug.IgnoreRealPlayer", false, false);
