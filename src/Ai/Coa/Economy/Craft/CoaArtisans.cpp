@@ -6,9 +6,11 @@
 
 #include "CoaArtisans.h"
 
+#include "Bag.h"
 #include "CoaEconomyConf.h"
 #include "CoaEnchantOrderRules.h"
 #include "CoaEnchantSelfRules.h"
+#include "CoaFormulas.h"
 #include "CoaGearScore.h"
 #include "CoaMissionMgr.h"
 #include "CoaWorldItemOrigin.h"
@@ -171,6 +173,13 @@ struct OrderCounters
     uint32 outcomes[uint32(CoaEnchantOrderRules::Outcome::Count)] = {};
     uint64 paid = 0, fees = 0;
 } orderCounters;
+// AiPlayerbot.CoaEconomy.Formulas.* (3.3.1, "super enchanters")
+bool formulasLearnHeld = true;
+// 3.3.1: the formulas' counts since the last hourly line (world thread only).
+struct FormulaCounters
+{
+    uint32 learned = 0, drawn = 0, boughtAuction = 0, boughtVendor = 0;
+} formulaCounters;
 // Counters since the last summary (world thread only).
 struct StudyCounters
 {
@@ -200,6 +209,7 @@ void LoadSettings()
     studyMinGainPercent = CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.SelfStudy.MinGainPercent", 5);
     studyLog = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.SelfStudy.Log", false, false);
     ordersEnabled = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.EnchantOrders.Enable", true, false);
+    formulasLearnHeld = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.Formulas.LearnHeld", true, false);
     ordersLog = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.EnchantOrders.Log", false, false);
     ordersMinLevel = CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.EnchantOrders.MinLevel", 20);
     ordersHighLevel = CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.EnchantOrders.HighLevel", 60);
@@ -831,6 +841,42 @@ namespace
     }
 }
 
+uint32 LearnHeldFormulas(Player* bot)
+{
+    if (!formulasLearnHeld || !bot)
+        return 0;
+    // First the entries (destroying while walking the bags would move them).
+    std::vector<uint32> entries;
+    auto look = [&](Item* item)
+    {
+        if (item && Formulas::Learnable(bot, item->GetTemplate()))
+            entries.push_back(item->GetEntry());
+    };
+    for (uint8 slot = INVENTORY_SLOT_ITEM_START; slot < INVENTORY_SLOT_ITEM_END; ++slot)
+        look(bot->GetItemByPos(INVENTORY_SLOT_BAG_0, slot));
+    for (uint8 bag = INVENTORY_SLOT_BAG_START; bag < INVENTORY_SLOT_BAG_END; ++bag)
+        if (Bag* pack = bot->GetBagByPos(bag))
+            for (uint32 slot = 0; slot < pack->GetBagSize(); ++slot)
+                look(pack->GetItemByPos(uint8(slot)));
+    uint32 learned = 0;
+    for (uint32 entry : entries)
+    {
+        ItemTemplate const* proto = sObjectMgr->GetItemTemplate(entry);
+        // Checked again: two copies of one formula teach it once; the second one stays (sold later).
+        if (!Formulas::Learnable(bot, proto))
+            continue;
+        uint32 const taught = Formulas::TaughtSpell(proto);
+        bot->learnSpell(taught, false);
+        bot->DestroyItemCount(entry, 1, true);
+        ++learned;
+        if (enchantForSelfLog || studyLog)
+            LOG_INFO("playerbots.coa", "CoaEconomy: formula learned: {} (level {}) learned {} from {} ({})",
+                     bot->GetName(), bot->GetLevel(), taught, entry, proto->Name1);
+    }
+    formulaCounters.learned += learned;
+    return learned;
+}
+
 bool StudyIfDue(Player* bot, PlayerbotAI* botAI)
 {
     if (!studyEnabled || !bot || !botAI || !bot->IsInWorld() || !bot->IsAlive() || bot->IsInCombat() ||
@@ -852,6 +898,8 @@ bool StudyIfDue(Player* bot, PlayerbotAI* botAI)
 
     ++studyCounters.studies;
     studyShort = false;
+    // 3.3.1 (Formulas.LearnHeld): a formula in its bags first, so what it learns serves at once.
+    LearnHeldFormulas(bot);
     auto cap = [bot]()
     {
         return studyBuy ? CoaSelfStudyRules::SpendCap(bot->GetMoney(), studyMoneyPercent, bot->GetLevel(),
@@ -1131,6 +1179,11 @@ namespace
                      outcome(Outcome::NoGold));
         }
         orderCounters = OrderCounters();
+        if (enchantHourly)
+            LOG_INFO("playerbots.coa", "CoaEconomy: formulas (last hour): {} learned from bags, {} drawn, {} bought at "
+                     "the auction house, {} bought at a vendor", formulaCounters.learned, formulaCounters.drawn,
+                     formulaCounters.boughtAuction, formulaCounters.boughtVendor);
+        formulaCounters = FormulaCounters();
     }
 }
 

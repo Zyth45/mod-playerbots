@@ -6138,6 +6138,14 @@ AiPlayerbot.CoaEconomy.EnchantOrders.FeePercent = 20
 AiPlayerbot.CoaEconomy.EnchantOrders.MinFeePerLevel = 50
 AiPlayerbot.CoaEconomy.EnchantOrders.Log = 0
 
+# Recipes the world gives (3.3.1, "super enchanters"): bots learn more than what profession trainers teach.
+#    LearnHeld = 1: at each self study (above), a bot learns every recipe in its bags it may learn (a formula, a
+#                   pattern, plans: one it does not know, of a profession it has, at its rank, level and reputation) and
+#                   the recipe item is used up, as for a player. Looted, won, bought or given alike.
+# With EnchantForSelf.HourlyCount = 1, one line an hour in the playerbots.coa log counts the formulas learned.
+# Default: LearnHeld 1 (enabled)
+AiPlayerbot.CoaEconomy.Formulas.LearnHeld = 1
+
 # Craft on order and artisans in Trade, with CoA Live's lines (bank 3_0_05 of CoA IA MIND) and COD mail. Needs
 # Artisans, and AiPlayerbot.CoaLive.Enable = 1 (without it nothing is said and no order is taken).
 # A player whispers "can you make [item]?" to a bot that knows the recipe: it quotes the market value of the piece

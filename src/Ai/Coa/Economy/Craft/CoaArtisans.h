@@ -89,6 +89,10 @@ namespace CoaEconomy::Artisans
     // then rare), once per IntervalHours (half that at HighLevel). Paid in gold: the reagents at their price, the fee
     // to the enchanter. Noted "enchant" (source "artisan") for the armory. World thread only. True when it ordered.
     bool OrderEnchantIfDue(Player* bot);
+    // CoA 3.3.1 (AiPlayerbot.CoaEconomy.Formulas.LearnHeld): the bot learns every recipe in its bags it may learn
+    // (CoaEconomy::Formulas::Learnable: a formula, a pattern, plans...) and the recipe item is used up, as for a player.
+    // Called at each study. World thread only. The number learned.
+    uint32 LearnHeldFormulas(Player* bot);
     // The world script's tick: every 30 s, up to 20 random bots in a study place whose study is due.
     void ScanCapitalsTick(uint32 diff);
 

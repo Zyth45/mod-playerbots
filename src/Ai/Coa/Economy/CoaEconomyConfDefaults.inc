@@ -81,6 +81,7 @@
 {"AiPlayerbot.CoaEconomy.Filter.Enable", R"coa(1)coa"},
 {"AiPlayerbot.CoaEconomy.Filter.ScaledEntries", R"coa(1)coa"},
 {"AiPlayerbot.CoaEconomy.Filter.Worldforged", R"coa(1)coa"},
+{"AiPlayerbot.CoaEconomy.Formulas.LearnHeld", R"coa(1)coa"},
 {"AiPlayerbot.CoaEconomy.GuildStock.Bank", R"coa(1)coa"},
 {"AiPlayerbot.CoaEconomy.GuildStock.Buy.MaxSharePercent", R"coa(25)coa"},
 {"AiPlayerbot.CoaEconomy.GuildStock.Buy.MinListings", R"coa(8)coa"},
