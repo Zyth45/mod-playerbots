@@ -677,6 +677,11 @@ AiPlayerbot.CoaSelfFound.RollLog = 0
 # (action, path type and points, target). The fixed NPCs of a capital far from home and the oversized creatures of a
 # capital are written too. 3.2: "pingpong", a bot that walked 150 yards or more in 3 minutes out of combat without
 # getting 50 yards from where it was (going back and forth). One line per bot and per kind every ThrottleSeconds.
+# 3.3.1: no wall between two samples 1.5 yards or more apart in height (stairs, a ramp); no "air" over the surface of
+# a liquid (a bot swimming); "stuck", a bot that asked for a move and stayed within a yard for 10 seconds out of
+# combat (each line also gives wallStreak, its wall samples in a row); and "server_teleport", each teleport of a bot
+# by the server with its cause (revive, timer, no xp 10 min, level up, fresh start, randomize, other), its level and
+# the nearest real player at the departure and at the arrival (nearFrom, nearTo, -1: none, -2: not read).
 # Nothing in the game changes.
 # Default: 0 (off)
 AiPlayerbot.CoaMoveAudit = 0

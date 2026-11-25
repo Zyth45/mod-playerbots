@@ -53,5 +53,23 @@ int main()
     assert(!PingPong(300.0f, 120.0f));  // it went somewhere
     assert(!PingPong(100.0f, 30.0f));   // not enough walked
     assert(!PingPong(300.0f, 3.0f));    // turning on the spot
+    // 3.3.1 (bench 331a): the stairs of Deathknell's store (98 -> 94 over 2 yards) and Aldrassil's ramp are not judged.
+    assert(WallJudged(2.0f, 0.4f) && WallJudged(2.0f, -1.4f));
+    assert(!WallJudged(2.0f, -4.0f) && !WallJudged(2.0f, 8.0f) && !WallJudged(0.2f, 0.0f));
+    // 3.3.1: stuck = 10 s within a yard of the anchor, a move asked since, its target further than a yard.
+    assert(Stuck(0.3f, 1000, 11000, 5000, 6.0f));
+    assert(!Stuck(0.3f, 1000, 9000, 5000, 6.0f));   // not long enough
+    assert(!Stuck(3.0f, 1000, 11000, 5000, 6.0f));  // it got on
+    assert(!Stuck(0.3f, 1000, 11000, 500, 6.0f));   // no move asked since: it stands still on purpose
+    assert(!Stuck(0.3f, 1000, 11000, 5000, 0.5f));  // there already
+    assert(!Stuck(0.3f, 0, 11000, 5000, 6.0f));
+    // 3.3.1: Shadowglen's pond (surface 1307.0, floor 1300.1), a lake of Mulgore; no liquid, or one under the floor.
+    assert(OverLiquid(1307.0f, 1300.1f, 1307.0f) && OverLiquid(-16.4f, -20.1f, -16.5f));
+    assert(!OverLiquid(180.2f, 176.95f, -200000.0f));  // Thunder Bluff's flight tower: in the air
+    assert(!OverLiquid(1312.0f, 1300.1f, 1307.0f));    // 5 yards over the surface
+    assert(!OverLiquid(105.0f, 100.0f, 90.0f));        // a liquid under the floor (a cellar's water)
+    // 3.3.1: a teleport in the same millisecond as the sample before it: not compared across.
+    assert(ComparedAcross(900, 1000) && !ComparedAcross(1000, 1000) && !ComparedAcross(1100, 1000));
+    assert(ComparedAcross(0, 1000));
     return 0;
 }

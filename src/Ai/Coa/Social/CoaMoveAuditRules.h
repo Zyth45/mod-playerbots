@@ -54,6 +54,36 @@ inline bool TooFast(float flat, uint32_t dtMs, float speed)
 
 inline bool CheckWall(float flat) { return flat >= WALL_MIN && !Teleported(flat); }
 
+// 3.3.1 (bench 331a: 229 "wall" lines on the stairs of Deathknell's store to its trainers upstairs, the ramp of its
+// crypt, the spiral ramp of Aldrassil, |dz| 2.9 to 8 yards): between two samples this far apart in height the line of
+// sight at 1.5 yards over the feet crosses the steps or the floor above, not a wall: not judged.
+constexpr float WALL_MAX_DZ = 1.5f;
+
+inline bool WallJudged(float flat, float dz) { return CheckWall(flat) && std::fabs(dz) < WALL_MAX_DZ; }
+
+// 3.3.1 (Pilote): "stuck" is no progress over consecutive samples, not a bot back at the same stairs an hour later: out
+// of a fight, it asked for a move after the anchor and stayed within STUCK_RADIUS yards of it for STUCK_MS.
+constexpr float STUCK_RADIUS = 1.0f;
+constexpr uint64_t STUCK_MS = 10000;
+
+inline bool Stuck(float fromAnchor, uint64_t anchorMs, uint64_t nowMs, uint64_t moveAskedMs, float moveDist)
+{
+    return anchorMs && fromAnchor <= STUCK_RADIUS && nowMs >= anchorMs + STUCK_MS && moveAskedMs > anchorMs &&
+           moveDist > STUCK_RADIUS;
+}
+
+// 3.3.1 (bench 331a: Shadowglen's pond, every bot at z 1307.0 over a floor at 1300; a bot is never "in water" for the
+// core, IsInWater): over a liquid of the map, a bot at most AIR_HEIGHT over its surface swims or stands in it.
+inline bool OverLiquid(float z, float floorZ, float liquidLevel, float airHeight = AIR_HEIGHT)
+{
+    return liquidLevel > -100000.0f && liquidLevel > floorZ && z - liquidLevel <= airHeight;
+}
+
+// 3.3.1: a server teleport noted in the same game millisecond as the sample before it (the world thread's random bot
+// manager and the map's bot updates read the same clock in one world update) may come after that sample: two samples
+// across it are never compared (it was "<=": 36 teleports to a starting point taken for an odd move).
+inline bool ComparedAcross(uint64_t teleportMs, uint64_t sampleMs) { return teleportMs < sampleMs; }
+
 inline bool HeightJump(float dz, float flat, bool bothOnGround)
 {
     return bothOnGround && std::fabs(dz) > JUMP_HEIGHT && flat < JUMP_MAX_FLAT;

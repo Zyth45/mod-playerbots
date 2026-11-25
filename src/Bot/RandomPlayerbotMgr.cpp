@@ -67,6 +67,7 @@
 #include "RaceMgr.h"
 #include "Random.h"
 #include "RandomBotLevelMgr.h"
+#include "CoaMoveAudit.h"
 #include "RandomPlayerbotFactory.h"
 #include "ServerFacade.h"
 #include "SharedDefines.h"
@@ -2127,6 +2128,7 @@ bool RandomPlayerbotMgr::ProcessBot(Player* bot)
 
         if (!GetEventValue(botId, "revive"))
         {
+            CoaMoveAudit::TeleportCause const cause("revive", true);  // CoA 3.3.1: the move audit's cause
             Revive(bot);
             return true;
         }
@@ -2165,6 +2167,7 @@ bool RandomPlayerbotMgr::ProcessBot(Player* bot)
             LOG_INFO("playerbots", "coa: {} (level {}) earned no experience for 10 minutes, new grinding spot",
                      bot->GetName(), bot->GetLevel());
             since = now;
+            CoaMoveAudit::TeleportCause const cause("no xp 10 min", true);  // CoA 3.3.1: the move audit's cause
             RandomTeleportGrindForLevel(bot);
             return true;
         }
@@ -2217,6 +2220,7 @@ bool RandomPlayerbotMgr::ProcessBot(Player* bot)
             // }
             // if (randomiser)
             // {
+            CoaMoveAudit::TeleportCause const cause("randomize", true);  // CoA 3.3.1: the move audit's cause
             Randomize(bot);
             LOG_DEBUG("playerbots", "Bot #{} {}:{} <{}>: randomized", botId,
                       bot->GetTeamId() == TEAM_ALLIANCE ? "A" : "H", bot->GetLevel(), bot->GetName());
@@ -2240,6 +2244,7 @@ bool RandomPlayerbotMgr::ProcessBot(Player* bot)
             if (!HeavyAllowed())
                 return false;
             LOG_DEBUG("playerbots", "Bot #{} <{}>: teleport for level and refresh", botId, bot->GetName());
+            CoaMoveAudit::TeleportCause const cause("timer", true);  // CoA 3.3.1: the move audit's cause
             Refresh(bot);
             RandomTeleportForLevel(bot);
             uint32 time = urand(sPlayerbotAIConfig.minRandomBotTeleportInterval,
