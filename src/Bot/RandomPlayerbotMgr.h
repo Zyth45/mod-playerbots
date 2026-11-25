@@ -197,11 +197,11 @@ public:
     void SetTradeDiscount(Player* bot, Player* master, uint32 value);
     uint32 GetTradeDiscount(Player* bot, Player* master);
     void Refresh(Player* bot);
+    // CoA 3.3.1: every teleport for level (a level up, the timer, a revive, a refresh...) and for grinding never arrives
+    // within 150 yards of a real player (AiPlayerbot.CoaLive.LevelupTeleportGuard); the departure never had one.
     void RandomTeleportForLevel(Player* bot);
-    // CoA 3.3: the teleport of a level up (AutoTeleportForLevel): no arrival within 150 yards of a real player
-    // (AiPlayerbot.CoaLive.LevelupTeleportGuard); RandomTeleportForLevel's other callers as before.
-    void RandomTeleportForLevelUp(Player* bot);
-    void TeleportForLevel(Player* bot, bool levelUp);
+    void RandomTeleportForLevelUp(Player* bot);  // CoA 3.3: the level up's (AutoTeleportForLevel), the same since 3.3.1
+    void TeleportForLevel(Player* bot);
     void RandomTeleportGrindForLevel(Player* bot);
     void RandomTeleportForRpg(Player* bot);
     uint32 GetMaxAllowedBotCount();
@@ -349,7 +349,7 @@ private:
     bool ProcessBot(uint32 bot);
     void ScheduleRandomize(uint32 bot, uint32 time);
     void RandomTeleport(Player* bot);
-    void RandomTeleport(Player* bot, std::vector<WorldLocation>& locs, bool hearth = false, bool levelUp = false);
+    void RandomTeleport(Player* bot, std::vector<WorldLocation>& locs, bool hearth = false, bool guardArrival = false);
     uint32 GetZoneLevel(uint16 mapId, float teleX, float teleY, float teleZ);
     std::vector<WorldLocation> GetPlayerZoneTeleportLocations(std::vector<WorldLocation> const& locs, Player* bot);
     void UpdatePlayerZones();
