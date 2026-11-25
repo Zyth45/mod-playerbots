@@ -6142,9 +6142,16 @@ AiPlayerbot.CoaEconomy.EnchantOrders.Log = 0
 #    LearnHeld = 1: at each self study (above), a bot learns every recipe in its bags it may learn (a formula, a
 #                   pattern, plans: one it does not know, of a profession it has, at its rank, level and reputation) and
 #                   the recipe item is used up, as for a player. Looted, won, bought or given alike.
-# With EnchantForSelf.HourlyCount = 1, one line an hour in the playerbots.coa log counts the formulas learned.
-# Default: LearnHeld 1 (enabled)
+#    RareDraw.Enable = 1: once a day, at a study, an enchanter bot of RareDraw.MinSkill or more in Enchanting has
+#                   RareDraw.Percent chances to learn one enchanting formula, drawn only among those the world really
+#                   gives (a formula dropped by a creature or a chest, or sold by a vendor) that it could learn from the
+#                   item itself (its rank, level and reputation) and does not know yet: the "super enchanters".
+# With EnchantForSelf.HourlyCount = 1, one line an hour in the playerbots.coa log counts the formulas learned and drawn.
+# Default: LearnHeld 1 (enabled); RareDraw.Enable 1 (enabled), RareDraw.Percent 25, RareDraw.MinSkill 225
 AiPlayerbot.CoaEconomy.Formulas.LearnHeld = 1
+AiPlayerbot.CoaEconomy.Formulas.RareDraw.Enable = 1
+AiPlayerbot.CoaEconomy.Formulas.RareDraw.Percent = 25
+AiPlayerbot.CoaEconomy.Formulas.RareDraw.MinSkill = 225
 
 # Craft on order and artisans in Trade, with CoA Live's lines (bank 3_0_05 of CoA IA MIND) and COD mail. Needs
 # Artisans, and AiPlayerbot.CoaLive.Enable = 1 (without it nothing is said and no order is taken).

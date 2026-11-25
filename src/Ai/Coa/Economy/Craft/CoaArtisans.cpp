@@ -11,6 +11,7 @@
 #include "CoaEnchantOrderRules.h"
 #include "CoaEnchantSelfRules.h"
 #include "CoaFormulas.h"
+#include "CoaRareRecipes.h"
 #include "CoaGearScore.h"
 #include "CoaMissionMgr.h"
 #include "CoaWorldItemOrigin.h"
@@ -175,6 +176,9 @@ struct OrderCounters
 } orderCounters;
 // AiPlayerbot.CoaEconomy.Formulas.* (3.3.1, "super enchanters")
 bool formulasLearnHeld = true;
+bool formulasDraw = true;
+uint32 formulasDrawPercent = 25;
+uint32 formulasDrawMinSkill = 225;
 // 3.3.1: the formulas' counts since the last hourly line (world thread only).
 struct FormulaCounters
 {
@@ -210,6 +214,10 @@ void LoadSettings()
     studyLog = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.SelfStudy.Log", false, false);
     ordersEnabled = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.EnchantOrders.Enable", true, false);
     formulasLearnHeld = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.Formulas.LearnHeld", true, false);
+    formulasDraw = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.Formulas.RareDraw.Enable", true, false);
+    formulasDrawPercent =
+        std::min<uint32>(100, CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.Formulas.RareDraw.Percent", 25));
+    formulasDrawMinSkill = CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.Formulas.RareDraw.MinSkill", 225);
     ordersLog = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.EnchantOrders.Log", false, false);
     ordersMinLevel = CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.EnchantOrders.MinLevel", 20);
     ordersHighLevel = CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.EnchantOrders.HighLevel", 60);
@@ -877,6 +885,69 @@ uint32 LearnHeldFormulas(Player* bot)
     return learned;
 }
 
+namespace
+{
+    // 3.3.1 (Formulas.RareDraw): the enchanting formulas the world gives (a recipe item dropped or sold by a vendor),
+    // built at the first draw; the next draw of each enchanter (game time, seconds).
+    std::vector<uint32> worldFormulas;
+    bool worldFormulasBuilt = false;
+    std::unordered_map<uint64, uint32> nextDraw;
+
+    void BuildWorldFormulas()
+    {
+        worldFormulasBuilt = true;
+        for (uint32 entry : RareRecipes::WorldRecipeItems())
+        {
+            ItemTemplate const* proto = sObjectMgr->GetItemTemplate(entry);
+            uint32 const taught = Formulas::TaughtSpell(proto);
+            if (taught && sSpellMgr->GetSpellInfo(taught) && Formulas::ProfessionOf(taught) == SKILL_ENCHANTING)
+                worldFormulas.push_back(entry);
+        }
+        std::sort(worldFormulas.begin(), worldFormulas.end());
+        LOG_INFO("playerbots.coa", "CoaEconomy: {} enchanting formulas the world gives (Formulas.RareDraw)",
+                 worldFormulas.size());
+    }
+}
+
+uint32 DrawRareFormula(Player* bot)
+{
+    if (!formulasDraw || !bot || !bot->HasSkill(SKILL_ENCHANTING))
+        return 0;
+    uint32 const skill = bot->GetSkillValue(SKILL_ENCHANTING);
+    if (skill < formulasDrawMinSkill)
+        return 0;
+    uint32 const now = uint32(GameTime::GetGameTime().count());
+    auto [it, fresh] = nextDraw.try_emplace(bot->GetGUID().GetRawValue(), 0);
+    if (fresh)
+    {
+        // The first draw falls somewhere in the first day, from the guid: a restart makes no burst of draws.
+        uint32 const spread = uint32(bot->GetGUID().GetCounter() * 2654435761u) % 1000;
+        it->second = now + CoaSelfStudyRules::FirstStudyDelay(float(spread) / 1000.0f, DAY);
+    }
+    if (now < it->second)
+        return 0;
+    it->second = now + DAY;
+    if (!CoaFormulaRules::DrawsFormula(skill, formulasDrawMinSkill, urand(0, 99), formulasDrawPercent))
+        return 0;
+    if (!worldFormulasBuilt)
+        BuildWorldFormulas();
+    // Only what it could learn from the item itself: its rank, level and reputation, and not one it knows.
+    std::vector<ItemTemplate const*> candidates;
+    for (uint32 entry : worldFormulas)
+        if (ItemTemplate const* proto = sObjectMgr->GetItemTemplate(entry); Formulas::Learnable(bot, proto))
+            candidates.push_back(proto);
+    if (candidates.empty())
+        return 0;
+    ItemTemplate const* proto = candidates[urand(0, uint32(candidates.size() - 1))];
+    uint32 const taught = Formulas::TaughtSpell(proto);
+    bot->learnSpell(taught, false);
+    ++formulaCounters.drawn;
+    if (enchantForSelfLog || studyLog)
+        LOG_INFO("playerbots.coa", "CoaEconomy: formula drawn: {} (enchanting {}) learned {} ({})", bot->GetName(), skill,
+                 taught, proto->Name1);
+    return taught;
+}
+
 bool StudyIfDue(Player* bot, PlayerbotAI* botAI)
 {
     if (!studyEnabled || !bot || !botAI || !bot->IsInWorld() || !bot->IsAlive() || bot->IsInCombat() ||
@@ -900,6 +971,8 @@ bool StudyIfDue(Player* bot, PlayerbotAI* botAI)
     studyShort = false;
     // 3.3.1 (Formulas.LearnHeld): a formula in its bags first, so what it learns serves at once.
     LearnHeldFormulas(bot);
+    // 3.3.1 (Formulas.RareDraw): now and then, a formula the world gives, as if found.
+    DrawRareFormula(bot);
     auto cap = [bot]()
     {
         return studyBuy ? CoaSelfStudyRules::SpendCap(bot->GetMoney(), studyMoneyPercent, bot->GetLevel(),

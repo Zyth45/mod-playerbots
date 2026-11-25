@@ -93,6 +93,11 @@ namespace CoaEconomy::Artisans
     // (CoaEconomy::Formulas::Learnable: a formula, a pattern, plans...) and the recipe item is used up, as for a player.
     // Called at each study. World thread only. The number learned.
     uint32 LearnHeldFormulas(Player* bot);
+    // CoA 3.3.1 (AiPlayerbot.CoaEconomy.Formulas.RareDraw.*): once a day, an enchanter bot of MinSkill or more has
+    // Percent chances to learn one enchanting formula the world gives (a recipe item dropped or sold by a vendor) that it
+    // could learn from the item (rank, level, reputation) and does not know. Called at each study. World thread only.
+    // The spell learned, 0 when none.
+    uint32 DrawRareFormula(Player* bot);
     // The world script's tick: every 30 s, up to 20 random bots in a study place whose study is due.
     void ScanCapitalsTick(uint32 diff);
 
