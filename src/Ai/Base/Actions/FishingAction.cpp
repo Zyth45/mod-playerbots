@@ -55,6 +55,11 @@ float HasFishableWaterOrLand(float x, float y, float z, Map* map, uint32 phaseMa
     }
     if (checkForLand)
     {
+        // 3.3.1 (a player's report, Blackrock Mountain): a bot fishing with its master stood in the lava. A spot to
+        // stand on is never in nor just above lava or slime.
+        if ((liq.Flags & (MAP_LIQUID_TYPE_MAGMA | MAP_LIQUID_TYPE_SLIME)) &&
+            ground <= liq.Level + HEIGHT_ABOVE_WATER_TOLERANCE)
+            return INVALID_HEIGHT;
         if (ground > liq.Level - HEIGHT_ABOVE_WATER_TOLERANCE)
             return ground;
         return INVALID_HEIGHT;
@@ -103,7 +108,10 @@ WorldPosition FindLandFromPosition(PlayerbotAI* botAI, float startDistance, floa
             continue;
 
         LiquidData const& liq = map->GetLiquidData(phaseMask, checkX, checkY, targetZ, DEFAULT_COLLISION_HEIGHT, MAP_ALL_LIQUIDS);
-        if (liq.Entry == MAP_LIQUID_TYPE_NO_WATER || groundZ > liq.DepthLevel + HEIGHT_ABOVE_WATER_TOLERANCE)
+        bool const harmful = liq.Entry != MAP_LIQUID_TYPE_NO_WATER &&
+                             (liq.Flags & (MAP_LIQUID_TYPE_MAGMA | MAP_LIQUID_TYPE_SLIME)) &&
+                             groundZ <= liq.Level + HEIGHT_ABOVE_WATER_TOLERANCE;  // 3.3.1: never in lava or slime
+        if (!harmful && (liq.Entry == MAP_LIQUID_TYPE_NO_WATER || groundZ > liq.DepthLevel + HEIGHT_ABOVE_WATER_TOLERANCE))
         {
             if (checkLOS)
             {
@@ -151,7 +159,9 @@ WorldPosition FindLandRadialFromPosition (PlayerbotAI* botAI, WorldPosition targ
             if (groundZ == INVALID_HEIGHT)
                 continue;
 
-            if (map->isInLineOfSight(checkX, checkY, groundZ, targetX, targetY, targetZ, phaseMask, LINEOFSIGHT_ALL_CHECKS, VMAP::ModelIgnoreFlags::Nothing) && master->GetDistance(checkX, checkY, groundZ) > fishingSearchWindow - SEARCH_LAND_BUFFER)
+            // 3.3.1: a spot with no sight of the water is skipped too (the test was inverted: a spot behind a wall, or
+            // inside the rock, was kept; a bot was left in a wall above the lava of Blackrock Mountain).
+            if (!map->isInLineOfSight(checkX, checkY, groundZ, targetX, targetY, targetZ, phaseMask, LINEOFSIGHT_ALL_CHECKS, VMAP::ModelIgnoreFlags::Nothing) || master->GetDistance(checkX, checkY, groundZ) > fishingSearchWindow - SEARCH_LAND_BUFFER)
                 continue;
 
             boundaryPoints.emplace_back(WorldPosition(bot->GetMapId(), checkX, checkY, groundZ));
