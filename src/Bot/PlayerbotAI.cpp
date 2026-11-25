@@ -18,6 +18,7 @@
 #include "CoaFishingGear.h"
 #include "CoaSafeMoveRules.h"
 #include "CoaBotWhy.h"
+#include "CoaStranded.h"
 #include "CoaMoveAudit.h"
 #include "CurrentTargetValue.h"
 
@@ -590,6 +591,8 @@ void PlayerbotAI::UpdateAI(uint32 elapsed, bool minimal)
     CoaMoveAudit::Tick(this);
     // ".squidbots why" (AiPlayerbot.CoaWhy.Enable): where the bot stands still since when.
     CoaBotWhy::Tick(this);
+    // A random bot still for AiPlayerbot.CoaLive.StrandedMinutes with nothing to wait for: back to its own life.
+    CoaStranded::Tick(this);
     // The CoA talents left by a capped rebuild (AiPlayerbot.CoaLive.TalentsPerUpdate).
     CoaTalentsTick(bot);
     // The level-up maintenance spread over the next updates (AiPlayerbot.CoaLive.MaintenanceSpread).

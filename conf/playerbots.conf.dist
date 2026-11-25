@@ -4444,6 +4444,16 @@ AiPlayerbot.CoaTrust.Ranks = 0,100,500,1500,4000,10000
 #        Default:     1 (enabled)
 AiPlayerbot.CoaLfgRolePriority = 1
 
+#    AiPlayerbot.CoaLive.StrandedMinutes
+#        Description: A random bot that has not moved for this many minutes, alive and out of combat, with nothing to
+#                     wait for, goes back to the life of a free bot: it leaves its group, drops its master, takes its
+#                     default strategies again and gets off its mount. Nothing to wait for: in a group, no real
+#                     player in it (a group of bots its player left); out of a group, its own life idle or resting.
+#                     Never in a battleground, a dungeon finder group in progress, a queue, a flight, a test or a
+#                     mission, nor a bot grouped with a real player. One line an hour in the log counts the bots freed.
+#        Default:     10 (0: off)
+AiPlayerbot.CoaLive.StrandedMinutes = 10
+
 # Bots' minimum and maximum level when teleporting in and out of a zone, according to the new RPG strategy
 # Format: AiPlayerbot.ZoneBracket.zoneID = minLevel,maxLevel
 #

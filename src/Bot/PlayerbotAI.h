@@ -649,6 +649,14 @@ public:
     NewRpgStatistic rpgStatistic;
     // CoA 3.2: what ".squidbots why" tells of the bot (its last move, where it stands still since when).
     CoaBotWhy::Trace coaWhy;
+    // CoaStranded (AiPlayerbot.CoaLive.StrandedMinutes): where the bot stands still since when (getMSTime, 0: unset).
+    struct CoaStrandedTrace
+    {
+        float x = 0.0f, y = 0.0f, z = 0.0f;
+        uint32 mapId = 0;
+        uint32 sinceMs = 0;
+        uint32 checkMs = 0;
+    } coaStranded;
     std::unordered_set<uint32> lowPriorityQuest;
     time_t bgReleaseAttemptTime = 0;
     ForceRebuffState forceRebuff;
