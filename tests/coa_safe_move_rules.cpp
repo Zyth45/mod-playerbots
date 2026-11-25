@@ -34,6 +34,14 @@ int main()
     assert(!DropsToFloor(188.07f, -200000.0f, true, false)); // no floor found
     assert(!DropsToFloor(185.9f, 185.18f, true, false));     // on its floor (a platform, a tower: its own floor)
     assert(!DropsToFloor(204.0f, 185.18f, true, false));     // too high to be that case: left alone
+    // 3.3.1 (bench 331a): off a taxi, indoors too: Thunder Bluff's tower (180.2 over its platform at 176.95),
+    // Stormwind's (112.4 over 109.6), within two minutes of the flight.
+    assert(LandsAfterTaxi(180.2f, 176.95f, false, 5000) && LandsAfterTaxi(112.4f, 109.6f, false, 119000));
+    assert(!LandsAfterTaxi(180.2f, 176.95f, false, 130000));   // long after a flight: DropsToFloor's case only
+    assert(!LandsAfterTaxi(180.2f, 176.95f, true, 5000));      // water under it
+    assert(!LandsAfterTaxi(180.2f, -200000.0f, false, 5000));  // no floor within reach: the edge, never the void
+    assert(!LandsAfterTaxi(177.2f, 176.95f, false, 5000));     // on its platform
+    assert(!LandsAfterTaxi(180.2f, 128.4f, false, 5000));      // the ground under the tower: too far, never there
     // 3.1.8: a teleport to a banker arrives outdoors around the bank, on ground near the banker's floor.
     assert(ArrivalOk(98.0f, 99.7f, true, false, 97.9f));
     assert(!ArrivalOk(98.0f, 99.7f, false, false, 97.9f));   // inside a building

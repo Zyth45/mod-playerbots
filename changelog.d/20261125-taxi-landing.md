@@ -1,0 +1,2 @@
+### Bots no longer hang over the flight masters
+After a flight, a bot could stay a few yards above the platform of the flight tower in Thunder Bluff or Stormwind for many minutes. The bots already dropped to the ground after a flight outdoors, but the top of a tower counts as indoors, so they were left up there. For two minutes after a flight, a bot now drops onto the platform it arrived on, indoors too. It is never dropped to the ground under the tower or off the edge. A bot that landed also stops waiting for the end of its flight and chooses what to do next.

@@ -719,6 +719,7 @@ protected:
     uint32 coaCursedFormCheckedAt = 0;
     uint32 coaGearCheckedAt = 0;
     uint32 coaTeamTimer = 0;
+    uint32 coaTaxiFlightMs = 0;  // CoA 3.3.1: when the bot was last seen in a taxi flight (getMSTime), for its landing
 public:
     // CoA World (BotOnlyBgPace, Playerbots.cpp OnPlayerAfterUpdate): a bot-only battleground or arena, last checked
     // coaBgCheckMs ago, and the time its AI has waited.
