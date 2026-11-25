@@ -10,6 +10,7 @@
 #include "CoaEnchantSelfRules.h"
 #include "CoaGearScore.h"
 #include "CoaMissionMgr.h"
+#include "CoaWorldItemOrigin.h"
 #include "CoaSelfStudyRules.h"
 
 #include "CoaAuctionHouseBot.h"
@@ -455,8 +456,10 @@ Item* Craft(Player* bot, Recipe const& recipe)
         return nullptr;
     if (!Consume(bot, recipe, 1))
         return nullptr;
-    return SignedByCrafter(bot,
-                           bot->StoreNewItem(dest, recipe.itemId, true, Item::GenerateItemRandomPropertyId(recipe.itemId)));
+    Item* const item =
+        SignedByCrafter(bot, bot->StoreNewItem(dest, recipe.itemId, true, Item::GenerateItemRandomPropertyId(recipe.itemId)));
+    CoaWorld::NoteCraft(item, bot, recipe.spell->Id);  // 3.3.1: the item's origin (the armory)
+    return item;
 }
 
 namespace
@@ -585,6 +588,7 @@ Item* CraftUpgradeForSelf(Player* bot, PlayerbotAI* botAI, uint64 buyCap)
     Item* item = SignedByCrafter(bot, bot->StoreNewItem(dest, bestItem, true, Item::GenerateItemRandomPropertyId(bestItem)));
     if (!item)
         return nullptr;
+    CoaWorld::NoteCraft(item, bot, bestSpell->Id);  // 3.3.1: "selfcraft" once worn (the armory)
     // Worn at once, where it is an upgrade.
     uint8 const slot = botAI->FindEquipSlot(item->GetTemplate(), NULL_SLOT, true);
     if (slot != NULL_SLOT)
@@ -758,9 +762,8 @@ bool EnchantOnce(Player* bot, uint64 buyCap, bool countRefusal)
 
     TakeReagents(bot, bestSpell, bestPlan);
     ++enchantCounters.enchanted;
-    bot->ApplyEnchantment(bestItem, PERM_ENCHANTMENT_SLOT, false);
-    bestItem->SetEnchantment(PERM_ENCHANTMENT_SLOT, bestEnchant, 0, 0, bot->GetGUID());
-    bot->ApplyEnchantment(bestItem, PERM_ENCHANTMENT_SLOT, true);
+    // 3.3.1: off, set, on, and an "enchant" event for the armory's history.
+    CoaWorld::SetEnchant(bot, bestItem, PERM_ENCHANTMENT_SLOT, bestEnchant, bot->GetGUID(), "artisan");
     ++studyCounters.enchanted;
     if (enchantForSelfLog)
         LOG_INFO("playerbots.loot", "enchant for self: {} (level {}) put enchantment {} on {} ({}), gain {:.1f}, bought {} reagent(s) for {}c",
