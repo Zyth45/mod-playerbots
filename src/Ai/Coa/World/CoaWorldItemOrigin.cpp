@@ -21,7 +21,9 @@
  *  - "equip": every time a piece (green or better) is worn, its source as above ("" when not seen: the dashboard
  *    reads coa_item_origin); the same piece worn again within a minute writes nothing. Not at login.
  *  - "enchant": an enchantment put on a piece, its id in detail: "spell" (an enchanting spell or scroll cast by a
- *    player or a bot), "autogear" (the factory), "bot" (a bot's command), "artisan" (a bot enchanter, Economy).
+ *    player or a bot), "bot" (a bot's command), "artisan" (a bot enchanter, Economy).
+ *  - "regear": one row for a pass of the factory or the auto-gear (source "autogear", detail the pieces changed:
+ *    worn or enchanted); no "equip" nor "enchant" row for its pieces.
  *    The CoA mystic enchantments are not covered.
  *  - "craft"/"selfcraft": a piece made with a profession spell (OnPlayerCreateItem) or by a bot's craft
  *    (CoaWorld::NoteCraft), or signed by a maker: "selfcraft" on its maker, "craft" on anyone else.
@@ -49,6 +51,7 @@
 #include "Timer.h"
 
 #include <mutex>
+#include <unordered_set>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -115,6 +118,13 @@ std::unordered_map<uint32, Note> notes;
 std::vector<Row> queue;
 std::vector<Event> events;
 std::unordered_map<uint32, Worn> worn;  // by item
+
+struct Pass
+{
+    std::unordered_set<uint32> items;  // the pieces changed
+    uint32 first, last;
+};
+std::unordered_map<uint32, Pass> passes;  // the factory's passes in progress, by owner
 HourCounts hour;
 uint32 hourRows = 0;
 bool tableReady = false;
@@ -161,6 +171,29 @@ void QueueEventLocked(uint32 owner, Item* item, char const* kind, char const* so
                        detail, at });
 }
 
+// A piece the factory or the auto-gear changed, in the pass of its owner.
+void PassLocked(uint32 owner, uint32 item, uint32 now)
+{
+    auto [itr, added] = passes.try_emplace(owner, Pass{ {}, now, now });
+    itr->second.items.insert(item);
+    itr->second.last = now;
+}
+
+// The passes over become one "regear" row each.
+void ClosePassesLocked(uint32 now, bool all)
+{
+    for (auto itr = passes.begin(); itr != passes.end();)
+    {
+        if (!PassClosed(itr->second.last, now, all))
+        {
+            ++itr;
+            continue;
+        }
+        events.push_back({ itr->first, 0, 0, "regear", "autogear", uint32(itr->second.items.size()), itr->second.first });
+        itr = passes.erase(itr);
+    }
+}
+
 void FlushEvents(std::vector<Event> const& rows)
 {
     for (size_t i = 0; i < rows.size(); i += ROWS_PER_STATEMENT)
@@ -178,12 +211,13 @@ void FlushEvents(std::vector<Event> const& rows)
     }
 }
 
-void Flush()
+void Flush(bool all = false)
 {
     std::vector<Row> rows;
     std::vector<Event> evs;
     {
         std::lock_guard<std::mutex> guard(lock);
+        ClosePassesLocked(uint32(time(nullptr)), all);
         rows.swap(queue);
         evs.swap(events);
     }
@@ -424,7 +458,12 @@ public:
             auto [itr, added] = worn.try_emplace(itemId, Worn{ nullptr, 0 });
             firstSeen = added;
             char const* eventSource = source ? source : itr->second.source;  // worn again: its last pose's source
-            if (settings.events && live && !RepeatPose(itr->second.at, now))
+            if (settings.events && live && startScopes)
+            {
+                itr->second = { eventSource, now };
+                PassLocked(wearer, itemId, now);  // the factory's or the auto-gear's: one "regear" row
+            }
+            else if (settings.events && live && !RepeatPose(itr->second.at, now))
             {
                 itr->second = { eventSource, now };
                 QueueEventLocked(wearer, item, "equip", eventSource, note.detail, now);
@@ -479,7 +518,7 @@ public:
         Purge();
     }
 
-    void OnShutdown() override { Flush(); }
+    void OnShutdown() override { Flush(true); }
 
     void OnUpdate(uint32 diff) override
     {
@@ -522,10 +561,16 @@ void CoaWorld::NoteItemOrigin(Item* item, char const* source, uint32 detail)
 
 void CoaWorld::NoteCraft(Item* item, Player* maker, uint32 spell)
 {
-    if (!item || !maker || !Wanted(item->GetTemplate()))
+    if (maker)
+        NoteCraft(item, maker->GetGUID(), spell);
+}
+
+void CoaWorld::NoteCraft(Item* item, ObjectGuid maker, uint32 spell)
+{
+    if (!item || !maker.IsPlayer() || !Wanted(item->GetTemplate()))
         return;
     std::lock_guard<std::mutex> guard(lock);
-    NoteLocked(item->GetGUID().GetCounter(), "craft", spell, uint32(maker->GetGUID().GetCounter()));
+    NoteLocked(item->GetGUID().GetCounter(), "craft", spell, uint32(maker.GetCounter()));
 }
 
 void CoaWorld::SetEnchant(Player* owner, Item* item, EnchantmentSlot slot, uint32 enchantId, ObjectGuid caster,
@@ -540,6 +585,13 @@ void CoaWorld::SetEnchant(Player* owner, Item* item, EnchantmentSlot slot, uint3
     if (!settings.events || !source || !NewEnchant(before, enchantId) || !Wanted(item->GetTemplate()))
         return;
     std::lock_guard<std::mutex> guard(lock);
+    if (std::string(source) == "autogear")
+    {
+        if (owner->IsInWorld())  // not at a bot's creation, as for "equip"
+            PassLocked(uint32(owner->GetGUID().GetCounter()), uint32(item->GetGUID().GetCounter()),
+                       uint32(time(nullptr)));
+        return;
+    }
     QueueEventLocked(uint32(owner->GetGUID().GetCounter()), item, "enchant", source, enchantId, uint32(time(nullptr)));
 }
 

@@ -46,6 +46,10 @@ int main()
     assert(RepeatPose(1000, 1000) && RepeatPose(1000, 1059));
     assert(!RepeatPose(1000, 1060) && !RepeatPose(1000, 999));
 
+    // A factory pass closes 5 s after its last piece, or when the server stops.
+    assert(!PassClosed(1000, 1000, false) && !PassClosed(1000, 1004, false));
+    assert(PassClosed(1000, 1005, false) && PassClosed(1000, 1000, true));
+
     // An enchant event only when the enchantment changes.
     assert(NewEnchant(0, 1900) && NewEnchant(1887, 1900));
     assert(!NewEnchant(1900, 1900) && !NewEnchant(1900, 0));

@@ -44,6 +44,12 @@ constexpr uint32_t EventsKept = 20;
 // event. lastAt 0: never seen.
 inline bool RepeatPose(uint32_t lastAt, uint32_t now) { return lastAt && now >= lastAt && now - lastAt < 60; }
 
+// A pass of the factory or the auto-gear ("regear", one row): a bot's pieces worn under a StartGearScope and its
+// "autogear" enchantments, until PassGap seconds go by with none (the enchantments put on right after the gear count
+// in the same pass). all: the server stops.
+constexpr uint32_t PassGap = 5;
+inline bool PassClosed(uint32_t last, uint32_t now, bool all) { return all || now >= last + PassGap; }
+
 // An "enchant" event: an enchantment put on, different from the one the slot had (the auto-gear re-applying the same
 // one writes nothing).
 inline bool NewEnchant(uint32_t before, uint32_t after) { return after && after != before; }
