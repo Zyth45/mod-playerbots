@@ -12,6 +12,7 @@
 #include "CoaEnchantOrderRules.h"
 #include "CoaEnchantSelfRules.h"
 #include "CoaFormulas.h"
+#include "CoaProfessionRules.h"
 #include "CoaProfessions.h"
 #include "CoaRareRecipes.h"
 #include "CoaGearScore.h"
@@ -274,7 +275,7 @@ namespace
     }
 }
 
-std::string ProfessionLink(Player* bot, uint32 skillId)
+std::string ProfessionLink(Player* bot, uint32 skillId, bool withLevel)
 {
     if (!bot)
         return "";
@@ -295,9 +296,13 @@ std::string ProfessionLink(Player* bot, uint32 skillId)
                 best = spell;
             }
     }
+    // 3.3.1: in Trade adverts, the bot's level after the link ("[Enchanting] 275/300"): the link only shows the
+    // profession's tooltip.
+    uint32 const current = bot->GetSkillValue(skillId), maximum = withLevel ? bot->GetMaxSkillValue(skillId) : 0;
     if (!best)
-        return ProfessionName(bot, skillId);
-    return CoaEconomyRules::SpellChatLink(best->Id, SpellNameFor(bot, best), false);
+        return CoaProfessionRules::WithLevel(ProfessionName(bot, skillId), current, maximum);
+    return CoaProfessionRules::WithLevel(CoaEconomyRules::SpellChatLink(best->Id, SpellNameFor(bot, best), false),
+                                         current, maximum);
 }
 
 std::string RecipeLink(Player* bot, Recipe const& recipe)

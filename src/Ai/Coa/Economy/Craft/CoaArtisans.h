@@ -126,7 +126,8 @@ namespace CoaEconomy::Artisans
 
     // Clickable links for the chat: the profession (the bot's highest rank of it, a spell link; its name as text if it
     // has none) and a recipe (the trade skill link the client makes when one shift-clicks a recipe).
-    std::string ProfessionLink(Player* bot, uint32 skillId);
+    // withLevel (3.3.1, Trade adverts): the bot's level after the link, "[Enchanting] 275/300".
+    std::string ProfessionLink(Player* bot, uint32 skillId, bool withLevel = false);
     std::string RecipeLink(Player* bot, Recipe const& recipe);
 
     // One item's market price (learned price, else the house bot's, else a vendor-based guess), copper. With

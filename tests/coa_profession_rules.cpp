@@ -65,6 +65,13 @@ int main()
     assert(t.Take(500, 60, 6));
     assert(!Throttle().Take(1000, 60, 0));
 
+    // The link with the level: plain text after the link, nothing when the maximum is unknown or the link empty.
+    std::string const link = "|cff71d5ff|Hspell:13920|h[Enchanting]|h|r";
+    assert(WithLevel(link, 275, 300) == link + " 275/300");
+    assert(WithLevel("Enchanting", 1, 75) == "Enchanting 1/75");
+    assert(WithLevel(link, 0, 0) == link);
+    assert(WithLevel("", 275, 300).empty());
+
     std::puts("coa_profession_rules: OK");
     return 0;
 }
