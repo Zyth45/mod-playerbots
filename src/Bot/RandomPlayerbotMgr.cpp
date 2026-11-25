@@ -3973,25 +3973,36 @@ void RandomPlayerbotMgr::OnPlayerLogout(Player* player)
         players.erase(i);
 }
 
-bool RandomPlayerbotMgr::CoaIsOrphanGroup(Group const* group)
+bool RandomPlayerbotMgr::CoaIsOrphanGroup(Group const* group, bool* left)
 {
+    if (left)
+        *left = false;
     if (!group || group->isBGGroup() || group->isBFGroup() || group->isLFGGroup())
         return false;
 
-    bool character = false;
+    bool character = false, masterGone = false;
     for (Group::MemberSlot const& slot : group->GetMemberSlots())
     {
         // FindConnectedPlayer also finds a player in a battleground (another group) or on a loading screen.
         if (Player* member = ObjectAccessor::FindConnectedPlayer(slot.guid))
         {
             // A player, a selfbot, or an alt or addclass bot, which is only online with its owner.
-            if (!GET_PLAYERBOT_AI(member) || !IsRandomBot(member))
+            PlayerbotAI* memberAI = GET_PLAYERBOT_AI(member);
+            if (!memberAI || !IsRandomBot(member))
                 return false;
+            // 3.3.1 (a player's report, Blackrock Mountain): the player who formed the raid left it with /leave; the
+            // core keeps the bots' raid, all random bots, and they stood still for minutes, still following him.
+            Player* master = memberAI->GetMaster();
+            if (master && !GET_PLAYERBOT_AI(master) && master->GetGroup() != group &&
+                master->GetOriginalGroup() != group)
+                masterGone = true;
         }
         else if (!sPlayerbotAIConfig.IsInRandomAccountList(sCharacterCache->GetCharacterAccountIdByGuid(slot.guid)))
             character = true;
     }
-    return character;
+    if (left)
+        *left = !character && masterGone;
+    return character || masterGone;
 }
 
 // The core keeps a player who logs out in his raid, and the bots he left there had no master and stood still
@@ -4020,13 +4031,15 @@ void RandomPlayerbotMgr::CoaReleaseOrphanGroups()
         if (!group || !seen.insert(group->GetGUID().GetCounter()).second)
             continue;
 
-        if (!CoaIsOrphanGroup(group) || sLFGMgr->GetState(group->GetGUID()) != lfg::LFG_STATE_NONE)
+        bool left = false;
+        if (!CoaIsOrphanGroup(group, &left) || sLFGMgr->GetState(group->GetGUID()) != lfg::LFG_STATE_NONE)
             continue;
 
         auto const known = coaOrphanGroups.find(group->GetGUID().GetCounter());
         time_t const since = known != coaOrphanGroups.end() ? known->second : now;
         orphans.emplace(group->GetGUID().GetCounter(), since);
-        if (now - since >= time_t(delay))
+        // A player who left his group does not come back to it: his bots go after 30 seconds at most.
+        if (now - since >= time_t(left ? std::min<uint32>(delay, 30) : delay))
             due.emplace_back(group, since);
     }
     coaOrphanGroups.swap(orphans);
@@ -4072,7 +4085,7 @@ void RandomPlayerbotMgr::CoaReleaseOrphanGroups()
                 botAI->ResetStrategies();
             }
         }
-        LOG_INFO("playerbots", "coa: released {} bots of a group whose players are offline for {}s", left,
+        LOG_INFO("playerbots", "coa: released {} bots of a group whose players are offline or gone for {}s", left,
                  uint32(now - since));
     }
 }

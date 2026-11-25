@@ -179,7 +179,8 @@ public:
     // A group whose random bots wait for their player (AiPlayerbot.CoaOrphanGroupReleaseDelay): a character of a
     // player's account is in it and none of the players is connected, not even in a battleground or on a loading
     // screen. Never a battleground or dungeon finder group. Only reads, so map threads may ask too.
-    bool CoaIsOrphanGroup(Group const* group);
+    // left (3.3.1): set when the group is orphan because its player left it (/leave), not because he is offline.
+    bool CoaIsOrphanGroup(Group const* group, bool* left = nullptr);
     // World thread, every tick: every 10 s, the random bots of the groups orphaned for that delay leave them.
     void CoaReleaseOrphanGroups();
     Player* GetRandomPlayer();
