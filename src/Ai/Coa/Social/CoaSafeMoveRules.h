@@ -220,6 +220,9 @@ constexpr AvoidedSpot AVOIDED_SPOTS[] = {
     // peu sur un rebord", "un petit rebord a droite des escalier de la banque pas vraiment au sol"): -8893.8 643.9,
     // -8895.2 642.5 and -8889.8 643.9 in one disc. The hall's floor at -8897.6 640.0 (checked in game) stays out.
     {0, -8892.5f, 643.3f, 99.5f, 4.5f},
+    // 3.2.3 (bench 3.3: a bot teleported to 9862.5 2342.8 1327.3, in the air over the server's floor at 1321.6): the
+    // Darnassus spot by the auctioneers the user fell from ("je tombe d'environ la hauteur du personnage").
+    {1, 9863.0f, 2344.2f, 1327.3f, 3.0f},
 };
 
 // 3.2.2 (the user: a bot in the Stormwind inn's floor after a random step): inside a capital, a random step ends only

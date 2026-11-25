@@ -155,6 +155,7 @@ int main()
     assert(std::fabs(sx) < 0.01f && std::fabs(sy + SIDE_STOP) < 0.01f);
     assert(SideStopFloor(177.0f, 177.6f) && !SideStopFloor(177.0f, 174.0f));
     assert(!Avoided(1, -1196.75f, 26.08f, 177.6f) && Avoided(1, -1197.6f, 32.0f, 177.5f));
+    assert(Avoided(1, 9862.49f, 2342.75f, 1327.3f) && Avoided(1, 9863.5f, 2345.68f, 1327.3f));  // Darnassus
     // 3.2.3: indoors, off the mount, walking or not; never in flight, on a boat or in a battleground.
     assert(IndoorDismount(true, false, false, false, false));
     assert(!IndoorDismount(true, true, false, false, false));
