@@ -46,6 +46,10 @@ int main()
     assert(RepeatPose(1000, 1000) && RepeatPose(1000, 1059));
     assert(!RepeatPose(1000, 1060) && !RepeatPose(1000, 999));
 
+    // Loot: "dungeon" in a dungeon or a raid, "loot" elsewhere; both fit the 16 characters of `source`.
+    assert(std::string(LootSource(true)) == "dungeon" && std::string(LootSource(false)) == "loot");
+    assert(std::string(LootSource(true)).size() <= 16);
+
     // A factory pass closes 5 s after its last piece, or when the server stops.
     assert(!PassClosed(1000, 1000, false) && !PassClosed(1000, 1004, false));
     assert(PassClosed(1000, 1005, false) && PassClosed(1000, 1000, true));
