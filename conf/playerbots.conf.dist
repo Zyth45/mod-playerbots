@@ -2040,6 +2040,12 @@ AiPlayerbot.Missions.MaxDeaths = 3
 # Default: 1 (enabled)
 AiPlayerbot.Missions.TeleportFallback = 1
 
+# The maps whose nodes, beasts and humanoids alts can be sent to on missions. Only alts take missions, so this list
+# is separate from AiPlayerbot.RandomBotMaps: random bots can stay in Azeroth (0,1) while alts gather in Outland (530).
+# With TeleportFallback, an alt ordered an item found only on another map of the list teleports there.
+# Default: 0,1,530
+AiPlayerbot.Missions.Maps = 0,1,530
+
 # Teleport the bot straight to its gathering spot when the mission starts, as when you summon an alt: the whole
 # mission time is spent gathering. 0: it walks there (the walk counts in the mission time).
 # Default: 1 (enabled)

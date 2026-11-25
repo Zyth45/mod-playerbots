@@ -387,16 +387,21 @@ bool CoaMissionAction::Start(Player* requester, uint32 minutes, uint32 skillId, 
             cell = sTravelMgr.AddFishingCell(bot->GetMapId(), bot->GetZoneId(), water.GetPositionX(),
                                              water.GetPositionY(), water.GetPositionZ());
     }
+    // Nothing here: a spot of another mission map (Fel Iron Ore asked in Stormwind), reached by teleport.
+    bool const otherMaps = sPlayerbotAIConfig.missionsTeleportFallback;
+    if (!cell && otherMaps)
+        cell = sTravelMgr.SelectGatherCell(bot, skillId, skillValue, nullptr, orderItem ? &orderNodes : nullptr, true);
+    std::string const where = otherMaps ? "anywhere I can go" : "on this continent";
     if (!cell && orderItem)
     {
-        error = "I know no spot for that on this continent at my level";
+        error = "I know no spot for that " + where + " at my level";
         return false;
     }
     if (!cell)
     {
         error = skillId == SKILL_FISHING
-                    ? "I know no fishing water for my level and skill on this continent: take me to some and ask again"
-                    : "I know no " + CoaMissionMgr::SkillName(skillId) + " spot for my level and skill on this continent";
+                    ? "I know no fishing water for my level and skill " + where + ": take me to some and ask again"
+                    : "I know no " + CoaMissionMgr::SkillName(skillId) + " spot for my level and skill " + where;
         return false;
     }
 
@@ -645,7 +650,7 @@ bool CoaMissionUpdateAction::DoTravel(CoaMission& mission, uint32 now)
     if (bot->IsInFlight())
         return false;
 
-    // The spot is always on the bot's continent; after a login elsewhere only a teleport gets it there.
+    // A spot on another continent (an order found only there, or a login elsewhere): only a teleport gets it there.
     if (bot->GetMapId() != mission.mapId)
     {
         if (!sPlayerbotAIConfig.missionsTeleportFallback)

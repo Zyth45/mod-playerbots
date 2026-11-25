@@ -8,6 +8,7 @@
 #define PLAYERBOTS_TRAVELMGR_H
 
 #include "AiObject.h"
+#include "CoaMissionZoneRules.h"
 #include "CreatureData.h"
 #include "GameObject.h"
 #include "GridDefines.h"
@@ -931,9 +932,10 @@ public:
     // The cell of the bot's continent, in a zone of its level, where most nodes still raise skillValue.
     // Picks at random among the best few so that several alts do not crowd the same cell.
     // nodes: only the spawn points of these gameobjects count (a mission ordering one item).
+    // otherMaps: the cells of the other mission maps instead, for an alt that teleports there.
     GatherCell const* SelectGatherCell(Player* bot, uint32 skillId, uint32 skillValue,
                                        GatherCell const* exclude = nullptr,
-                                       std::set<uint32> const* nodes = nullptr) const;
+                                       std::set<uint32> const* nodes = nullptr, bool otherMaps = false) const;
     // The herb and ore nodes whose loot has this item, with their profession and the lowest skill they need; else the
     // beasts whose skin gives it (creature entries), else the waters where it is fished (fishing pools and area ids).
     static std::set<uint32> NodesYielding(uint32 itemId, uint32& skillId, uint32& reqSkill);
@@ -1063,6 +1065,7 @@ private:
     std::map<uint8, std::vector<WorldLocation>> locsPerLevelCache;
     std::unordered_map<uint32, std::vector<WorldLocation>> creatureSpawnsByTemplate;
     std::map<uint32, LevelBracket> zone2LevelBracket;
+    std::map<uint32, CoaMissionZone::Bracket> missionScaledBrackets;
     std::vector<GatherCell> gatherCells;
     std::set<uint32> clothCreatures;
     // AddFishingCell: a deque, so that the cells already given never move.

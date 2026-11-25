@@ -460,6 +460,7 @@ public:
     uint32 missionsMaxPerPlayer;
     uint32 missionsMaxDeaths;
     bool missionsTeleportFallback;
+    std::vector<uint32> missionsMaps;
     bool missionsTeleportToSpot;
     bool missionsHighRisk;
     uint32 missionsRiskMailEvery;

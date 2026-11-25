@@ -4911,15 +4911,48 @@ uint32 SkinningSkillFor(uint32 level) { return level < 10 ? 1 : level < 20 ? (le
 void TravelMgr::PrepareGatherNodeCache()
 {
     gatherCells.clear();
+    missionScaledBrackets.clear();
 
     constexpr float cellSize = 200.0f;
     std::map<std::tuple<uint32, uint32, int32, int32>, GatherCell> cells;
     uint32 nodes = 0;
+    std::vector<uint32> const& missionMaps = sPlayerbotAIConfig.missionsMaps;
+
+    // The zones CoA rescaled (all of Outland on a level 60 realm): their creatures fight at their budget level.
+    std::map<uint32, uint32> scaledLevels;
+    std::set<uint32> scaledMaps;
+    if (WorldDatabase.Query("SHOW TABLES LIKE 'coa_zone_scaling'") &&
+        WorldDatabase.Query("SHOW TABLES LIKE 'coa_zone_creature_budget'"))
+    {
+        std::vector<std::pair<uint32, uint32>> zoneLevels;
+        if (QueryResult result = WorldDatabase.Query(
+                "SELECT b.zone_id, z.map_id, b.entry, b.level FROM coa_zone_creature_budget b "
+                "JOIN coa_zone_scaling z ON z.zone_id = b.zone_id WHERE z.enabled = 1"))
+            do
+            {
+                Field* row = result->Fetch();
+                uint32 const zoneId = row[0].Get<uint32>();
+                uint32 const mapId = row[1].Get<uint32>();
+                uint32 const entry = row[2].Get<uint32>();
+                uint32 const level = row[3].Get<uint8>();
+                if (!CoaMissionZone::OnMissionMap(missionMaps, mapId))
+                    continue;
+                zoneLevels.emplace_back(zoneId, level);
+                scaledMaps.insert(mapId);
+                uint32& known = scaledLevels[entry];
+                known = std::max(known, level);
+            } while (result->NextRow());
+        missionScaledBrackets = CoaMissionZone::ScaledBrackets(zoneLevels);
+    }
+    auto const creatureLevel = [&](CreatureData const& data, CreatureTemplate const* creature)
+    {
+        return scaledMaps.count(data.mapid) ? CoaMissionZone::CreatureLevel(scaledLevels, data.id, creature->maxlevel)
+                                            : creature->maxlevel;
+    };
 
     for (auto const& [spawnId, data] : sObjectMgr->GetAllGOData())
     {
-        if (std::find(sPlayerbotAIConfig.randomBotMaps.begin(), sPlayerbotAIConfig.randomBotMaps.end(), data.mapid) ==
-            sPlayerbotAIConfig.randomBotMaps.end())
+        if (!CoaMissionZone::OnMissionMap(missionMaps, data.mapid))
             continue;
         if (!(data.phaseMask & PHASEMASK_NORMAL))
             continue;
@@ -5023,36 +5056,34 @@ void TravelMgr::PrepareGatherNodeCache()
             continue;
         int32 const cx = static_cast<int32>(std::floor(data.posX / cellSize));
         int32 const cy = static_cast<int32>(std::floor(data.posY / cellSize));
+        uint32 const level = creatureLevel(data, creature);
+        bool const missionMap = CoaMissionZone::OnMissionMap(missionMaps, data.mapid);
 
         if (creature->SkinLootId && creature->GetRequiredLootSkill() == SKILL_SKINNING &&
             creature->rank == CREATURE_ELITE_NORMAL && !data.id2 && (data.phaseMask & PHASEMASK_NORMAL) &&
             !(creature->unit_flags & (UNIT_FLAG_NOT_SELECTABLE | UNIT_FLAG_NON_ATTACKABLE | UNIT_FLAG_IMMUNE_TO_PC)) &&
-            std::find(sPlayerbotAIConfig.randomBotMaps.begin(), sPlayerbotAIConfig.randomBotMaps.end(), data.mapid) !=
-                sPlayerbotAIConfig.randomBotMaps.end())
+            missionMap)
         {
             GatherCell& cell = cells[std::make_tuple(uint32(data.mapid), uint32(SKILL_SKINNING), cx, cy)];
             cell.mapId = data.mapid;
             cell.skillId = SKILL_SKINNING;
-            cell.points.push_back(
-                {data.posX, data.posY, data.posZ, SkinningSkillFor(creature->maxlevel), data.id, creature->maxlevel});
+            cell.points.push_back({data.posX, data.posY, data.posZ, SkinningSkillFor(level), data.id, level});
             ++beasts;
         }
 
-        if (clothCreatures.count(data.id) && !data.id2 && (data.phaseMask & PHASEMASK_NORMAL) &&
-            std::find(sPlayerbotAIConfig.randomBotMaps.begin(), sPlayerbotAIConfig.randomBotMaps.end(), data.mapid) !=
-                sPlayerbotAIConfig.randomBotMaps.end())
+        if (clothCreatures.count(data.id) && !data.id2 && (data.phaseMask & PHASEMASK_NORMAL) && missionMap)
         {
             GatherCell& cell = cells[std::make_tuple(uint32(data.mapid), GATHER_CLOTH, cx, cy)];
             cell.mapId = data.mapid;
             cell.skillId = GATHER_CLOTH;
-            cell.points.push_back({data.posX, data.posY, data.posZ, 1, data.id, creature->maxlevel});
+            cell.points.push_back({data.posX, data.posY, data.posZ, 1, data.id, level});
             ++humanoids;
         }
 
         FactionTemplateEntry const* faction = sFactionTemplateStore.LookupEntry(creature->faction);
         if (!faction || !faction->IsHostileToPlayers())
             continue;
-        hostileLevels[std::make_tuple(uint32(data.mapid), cx, cy)].push_back(creature->maxlevel);
+        hostileLevels[std::make_tuple(uint32(data.mapid), cx, cy)].push_back(level);
     }
 
     for (auto& [key, cell] : cells)
@@ -5163,7 +5194,7 @@ float GatherPointWeight(uint32 skillId, uint32 reqSkill, uint32 skillValue)
 
 TravelMgr::GatherCell const* TravelMgr::SelectGatherCell(Player* bot, uint32 skillId, uint32 skillValue,
                                                          GatherCell const* exclude,
-                                                         std::set<uint32> const* nodes) const
+                                                         std::set<uint32> const* nodes, bool otherMaps) const
 {
     if (!bot || !skillValue)
         return nullptr;
@@ -5173,14 +5204,14 @@ TravelMgr::GatherCell const* TravelMgr::SelectGatherCell(Player* bot, uint32 ski
 
     for (GatherCell const& cell : gatherCells)
     {
-        if (&cell == exclude || cell.skillId != skillId || cell.mapId != bot->GetMapId())
+        if (&cell == exclude || cell.skillId != skillId || (cell.mapId == bot->GetMapId()) == otherMaps)
             continue;
 
         // Only the zones of the bot's level or below: never a zone whose creatures outlevel it. A fisher does not
         // fight: a few levels more, the creatures of the spot itself still checked below.
         bool const fishing = skillId == SKILL_FISHING;
-        auto const bracket = zone2LevelBracket.find(cell.zoneId);
-        if (bracket == zone2LevelBracket.end() || bracket->second.low > level + (fishing ? 5 : 0))
+        auto const bracket = CoaMissionZone::ZoneBracket(missionScaledBrackets, zone2LevelBracket, cell.zoneId);
+        if (!bracket || bracket->low > level + (fishing ? 5 : 0))
             continue;
 
         AreaTableEntry const* zone = sAreaTableStore.LookupEntry(cell.zoneId);
@@ -5198,7 +5229,7 @@ TravelMgr::GatherCell const* TravelMgr::SelectGatherCell(Player* bot, uint32 ski
         // Creatures of the spot itself: far above the bot, never; a little above, only if nothing safer.
         if (cell.dangerLevel > level + 3)
             continue;
-        float risk = bracket->second.high > level + 2 ? 0.3f : 1.0f;
+        float risk = bracket->high > level + 2 ? 0.3f : 1.0f;
         if (cell.dangerLevel > level)
             risk *= 0.1f;
         for (GatherPoint const& p : cell.points)
@@ -5225,7 +5256,8 @@ TravelMgr::GatherCell const* TravelMgr::SelectGatherCell(Player* bot, uint32 ski
         if ((nodes ? score : float(usable)) < (fishing ? 1.0f : 3.0f))
             continue;
 
-        float const dist = bot->GetExactDist2d(cell.x, cell.y);
+        // On another map the bot teleports: no walk to weigh.
+        float const dist = otherMaps ? 0.0f : bot->GetExactDist2d(cell.x, cell.y);
         candidates.emplace_back(risk * score / (1.0f + dist / 3000.0f), &cell);
     }
 

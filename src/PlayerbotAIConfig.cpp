@@ -907,6 +907,9 @@ bool PlayerbotAIConfig::Initialize()
     missionsMaxPerPlayer = sConfigMgr->GetOption<uint32>("AiPlayerbot.Missions.MaxPerPlayer", 4, false);
     missionsMaxDeaths = std::max<uint32>(1, sConfigMgr->GetOption<uint32>("AiPlayerbot.Missions.MaxDeaths", 3, false));
     missionsTeleportFallback = sConfigMgr->GetOption<bool>("AiPlayerbot.Missions.TeleportFallback", true, false);
+    missionsMaps.clear();
+    LoadList<std::vector<uint32>>(sConfigMgr->GetOption<std::string>("AiPlayerbot.Missions.Maps", "0,1,530", false),
+                                  missionsMaps);
     missionsTeleportToSpot = sConfigMgr->GetOption<bool>("AiPlayerbot.Missions.TeleportToSpot", true, false);
     missionsHighRisk = sConfigMgr->GetOption<bool>("AiPlayerbot.Missions.HighRisk", true, false);
     missionsRiskMailEvery = sConfigMgr->GetOption<uint32>("AiPlayerbot.Missions.RiskMailEvery", 20, false);
