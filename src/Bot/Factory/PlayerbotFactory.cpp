@@ -5,6 +5,9 @@
  */
 
 #include "PlayerbotFactory.h"
+
+#include "CoaProfessionRules.h"
+#include "CoaProfessions.h"
 #include "Ai/Coa/Combat/Mount/CoaMountRule.h"
 #include "CoaFishingGear.h"
 #include "CoaWorldItemOrigin.h"
@@ -3635,6 +3638,8 @@ void PlayerbotFactory::InitTradeSkills()
     std::vector<WeightedProfessionPair> professionPairs = professionRollType == ProfessionRollType::Class
                                                               ? GetClassProfessionPairs(bot)
                                                               : GetRandomProfessionPairs();
+    // CoA 3.3.1: no pair with a profession the bots no longer have (Inscription, Jewelcrafting).
+    CoaProfessionRules::DropRetired(professionPairs);
 
     std::vector<uint16> knownPrimarySkills;
     for (uint32 tradeSkill : tradeSkills)
@@ -3646,7 +3651,8 @@ void PlayerbotFactory::InitTradeSkills()
     std::vector<uint16> primarySkills;
     auto addPrimarySkill = [&primarySkills, maxPrimaryTradeSkills](uint16 skillId)
     {
-        if (!skillId || !IsPrimaryTradeSkill(skillId) || primarySkills.size() >= maxPrimaryTradeSkills)
+        if (!skillId || !IsPrimaryTradeSkill(skillId) || primarySkills.size() >= maxPrimaryTradeSkills ||
+            CoaEconomy::Professions::Retired(skillId))
             return;
 
         if (std::find(primarySkills.begin(), primarySkills.end(), skillId) == primarySkills.end())
@@ -3704,7 +3710,8 @@ void PlayerbotFactory::InitTradeSkills()
         {
             for (uint32 tradeSkill : tradeSkills)
             {
-                if (IsPrimaryTradeSkill(tradeSkill) && tradeSkill != primarySkills.front())
+                if (IsPrimaryTradeSkill(tradeSkill) && tradeSkill != primarySkills.front() &&
+                    !CoaEconomy::Professions::Retired(tradeSkill))
                 {
                     addPrimarySkill(static_cast<uint16>(tradeSkill));
                     break;
@@ -3765,6 +3772,24 @@ void PlayerbotFactory::InitTradeSkills()
                                 : 0));
 
     InitTradeSpecializations();
+}
+
+// CoA 3.3.1: a bot that has a profession the bots no longer have (Inscription, Jewelcrafting) loses it, with its recipes (the draw
+// below drops a known skill it does not keep), and gets the one the draw gives in its place, with its trainer recipes.
+bool PlayerbotFactory::RetireProfessions(Player* bot)
+{
+    if (!bot || !sRandomPlayerbotMgr.IsRandomBot(bot))
+        return false;
+    bool retired = false;
+    for (uint32 tradeSkill : tradeSkills)
+        if (IsPrimaryTradeSkill(tradeSkill) && bot->HasSkill(tradeSkill) && CoaEconomy::Professions::Retired(tradeSkill))
+            retired = true;
+    if (!retired)
+        return false;
+    PlayerbotFactory factory(bot, bot->GetLevel());
+    factory.InitTradeSkills();
+    factory.InitAvailableSpells();
+    return true;
 }
 
 void PlayerbotFactory::InitTradeSpecializations()

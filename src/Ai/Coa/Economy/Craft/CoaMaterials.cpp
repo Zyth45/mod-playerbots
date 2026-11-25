@@ -6,6 +6,8 @@
 
 #include "CoaMaterials.h"
 
+#include "CoaProfessions.h"
+
 #include "CoaEconomyConf.h"
 #include "CoaEconomyData.h"
 
@@ -246,7 +248,8 @@ namespace
     uint32 Prospect(Player* bot, uint32 budget)
     {
         uint32 const skill = bot->GetSkillValue(SKILL_JEWELCRAFTING);
-        if (!skill)
+        // 3.3.1: the bots no longer have Jewelcrafting, so no prospecting (even before the bot changes it).
+        if (!skill || Professions::Retired(SKILL_JEWELCRAFTING))
             return 0;
         std::unordered_set<uint32> ores;
         ForEachBagItem(bot, [&](Item* item)

@@ -100,11 +100,7 @@ namespace
 
     void BuildPool()
     {
-        std::unordered_set<uint32> found;
-        if (QueryResult result = WorldDatabase.Query(FoundRecipesQuery))
-            do
-                found.insert(result->Fetch()[0].Get<uint32>());
-            while (result->NextRow());
+        std::unordered_set<uint32> const found = WorldRecipeItems();
 
         std::unordered_set<uint32> seen;
         for (auto const& [entry, recipe] : *sObjectMgr->GetItemTemplateStore())
@@ -127,6 +123,16 @@ namespace
         }
         LOG_INFO("server.loading", ">> CoA Economy: {} rare recipes artisans may know", pool.size());
     }
+}
+
+std::unordered_set<uint32> WorldRecipeItems()
+{
+    std::unordered_set<uint32> found;
+    if (QueryResult result = WorldDatabase.Query(FoundRecipesQuery))
+        do
+            found.insert(result->Fetch()[0].Get<uint32>());
+        while (result->NextRow());
+    return found;
 }
 
 bool IsEnabled()

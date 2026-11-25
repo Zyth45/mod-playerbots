@@ -773,6 +773,7 @@ public:
     uint32 coaLivePvpStatsKeepDays = 30;  // AiPlayerbot.CoaLive.PvpStatsKeepDays: battleground stats kept (0: never purged)
     bool coaLfgRolePriority = true;  // AiPlayerbot.CoaLfgRolePriority: a bot of the missing role queues first (3.2.1)
     uint32 coaLiveStrandedMinutes = 10;  // AiPlayerbot.CoaLive.StrandedMinutes: a stranded random bot freed (3.3.1)
+    bool coaLiveLootNeedRecipe = true;  // AiPlayerbot.CoaLive.LootNeedRecipe: Need on a recipe it can learn (3.3.1)
     // ---- end of CoA Live ----
 
     // ---- CoA World (LoadCoaWorldConfig, CoaWorldConfig.cpp) ----

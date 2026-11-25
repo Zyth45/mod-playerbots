@@ -7,6 +7,10 @@
 #ifndef COA_ECONOMY_RARE_RECIPES_H
 #define COA_ECONOMY_RARE_RECIPES_H
 
+#include "Define.h"
+
+#include <unordered_set>
+
 class Player;
 
 // CoA Economy: artisans' rare recipes (AiPlayerbot.CoaEconomy.Artisans.LearnRareRecipes.*, on by default). Bots
@@ -16,6 +20,9 @@ class Player;
 namespace CoaEconomy::RareRecipes
 {
     bool IsEnabled();
+    // The recipe items the world gives: dropped (any loot table) or sold by a vendor. One world database query: call
+    // it once (start-up or first use) and keep the result.
+    std::unordered_set<uint32> WorldRecipeItems();
     void LoadSettings();
 
     // Teaches the bot the rare recipes it has come to know since the last call (nothing when its ranks and level are

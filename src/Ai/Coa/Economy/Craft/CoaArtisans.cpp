@@ -6,8 +6,14 @@
 
 #include "CoaArtisans.h"
 
+#include "Bag.h"
 #include "CoaEconomyConf.h"
+#include "CoaEconomyEvents.h"
+#include "CoaEnchantOrderRules.h"
 #include "CoaEnchantSelfRules.h"
+#include "CoaFormulas.h"
+#include "CoaProfessions.h"
+#include "CoaRareRecipes.h"
 #include "CoaGearScore.h"
 #include "CoaMissionMgr.h"
 #include "CoaWorldItemOrigin.h"
@@ -153,6 +159,37 @@ uint32 studyMoneyPercent = 10;
 uint32 studyCopperPerLevel = 2500;
 uint32 studyMinGainPercent = 5;
 bool studyLog = false;
+// AiPlayerbot.CoaEconomy.EnchantOrders.* (3.3.1)
+bool ordersEnabled = true;
+bool ordersLog = false;
+uint32 ordersMinLevel = 20;
+uint32 ordersHighLevel = 60;
+uint32 ordersIntervalHours = 8;
+uint32 ordersMoneyPercent = 25;
+uint32 ordersCopperPerLevel = 10000;
+uint32 ordersFeePercent = 20;
+uint32 ordersMinFeePerLevel = 50;
+// 3.3.1: the orders' counts since the last hourly line (world thread only).
+struct OrderCounters
+{
+    uint32 orders = 0, here = 0;
+    uint32 outcomes[uint32(CoaEnchantOrderRules::Outcome::Count)] = {};
+    uint64 paid = 0, fees = 0;
+} orderCounters;
+// AiPlayerbot.CoaEconomy.Formulas.* (3.3.1, "super enchanters")
+bool formulasLearnHeld = true;
+bool formulasDraw = true;
+uint32 formulasDrawPercent = 25;
+uint32 formulasDrawMinSkill = 225;
+bool formulasBuy = true;
+uint32 formulasBuyPercent = 25;
+uint32 formulasBuyCopperPerLevel = 10000;
+uint32 formulasBuyPlayerDelayHours = 24;
+// 3.3.1: the formulas' counts since the last hourly line (world thread only).
+struct FormulaCounters
+{
+    uint32 learned = 0, drawn = 0, boughtAuction = 0, boughtVendor = 0;
+} formulaCounters;
 // Counters since the last summary (world thread only).
 struct StudyCounters
 {
@@ -181,6 +218,30 @@ void LoadSettings()
     studyCopperPerLevel = CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.SelfStudy.MaxCopperPerLevel", 2500);
     studyMinGainPercent = CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.SelfStudy.MinGainPercent", 5);
     studyLog = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.SelfStudy.Log", false, false);
+    ordersEnabled = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.EnchantOrders.Enable", true, false);
+    formulasLearnHeld = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.Formulas.LearnHeld", true, false);
+    formulasDraw = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.Formulas.RareDraw.Enable", true, false);
+    formulasDrawPercent =
+        std::min<uint32>(100, CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.Formulas.RareDraw.Percent", 25));
+    formulasDrawMinSkill = CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.Formulas.RareDraw.MinSkill", 225);
+    formulasBuy = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.Formulas.Buy.Enable", true, false);
+    formulasBuyPercent =
+        std::min<uint32>(100, CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.Formulas.Buy.MaxGoldPercent", 25));
+    formulasBuyCopperPerLevel =
+        CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.Formulas.Buy.MaxCopperPerLevel", 10000);
+    formulasBuyPlayerDelayHours =
+        CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.Formulas.Buy.PlayerDelayHours", 24);
+    ordersLog = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.EnchantOrders.Log", false, false);
+    ordersMinLevel = CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.EnchantOrders.MinLevel", 20);
+    ordersHighLevel = CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.EnchantOrders.HighLevel", 60);
+    ordersIntervalHours =
+        std::max<uint32>(1, CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.EnchantOrders.IntervalHours", 8));
+    ordersMoneyPercent =
+        std::min<uint32>(100, CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.EnchantOrders.MaxGoldPercent", 25));
+    ordersCopperPerLevel =
+        CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.EnchantOrders.MaxCopperPerLevel", 10000);
+    ordersFeePercent = CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.EnchantOrders.FeePercent", 20);
+    ordersMinFeePerLevel = CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.EnchantOrders.MinFeePerLevel", 50);
     minProfitPercent = CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.Artisans.MinProfitPercent", 20);
     realPrices = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.BotAuctions.RealHousePrices", true);
     realMultipliers = RealPrices::LoadMultipliers("AiPlayerbot.CoaEconomy.BotAuctions.RealPriceMultiplier");
@@ -355,7 +416,8 @@ std::vector<Recipe> KnownRecipes(Player* bot)
         if (!sCoaLaunchCurve->AllowsListing(*product))
             continue;
         uint32 const skillId = ProfessionOf(spellId);
-        if (!skillId)
+        // 3.3.1: nothing of a profession the bots no longer have (Inscription, Jewelcrafting), even before it changes.
+        if (!skillId || Professions::Retired(skillId))
             continue;
 
         Recipe recipe;
@@ -801,6 +863,203 @@ namespace
     }
 }
 
+}  // namespace CoaEconomy::Artisans
+
+namespace
+{
+    // 3.3.1: recipe items won at a need roll, per bot (raw guid -> entries), until learned; bounded.
+    std::mutex wonLock;
+    std::unordered_map<uint64, std::vector<uint32>> wonByRoll;
+
+    bool TakeWonByRoll(Player* bot, uint32 entry)
+    {
+        std::lock_guard<std::mutex> guard(wonLock);
+        auto it = wonByRoll.find(bot->GetGUID().GetRawValue());
+        if (it == wonByRoll.end())
+            return false;
+        auto found = std::find(it->second.begin(), it->second.end(), entry);
+        if (found == it->second.end())
+            return false;
+        it->second.erase(found);
+        if (it->second.empty())
+            wonByRoll.erase(it);
+        return true;
+    }
+}
+
+void CoaEconomy::Formulas::NoteWonByRoll(Player* bot, uint32 itemEntry)
+{
+    if (!bot || !itemEntry)
+        return;
+    std::lock_guard<std::mutex> guard(wonLock);
+    if (wonByRoll.size() > 20000)
+        wonByRoll.clear();  // bounded; a formula then shows "bags"
+    std::vector<uint32>& entries = wonByRoll[bot->GetGUID().GetRawValue()];
+    if (entries.size() < 16)
+        entries.push_back(itemEntry);
+}
+
+namespace CoaEconomy::Artisans
+{
+
+uint32 LearnHeldFormulas(Player* bot, char const* how, uint32 boughtEntry, uint64 price)
+{
+    if (!formulasLearnHeld || !bot)
+        return 0;
+    // First the entries (destroying while walking the bags would move them).
+    std::vector<uint32> entries;
+    auto look = [&](Item* item)
+    {
+        if (item && Formulas::Learnable(bot, item->GetTemplate()))
+            entries.push_back(item->GetEntry());
+    };
+    for (uint8 slot = INVENTORY_SLOT_ITEM_START; slot < INVENTORY_SLOT_ITEM_END; ++slot)
+        look(bot->GetItemByPos(INVENTORY_SLOT_BAG_0, slot));
+    for (uint8 bag = INVENTORY_SLOT_BAG_START; bag < INVENTORY_SLOT_BAG_END; ++bag)
+        if (Bag* pack = bot->GetBagByPos(bag))
+            for (uint32 slot = 0; slot < pack->GetBagSize(); ++slot)
+                look(pack->GetItemByPos(uint8(slot)));
+    uint32 learned = 0;
+    for (uint32 entry : entries)
+    {
+        ItemTemplate const* proto = sObjectMgr->GetItemTemplate(entry);
+        // Checked again: two copies of one formula teach it once; the second one stays (sold later).
+        if (!Formulas::Learnable(bot, proto))
+            continue;
+        uint32 const taught = Formulas::TaughtSpell(proto);
+        bot->learnSpell(taught, false);
+        bot->DestroyItemCount(entry, 1, true);
+        ++learned;
+        // 3.3.1 (Events): the dashboard's feed of formulas; the one just bought says where and for how much.
+        bool const bought = boughtEntry && entry == boughtEntry;
+        char const* const way = bought ? how : (TakeWonByRoll(bot, entry) ? "need" : "bags");
+        Events::NoteFormula(bot, Formulas::ProfessionOf(taught), taught, proto, way, bought ? price : 0);
+        if (bought)
+            boughtEntry = 0;
+        if (enchantForSelfLog || studyLog)
+            LOG_INFO("playerbots.coa", "CoaEconomy: formula learned: {} (level {}) learned {} from {} ({})",
+                     bot->GetName(), bot->GetLevel(), taught, entry, proto->Name1);
+    }
+    formulaCounters.learned += learned;
+    return learned;
+}
+
+namespace
+{
+    // 3.3.1 (Formulas.RareDraw): the enchanting formulas the world gives (a recipe item dropped or sold by a vendor),
+    // built at the first draw; the next draw of each enchanter (game time, seconds).
+    std::vector<uint32> worldFormulas;
+    bool worldFormulasBuilt = false;
+    std::unordered_map<uint64, uint32> nextDraw;
+
+    void BuildWorldFormulas()
+    {
+        worldFormulasBuilt = true;
+        for (uint32 entry : RareRecipes::WorldRecipeItems())
+        {
+            ItemTemplate const* proto = sObjectMgr->GetItemTemplate(entry);
+            uint32 const taught = Formulas::TaughtSpell(proto);
+            if (taught && sSpellMgr->GetSpellInfo(taught) && Formulas::ProfessionOf(taught) == SKILL_ENCHANTING)
+                worldFormulas.push_back(entry);
+        }
+        std::sort(worldFormulas.begin(), worldFormulas.end());
+        LOG_INFO("playerbots.coa", "CoaEconomy: {} enchanting formulas the world gives (Formulas.RareDraw)",
+                 worldFormulas.size());
+    }
+}
+
+uint32 DrawRareFormula(Player* bot)
+{
+    if (!formulasDraw || !bot || !bot->HasSkill(SKILL_ENCHANTING))
+        return 0;
+    uint32 const skill = bot->GetSkillValue(SKILL_ENCHANTING);
+    if (skill < formulasDrawMinSkill)
+        return 0;
+    uint32 const now = uint32(GameTime::GetGameTime().count());
+    auto [it, fresh] = nextDraw.try_emplace(bot->GetGUID().GetRawValue(), 0);
+    if (fresh)
+    {
+        // The first draw falls somewhere in the first day, from the guid: a restart makes no burst of draws.
+        uint32 const spread = uint32(bot->GetGUID().GetCounter() * 2654435761u) % 1000;
+        it->second = now + CoaSelfStudyRules::FirstStudyDelay(float(spread) / 1000.0f, DAY);
+    }
+    if (now < it->second)
+        return 0;
+    it->second = now + DAY;
+    if (!CoaFormulaRules::DrawsFormula(skill, formulasDrawMinSkill, urand(0, 99), formulasDrawPercent))
+        return 0;
+    if (!worldFormulasBuilt)
+        BuildWorldFormulas();
+    // Only what it could learn from the item itself: its rank, level and reputation, and not one it knows.
+    std::vector<ItemTemplate const*> candidates;
+    for (uint32 entry : worldFormulas)
+        if (ItemTemplate const* proto = sObjectMgr->GetItemTemplate(entry); Formulas::Learnable(bot, proto))
+            candidates.push_back(proto);
+    if (candidates.empty())
+        return 0;
+    ItemTemplate const* proto = candidates[urand(0, uint32(candidates.size() - 1))];
+    uint32 const taught = Formulas::TaughtSpell(proto);
+    bot->learnSpell(taught, false);
+    ++formulaCounters.drawn;
+    Events::NoteFormula(bot, SKILL_ENCHANTING, taught, proto, "drawn", 0);
+    if (enchantForSelfLog || studyLog)
+        LOG_INFO("playerbots.coa", "CoaEconomy: formula drawn: {} (enchanting {}) learned {} ({})", bot->GetName(), skill,
+                 taught, proto->Name1);
+    return taught;
+}
+
+bool WantsFormula(Player* bot, ItemTemplate const* proto)
+{
+    return Formulas::Learnable(bot, proto) && Formulas::ProfessionOf(Formulas::TaughtSpell(proto)) == SKILL_ENCHANTING;
+}
+
+uint64 FormulaBuyCap(Player* bot)
+{
+    if (!formulasBuy || !bot || !bot->HasSkill(SKILL_ENCHANTING))
+        return 0;
+    return CoaFormulaRules::BuyCap(bot->GetMoney(), formulasBuyPercent, bot->GetLevel(), formulasBuyCopperPerLevel);
+}
+
+uint32 FormulaPlayerDelaySeconds()
+{
+    return formulasBuyPlayerDelayHours * HOUR;
+}
+
+void NoteFormulaBought(Player* bot, uint32 entry, uint64 price, bool auction)
+{
+    ++(auction ? formulaCounters.boughtAuction : formulaCounters.boughtVendor);
+    if (bot && (enchantForSelfLog || studyLog))
+        LOG_INFO("playerbots.coa", "CoaEconomy: formula bought: {} (level {}) bought {} for {}c at {}", bot->GetName(),
+                 bot->GetLevel(), entry, price, auction ? "the auction house" : "a vendor");
+}
+
+bool BuyFormulaAtVendor(Player* bot, Creature* vendor)
+{
+    uint64 const cap = FormulaBuyCap(bot);
+    VendorItemData const* items = cap && vendor ? vendor->GetVendorItems() : nullptr;
+    if (!items)
+        return false;
+    for (uint32 slot = 0; slot < items->GetItemCount(); ++slot)
+    {
+        VendorItem const* sold = items->GetItem(slot);
+        if (!sold || sold->ExtendedCost || (sold->maxcount && !vendor->GetVendorItemCurrentCount(sold)))
+            continue;
+        ItemTemplate const* proto = sObjectMgr->GetItemTemplate(sold->item);
+        // The game asks the reputation rank again at the purchase, and charges its own price (never more than this).
+        if (!proto || proto->Class != ITEM_CLASS_RECIPE || !proto->BuyPrice || proto->BuyPrice > cap ||
+            !WantsFormula(bot, proto))
+            continue;
+        uint64 const before = bot->GetMoney();
+        if (!bot->BuyItemFromVendorSlot(vendor->GetGUID(), slot, sold->item, 1, NULL_BAG, NULL_SLOT))
+            continue;
+        uint64 const paid = before > bot->GetMoney() ? before - bot->GetMoney() : 0;
+        NoteFormulaBought(bot, sold->item, paid, false);
+        LearnHeldFormulas(bot, "vendor", sold->item, paid);
+        return true;
+    }
+    return false;
+}
+
 bool StudyIfDue(Player* bot, PlayerbotAI* botAI)
 {
     if (!studyEnabled || !bot || !botAI || !bot->IsInWorld() || !bot->IsAlive() || bot->IsInCombat() ||
@@ -822,6 +1081,12 @@ bool StudyIfDue(Player* bot, PlayerbotAI* botAI)
 
     ++studyCounters.studies;
     studyShort = false;
+    // 3.3.1: a bot that has Inscription or Jewelcrafting changes it first, a few bots a minute.
+    Professions::RetireIfDue(bot);
+    // 3.3.1 (Formulas.LearnHeld): a formula in its bags first, so what it learns serves at once.
+    LearnHeldFormulas(bot);
+    // 3.3.1 (Formulas.RareDraw): now and then, a formula the world gives, as if found.
+    DrawRareFormula(bot);
     auto cap = [bot]()
     {
         return studyBuy ? CoaSelfStudyRules::SpendCap(bot->GetMoney(), studyMoneyPercent, bot->GetLevel(),
@@ -842,17 +1107,204 @@ bool StudyIfDue(Player* bot, PlayerbotAI* botAI)
 
 namespace
 {
+    // 3.3.1 (EnchantOrders): the enchantments the enchanter bots online know (spell -> their raw guids), rebuilt every
+    // 10 minutes. Only what an enchanter bot of the server knows can be ordered: nothing made up.
+    std::unordered_map<uint32, std::vector<uint64>> enchanterSpells;
+    uint32 enchanterSpellsAt = 0;
+    // When each bot orders next (game time, seconds); bounded by the number of bots.
+    std::unordered_map<uint64, uint32> nextOrder;
+
+    void RefreshEnchanters(uint32 now)
+    {
+        if (enchanterSpellsAt && now < enchanterSpellsAt + 600)
+            return;
+        enchanterSpellsAt = now;
+        enchanterSpells.clear();
+        for (auto const& [guid, player] : ObjectAccessor::GetPlayers())
+        {
+            if (!player || !player->IsInWorld() || !player->HasSkill(SKILL_ENCHANTING))
+                continue;
+            PlayerbotAI* botAI = GET_PLAYERBOT_AI(player);
+            if (!botAI || !botAI->IsBotAI())
+                continue;
+            for (auto const& [spellId, playerSpell] : player->GetSpellMap())
+            {
+                if (!playerSpell || playerSpell->State == PLAYERSPELL_REMOVED || !playerSpell->Active)
+                    continue;
+                SpellInfo const* spell = sSpellMgr->GetSpellInfo(spellId);
+                // An enchantment the game keeps to the enchanter's own items (a ring's) cannot be ordered.
+                if (!spell || !spell->HasEffect(SPELL_EFFECT_ENCHANT_ITEM) ||
+                    spell->HasAttribute(SPELL_ATTR2_ENCHANT_OWN_ITEM_ONLY))
+                    continue;
+                enchanterSpells[spellId].push_back(player->GetGUID().GetRawValue());
+            }
+        }
+    }
+
+    // An enchanter bot online, of the customer's faction, that knows the spell: one in the same zone first.
+    Player* OnlineEnchanter(Player* customer, std::vector<uint64> const& guids)
+    {
+        Player* elsewhere = nullptr;
+        for (uint64 raw : guids)
+        {
+            Player* enchanter = ObjectAccessor::FindConnectedPlayer(ObjectGuid(raw));
+            if (!enchanter || enchanter == customer || !enchanter->IsInWorld() ||
+                enchanter->GetTeamId() != customer->GetTeamId())
+                continue;
+            if (enchanter->GetZoneId() == customer->GetZoneId())
+                return enchanter;
+            if (!elsewhere)
+                elsewhere = enchanter;
+        }
+        return elsewhere;
+    }
+
+    // The reagents of one cast at their price: a vendor's when one sells it, else the market's; false when one of them
+    // has no price.
+    bool ReagentsPrice(SpellInfo const* spell, uint64& price)
+    {
+        price = 0;
+        for (uint8 i = 0; i < MAX_SPELL_REAGENTS; ++i)
+        {
+            if (spell->Reagent[i] <= 0 || !spell->ReagentCount[i])
+                continue;
+            uint32 const reagent = uint32(spell->Reagent[i]);
+            ItemTemplate const* proto = sObjectMgr->GetItemTemplate(reagent);
+            uint64 const vendor = proto && proto->BuyPrice && Sellable::IsFreeVendorItem(reagent) ? proto->BuyPrice : 0;
+            uint64 const unit = CoaSelfStudyRules::UnitPrice(vendor, vendor ? 0 : MarketPrice(reagent));
+            if (!unit)
+                return false;
+            price += unit * spell->ReagentCount[i];
+        }
+        return true;
+    }
+
+    // One order: the best worn piece worth it (epic, then rare), the best enchantment for it that an enchanter bot
+    // online knows and the bot can pay for; paid in gold (the reagents at their price, the fee to the enchanter).
+    CoaEnchantOrderRules::Outcome OrderOnce(Player* bot)
+    {
+        using namespace CoaEnchantOrderRules;
+        std::vector<std::pair<uint32, Item*>> pieces;
+        for (uint8 slot = EQUIPMENT_SLOT_START; slot < EQUIPMENT_SLOT_END; ++slot)
+        {
+            if (slot == EQUIPMENT_SLOT_FINGER1 || slot == EQUIPMENT_SLOT_FINGER2)
+                continue;  // ring enchantments: the enchanter's own rings only
+            Item* item = bot->GetItemByPos(INVENTORY_SLOT_BAG_0, slot);
+            if (!item || item->GetEnchantmentId(PERM_ENCHANTMENT_SLOT))
+                continue;  // already enchanted: the factory's enchantments stay
+            ItemTemplate const* proto = item->GetTemplate();
+            uint32 const rank = proto ? PieceRank(proto->Quality, proto->ItemLevel, bot->GetLevel(), ordersHighLevel) : 0;
+            if (rank)
+                pieces.emplace_back(rank, item);
+        }
+        if (pieces.empty())
+            return Outcome::NoPiece;
+        std::stable_sort(pieces.begin(), pieces.end(), [](auto const& a, auto const& b) { return a.first > b.first; });
+
+        StatsWeightCalculator calculator(bot);
+        uint64 const cap = SpendCap(bot->GetMoney(), ordersMoneyPercent, bot->GetLevel(), ordersCopperPerLevel);
+        bool goldShort = false;
+        for (auto const& [rank, item] : pieces)
+        {
+            SpellInfo const* bestSpell = nullptr;
+            Player* bestBy = nullptr;
+            uint32 bestEnchant = 0;
+            float bestScore = 0.0f;
+            uint64 bestReagents = 0, bestFee = 0;
+            for (auto const& [spellId, guids] : enchanterSpells)
+            {
+                SpellInfo const* spell = sSpellMgr->GetSpellInfo(spellId);
+                if (!spell || !item->IsFitToSpellRequirements(spell))
+                    continue;
+                uint32 enchantId = 0;
+                SpellItemEnchantmentEntry const* enchant = UsablePermanentEnchant(bot, spell, enchantId);
+                if (!enchant ||
+                    (enchant->EnchantmentCondition && !bot->EnchantmentFitsRequirements(enchant->EnchantmentCondition, -1)))
+                    continue;
+                float const score = calculator.CalculateEnchant(enchantId);
+                if (score <= bestScore)
+                    continue;
+                uint64 reagents = 0;
+                if (!ReagentsPrice(spell, reagents))
+                    continue;
+                Player* by = OnlineEnchanter(bot, guids);
+                if (!by)
+                    continue;
+                uint64 const fee = Fee(reagents, ordersFeePercent, bot->GetLevel(), ordersMinFeePerLevel);
+                if (!Better(score, reagents + fee, cap, bestScore))
+                {
+                    goldShort = true;
+                    continue;
+                }
+                bestSpell = spell;
+                bestBy = by;
+                bestEnchant = enchantId;
+                bestScore = score;
+                bestReagents = reagents;
+                bestFee = fee;
+            }
+            if (!bestSpell)
+                continue;  // nothing for this piece: the next one
+
+            uint64 const price = bestReagents + bestFee;
+            bot->ModifyMoney(-int32(std::min<uint64>(price, uint64(INT32_MAX))));
+            bestBy->ModifyMoney(int32(std::min<uint64>(bestFee, uint64(INT32_MAX))));
+            CoaWorld::SetEnchant(bot, item, PERM_ENCHANTMENT_SLOT, bestEnchant, bestBy->GetGUID(), "artisan");
+            // 3.3.1 (Events): who served it and what it earned, for the dashboard's enchanters.
+            Events::NoteOrder(bestBy, bot, item, bestEnchant, price, bestFee);
+            orderCounters.paid += price;
+            orderCounters.fees += bestFee;
+            bool const here = bestBy->GetZoneId() == bot->GetZoneId();
+            orderCounters.here += here ? 1 : 0;
+            if (ordersLog)
+                LOG_INFO("playerbots.coa", "CoaEconomy: enchant order: {} (level {}) had {} put enchantment {} on {} "
+                         "({}){}, {}c paid ({}c fee)", bot->GetName(), bot->GetLevel(), bestBy->GetName(), bestEnchant,
+                         item->GetEntry(), item->GetTemplate()->Name1, here ? "" : " from another zone", price, bestFee);
+            return Outcome::Done;
+        }
+        return goldShort ? Outcome::NoGold : Outcome::NoEnchanter;
+    }
+}
+
+bool OrderEnchantIfDue(Player* bot)
+{
+    if (!ordersEnabled || !bot || !bot->IsInWorld() || !bot->IsAlive() || bot->IsInCombat() ||
+        !sRandomPlayerbotMgr.IsRandomBot(bot) ||
+        !CoaEnchantOrderRules::Orders(bot->GetLevel(), ordersMinLevel, bot->HasSkill(SKILL_ENCHANTING)) ||
+        !CoaEnchantSelfRules::StudyPlace(InCapital(bot), true, bot->HasRestFlag(REST_FLAG_IN_CITY),
+                                         bot->HasRestFlag(REST_FLAG_IN_TAVERN)))
+        return false;
+    uint32 const now = uint32(GameTime::GetGameTime().count());
+    uint32 const interval = CoaEnchantOrderRules::IntervalSeconds(bot->GetLevel(), ordersIntervalHours, ordersHighLevel);
+    auto [it, fresh] = nextOrder.try_emplace(bot->GetGUID().GetRawValue(), 0);
+    if (fresh)
+    {
+        // Spread over the first interval, from the guid (another spread than the study's).
+        uint32 const spread = uint32(bot->GetGUID().GetCounter() * 2246822519u) % 1000;
+        it->second = now + CoaSelfStudyRules::FirstStudyDelay(float(spread) / 1000.0f, interval);
+    }
+    if (now < it->second)
+        return false;
+    it->second = now + interval;
+    RefreshEnchanters(now);
+    ++orderCounters.orders;
+    ++orderCounters.outcomes[uint32(OrderOnce(bot))];
+    return true;
+}
+
+namespace
+{
     // Every 30 s, the random bots in a capital whose study is due (a few at a time).
     uint32 scanTimer = 0;
     void ScanCapitals(uint32 diff)
     {
-        if (!studyEnabled)
+        if (!studyEnabled && !ordersEnabled)
             return;
         scanTimer += diff;
         if (scanTimer < 30 * IN_MILLISECONDS)
             return;
         scanTimer = 0;
-        uint32 studied = 0;
+        uint32 studied = 0, ordered = 0;
         for (auto const& [guid, player] : ObjectAccessor::GetPlayers())
         {
             if (!player || !player->IsInWorld() || player->IsBeingTeleported() || player->IsFlying() ||
@@ -861,7 +1313,12 @@ namespace
             PlayerbotAI* botAI = GET_PLAYERBOT_AI(player);
             if (!botAI || !botAI->IsBotAI())
                 continue;
-            if (StudyIfDue(player, botAI) && ++studied >= 20)
+            if (studied < 20 && StudyIfDue(player, botAI))
+                ++studied;
+            // 3.3.1: a bot without Enchanting orders an enchantment (EnchantOrders).
+            if (ordered < 20 && OrderEnchantIfDue(player))
+                ++ordered;
+            if (studied >= 20 && ordered >= 20)
                 break;
         }
         Summary(uint32(GameTime::GetGameTime().count()));
@@ -900,6 +1357,22 @@ namespace
                      refused(Refusal::NoReagent), refused(Refusal::NoGold), refused(Refusal::NoGain));
         }
         enchantCounters = EnchantCounters();
+        if (enchantHourly && ordersEnabled)
+        {
+            using CoaEnchantOrderRules::Outcome;
+            auto const outcome = [](Outcome o) { return orderCounters.outcomes[uint32(o)]; };
+            LOG_INFO("playerbots.coa", "CoaEconomy: enchant orders (last hour): {} orders, {} enchantments put on ({} by "
+                     "an enchanter in the same zone), {}c paid, {}c of it in fees; nothing put on: {} no piece, {} no "
+                     "enchanter, {} no gold", orderCounters.orders, outcome(Outcome::Done), orderCounters.here,
+                     orderCounters.paid, orderCounters.fees, outcome(Outcome::NoPiece), outcome(Outcome::NoEnchanter),
+                     outcome(Outcome::NoGold));
+        }
+        orderCounters = OrderCounters();
+        if (enchantHourly)
+            LOG_INFO("playerbots.coa", "CoaEconomy: formulas (last hour): {} learned from bags, {} drawn, {} bought at "
+                     "the auction house, {} bought at a vendor", formulaCounters.learned, formulaCounters.drawn,
+                     formulaCounters.boughtAuction, formulaCounters.boughtVendor);
+        formulaCounters = FormulaCounters();
     }
 }
 

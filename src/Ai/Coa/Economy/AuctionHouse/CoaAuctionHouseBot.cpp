@@ -30,6 +30,7 @@
 #include "CoaLaunchCurve.h"
 #include "CoaEconomyRules.h"
 #include "CoaSellable.h"
+#include "CoaProfessions.h"
 #include "AuctionHouseSearcher.h"
 #include "AccountMgr.h"
 #include "CharacterCache.h"
@@ -1179,6 +1180,10 @@ void AuctionHouseBot::PopulateItemCandidatesAndProportions()
                 }
             }
         }
+
+        // CoA 3.3.1: no item only Inscription or Jewelcrafting gives (the world's own stay).
+        if (CoaEconomy::Professions::IsRetiredItem(&itr->second))
+            continue;
 
         // Disabled items by Id
         if (DisabledItems.find(itr->second.ItemId) != DisabledItems.end())

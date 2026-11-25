@@ -4509,6 +4509,17 @@ AiPlayerbot.CoaLfgRolePriority = 1
 #        Default:     10 (0: off)
 AiPlayerbot.CoaLive.StrandedMinutes = 10
 
+#    AiPlayerbot.CoaLive.LootNeedRecipe
+#        Description: In a group roll (dungeon, raid, any group), a bot rolls Need on a recipe of any profession
+#                     (formula, pattern, plans, schematic...) it can learn and does not know yet: its profession,
+#                     skill rank, level and the reputation asked are enough. It learns it at its next study in town.
+#                     The manners stay: never against a real player's Need, and the real players vote first.
+#                     Any other recipe is rolled as AiPlayerbot.LootRollRecipe says. A learnable recipe is a Need for
+#                     every bot, whatever AiPlayerbot.LootNeedRollLevel says.
+#                     With AiPlayerbot.CoaCombat.LootNeedEpicOnly = 1, a recipe below epic stays a Greed.
+#        Default:     1 (enabled)
+AiPlayerbot.CoaLive.LootNeedRecipe = 1
+
 # Bots' minimum and maximum level when teleporting in and out of a zone, according to the new RPG strategy
 # Format: AiPlayerbot.ZoneBracket.zoneID = minLevel,maxLevel
 #
@@ -6182,6 +6193,66 @@ AiPlayerbot.CoaEconomy.SelfStudy.MaxGoldPercent = 10
 AiPlayerbot.CoaEconomy.SelfStudy.MaxCopperPerLevel = 2500
 AiPlayerbot.CoaEconomy.SelfStudy.MinGainPercent = 5
 AiPlayerbot.CoaEconomy.SelfStudy.Log = 0
+
+# Enchantment orders (3.3.1): a random bot without Enchanting, resting in a city or an inn (alone or back from a group
+# with a player), now and then has an enchanter bot put an enchantment on one piece it wears: its best piece with no
+# permanent enchantment, an epic one first, then a rare one (below HighLevel, a green one close to its level too; never
+# a ring, which only its enchanter may enchant), and the best enchantment for it that an enchanter bot online of its
+# faction knows (one in the same zone first). It pays in real gold: the reagents at their price (a vendor's, else the
+# market's) plus the enchanter's fee (FeePercent of the reagents, at least MinFeePerLevel copper per level), given to
+# that enchanter; never more than MaxGoldPercent of its gold nor MaxCopperPerLevel times its level. One piece per order,
+# at most one order per IntervalHours (half that from HighLevel on). A piece that already carries an enchantment (the
+# bot factory's) is never touched. The armory notes it ("enchant", source "artisan"). With
+# EnchantForSelf.HourlyCount = 1, one line an hour in the playerbots.coa log counts the orders; Log: each order there.
+# Default: 1 (enabled), level 20, 8 hours, high level 60, 25 %, 10000 copper per level, 20 %, 50 copper per level;
+# Log: 0 (disabled)
+AiPlayerbot.CoaEconomy.EnchantOrders.Enable = 1
+AiPlayerbot.CoaEconomy.EnchantOrders.MinLevel = 20
+AiPlayerbot.CoaEconomy.EnchantOrders.IntervalHours = 8
+AiPlayerbot.CoaEconomy.EnchantOrders.HighLevel = 60
+AiPlayerbot.CoaEconomy.EnchantOrders.MaxGoldPercent = 25
+AiPlayerbot.CoaEconomy.EnchantOrders.MaxCopperPerLevel = 10000
+AiPlayerbot.CoaEconomy.EnchantOrders.FeePercent = 20
+AiPlayerbot.CoaEconomy.EnchantOrders.MinFeePerLevel = 50
+AiPlayerbot.CoaEconomy.EnchantOrders.Log = 0
+
+# Recipes the world gives (3.3.1, "super enchanters"): bots learn more than what profession trainers teach.
+#    LearnHeld = 1: at each self study (above), a bot learns every recipe in its bags it may learn (a formula, a
+#                   pattern, plans: one it does not know, of a profession it has, at its rank, level and reputation) and
+#                   the recipe item is used up, as for a player. Looted, won, bought or given alike.
+#    RareDraw.Enable = 1: once a day, at a study, an enchanter bot of RareDraw.MinSkill or more in Enchanting has
+#                   RareDraw.Percent chances to learn one enchanting formula, drawn only among those the world really
+#                   gives (a formula dropped by a creature or a chest, or sold by a vendor) that it could learn from the
+#                   item itself (its rank, level and reputation) and does not know yet: the "super enchanters".
+#    Buy.Enable = 1: an enchanter bot buys an enchanting formula it may learn and does not know, then learns it at
+#                   once: at a vendor it stops at (only with the reputation rank the formula asks, at the vendor's
+#                   price), or at the auction house on a visit (the cheapest; a formula a player listed only once the
+#                   bots have seen it for Buy.PlayerDelayHours, so players get it first). One per stop, for at most
+#                   Buy.MaxGoldPercent of its gold and Buy.MaxCopperPerLevel times its level.
+# With EnchantForSelf.HourlyCount = 1, one line an hour in the playerbots.coa log counts the formulas learned, drawn
+# and bought.
+# Default: LearnHeld 1 (enabled); RareDraw.Enable 1 (enabled), RareDraw.Percent 25, RareDraw.MinSkill 225;
+# Buy.Enable 1 (enabled), Buy.MaxGoldPercent 25, Buy.MaxCopperPerLevel 10000, Buy.PlayerDelayHours 24
+AiPlayerbot.CoaEconomy.Formulas.LearnHeld = 1
+AiPlayerbot.CoaEconomy.Formulas.RareDraw.Enable = 1
+AiPlayerbot.CoaEconomy.Formulas.RareDraw.Percent = 25
+AiPlayerbot.CoaEconomy.Formulas.RareDraw.MinSkill = 225
+AiPlayerbot.CoaEconomy.Formulas.Buy.Enable = 1
+AiPlayerbot.CoaEconomy.Formulas.Buy.MaxGoldPercent = 25
+AiPlayerbot.CoaEconomy.Formulas.Buy.MaxCopperPerLevel = 10000
+AiPlayerbot.CoaEconomy.Formulas.Buy.PlayerDelayHours = 24
+
+# The economy's facts for the dashboard (3.3.1): the server writes, in the characters database, the formulas a
+# character learned beyond the trainers (table coa_formula_event: from its bags, drawn, bought at the auction house or
+# a vendor, with the price) and the enchantment orders an enchanter bot served (table coa_enchant_order: enchanter,
+# customer, item, enchantment, price, fee), with each enchanter's totals (table coa_enchanter_stats: orders served,
+# fees earned; the ranking, never purged by age). The tables are made at start-up; rows are written once a minute, off
+# the world thread. Rows of characters deleted go; orders older than PurgeDays go (0 = kept; about 150 bytes a row);
+# each character keeps its last FormulasPerCharacter formula rows. Read at start-up (Enable) and on reload (the rest).
+# Default: 1 (enabled), PurgeDays 30, FormulasPerCharacter 300
+AiPlayerbot.CoaEconomy.Events.Enable = 1
+AiPlayerbot.CoaEconomy.Events.PurgeDays = 30
+AiPlayerbot.CoaEconomy.Events.FormulasPerCharacter = 300
 
 # Craft on order and artisans in Trade, with CoA Live's lines (bank 3_0_05 of CoA IA MIND) and COD mail. Needs
 # Artisans, and AiPlayerbot.CoaLive.Enable = 1 (without it nothing is said and no order is taken).

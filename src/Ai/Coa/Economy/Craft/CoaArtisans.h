@@ -14,6 +14,7 @@
 #include <unordered_set>
 #include <vector>
 
+class Creature;
 class Item;
 class Player;
 class SpellInfo;
@@ -84,6 +85,32 @@ namespace CoaEconomy::Artisans
     // buying the missing reagents under the study's gold cap. Called by the scan and at an auction house visit; does
     // nothing before the bot's next study is due. World thread only. True when it studied.
     bool StudyIfDue(Player* bot, PlayerbotAI* botAI);
+    // CoA 3.3.1 (AiPlayerbot.CoaEconomy.EnchantOrders.*): a random bot without Enchanting, resting in a city or an inn,
+    // has an enchanter bot online put the best enchantment it can pay for on its best worn piece without one (epic,
+    // then rare), once per IntervalHours (half that at HighLevel). Paid in gold: the reagents at their price, the fee
+    // to the enchanter. Noted "enchant" (source "artisan") for the armory. World thread only. True when it ordered.
+    bool OrderEnchantIfDue(Player* bot);
+    // CoA 3.3.1 (AiPlayerbot.CoaEconomy.Formulas.LearnHeld): the bot learns every recipe in its bags it may learn
+    // (CoaEconomy::Formulas::Learnable: a formula, a pattern, plans...) and the recipe item is used up, as for a player.
+    // Called at each study. World thread only. The number learned.
+    // how and price name the formula just bought (boughtEntry, "auction" or "vendor") for the dashboard's feed
+    // (CoaEconomy::Events); the others are noted "bags".
+    uint32 LearnHeldFormulas(Player* bot, char const* how = "bags", uint32 boughtEntry = 0, uint64 price = 0);
+    // CoA 3.3.1 (AiPlayerbot.CoaEconomy.Formulas.RareDraw.*): once a day, an enchanter bot of MinSkill or more has
+    // Percent chances to learn one enchanting formula the world gives (a recipe item dropped or sold by a vendor) that it
+    // could learn from the item (rank, level, reputation) and does not know. Called at each study. World thread only.
+    // The spell learned, 0 when none.
+    uint32 DrawRareFormula(Player* bot);
+    // CoA 3.3.1 (AiPlayerbot.CoaEconomy.Formulas.Buy.*): an enchanter bot buys an enchanting formula it may learn and
+    // does not know, at a vendor (its reputation rank, the vendor's price) or at the auction house (CoaBotAuctions; a
+    // player's listing only after PlayerDelayHours), for at most MaxGoldPercent of its gold and MaxCopperPerLevel times
+    // its level, then learns it at once.
+    bool WantsFormula(Player* bot, ItemTemplate const* proto);
+    uint64 FormulaBuyCap(Player* bot);  // 0: no purchase (off, or no Enchanting)
+    uint32 FormulaPlayerDelaySeconds();
+    void NoteFormulaBought(Player* bot, uint32 entry, uint64 price, bool auction);
+    // One formula at most per stop at this vendor. World thread only. True when it bought one.
+    bool BuyFormulaAtVendor(Player* bot, Creature* vendor);
     // The world script's tick: every 30 s, up to 20 random bots in a study place whose study is due.
     void ScanCapitalsTick(uint32 diff);
 

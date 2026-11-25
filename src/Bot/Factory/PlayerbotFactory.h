@@ -60,6 +60,8 @@ public:
     PlayerbotFactory(Player* bot, uint32 level, uint32 itemQuality = 0, uint32 gearScoreLimit = 0);
 
     static ObjectGuid GetRandomBot();
+    // CoA 3.3.1: a random bot with a profession the bots no longer have changes it (CoaEconomy::Professions).
+    static bool RetireProfessions(Player* bot);
     static void Init();
     void Refresh();
     void Randomize(bool incremental);

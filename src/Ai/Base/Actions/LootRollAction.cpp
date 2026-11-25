@@ -5,6 +5,7 @@
  */
 
 #include "LootRollAction.h"
+#include "CoaFormulas.h"
 #include "PlayerbotFactory.h"
 #include "CoaGearScore.h"
 #include "CoaLive.h"
@@ -92,6 +93,9 @@ bool LootRollAction::Execute(Event /*event*/)
             itemUsageParam = std::to_string(itemId);
 
         ItemUsage usage = AI_VALUE2(ItemUsage, "item usage", itemUsageParam);
+        // AiPlayerbot.CoaLive.LootNeedRecipe: a recipe it can learn (3.3.1, "super enchanters" everywhere).
+        bool const learnableRecipe = proto->Class == ITEM_CLASS_RECIPE && sPlayerbotAIConfig.coaLiveLootNeedRecipe &&
+                                     CoaEconomy::Formulas::Learnable(bot, proto);
 
         // Armor Tokens are classed as MISC JUNK (Class 15, Subclass 0), luckily no other items I found have class bits and epic quality.
         // CoA Combat, gear score: a raid token is a need only when one of the pieces it gives this class is an upgrade
@@ -129,7 +133,12 @@ bool LootRollAction::Execute(Event /*event*/)
                         vote = GREED;
                     break;
                 case ITEM_CLASS_RECIPE:
-                    if (!sPlayerbotAIConfig.lootRollRecipe)
+                    // AiPlayerbot.CoaLive.LootNeedRecipe (3.3.1): Need on a recipe it can learn and does not know (its
+                    // profession, rank, level and reputation; CoaEconomy::Formulas), learned at its next study in town.
+                    // The manners below still apply: a real player's Need first.
+                    if (learnableRecipe)
+                        vote = NEED;
+                    else if (!sPlayerbotAIConfig.lootRollRecipe)
                         vote = PASS;
                     else if (usage == ITEM_USAGE_SKILL)
                         vote = NEED;  // Bot can learn this recipe
@@ -200,8 +209,10 @@ bool LootRollAction::Execute(Event /*event*/)
             // A self-found bot needs its upgrades and greeds the rest (AiPlayerbot.CoaSelfFound.Rolls, 3.1.8).
             bool const selfFound =
                 PlayerbotFactory::SelfFoundAt(bot->GetLevel()) || PlayerbotFactory::IsSelfFoundBot(bot);
-            int const needLevel = CoaRollRule::NeedLevelFor(sPlayerbotAIConfig.lootNeedRollLevel, selfFound,
-                                                            sPlayerbotAIConfig.coaSelfFoundRolls);
+            // A learnable recipe is a Need whatever LootNeedRollLevel says (3.3.1, Pilote 26/11); the manners stay.
+            int const needLevel = learnableRecipe ? 2
+                                                  : CoaRollRule::NeedLevelFor(sPlayerbotAIConfig.lootNeedRollLevel,
+                                                                              selfFound, sPlayerbotAIConfig.coaSelfFoundRolls);
             bool const greedAllowed = CoaRollRule::GreedFor(sPlayerbotAIConfig.lootGreedRollLevel, selfFound,
                                                             sPlayerbotAIConfig.coaSelfFoundRolls);
             CoaRollRule::Vote const wanted = vote == NEED ? CoaRollRule::Vote::Need : CoaRollRule::Vote::Greed;

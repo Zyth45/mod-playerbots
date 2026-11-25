@@ -5,6 +5,7 @@
  */
 
 #include "CoaBotMute.h"
+#include "CoaFormulas.h"
 #include "CoaStarterWeapon.h"
 #include "CoaMoveAudit.h"
 #include "CoaTrust.h"
@@ -140,11 +141,16 @@ public:
 
     // CoA 3.2.2 (bench of 3606e5be: no dungeon line in an hour of self-found runs): in a group, a rare item is rolled
     // for, and the winner gets it through the roll (Group::CountTheRoll), never through OnPlayerLootItem.
-    void OnPlayerGroupRollRewardItem(Player* player, Item* item, uint32 count, RollVote /*voteType*/, Roll* roll) override
+    void OnPlayerGroupRollRewardItem(Player* player, Item* item, uint32 count, RollVote voteType, Roll* roll) override
     {
         if (!player || !item || !GET_PLAYERBOT_AI(player))
             return;
         ItemTemplate const* proto = item->GetTemplate();
+        // 3.3.1 (AiPlayerbot.CoaLive.LootNeedRecipe): a recipe won on a Need and still to learn, noted for the economy
+        // (learned at the next study, "need" on the dashboard).
+        if (proto && voteType == NEED && sPlayerbotAIConfig.coaLiveLootNeedRecipe &&
+            CoaEconomy::Formulas::Learnable(player, proto))
+            CoaEconomy::Formulas::NoteWonByRoll(player, proto->ItemId);
         if (!proto || proto->Quality < sPlayerbotAIConfig.lootLogMinQuality)
             return;
         Loot const* loot = roll ? roll->getTarget() : nullptr;
