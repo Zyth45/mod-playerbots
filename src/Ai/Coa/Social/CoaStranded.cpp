@@ -19,6 +19,7 @@
 #include "Playerbots.h"
 #include "RandomBotLevelMgr.h"
 #include "RandomPlayerbotMgr.h"
+#include "DBCStores.h"
 #include "Timer.h"
 
 #include <atomic>
@@ -86,8 +87,8 @@ void HourlyLine()
         return;
     uint32 const grouped = releasedGrouped.exchange(0), free = releasedFree.exchange(0);
     if (grouped || free)
-        LOG_INFO("playerbots", "coa stranded: {} bots released in the last hour ({} out of a group of bots, {} free)",
-                 grouped + free, grouped, free);
+        LOG_INFO("playerbots", "coa stranded: {} bots released in the last hour ({} out of a group of bots, {} free "
+                 "bots sent to their next goal)", grouped + free, grouped, free);
 }
 
 bool RealPlayerIn(Group* group, Player* bot)
@@ -136,17 +137,26 @@ void CoaStranded::Tick(PlayerbotAI* botAI)
         return;
     NewRpgStatus const status = botAI->rpgInfo.GetStatus();
     bool const idleRpg = status == RPG_IDLE || status == RPG_REST;
-    if (!CoaStrandedRules::Stranded(getMSTimeDiff(still.sinceMs, now), limit, group != nullptr,
-                                    group && RealPlayerIn(group, bot), idleRpg))
-        return;
-
-    if (group)
+    // A stillness the bot means (the city life of 3.3, fishing, a craft, an inn): never broken. A capital is
+    // CityUnstick's (AiPlayerbot.CoaLive.CityUnstick).
+    AreaTableEntry const* zone = sAreaTableStore.LookupEntry(bot->GetZoneId());
+    bool const wantedStill = bot->IsSitState() || bot->HasPlayerFlag(PLAYER_FLAGS_RESTING) ||
+                             bot->HasPlayerFlag(PLAYER_FLAGS_AFK) || bot->IsNonMeleeSpellCast(false) ||
+                             (zone && (zone->flags & AREA_FLAG_CAPITAL));
+    CoaStrandedRules::Release const release = CoaStrandedRules::Stranded(
+        getMSTimeDiff(still.sinceMs, now), limit, group != nullptr, group && RealPlayerIn(group, bot), idleRpg,
+        wantedStill);
+    if (release == CoaStrandedRules::Release::LeaveGroup)
     {
         still.sinceMs = 0;  // once: the operation runs in the world thread
         PlayerbotWorldThreadProcessor::instance().QueueOperation(
             std::make_unique<LeaveStrandedGroupOperation>(bot->GetGUID()));
-        return;
     }
-    BackToOwnLife(botAI, bot);
-    ++releasedFree;
+    else if (release == CoaStrandedRules::Release::NextRpg)
+    {
+        // Out of a group: its RPG picks its next goal; its strategies, its mount and the rest stay as they are.
+        botAI->rpgInfo.ChangeToIdle();
+        still.sinceMs = 0;
+        ++releasedFree;
+    }
 }

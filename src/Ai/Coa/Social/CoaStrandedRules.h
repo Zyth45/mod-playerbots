@@ -10,22 +10,32 @@
 #include <cstdint>
 
 // AiPlayerbot.CoaLive.StrandedMinutes (3.3.1, a player's report: a random bot still for 1h18m at Blackrock Mountain,
-// left in a group of bots by a player gone): the safety net, whatever the cause.
+// left in a group of bots by a player gone): the last resort, whatever the cause. The orphan release of the groups
+// (AiPlayerbot.CoaOrphanGroupReleaseDelay) comes first.
 namespace CoaStrandedRules
 {
 // Moved: more than 3 yards from where it stood (a turn on the spot, a sit, a step back do not count).
 inline bool Moved(float dx, float dy, float dz) { return dx * dx + dy * dy + dz * dz > 9.0f; }
 
+enum class Release
+{
+    None,
+    LeaveGroup,  // out of its group, no master, default strategies, off its mount
+    NextRpg      // out of a group: its RPG picks its next goal, nothing else changed
+};
+
 // A random bot out of combat, alive, out of a battleground, a queue or a test, still for limitMinutes (0: off):
-// - in a group with no real player in it: stranded (the group of a player gone, a party of bots stuck);
-// - out of a group: stranded only when its RPG is idle or resting (a bot fishing, sitting on a square, at a vendor
-//   or on its way somewhere is left alone).
-inline bool Stranded(std::uint32_t stillMs, std::uint32_t limitMinutes, bool grouped, bool realPlayerInGroup,
-                     bool idleRpg)
+// - in a group with no real player in it: LeaveGroup (the group of a player gone, a party of bots stuck);
+// - out of a group, its RPG idle or resting: NextRpg, unless the stillness is wanted (wantedStill: sitting, resting
+//   in an inn or a city, away, casting or channelling - fishing, a craft -, in a capital, which CityUnstick watches).
+inline Release Stranded(std::uint32_t stillMs, std::uint32_t limitMinutes, bool grouped, bool realPlayerInGroup,
+                        bool idleRpg, bool wantedStill)
 {
     if (!limitMinutes || stillMs < limitMinutes * 60000u)
-        return false;
-    return grouped ? !realPlayerInGroup : idleRpg;
+        return Release::None;
+    if (grouped)
+        return realPlayerInGroup ? Release::None : Release::LeaveGroup;
+    return idleRpg && !wantedStill ? Release::NextRpg : Release::None;
 }
 }  // namespace CoaStrandedRules
 

@@ -638,7 +638,11 @@ void PlayerbotAI::UpdateAIGroupMaster()
     if (master)
         masterBotAI = GET_PLAYERBOT_AI(master);
 
-    if (!master || (masterBotAI && !IsSelfBot(master)))
+    // 3.3.1: a random bot of a group its player left gets no bot for master (it followed it and never left the
+    // group); the group goes at the orphan release (AiPlayerbot.CoaOrphanGroupReleaseDelay).
+    bool const orphanKept = !master && sRandomPlayerbotMgr.IsRandomBot(bot) &&
+                            sPlayerbotAIConfig.coaOrphanGroupReleaseDelay && sRandomPlayerbotMgr.CoaIsOrphanGroup(group);
+    if (!orphanKept && (!master || (masterBotAI && !IsSelfBot(master))))
     {
         Player* newMaster = FindNewMaster();
         if (newMaster)

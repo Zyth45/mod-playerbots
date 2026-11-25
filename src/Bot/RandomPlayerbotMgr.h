@@ -181,6 +181,8 @@ public:
     // screen. Never a battleground or dungeon finder group. Only reads, so map threads may ask too.
     // left (3.3.1): set when the group is orphan because its player left it (/leave), not because he is offline.
     bool CoaIsOrphanGroup(Group const* group, bool* left = nullptr);
+    // A real player (not a bot, or a selfbot) connected among its members.
+    static bool CoaGroupHasRealPlayer(Group const* group);
     // World thread, every tick: every 10 s, the random bots of the groups orphaned for that delay leave them.
     void CoaReleaseOrphanGroups();
     Player* GetRandomPlayer();
@@ -341,6 +343,10 @@ private:
     time_t DelayLoginBotsTimer;
     time_t printStatsTimer;
     std::unordered_map<ObjectGuid::LowType, time_t> coaOrphanGroups;  // group -> since when it has been orphaned
+    // 3.3.1: the groups of random bots a real player was seen in (CoaReleaseOrphanGroups, world thread); read by
+    // CoaIsOrphanGroup from the map threads too, hence the lock.
+    std::unordered_set<ObjectGuid::LowType> coaPlayerGroups;
+    std::mutex coaPlayerGroupsLock;
     // Low level bots: their last experience mark and since when (ProcessBot), in memory only: after a restart the
     // check just starts over. World thread; a bot's entry goes when it logs out.
     std::unordered_map<uint32, std::pair<uint32, uint32>> coaXpTrack;  // bot -> (progress, since)

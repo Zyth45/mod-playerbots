@@ -12,6 +12,7 @@
 #include "CoaEconomyRules.h"
 #include "CoaWorldBgSim.h"
 #include "RandomPlayerbotMgr.h"
+#include "CoaOrphanRules.h"
 #include "CoaLfgRules.h"
 #include "CoaPathProbe.h"
 #include "GameTime.h"
@@ -3975,7 +3976,7 @@ bool RandomPlayerbotMgr::CoaIsOrphanGroup(Group const* group, bool* left)
             // A player, a selfbot, or an alt or addclass bot, which is only online with its owner.
             PlayerbotAI* memberAI = GET_PLAYERBOT_AI(member);
             if (!memberAI || !IsRandomBot(member))
-                return false;
+                return CoaOrphanRules::Orphan(true, false, false, false);
             // 3.3.1 (a player's report, Blackrock Mountain): the player who formed the raid left it with /leave; the
             // core keeps the bots' raid, all random bots, and they stood still for minutes, still following him.
             Player* master = memberAI->GetMaster();
@@ -3986,9 +3987,24 @@ bool RandomPlayerbotMgr::CoaIsOrphanGroup(Group const* group, bool* left)
         else if (!sPlayerbotAIConfig.IsInRandomAccountList(sCharacterCache->GetCharacterAccountIdByGuid(slot.guid)))
             character = true;
     }
+    // 3.3.1: a group a real player was seen in, none left in it (/leave then a logout: the master was cleared).
+    bool born = false;
+    {
+        std::lock_guard<std::mutex> guard(coaPlayerGroupsLock);
+        born = coaPlayerGroups.count(group->GetGUID().GetCounter()) > 0;
+    }
     if (left)
-        *left = !character && masterGone;
-    return character || masterGone;
+        *left = CoaOrphanRules::Left(false, character, masterGone, born);
+    return CoaOrphanRules::Orphan(false, character, masterGone, born);
+}
+
+bool RandomPlayerbotMgr::CoaGroupHasRealPlayer(Group const* group)
+{
+    for (Group::MemberSlot const& slot : group->GetMemberSlots())
+        if (Player* member = ObjectAccessor::FindConnectedPlayer(slot.guid))
+            if (IsRealPlayer(member))
+                return true;
+    return false;
 }
 
 // The core keeps a player who logs out in his raid, and the bots he left there had no master and stood still
@@ -4011,11 +4027,19 @@ void RandomPlayerbotMgr::CoaReleaseOrphanGroups()
     std::unordered_set<ObjectGuid::LowType> seen;
     std::unordered_map<ObjectGuid::LowType, time_t> orphans;
     std::vector<std::pair<Group*, time_t>> due;
+    std::unordered_set<ObjectGuid::LowType> playerGroups;
+    {
+        std::lock_guard<std::mutex> guard(coaPlayerGroupsLock);
+        playerGroups = coaPlayerGroups;
+    }
     for (auto const& [guid, bot] : playerBots)
     {
         Group* group = bot ? bot->GetGroup() : nullptr;
         if (!group || !seen.insert(group->GetGUID().GetCounter()).second)
             continue;
+        // 3.3.1: the mark of a group formed around a real player (a raid, a party he invited bots in, or joined).
+        if (!group->isBGGroup() && !group->isBFGroup() && CoaGroupHasRealPlayer(group))
+            playerGroups.insert(group->GetGUID().GetCounter());
 
         bool left = false;
         if (!CoaIsOrphanGroup(group, &left) || sLFGMgr->GetState(group->GetGUID()) != lfg::LFG_STATE_NONE)
@@ -4029,6 +4053,13 @@ void RandomPlayerbotMgr::CoaReleaseOrphanGroups()
             due.emplace_back(group, since);
     }
     coaOrphanGroups.swap(orphans);
+    // Marks of the groups gone since the last pass go too (a group's id is never given again until a restart).
+    for (auto it = playerGroups.begin(); it != playerGroups.end();)
+        it = seen.count(*it) ? std::next(it) : playerGroups.erase(it);
+    {
+        std::lock_guard<std::mutex> guard(coaPlayerGroupsLock);
+        coaPlayerGroups.swap(playerGroups);
+    }
 
     uint32 released = 0;
     for (auto const& [group, since] : due)
