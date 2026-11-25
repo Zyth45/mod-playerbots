@@ -5,6 +5,8 @@
  */
 
 #include "CoaPopulationRules.h"
+#include "CoaLevelupTeleportRules.h"
+#include "Config.h"
 #include "CoaWorldGuildPresence.h"
 #include "CoaEconomyConf.h"
 #include "CoaEconomyRules.h"
@@ -2626,7 +2628,7 @@ WorldLocation BankArrival(WorldLocation const& banker)
 }
 }  // namespace
 
-void RandomPlayerbotMgr::RandomTeleport(Player* bot, std::vector<WorldLocation>& locs, bool hearth)
+void RandomPlayerbotMgr::RandomTeleport(Player* bot, std::vector<WorldLocation>& locs, bool hearth, bool levelUp)
 {
     // ignore when alrdy teleported or not in the world yet.
     if (bot->IsBeingTeleported() || !bot->IsInWorld())
@@ -2698,6 +2700,10 @@ void RandomPlayerbotMgr::RandomTeleport(Player* bot, std::vector<WorldLocation>&
             if (other && other != bot && other->IsInWorld() &&
                 std::abs(int32(other->GetLevel()) - int32(bot->GetLevel())) <= 5)
                 ++zoneBots[other->GetZoneId()];
+
+    // CoA 3.3: the teleport of a level up only, with AiPlayerbot.CoaLive.LevelupTeleportGuard (see the arrival below).
+    bool const arrivalGuard =
+        levelUp && sConfigMgr->GetOption<bool>("AiPlayerbot.CoaLive.LevelupTeleportGuard", true, false);
 
     bool stop = false;
     for (uint32 pass = 0; pass < (crowdLimit ? 2u : 1u) && !stop; ++pass)
@@ -2784,6 +2790,29 @@ void RandomPlayerbotMgr::RandomTeleport(Player* bot, std::vector<WorldLocation>&
                 y = ay;
                 z = az;
             }
+        }
+
+        // CoA 3.3 (bench 2 of 3.3: bots appearing at the starting points under the eyes of a player starting a
+        // character): at a level up, the departure is unseen (150 yards below), the arrival too: a location with a
+        // real player within 150 yards of it is left for the next one (none left: the bot stays where it is).
+        if (arrivalGuard)
+        {
+            bool seen = false;
+            for (Player* player : players)
+            {
+                if (!player || !player->IsInWorld() || player->GetMapId() != loc.GetMapId() ||
+                    (player->IsGameMaster() && !player->isGMVisible()))
+                    continue;
+                float const dx = player->GetPositionX() - x, dy = player->GetPositionY() - y,
+                            dz = player->GetPositionZ() - z;
+                if (CoaTeleportArrivalSeen(true, dx * dx + dy * dy + dz * dz))
+                {
+                    seen = true;
+                    break;
+                }
+            }
+            if (seen)
+                continue;
         }
 
         if (hearth)
@@ -2927,7 +2956,11 @@ void RandomPlayerbotMgr::InitArenaTeams()
              RandomPlayerbotFactory::GetBotArenaTeamCount(ARENA_TYPE_5v5), sPlayerbotAIConfig.randomBotArenaTeam5v5Count);
 }
 
-void RandomPlayerbotMgr::RandomTeleportForLevel(Player* bot)
+void RandomPlayerbotMgr::RandomTeleportForLevel(Player* bot) { TeleportForLevel(bot, false); }
+
+void RandomPlayerbotMgr::RandomTeleportForLevelUp(Player* bot) { TeleportForLevel(bot, true); }
+
+void RandomPlayerbotMgr::TeleportForLevel(Player* bot, bool levelUp)
 {
     if (bot->InBattleground())
         return;
@@ -2940,7 +2973,7 @@ void RandomPlayerbotMgr::RandomTeleportForLevel(Player* bot)
             // 3.1.8: outdoors around the bank, not inside it (BankArrival): the home is set there too.
             for (WorldLocation& loc : locs)
                 loc = BankArrival(loc);
-            RandomTeleport(bot, locs, true);
+            RandomTeleport(bot, locs, true, levelUp);
             return;
         }
     }
@@ -2956,7 +2989,7 @@ void RandomPlayerbotMgr::RandomTeleportForLevel(Player* bot)
 
     if (!locs.empty())
     {
-        RandomTeleport(bot, locs, false);
+        RandomTeleport(bot, locs, false, levelUp);
         return;
     }
 }

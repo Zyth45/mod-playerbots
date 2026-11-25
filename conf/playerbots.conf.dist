@@ -3891,6 +3891,16 @@ AiPlayerbot.CoaLive.CityUnstick.StillMinutes = 25
 
 AiPlayerbot.CoaLive.NpcStopAside = 1
 
+#    AiPlayerbot.CoaLive.LevelupTeleportGuard
+#        Description: 3.3: a random bot under level 6 is no longer teleported at its level up (its teleport
+#                     hubs are the races' starting points, where it already is), and from level 6 the teleport
+#                     of a level up never arrives within 150 yards of a real player: that location is left for
+#                     the next one (none left: the bot stays where it is). The other random teleports (refresh,
+#                     bankers) are unchanged. Read again by ".reload config".
+#        Default:     1 - on
+
+AiPlayerbot.CoaLive.LevelupTeleportGuard = 1
+
 #    AiPlayerbot.CoaLive.PvpStatsKeepDays
 #        Description: 3.2.2: with Battleground.StoreStatistics.Enable (worldserver.conf), the core keeps every
 #                     battleground's statistics forever (with thousands of bots, about 100,000 lines a day). Once a

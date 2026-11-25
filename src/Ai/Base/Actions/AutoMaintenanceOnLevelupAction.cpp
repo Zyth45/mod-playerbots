@@ -10,6 +10,8 @@
 #include "CoaWildcard.h"
 #include "CoaReborn.h"
 #include "BroadcastHelper.h"
+#include "CoaLevelupTeleportRules.h"
+#include "Config.h"
 #include "PlayerbotAIConfig.h"
 #include "PlayerbotFactory.h"
 #include "RandomPlayerbotMgr.h"
@@ -128,7 +130,14 @@ void AutoMaintenanceOnLevelupAction::AutoTeleportForLevel()
     if (CoaLfgOfferedToOther(bot, nullptr) || bot->GetGroupInvite())
         return;
 
-    sRandomPlayerbotMgr.RandomTeleportForLevel(bot);
+    // CoA 3.3 (bench 2 of 3.3: bots under level 10 teleported at each level up): under level 6 the hubs are the
+    // races' starting points, where the bot already is; it stays where it fights (AiPlayerbot.CoaLive.
+    // LevelupTeleportGuard, read at each level up).
+    if (!CoaLevelupTeleports(sConfigMgr->GetOption<bool>("AiPlayerbot.CoaLive.LevelupTeleportGuard", true, false),
+                             bot->GetLevel()))
+        return;
+
+    sRandomPlayerbotMgr.RandomTeleportForLevelUp(bot);  // CoA 3.3: with the arrival guard of a level up
     return;
 }
 

@@ -1,0 +1,2 @@
+### Bots no longer pop in front of you
+I found that a bot under level 10 was teleported each time it levelled up, often in the middle of a fight, to its race's starting point: a player starting a character there saw bots appear out of nowhere. A bot under level 6 now stays where it is when it levels up (it is already in its starting zone), and from level 6 the teleport of a level up never arrives within 150 yards of a player: another spot is taken, or the bot stays put. On by default: `AiPlayerbot.CoaLive.LevelupTeleportGuard = 0` turns it off.
