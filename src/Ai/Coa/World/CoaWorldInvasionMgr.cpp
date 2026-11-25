@@ -23,6 +23,7 @@
  */
 
 #include "CoaWorldInvasion.h"
+#include "CoaWorldItemOrigin.h"
 
 #include "CoaWorldBots.h"
 #include "CoaWorldCapitalRaid.h"
@@ -882,7 +883,10 @@ namespace CoaWorld
                 if (player->CanStoreNewItem(NULL_BAG, NULL_SLOT, dest, itemId, count) == EQUIP_ERR_OK)
                 {
                     if (Item* item = player->StoreNewItem(dest, itemId, true))
+                    {
+                        CoaWorld::NoteItemOrigin(item, "invasion", 0);
                         player->SendNewItem(item, count, true, false);
+                    }
                     return;
                 }
 
@@ -896,6 +900,7 @@ namespace CoaWorld
                                    "Ta part du butin. Tes sacs \u00e9taient trop pleins pour la porter."));
                 if (Item* item = Item::CreateItem(itemId, count, player))
                 {
+                    CoaWorld::NoteItemOrigin(item, "invasion", 0);  // by mail: the mail keeps this origin
                     item->SaveToDB(trans);
                     draft.AddItem(item);
                 }

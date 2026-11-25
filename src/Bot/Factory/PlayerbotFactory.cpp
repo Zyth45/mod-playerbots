@@ -5713,6 +5713,7 @@ Item* PlayerbotFactory::StoreItem(uint32 itemId, uint32 count)
     if (msg != EQUIP_ERR_OK)
         return nullptr;
 
+    CoaWorld::StartGearScope const startGear;  // CoA World 3.3.1: what the factory stores is "start" (its tools too)
     return bot->StoreNewItem(sDest, itemId, true, Item::GenerateItemRandomPropertyId(itemId));
 }
 

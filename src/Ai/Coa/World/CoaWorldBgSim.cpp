@@ -22,6 +22,7 @@
  */
 
 #include "CoaWorldBgSim.h"
+#include "CoaWorldItemOrigin.h"
 #include "CoaQuietAchievements.h"
 
 #include "CoaWorldBgSimRules.h"
@@ -458,7 +459,7 @@ private:
             return;
         bot->ModifyHonorPoints(-int32(best->honor));
         ++Day(time(nullptr)).purchases;
-        bot->StoreNewItem(dest, best->item, true);
+        CoaWorld::NoteItemOrigin(bot->StoreNewItem(dest, best->item, true), "vendor", 0);  // an honor purchase
         LOG_DEBUG("playerbots.coa", "CoA World: {} bought item {} for {} honor", bot->GetName(), best->item, best->honor);
         LogEvent("pvp", bot->GetName(), Acore::StringFormat("bought {} for {} honor",
                                                              sObjectMgr->GetItemTemplate(best->item)->Name1, best->honor));
