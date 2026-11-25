@@ -4447,7 +4447,8 @@ AiPlayerbot.CoaLfgRolePriority = 1
 #                     (formula, pattern, plans, schematic...) it can learn and does not know yet: its profession,
 #                     skill rank, level and the reputation asked are enough. It learns it at its next study in town.
 #                     The manners stay: never against a real player's Need, and the real players vote first.
-#                     Any other recipe is rolled as AiPlayerbot.LootRollRecipe says.
+#                     Any other recipe is rolled as AiPlayerbot.LootRollRecipe says. A learnable recipe is a Need for
+#                     every bot, whatever AiPlayerbot.LootNeedRollLevel says.
 #        Default:     1 (enabled)
 AiPlayerbot.CoaLive.LootNeedRecipe = 1
 
