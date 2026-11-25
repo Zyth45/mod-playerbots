@@ -48,6 +48,22 @@ inline bool DrawsFormula(uint32_t skill, uint32_t minSkill, uint32_t roll, uint3
 {
     return skill >= minSkill && roll < percent;
 }
+
+// (b) What one formula may cost a bot: a share of its gold (the rest stays) and no more than its level allows.
+inline uint64_t BuyCap(uint64_t money, uint32_t moneyPercent, uint32_t level, uint64_t copperPerLevel)
+{
+    uint32_t const percent = moneyPercent < 100 ? moneyPercent : 100;
+    uint64_t const share = money * percent / 100;
+    uint64_t const byLevel = uint64_t(level) * copperPerLevel;
+    return share < byLevel ? share : byLevel;
+}
+
+// (b) Players first: a formula a player put up is bought by a bot only once the bots have seen it listed for delay
+// seconds (players get the first day); a bot's listing at once.
+inline bool ListingOpenToBots(bool sellerIsBot, uint32_t firstSeen, uint32_t now, uint32_t delay)
+{
+    return sellerIsBot || (now >= firstSeen && now - firstSeen >= delay);
+}
 }  // namespace CoaFormulaRules
 
 #endif

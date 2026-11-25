@@ -179,6 +179,10 @@ bool formulasLearnHeld = true;
 bool formulasDraw = true;
 uint32 formulasDrawPercent = 25;
 uint32 formulasDrawMinSkill = 225;
+bool formulasBuy = true;
+uint32 formulasBuyPercent = 25;
+uint32 formulasBuyCopperPerLevel = 10000;
+uint32 formulasBuyPlayerDelayHours = 24;
 // 3.3.1: the formulas' counts since the last hourly line (world thread only).
 struct FormulaCounters
 {
@@ -218,6 +222,13 @@ void LoadSettings()
     formulasDrawPercent =
         std::min<uint32>(100, CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.Formulas.RareDraw.Percent", 25));
     formulasDrawMinSkill = CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.Formulas.RareDraw.MinSkill", 225);
+    formulasBuy = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.Formulas.Buy.Enable", true, false);
+    formulasBuyPercent =
+        std::min<uint32>(100, CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.Formulas.Buy.MaxGoldPercent", 25));
+    formulasBuyCopperPerLevel =
+        CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.Formulas.Buy.MaxCopperPerLevel", 10000);
+    formulasBuyPlayerDelayHours =
+        CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.Formulas.Buy.PlayerDelayHours", 24);
     ordersLog = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.EnchantOrders.Log", false, false);
     ordersMinLevel = CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.EnchantOrders.MinLevel", 20);
     ordersHighLevel = CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.EnchantOrders.HighLevel", 60);
@@ -946,6 +957,57 @@ uint32 DrawRareFormula(Player* bot)
         LOG_INFO("playerbots.coa", "CoaEconomy: formula drawn: {} (enchanting {}) learned {} ({})", bot->GetName(), skill,
                  taught, proto->Name1);
     return taught;
+}
+
+bool WantsFormula(Player* bot, ItemTemplate const* proto)
+{
+    return Formulas::Learnable(bot, proto) && Formulas::ProfessionOf(Formulas::TaughtSpell(proto)) == SKILL_ENCHANTING;
+}
+
+uint64 FormulaBuyCap(Player* bot)
+{
+    if (!formulasBuy || !bot || !bot->HasSkill(SKILL_ENCHANTING))
+        return 0;
+    return CoaFormulaRules::BuyCap(bot->GetMoney(), formulasBuyPercent, bot->GetLevel(), formulasBuyCopperPerLevel);
+}
+
+uint32 FormulaPlayerDelaySeconds()
+{
+    return formulasBuyPlayerDelayHours * HOUR;
+}
+
+void NoteFormulaBought(Player* bot, uint32 entry, uint64 price, bool auction)
+{
+    ++(auction ? formulaCounters.boughtAuction : formulaCounters.boughtVendor);
+    if (bot && (enchantForSelfLog || studyLog))
+        LOG_INFO("playerbots.coa", "CoaEconomy: formula bought: {} (level {}) bought {} for {}c at {}", bot->GetName(),
+                 bot->GetLevel(), entry, price, auction ? "the auction house" : "a vendor");
+}
+
+bool BuyFormulaAtVendor(Player* bot, Creature* vendor)
+{
+    uint64 const cap = FormulaBuyCap(bot);
+    VendorItemData const* items = cap && vendor ? vendor->GetVendorItems() : nullptr;
+    if (!items)
+        return false;
+    for (uint32 slot = 0; slot < items->GetItemCount(); ++slot)
+    {
+        VendorItem const* sold = items->GetItem(slot);
+        if (!sold || sold->ExtendedCost || (sold->maxcount && !vendor->GetVendorItemCurrentCount(sold)))
+            continue;
+        ItemTemplate const* proto = sObjectMgr->GetItemTemplate(sold->item);
+        // The game asks the reputation rank again at the purchase, and charges its own price (never more than this).
+        if (!proto || proto->Class != ITEM_CLASS_RECIPE || !proto->BuyPrice || proto->BuyPrice > cap ||
+            !WantsFormula(bot, proto))
+            continue;
+        uint64 const before = bot->GetMoney();
+        if (!bot->BuyItemFromVendorSlot(vendor->GetGUID(), slot, sold->item, 1, NULL_BAG, NULL_SLOT))
+            continue;
+        NoteFormulaBought(bot, sold->item, before > bot->GetMoney() ? before - bot->GetMoney() : 0, false);
+        LearnHeldFormulas(bot);
+        return true;
+    }
+    return false;
 }
 
 bool StudyIfDue(Player* bot, PlayerbotAI* botAI)

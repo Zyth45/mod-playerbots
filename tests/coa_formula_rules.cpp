@@ -40,6 +40,18 @@ int main()
     assert(!DrawsFormula(224, 225, 0, 25));
     assert(!DrawsFormula(300, 225, 0, 0));
 
+    // Purchase cap.
+    assert(BuyCap(1000000, 25, 60, 10000) == 250000);
+    assert(BuyCap(10000000, 25, 60, 10000) == 600000);
+    assert(BuyCap(1000, 250, 60, 10000) == 1000);
+    assert(BuyCap(0, 25, 60, 10000) == 0);
+
+    // Players first: a player's listing waits a day, a bot's does not.
+    assert(ListingOpenToBots(true, 1000, 1000, 86400));
+    assert(!ListingOpenToBots(false, 1000, 1000 + 86399, 86400));
+    assert(ListingOpenToBots(false, 1000, 1000 + 86400, 86400));
+    assert(!ListingOpenToBots(false, 2000, 1000, 86400));  // clock behind: wait
+
     std::puts("coa_formula_rules: OK");
     return 0;
 }

@@ -6146,12 +6146,23 @@ AiPlayerbot.CoaEconomy.EnchantOrders.Log = 0
 #                   RareDraw.Percent chances to learn one enchanting formula, drawn only among those the world really
 #                   gives (a formula dropped by a creature or a chest, or sold by a vendor) that it could learn from the
 #                   item itself (its rank, level and reputation) and does not know yet: the "super enchanters".
-# With EnchantForSelf.HourlyCount = 1, one line an hour in the playerbots.coa log counts the formulas learned and drawn.
-# Default: LearnHeld 1 (enabled); RareDraw.Enable 1 (enabled), RareDraw.Percent 25, RareDraw.MinSkill 225
+#    Buy.Enable = 1: an enchanter bot buys an enchanting formula it may learn and does not know, then learns it at
+#                   once: at a vendor it stops at (only with the reputation rank the formula asks, at the vendor's
+#                   price), or at the auction house on a visit (the cheapest; a formula a player listed only once the
+#                   bots have seen it for Buy.PlayerDelayHours, so players get it first). One per stop, for at most
+#                   Buy.MaxGoldPercent of its gold and Buy.MaxCopperPerLevel times its level.
+# With EnchantForSelf.HourlyCount = 1, one line an hour in the playerbots.coa log counts the formulas learned, drawn
+# and bought.
+# Default: LearnHeld 1 (enabled); RareDraw.Enable 1 (enabled), RareDraw.Percent 25, RareDraw.MinSkill 225;
+# Buy.Enable 1 (enabled), Buy.MaxGoldPercent 25, Buy.MaxCopperPerLevel 10000, Buy.PlayerDelayHours 24
 AiPlayerbot.CoaEconomy.Formulas.LearnHeld = 1
 AiPlayerbot.CoaEconomy.Formulas.RareDraw.Enable = 1
 AiPlayerbot.CoaEconomy.Formulas.RareDraw.Percent = 25
 AiPlayerbot.CoaEconomy.Formulas.RareDraw.MinSkill = 225
+AiPlayerbot.CoaEconomy.Formulas.Buy.Enable = 1
+AiPlayerbot.CoaEconomy.Formulas.Buy.MaxGoldPercent = 25
+AiPlayerbot.CoaEconomy.Formulas.Buy.MaxCopperPerLevel = 10000
+AiPlayerbot.CoaEconomy.Formulas.Buy.PlayerDelayHours = 24
 
 # Craft on order and artisans in Trade, with CoA Live's lines (bank 3_0_05 of CoA IA MIND) and COD mail. Needs
 # Artisans, and AiPlayerbot.CoaLive.Enable = 1 (without it nothing is said and no order is taken).

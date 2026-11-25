@@ -14,6 +14,7 @@
 #include <unordered_set>
 #include <vector>
 
+class Creature;
 class Item;
 class Player;
 class SpellInfo;
@@ -98,6 +99,16 @@ namespace CoaEconomy::Artisans
     // could learn from the item (rank, level, reputation) and does not know. Called at each study. World thread only.
     // The spell learned, 0 when none.
     uint32 DrawRareFormula(Player* bot);
+    // CoA 3.3.1 (AiPlayerbot.CoaEconomy.Formulas.Buy.*): an enchanter bot buys an enchanting formula it may learn and
+    // does not know, at a vendor (its reputation rank, the vendor's price) or at the auction house (CoaBotAuctions; a
+    // player's listing only after PlayerDelayHours), for at most MaxGoldPercent of its gold and MaxCopperPerLevel times
+    // its level, then learns it at once.
+    bool WantsFormula(Player* bot, ItemTemplate const* proto);
+    uint64 FormulaBuyCap(Player* bot);  // 0: no purchase (off, or no Enchanting)
+    uint32 FormulaPlayerDelaySeconds();
+    void NoteFormulaBought(Player* bot, uint32 entry, uint64 price, bool auction);
+    // One formula at most per stop at this vendor. World thread only. True when it bought one.
+    bool BuyFormulaAtVendor(Player* bot, Creature* vendor);
     // The world script's tick: every 30 s, up to 20 random bots in a study place whose study is due.
     void ScanCapitalsTick(uint32 diff);
 

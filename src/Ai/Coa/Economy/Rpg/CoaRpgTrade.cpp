@@ -185,6 +185,8 @@ bool TradeAtNpc(PlayerbotAI* botAI, WorldObject* npc)
             traded |= Materials::TendGuildStock(botAI->GetBot()) > 0;
             // 3.2.2: an enchanter disenchants the pieces it would sell first (its reagents come from there).
             traded |= Materials::DisenchantBeforeSale(botAI->GetBot(), botAI) > 0;
+            // 3.3.1 (Formulas.Buy): an enchanter buys a formula it may learn from this vendor, and learns it.
+            traded |= Artisans::BuyFormulaAtVendor(botAI->GetBot(), vendor);
             traded |= SellToVendor(botAI, vendor) > 0;
         }
 

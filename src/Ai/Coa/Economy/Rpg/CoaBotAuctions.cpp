@@ -13,6 +13,7 @@
 #include "CoaAuctionHouseBot.h"
 #include "CoaCraftOrders.h"
 #include "CoaEconomyRules.h"
+#include "CoaFormulaRules.h"
 #include "CoaGearScore.h"
 #include "CoaMarketPrices.h"
 #include "CoaMaterials.h"
@@ -590,6 +591,48 @@ namespace
         return true;
     }
 
+    // 3.3.1 (Formulas.Buy): when the bots first saw each formula listing (game time), for the players' first day.
+    std::unordered_map<uint32, uint32> formulaSeen;
+
+    // An enchanter buys the cheapest enchanting formula it may learn, under its cap; players' listings wait a day.
+    bool BuyFormula(Player* bot, AuctionHouseObject* house)
+    {
+        uint64 const cap = Artisans::FormulaBuyCap(bot);
+        if (!cap || !house)
+            return false;
+        uint32 const now = uint32(GameTime::GetGameTime().count());
+        uint32 const delay = Artisans::FormulaPlayerDelaySeconds();
+        if (formulaSeen.size() > 50000)
+            formulaSeen.clear();  // bounded; the day starts again for the listings still there
+        AuctionEntry* pick = nullptr;
+        for (auto const& entry : house->GetAuctions())
+        {
+            AuctionEntry* auction = entry.second;
+            if (!auction || !auction->buyout || auction->buyout > cap || auction->owner == bot->GetGUID())
+                continue;
+            ItemTemplate const* proto = sObjectMgr->GetItemTemplate(auction->item_template);
+            if (!proto || proto->Class != ITEM_CLASS_RECIPE || !Artisans::WantsFormula(bot, proto))
+                continue;
+            uint32 const firstSeen = formulaSeen.try_emplace(auction->Id, now).first->second;
+            ObjectGuid::LowType const seller = auction->owner.GetCounter();
+            bool const sellerIsBot = sRandomPlayerbotMgr.IsRandomBot(seller) || sRandomPlayerbotMgr.IsAddclassBot(seller);
+            if (!CoaFormulaRules::ListingOpenToBots(sellerIsBot, firstSeen, now, delay))
+                continue;
+            if (!pick || auction->buyout < pick->buyout)
+                pick = auction;
+        }
+        if (!pick)
+            return false;
+        uint32 const entry = pick->item_template, price = pick->buyout, id = pick->Id;
+        if (!BuyoutDirect(bot, house, pick))
+            return false;
+        formulaSeen.erase(id);
+        CollectAuctionMail(bot);
+        Artisans::NoteFormulaBought(bot, entry, price, true);
+        Artisans::LearnHeldFormulas(bot);
+        return true;
+    }
+
     bool BuyOne(Player* bot, ObjectGuid auctioneer, AuctionHouseObject* house, Traits const& traits, bool remote = false)
     {
         // A thrifty bot spends down to 30 % of its share.
@@ -748,6 +791,8 @@ namespace
         if (!BuyOne(bot, visit.auctioneer, sAuctionMgr->GetAuctionsMap(npc->GetFaction()), traits))
             Materials::BuyStock(bot, visit.auctioneer, npc,
                 CoaEconomyRules::BotBudget(bot->GetMoney(), settings.maxBudgetPercent, traits.thrift));
+        // 3.3.1 (Formulas.Buy): an enchanter also looks for a formula it may learn.
+        BuyFormula(bot, sAuctionMgr->GetAuctionsMap(npc->GetFaction()));
     }
 
     // A bot's turn: false until its first turn (spread over the interval) or its next one comes.
