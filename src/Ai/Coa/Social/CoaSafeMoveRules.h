@@ -59,6 +59,22 @@ inline bool DropsToFloor(float z, float floorZ, bool outdoors, bool waterBelow)
     return above > DROP_MIN && above <= DROP_MAX;
 }
 
+// 3.3.1 (bench 331a: two bots 3.3 yards over the platform of Thunder Bluff's flight tower for 14 minutes, two over
+// Stormwind's; a tower's top is "indoors" for the vmap, so DropsToFloor left them up): within TAXI_LANDING_MS of the end
+// of a flight, indoors too, a bot LANDING_MIN to DROP_MAX yards over the first floor under its feet (the platform it
+// arrived on, never the ground under the tower: the floor is read from just over the feet down) falls onto it. No floor
+// within DROP_MAX (the edge of a platform), water under it: it stays.
+constexpr float LANDING_MIN = 0.5f;
+constexpr uint32_t TAXI_LANDING_MS = 120000;
+
+inline bool LandsAfterTaxi(float z, float floorZ, bool waterBelow, uint32_t msSinceFlight)
+{
+    if (floorZ <= -100000.0f || waterBelow || msSinceFlight > TAXI_LANDING_MS)
+        return false;
+    float const above = z - floorZ;
+    return above > LANDING_MIN && above <= DROP_MAX;
+}
+
 // 3.1.8 (move audit of 20/11): a quarter of the level teleports go to a banker (ProbTeleToBankers), its position
 // inside the bank, with the bot's home set there: 49 teleports of 44 bots into the Stormwind bank in 25 minutes. The
 // arrival is now the first point outdoors around the banker, ring after ring (ARRIVAL_RINGS yards, 16 directions),

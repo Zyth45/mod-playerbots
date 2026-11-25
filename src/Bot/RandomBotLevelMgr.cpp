@@ -9,6 +9,7 @@
  */
 
 #include "RandomBotLevelMgr.h"
+#include "CoaMoveAudit.h"
 #include "ArenaTeamMgr.h"
 #include "CharacterCache.h"
 #include "Group.h"
@@ -461,6 +462,7 @@ void RandomBotLevelMgr::AdjustBotToRange(Player* bot, int targetRangeIndex, Team
     SetAssignedStart(bot->GetGUID().GetCounter(), start);
     if (freshStart && !start)
         start = sObjectMgr->GetPlayerInfo(bot->getRace(), bot->getClass());
+    CoaMoveAudit::TeleportCause const cause("fresh start", false);  // CoA 3.3.1: the move audit's cause
     if (start)
         bot->TeleportTo(start->mapId, start->positionX, start->positionY, start->positionZ, start->orientation);
     else if (newLevel != botOriginalLevel && sPlayerbotAIConfig.levelBracketsFreshStart)

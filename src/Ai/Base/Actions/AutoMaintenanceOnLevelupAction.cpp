@@ -11,6 +11,7 @@
 #include "CoaReborn.h"
 #include "BroadcastHelper.h"
 #include "CoaLevelupTeleportRules.h"
+#include "CoaMoveAudit.h"
 #include "Config.h"
 #include "PlayerbotAIConfig.h"
 #include "PlayerbotFactory.h"
@@ -137,6 +138,7 @@ void AutoMaintenanceOnLevelupAction::AutoTeleportForLevel()
                              bot->GetLevel()))
         return;
 
+    CoaMoveAudit::TeleportCause const cause("level up", false);  // CoA 3.3.1: the move audit's cause (map thread)
     sRandomPlayerbotMgr.RandomTeleportForLevelUp(bot);  // CoA 3.3: with the arrival guard of a level up
     return;
 }

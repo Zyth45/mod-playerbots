@@ -231,12 +231,13 @@ public:
         }
     }
 
-    bool OnPlayerBeforeTeleport(Player* player, uint32 mapid, float /*x*/, float /*y*/, float /*z*/,
+    bool OnPlayerBeforeTeleport(Player* player, uint32 mapid, float x, float y, float z,
                                 float /*orientation*/, uint32 /*options*/, Unit* /*target*/) override
     {
         if (CoaRefusesFarMap(player, mapid))  // CoA 3.2.2: no random bot on map 530 or 571, whatever the caller
             return false;
-        CoaMoveAudit::NoteTeleport(player);  // CoA 3.2.2: a teleport by the server, no anomaly for the move audit
+        // CoA 3.2.2: a teleport by the server, no anomaly for the move audit; 3.3.1: written with its cause.
+        CoaMoveAudit::NoteTeleport(player, mapid, x, y, z);
         CoaLeaveInstance::OnBeforeTeleport(player, mapid);
 
         /* for now commmented out until proven its actually required

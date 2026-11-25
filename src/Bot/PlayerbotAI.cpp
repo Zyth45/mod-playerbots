@@ -2051,6 +2051,20 @@ void PlayerbotAI::DoNextAction(bool min)
             (!bot->GetMap()->Instanceable() || !bot->isMoving()))
             bot->RemoveAurasByType(SPELL_AURA_MOUNTED);
 
+        // CoA 3.3.1: the end of a flight, for the landing below (LandsAfterTaxi) and the RPG's flight status.
+        if (bot->IsInFlight())
+            coaTaxiFlightMs = std::max<uint32>(1, getMSTime());
+        uint32 const sinceFlight = coaTaxiFlightMs ? getMSTimeDiff(coaTaxiFlightMs, getMSTime()) : UINT32_MAX;
+        if (coaTaxiFlightMs && !bot->IsInFlight() && !bot->IsBeingTeleported() &&
+            bot->GetMotionMaster()->GetCurrentMovementGeneratorType() != FLIGHT_MOTION_TYPE)
+        {
+            // Landed, the RPG still "in flight" (its status update may come minutes later): idle now, a new plan.
+            if (rpgInfo.GetStatus() == RPG_TRAVEL_FLIGHT)
+                if (auto const* flight = std::get_if<NewRpgInfo::TravelFlight>(&rpgInfo.data); flight && flight->inFlight)
+                    rpgInfo.ChangeToIdle();
+            if (sinceFlight > CoaSafeMove::TAXI_LANDING_MS)
+                coaTaxiFlightMs = 0;
+        }
         // A bot out of a taxi kept its flying or gravity flag and floated over the flight master: it sends no landing
         // packet (Orgrimmar, jealous-sound/azerothcore-wotlk-coa#6261).
         if (!bot->IsInFlight() && !bot->GetTransport() && !bot->IsInWater() && !bot->HasAuraType(SPELL_AURA_FLY) &&
@@ -2082,7 +2096,8 @@ void PlayerbotAI::DoNextAction(bool min)
                 float const floorZ = bot->GetFloorZ();
                 LiquidData const& liquid = bot->GetLiquidData();
                 bool const waterBelow = liquid.Level > INVALID_HEIGHT && liquid.Level >= floorZ;
-                if (CoaSafeMove::DropsToFloor(bot->GetPositionZ(), floorZ, bot->IsOutdoors(), waterBelow))
+                if (CoaSafeMove::DropsToFloor(bot->GetPositionZ(), floorZ, bot->IsOutdoors(), waterBelow) ||
+                    CoaSafeMove::LandsAfterTaxi(bot->GetPositionZ(), floorZ, waterBelow, sinceFlight))
                     bot->GetMotionMaster()->MoveFall();
             }
         }

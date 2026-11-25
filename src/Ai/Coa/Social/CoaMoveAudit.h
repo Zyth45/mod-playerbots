@@ -32,7 +32,25 @@ void NoteOrigin(Player* bot, char const* origin);
 // 3.2.2 (Pilote, bench of 1e991b2d: teleport 5 686, wall 4 944 an hour): a teleport by the server (TeleportTo,
 // NearTeleportTo: a random teleport, a hearth, an unstick), from the core's OnPlayerBeforeTeleport. The sample that spans
 // it is no anomaly (teleport, fast, wall, zjump, terrain).
-void NoteTeleport(Player* bot);
+// 3.3.1 (Pilote, bench 331a): each one is written too ("server_teleport": from, to, its cause, the level, the nearest
+// real player at the departure and at the arrival), not only those a sample happened to span.
+void NoteTeleport(Player* bot, uint32_t mapId, float x, float y, float z);
+
+// 3.3.1: the cause of the teleports asked while it lives (the random bot manager's callers: "revive", "no xp", ...),
+// for the "server_teleport" line; nested, the innermost wins. worldThread: asked on the world thread, where the random
+// bot manager's list of real players may be read (the arrival's nearest player on another map). Nothing else changes.
+class TeleportCause
+{
+public:
+    TeleportCause(char const* cause, bool worldThread);
+    ~TeleportCause();
+    TeleportCause(TeleportCause const&) = delete;
+    TeleportCause& operator=(TeleportCause const&) = delete;
+
+private:
+    char const* previousCause;
+    bool previousWorld;
+};
 }  // namespace CoaMoveAudit
 
 void AddSC_coa_move_audit();

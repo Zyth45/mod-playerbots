@@ -67,7 +67,15 @@ struct AuditSample
     float pingX = 0.0f, pingY = 0.0f, pingSpan = 0.0f, pingTravel = 0.0f;
     bool pingSpoiled = false;  // a fight, a flight, water... in the window: not judged
     uint64 teleportMs = 0;     // 3.2.2: the server's last teleport of the bot (NoteTeleport)
+    // 3.3.1: "stuck": where the bot has been since anchorMs (moved off STUCK_RADIUS: a new anchor); wall samples in a row.
+    float anchorX = 0.0f, anchorY = 0.0f, anchorZ = 0.0f;
+    uint64 anchorMs = 0;
+    uint32 wallStreak = 0;
 };
+
+// 3.3.1: the cause of the teleports asked on this thread (TeleportCause).
+thread_local char const* teleportCause = nullptr;
+thread_local bool teleportCauseWorld = false;
 
 std::mutex stateLock;
 std::unordered_map<uint64, AuditSample> states;
@@ -93,11 +101,14 @@ enum Excluded : uint32
     EX_NOT_COMPARED,     // every kind between two samples: across a server teleport or a gap
     EX_UNDER_STOREY,     // underfloor: the floor above is the next storey
     EX_UNDER_MODEL,      // underfloor: standing on a model's floor
+    EX_WALL_SLOPE,       // 3.3.1, wall: stairs or a ramp, |dz| of WALL_MAX_DZ or more
+    EX_AIR_LIQUID,       // 3.3.1, air: over a liquid's surface
     EX_COUNT
 };
 char const* const excludedNames[EX_COUNT] = {"teleport in flight/transport", "fast in a fight", "wall over 8 yd",
                                              "not compared (server teleport, gap)", "underfloor under a storey",
-                                             "underfloor on a model floor"};
+                                             "underfloor on a model floor", "wall on stairs or a ramp",
+                                             "air over a liquid"};
 std::atomic<uint32> hourExcluded[EX_COUNT];
 std::atomic<uint32> hourUnexplained{0};
 std::atomic<uint64> nextSummaryMs{0};
@@ -308,12 +319,85 @@ void NoteOrigin(Player* bot, char const* origin)
     move.atMs = GameTime::GetGameTimeMS().count();
 }
 
-void NoteTeleport(Player* bot)
+TeleportCause::TeleportCause(char const* cause, bool worldThread)
+    : previousCause(teleportCause), previousWorld(teleportCauseWorld)
+{
+    teleportCause = cause;
+    teleportCauseWorld = worldThread;
+}
+
+TeleportCause::~TeleportCause()
+{
+    teleportCause = previousCause;
+    teleportCauseWorld = previousWorld;
+}
+
+namespace
+{
+// 3.3.1: the nearest real player (no bot, no hidden GM) of a list on a map, in yards; -1: none.
+float NearestReal(std::vector<Player*> const& players, uint32 mapId, float x, float y, float z, Player const* self)
+{
+    float best = -1.0f;
+    for (Player* player : players)
+    {
+        if (!player || player == self || !player->IsInWorld() || player->GetMapId() != mapId ||
+            GET_PLAYERBOT_AI(player) || (player->IsGameMaster() && !player->isGMVisible()))
+            continue;
+        float const d = player->GetExactDist(x, y, z);
+        if (best < 0.0f || d < best)
+            best = d;
+    }
+    return best;
+}
+
+// The real players of the bot's own map (read on its map's thread or the world thread: safe).
+std::vector<Player*> MapPlayers(Player* bot)
+{
+    std::vector<Player*> list;
+    if (Map* map = bot->GetMap())
+        for (auto const& ref : map->GetPlayers())
+            if (Player* player = ref.GetSource())
+                list.push_back(player);
+    return list;
+}
+}  // namespace
+
+void NoteTeleport(Player* bot, uint32_t mapId, float x, float y, float z)
 {
     if (!Enabled() || !bot)
         return;
-    std::lock_guard<std::mutex> guard(stateLock);
-    states[bot->GetGUID().GetRawValue()].teleportMs = GameTime::GetGameTimeMS().count();
+    {
+        std::lock_guard<std::mutex> guard(stateLock);
+        states[bot->GetGUID().GetRawValue()].teleportMs = GameTime::GetGameTimeMS().count();
+    }
+    PlayerbotAI* botAI = GET_PLAYERBOT_AI(bot);
+    if (!botAI || !bot->IsInWorld())
+        return;
+    // 3.3.1: the nearest real player at the departure and at the arrival. On the world thread, the random bot manager's
+    // list of real players; elsewhere the bot's map only (the arrival on another map is not read: -2).
+    std::vector<Player*> const players = teleportCauseWorld ? sRandomPlayerbotMgr.GetPlayers() : MapPlayers(bot);
+    float const nearFrom = NearestReal(players, bot->GetMapId(), bot->GetPositionX(), bot->GetPositionY(),
+                                       bot->GetPositionZ(), bot);
+    float const nearTo = teleportCauseWorld || mapId == bot->GetMapId() ? NearestReal(players, mapId, x, y, z, bot)
+                                                                        : -2.0f;
+    Engine* engine = botAI->GetEngine(bot->IsInCombat() ? ::BOT_STATE_COMBAT : ::BOT_STATE_NON_COMBAT);
+    std::string const lastAction = engine ? engine->GetLastAction() : "";
+    std::string const cause = teleportCause ? teleportCause : "other";
+    float const flat = mapId == bot->GetMapId() ? std::hypot(x - bot->GetPositionX(), y - bot->GetPositionY()) : -1.0f;
+    std::ostringstream line;
+    line << "{\"t\":" << Json(Time()) << ",\"kind\":\"server_teleport\",\"bot\":" << Json(bot->GetName())
+         << ",\"random\":" << (sRandomPlayerbotMgr.IsRandomBot(bot) ? "true" : "false")
+         << ",\"level\":" << uint32(bot->GetLevel()) << ",\"alive\":" << (bot->IsAlive() ? "true" : "false")
+         << ",\"map\":" << bot->GetMapId() << ",\"zone\":" << Json(ZoneName(bot->GetZoneId())) << ",\"from\":["
+         << Num(bot->GetPositionX()) << "," << Num(bot->GetPositionY()) << "," << Num(bot->GetPositionZ())
+         << "],\"toMap\":" << mapId << ",\"to\":[" << Num(x) << "," << Num(y) << "," << Num(z) << "],\"flat\":"
+         << Num(flat) << ",\"cause\":" << Json(cause) << ",\"lastAction\":" << Json(lastAction)
+         << ",\"nearFrom\":" << Num(nearFrom) << ",\"nearTo\":" << Num(nearTo) << "}";
+    Write(line.str());
+    std::ostringstream sample;
+    sample << bot->GetName() << " level " << uint32(bot->GetLevel()) << " map " << bot->GetMapId() << " -> " << mapId
+           << " " << Num(x) << " " << Num(y) << " " << Num(z) << ", player " << Num(nearFrom) << " / " << Num(nearTo);
+    NoteSummary("server_teleport", sample.str(), ZoneName(bot->GetZoneId()), cause);
 }
 
 void NoteMove(Player* bot, char const* action, float x, float y, float z, bool straight)
@@ -363,13 +447,21 @@ void Tick(PlayerbotAI* botAI)
 
     std::vector<std::string> kinds;
     if (InAir(z, floorZ, exempt))
-        kinds.push_back("air");
+    {
+        // 3.3.1: over a liquid of the map (a bot is never "in water" for the core): it swims, not "air".
+        LiquidData const liquid =
+            map->GetLiquidData(bot->GetPhaseMask(), x, y, z, bot->GetCollisionHeight(), MAP_ALL_LIQUIDS);
+        if (liquid.Status != LIQUID_MAP_NO_WATER && OverLiquid(z, floorZ, liquid.Level))
+            ++hourExcluded[EX_AIR_LIQUID];
+        else
+            kinds.push_back("air");
+    }
     if (!exempt && onGround && OnRoof(bot->IsOutdoors(), floorZ, gridZ))
         kinds.push_back("roof");
     float flat = 0.0f, dz = 0.0f;
     uint32 dtMs = 0;
     // 3.2.2: not across a teleport by the server, nor across a gap (a logout, an AI asleep): the bot was not walking.
-    bool const comparable = before.atMs && before.mapId == bot->GetMapId() && before.teleportMs <= before.atMs &&
+    bool const comparable = before.atMs && before.mapId == bot->GetMapId() && ComparedAcross(before.teleportMs, before.atMs) &&
                             nowMs <= before.atMs + SAMPLE_GAP_MS;
     if (!comparable && before.atMs)
         ++hourExcluded[EX_NOT_COMPARED];
@@ -396,6 +488,8 @@ void Tick(PlayerbotAI* botAI)
         }
         if (CheckWall(flat) && !exempt && flat > WALL_MAX_FLAT)
             ++hourExcluded[EX_WALL_FAR];
+        else if (CheckWall(flat) && !exempt && !WallJudged(flat, dz))
+            ++hourExcluded[EX_WALL_SLOPE];
         else if (CheckWall(flat) && !exempt &&
                  !map->isInLineOfSight(before.x, before.y, before.z + 1.5f, x, y, z + 1.5f, bot->GetPhaseMask(),
                                        LINEOFSIGHT_CHECK_VMAP, VMAP::ModelIgnoreFlags::M2))
@@ -450,6 +544,8 @@ void Tick(PlayerbotAI* botAI)
     std::vector<std::string> due;
     LastMove move;
     float pingTravel = 0.0f, pingSpan = 0.0f;
+    uint32 wallStreak = 0;
+    uint64 stuckMs = 0;
     {
         std::lock_guard<std::mutex> guard(stateLock);
         AuditSample& state = states[bot->GetGUID().GetRawValue()];
@@ -483,6 +579,25 @@ void Tick(PlayerbotAI* botAI)
                 state.pingSpoiled = false;
             }
         }
+        // 3.3.1 (Pilote): "stuck", no progress over consecutive samples: out of a fight, within STUCK_RADIUS of the anchor
+        // for STUCK_MS, a move asked since that leads further. A sample off the anchor, exempt or in a fight: new anchor.
+        float const fromAnchor = std::hypot(x - state.anchorX, y - state.anchorY);
+        if (!state.anchorMs || state.mapId != bot->GetMapId() || exempt || bot->IsInCombat() ||
+            fromAnchor > STUCK_RADIUS || std::fabs(z - state.anchorZ) > STUCK_RADIUS * 2.0f)
+        {
+            state.anchorX = x;
+            state.anchorY = y;
+            state.anchorZ = z;
+            state.anchorMs = nowMs;
+        }
+        else if (Stuck(fromAnchor, state.anchorMs, nowMs, state.move.atMs,
+                       std::hypot(state.move.x - x, state.move.y - y)))
+        {
+            kinds.push_back("stuck");
+            stuckMs = nowMs - state.anchorMs;
+        }
+        state.wallStreak = std::find(kinds.begin(), kinds.end(), "wall") != kinds.end() ? state.wallStreak + 1 : 0;
+        wallStreak = state.wallStreak;
         state.mapId = bot->GetMapId();
         state.x = x;
         state.y = y;
@@ -525,6 +640,7 @@ void Tick(PlayerbotAI* botAI)
              << ",\"gen\":" << Json(GeneratorName(bot->GetMotionMaster()->GetCurrentMovementGeneratorType()))
              << ",\"lastAction\":" << Json(lastAction) << ",\"rpg\":" << Json(rpg)
              << ",\"ping\":{\"traveled\":" << Num(pingTravel) << ",\"span\":" << Num(pingSpan) << "}"
+             << ",\"wallStreak\":" << wallStreak << ",\"stuckMs\":" << stuckMs
              << ",\"move\":{\"action\":" << Json(move.action) << ",\"origin\":" << Json(move.origin) << ",\"to\":[" << Num(move.x) << "," << Num(move.y) << ","
              << Num(move.z) << "],\"path\":" << Json(PathTypeText(move.pathType)) << ",\"points\":" << move.points
              << ",\"ageMs\":" << (move.atMs ? nowMs - move.atMs : 0) << "}}";

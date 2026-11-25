@@ -68,6 +68,7 @@
 #include "RaceMgr.h"
 #include "Random.h"
 #include "RandomBotLevelMgr.h"
+#include "CoaMoveAudit.h"
 #include "RandomPlayerbotFactory.h"
 #include "ServerFacade.h"
 #include "SharedDefines.h"
@@ -2128,6 +2129,7 @@ bool RandomPlayerbotMgr::ProcessBot(Player* bot)
 
         if (!GetEventValue(botId, "revive"))
         {
+            CoaMoveAudit::TeleportCause const cause("revive", true);  // CoA 3.3.1: the move audit's cause
             Revive(bot);
             return true;
         }
@@ -2166,6 +2168,7 @@ bool RandomPlayerbotMgr::ProcessBot(Player* bot)
             LOG_INFO("playerbots", "coa: {} (level {}) earned no experience for 10 minutes, new grinding spot",
                      bot->GetName(), bot->GetLevel());
             since = now;
+            CoaMoveAudit::TeleportCause const cause("no xp 10 min", true);  // CoA 3.3.1: the move audit's cause
             RandomTeleportGrindForLevel(bot);
             return true;
         }
@@ -2218,6 +2221,7 @@ bool RandomPlayerbotMgr::ProcessBot(Player* bot)
             // }
             // if (randomiser)
             // {
+            CoaMoveAudit::TeleportCause const cause("randomize", true);  // CoA 3.3.1: the move audit's cause
             Randomize(bot);
             LOG_DEBUG("playerbots", "Bot #{} {}:{} <{}>: randomized", botId,
                       bot->GetTeamId() == TEAM_ALLIANCE ? "A" : "H", bot->GetLevel(), bot->GetName());
@@ -2241,6 +2245,7 @@ bool RandomPlayerbotMgr::ProcessBot(Player* bot)
             if (!HeavyAllowed())
                 return false;
             LOG_DEBUG("playerbots", "Bot #{} <{}>: teleport for level and refresh", botId, bot->GetName());
+            CoaMoveAudit::TeleportCause const cause("timer", true);  // CoA 3.3.1: the move audit's cause
             Refresh(bot);
             RandomTeleportForLevel(bot);
             uint32 time = urand(sPlayerbotAIConfig.minRandomBotTeleportInterval,
@@ -2262,6 +2267,11 @@ void RandomPlayerbotMgr::Revive(Player* player)
     SetEventValue(bot, "revive", 0, 0);
 
     Refresh(player);
+    // CoA 3.3.1 (bench 331a): under level 6 the grinding hubs are the races' starting points: a bot revived there rises
+    // where it lay (Refresh) instead of appearing at the starting point (AiPlayerbot.CoaLive.LevelupTeleportGuard).
+    if (!CoaReviveTeleports(sConfigMgr->GetOption<bool>("AiPlayerbot.CoaLive.LevelupTeleportGuard", true, false),
+                            player->GetLevel()))
+        return;
     RandomTeleportGrindForLevel(player);
 }
 
@@ -2630,7 +2640,7 @@ WorldLocation BankArrival(WorldLocation const& banker)
 }
 }  // namespace
 
-void RandomPlayerbotMgr::RandomTeleport(Player* bot, std::vector<WorldLocation>& locs, bool hearth, bool levelUp)
+void RandomPlayerbotMgr::RandomTeleport(Player* bot, std::vector<WorldLocation>& locs, bool hearth, bool guardArrival)
 {
     // ignore when alrdy teleported or not in the world yet.
     if (bot->IsBeingTeleported() || !bot->IsInWorld())
@@ -2703,9 +2713,10 @@ void RandomPlayerbotMgr::RandomTeleport(Player* bot, std::vector<WorldLocation>&
                 std::abs(int32(other->GetLevel()) - int32(bot->GetLevel())) <= 5)
                 ++zoneBots[other->GetZoneId()];
 
-    // CoA 3.3: the teleport of a level up only, with AiPlayerbot.CoaLive.LevelupTeleportGuard (see the arrival below).
+    // CoA 3.3: the teleport of a level up; 3.3.1: every teleport for level or grinding (guardArrival), with
+    // AiPlayerbot.CoaLive.LevelupTeleportGuard (see the arrival below).
     bool const arrivalGuard =
-        levelUp && sConfigMgr->GetOption<bool>("AiPlayerbot.CoaLive.LevelupTeleportGuard", true, false);
+        guardArrival && sConfigMgr->GetOption<bool>("AiPlayerbot.CoaLive.LevelupTeleportGuard", true, false);
 
     bool stop = false;
     for (uint32 pass = 0; pass < (crowdLimit ? 2u : 1u) && !stop; ++pass)
@@ -2795,8 +2806,9 @@ void RandomPlayerbotMgr::RandomTeleport(Player* bot, std::vector<WorldLocation>&
         }
 
         // CoA 3.3 (bench 2 of 3.3: bots appearing at the starting points under the eyes of a player starting a
-        // character): at a level up, the departure is unseen (150 yards below), the arrival too: a location with a
-        // real player within 150 yards of it is left for the next one (none left: the bot stays where it is).
+        // character): the departure is unseen (150 yards below), the arrival too, for a level up and since 3.3.1 every
+        // teleport for level or grinding: a location with a real player within 150 yards of it is left for the next
+        // one (none left: the bot stays where it is and tries again at its next turn).
         if (arrivalGuard)
         {
             bool seen = false;
@@ -2958,11 +2970,11 @@ void RandomPlayerbotMgr::InitArenaTeams()
              RandomPlayerbotFactory::GetBotArenaTeamCount(ARENA_TYPE_5v5), sPlayerbotAIConfig.randomBotArenaTeam5v5Count);
 }
 
-void RandomPlayerbotMgr::RandomTeleportForLevel(Player* bot) { TeleportForLevel(bot, false); }
+void RandomPlayerbotMgr::RandomTeleportForLevel(Player* bot) { TeleportForLevel(bot); }
 
-void RandomPlayerbotMgr::RandomTeleportForLevelUp(Player* bot) { TeleportForLevel(bot, true); }
+void RandomPlayerbotMgr::RandomTeleportForLevelUp(Player* bot) { TeleportForLevel(bot); }
 
-void RandomPlayerbotMgr::TeleportForLevel(Player* bot, bool levelUp)
+void RandomPlayerbotMgr::TeleportForLevel(Player* bot)
 {
     if (bot->InBattleground())
         return;
@@ -2975,7 +2987,7 @@ void RandomPlayerbotMgr::TeleportForLevel(Player* bot, bool levelUp)
             // 3.1.8: outdoors around the bank, not inside it (BankArrival): the home is set there too.
             for (WorldLocation& loc : locs)
                 loc = BankArrival(loc);
-            RandomTeleport(bot, locs, true, levelUp);
+            RandomTeleport(bot, locs, true, true);  // CoA 3.3.1: the arrival guard
             return;
         }
     }
@@ -2991,7 +3003,7 @@ void RandomPlayerbotMgr::TeleportForLevel(Player* bot, bool levelUp)
 
     if (!locs.empty())
     {
-        RandomTeleport(bot, locs, false, levelUp);
+        RandomTeleport(bot, locs, false, true);  // CoA 3.3.1: the arrival guard
         return;
     }
 }
@@ -3089,7 +3101,7 @@ void RandomPlayerbotMgr::RandomTeleportGrindForLevel(Player* bot)
     LOG_DEBUG("playerbots", "Random teleporting bot {} for level {} ({} locations available)", bot->GetName().c_str(),
               bot->GetLevel(), locs.size());
 
-    RandomTeleport(bot, locs);
+    RandomTeleport(bot, locs, false, true);  // CoA 3.3.1: the arrival guard
 }
 
 void RandomPlayerbotMgr::RandomTeleport(Player* bot)

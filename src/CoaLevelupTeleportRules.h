@@ -16,6 +16,13 @@
 // level up): with the new RPG, the teleport hubs of levels 1 to 5 are the races' starting points, where such a bot
 // already is. Under this level, a level up teleports nowhere.
 constexpr std::uint8_t COA_LEVELUP_TELEPORT_MIN_LEVEL = 6;
+// 3.3.1 (bench 331a): the same for a random bot revived by the manager (dead too long): under this level it rises where
+// it lay, no teleport to a grinding hub (a starting point).
+inline bool CoaReviveTeleports(bool guardOn, std::uint32_t level)
+{
+    return !guardOn || level >= COA_LEVELUP_TELEPORT_MIN_LEVEL;
+}
+
 // A random teleport's arrival is refused when a real player stands within this many yards of it (the departure has
 // the same range, RandomPlayerbotMgr::RandomTeleport).
 constexpr float COA_TELEPORT_ARRIVAL_SEEN_RANGE = 150.0f;

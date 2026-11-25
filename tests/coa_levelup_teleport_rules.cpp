@@ -11,6 +11,9 @@ int main()
     assert(CoaLevelupTeleports(true, 60));
     // Guard off: as in 3.2.2.
     assert(CoaLevelupTeleports(false, 2));
+    // 3.3.1: a bot revived by the manager under level 6 rises where it lay; from 6, or the guard off, as before.
+    assert(!CoaReviveTeleports(true, 1) && !CoaReviveTeleports(true, 5));
+    assert(CoaReviveTeleports(true, 6) && CoaReviveTeleports(false, 2));
     // Arrival: a real player within 150 yards refuses it.
     assert(CoaTeleportArrivalSeen(true, 0.0f));
     assert(CoaTeleportArrivalSeen(true, 149.0f * 149.0f));
