@@ -155,6 +155,9 @@ namespace
                     continue;
 
                 Group* group = bot->GetGroup();
+                // 3.3.1: still in a Dungeon Finder group with the player (back in it since): it stays in the dungeon.
+                if (group && group->isLFGGroup() && group->IsMember(player->GetGUID()))
+                    continue;
                 // AiPlayerbot.LfgKeepRandomBots: they stay with a player still in their group, to queue it again.
                 bool const kept = sPlayerbotAIConfig.lfgKeepRandomBots && group && group->IsMember(player->GetGUID());
                 if (group && group->isLFGGroup() && sRandomPlayerbotMgr.IsRandomBot(bot) && !kept)
@@ -215,6 +218,10 @@ void CoaLeaveInstance::OnBeforeTeleport(Player* player, uint32 mapId)
         if (!botAI || !bot->IsAlive() || sCoaMissionMgr.IsOnMission(bot))
             continue;
         Group* botGroup = bot->GetGroup();
+        // 3.3.1 (user, 25/11): the Dungeon Finder's "Teleport out" keeps the player in the group; its bots came out
+        // on him (Stormwind) and RejoinLfgDungeon sent them back seconds later. They wait in the dungeon instead.
+        if (botGroup && botGroup->isLFGGroup() && botGroup->IsMember(player->GetGUID()))
+            continue;
         if (botAI->GetMaster() == player || (group && group->IsMember(bot->GetGUID())) ||
             (!otherPlayer && botGroup && botGroup->isLFGGroup()))
             leave.bots.push_back(bot->GetGUID());
