@@ -18,6 +18,7 @@
 #include "RandomItemMgr.h"
 #include "ServerFacade.h"
 #include "StatsWeightCalculator.h"
+#include "CoaFormulas.h"
 #include "CoaGearScore.h"
 
 #include <algorithm>
@@ -71,7 +72,8 @@ ItemUsage ItemUsageValue::Calculate()
                 needItem = IsItemNeededForUsefullSpell(proto, lowBagSpace);
             else if (proto->Class == ITEM_CLASS_RECIPE)
             {
-                if (bot->HasSpell(proto->Spells[2].SpellId))
+                // 3.3.1: the spell the recipe teaches, both CoA formats (Spells[2] missed the on-use formulas).
+                if (bot->HasSpell(CoaEconomy::Formulas::TaughtSpell(proto)))
                     needItem = false;
                 else
                     needItem = bot->BotCanUseItem(proto) == EQUIP_ERR_OK;
@@ -776,7 +778,8 @@ bool ItemUsageValue::IsItemUsefulForSkill(ItemTemplate const* proto)
         }
         case ITEM_CLASS_RECIPE:
         {
-            if (bot->HasSpell(proto->Spells[2].SpellId))
+            // 3.3.1: the spell the recipe teaches, both CoA formats (Spells[2] missed the on-use formulas).
+            if (bot->HasSpell(CoaEconomy::Formulas::TaughtSpell(proto)))
                 break;
 
             switch (proto->SubClass)

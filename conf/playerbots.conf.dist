@@ -4442,6 +4442,15 @@ AiPlayerbot.CoaTrust.Ranks = 0,100,500,1500,4000,10000
 #        Default:     1 (enabled)
 AiPlayerbot.CoaLfgRolePriority = 1
 
+#    AiPlayerbot.CoaLive.LootNeedRecipe
+#        Description: In a group roll (dungeon, raid, any group), a bot rolls Need on a recipe of any profession
+#                     (formula, pattern, plans, schematic...) it can learn and does not know yet: its profession,
+#                     skill rank, level and the reputation asked are enough. It learns it at its next study in town.
+#                     The manners stay: never against a real player's Need, and the real players vote first.
+#                     Any other recipe is rolled as AiPlayerbot.LootRollRecipe says.
+#        Default:     1 (enabled)
+AiPlayerbot.CoaLive.LootNeedRecipe = 1
+
 # Bots' minimum and maximum level when teleporting in and out of a zone, according to the new RPG strategy
 # Format: AiPlayerbot.ZoneBracket.zoneID = minLevel,maxLevel
 #

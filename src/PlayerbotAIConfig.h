@@ -771,6 +771,7 @@ public:
     uint32 coaLiveCitySquareMaxBots = 3;   // AiPlayerbot.CoaLive.City.SquareMaxBots: at most this many on one (1 to 3)
     uint32 coaLivePvpStatsKeepDays = 30;  // AiPlayerbot.CoaLive.PvpStatsKeepDays: battleground stats kept (0: never purged)
     bool coaLfgRolePriority = true;  // AiPlayerbot.CoaLfgRolePriority: a bot of the missing role queues first (3.2.1)
+    bool coaLiveLootNeedRecipe = true;  // AiPlayerbot.CoaLive.LootNeedRecipe: Need on a recipe it can learn (3.3.1)
     // ---- end of CoA Live ----
 
     // ---- CoA World (LoadCoaWorldConfig, CoaWorldConfig.cpp) ----

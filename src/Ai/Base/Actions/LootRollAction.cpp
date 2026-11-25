@@ -5,6 +5,7 @@
  */
 
 #include "LootRollAction.h"
+#include "CoaFormulas.h"
 #include "PlayerbotFactory.h"
 #include "CoaGearScore.h"
 #include "CoaLive.h"
@@ -129,7 +130,12 @@ bool LootRollAction::Execute(Event /*event*/)
                         vote = GREED;
                     break;
                 case ITEM_CLASS_RECIPE:
-                    if (!sPlayerbotAIConfig.lootRollRecipe)
+                    // AiPlayerbot.CoaLive.LootNeedRecipe (3.3.1): Need on a recipe it can learn and does not know (its
+                    // profession, rank, level and reputation; CoaEconomy::Formulas), learned at its next study in town.
+                    // The manners below still apply: a real player's Need first.
+                    if (sPlayerbotAIConfig.coaLiveLootNeedRecipe && CoaEconomy::Formulas::Learnable(bot, proto))
+                        vote = NEED;
+                    else if (!sPlayerbotAIConfig.lootRollRecipe)
                         vote = PASS;
                     else if (usage == ITEM_USAGE_SKILL)
                         vote = NEED;  // Bot can learn this recipe
