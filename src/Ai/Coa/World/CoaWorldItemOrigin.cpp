@@ -7,7 +7,8 @@
 /*
  * CoA World, 3.2.3: where each worn piece came from, for the dashboard's armory (characters.coa_item_origin, form
  * agreed in D:\CoA-Commun\FORME-ITEM-ORIGIN.md). Players and bots alike.
- *  - When an item arrives, its origin is noted in memory: loot (the creature or object), quest, vendor (the NPC),
+ *  - When an item arrives, its origin is noted in memory: loot (the creature or object; a group roll and the master
+ *    looter's gift too), quest, vendor (the NPC),
  *    auction (any win, keyed by the item), dungeonsim (a simulated dungeon's loot, the map).
  *  - When it is worn (one of the 19 equipment slots, green or better), one row is queued: the noted origin, or
  *    "start" for a piece that was never saved (made and equipped at once: auto-gear, a bot's factory). A piece its
@@ -24,7 +25,9 @@
 #include "AuctionHouseMgr.h"
 #include "Config.h"
 #include "DatabaseEnv.h"
+#include "Group.h"
 #include "Item.h"
+#include "LootMgr.h"
 #include "Log.h"
 #include "ObjectMgr.h"
 #include "Player.h"
@@ -151,8 +154,9 @@ void Purge()
 {
     if (!tableReady)
         return;
+    // A row younger than an hour may be a piece worn and not saved yet (its owner's save comes later): it stays.
     CharacterDatabase.Execute("DELETE o FROM `coa_item_origin` o LEFT JOIN `item_instance` i ON i.`guid` = o.`item` "
-                              "WHERE i.`guid` IS NULL");
+                              "WHERE i.`guid` IS NULL AND o.`at` < {}", int64(time(nullptr)) - 3600);
     if (int64 const before = PurgeBefore(int64(time(nullptr)), settings.purgeDays))
         CharacterDatabase.Execute("DELETE FROM `coa_item_origin` WHERE `at` < {}", before);
 }
@@ -177,6 +181,7 @@ class CoaWorldItemOriginPlayer : public PlayerScript
 public:
     CoaWorldItemOriginPlayer()
         : PlayerScript("CoaWorldItemOriginPlayer", { PLAYERHOOK_ON_EQUIP, PLAYERHOOK_ON_LOOT_ITEM,
+                                                     PLAYERHOOK_ON_GROUP_ROLL_REWARD_ITEM, PLAYERHOOK_ON_MASTER_LOOT_ITEM,
                                                      PLAYERHOOK_ON_QUEST_REWARD_ITEM,
                                                      PLAYERHOOK_ON_AFTER_STORE_OR_EQUIP_NEW_ITEM })
     {
@@ -188,6 +193,29 @@ public:
         {
             std::lock_guard<std::mutex> guard(lock);
             NoteLocked(item->GetGUID().GetCounter(), "loot", lootguid.GetEntry());
+        }
+    }
+
+    // 3.3 bench (2 940 self-found bots, 35 min: loot 0): in a group, a piece won at a Need or Greed roll and a piece
+    // the master looter gives never pass through OnPlayerLootItem (Group.cpp, LootHandler.cpp). Unnoted, it was worn
+    // as "start". Its creature (or 0: a chest) is taken from the roll's loot.
+    void OnPlayerGroupRollRewardItem(Player* /*player*/, Item* item, uint32 /*count*/, RollVote /*voteType*/,
+                                     Roll* roll) override
+    {
+        if (!item || !Wanted(item->GetTemplate()))
+            return;
+        Loot* loot = roll ? roll->getLoot() : nullptr;
+        ObjectGuid const source = loot ? loot->sourceWorldObjectGUID : ObjectGuid::Empty;
+        std::lock_guard<std::mutex> guard(lock);
+        NoteLocked(item->GetGUID().GetCounter(), "loot", source.IsCreature() ? source.GetEntry() : 0);
+    }
+
+    void OnPlayerMasterLootItem(Player* /*player*/, Item* item, uint32 /*count*/, ObjectGuid lootguid) override
+    {
+        if (item && Wanted(item->GetTemplate()))
+        {
+            std::lock_guard<std::mutex> guard(lock);
+            NoteLocked(item->GetGUID().GetCounter(), "loot", lootguid.IsCreature() ? lootguid.GetEntry() : 0);
         }
     }
 
