@@ -28,11 +28,26 @@ int main()
     counts[0]["start"] = 3;
     assert(HourLine(counts) == "1-9: 3 start; 10-19: 12 loot, 2 quest");
 
-    // The worn source: the noted origin; "start" only under the factory or the auto-gear; never a guess.
-    assert(std::string(WornSource("loot", false, false)) == "loot");
-    assert(std::string(WornSource("auction", true, false)) == "auction");
-    assert(std::string(WornSource(nullptr, true, false)) == "start");
-    assert(WornSource(nullptr, false, false) == nullptr);  // a piece worn, its acquisition not seen: no row
-    assert(WornSource(nullptr, true, true) == nullptr);    // made by its wearer: no row
+    // The worn source: the noted origin; a made piece "selfcraft" on its maker, "craft" on anyone else; "start"
+    // only under the factory or the auto-gear; never a guess.
+    assert(std::string(WornSource("loot", false, false, false)) == "loot");
+    assert(std::string(WornSource("auction", true, false, false)) == "auction");
+    assert(std::string(WornSource("auction", false, true, false)) == "auction");  // a crafted piece bought
+    assert(std::string(WornSource("craft", false, true, true)) == "selfcraft");
+    assert(std::string(WornSource("craft", false, true, false)) == "craft");      // a mail order, a trade
+    assert(std::string(WornSource(nullptr, false, true, true)) == "selfcraft");   // signed by its wearer
+    assert(std::string(WornSource(nullptr, true, true, false)) == "craft");       // signed by another
+    assert(std::string(WornSource(nullptr, true, false, false)) == "start");
+    assert(WornSource(nullptr, false, false, false) == nullptr);  // a piece worn, its acquisition not seen: no row
+
+    // coa_item_event: 20 per character; the same piece worn again within a minute writes nothing.
+    assert(EventsKept == 20);
+    assert(!RepeatPose(0, 1000));
+    assert(RepeatPose(1000, 1000) && RepeatPose(1000, 1059));
+    assert(!RepeatPose(1000, 1060) && !RepeatPose(1000, 999));
+
+    // An enchant event only when the enchantment changes.
+    assert(NewEnchant(0, 1900) && NewEnchant(1887, 1900));
+    assert(!NewEnchant(1900, 1900) && !NewEnchant(1900, 0));
     return 0;
 }

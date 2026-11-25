@@ -2967,9 +2967,9 @@ AiPlayerbot.CoaWorld.DungeonSim.Announce = 1
 #    AiPlayerbot.CoaWorld.ItemOrigin.Enable
 #        Description: Where each worn piece came from, for the dashboard's armory (table coa_item_origin of the
 #                     characters database, players and bots alike): loot (the creature), quest, vendor (the NPC),
-#                     auction, start (auto-gear, a bot's equipment), dungeonsim (a simulated dungeon's loot). One row
-#                     per piece, written when it is worn; a piece made by its wearer shows its creator instead, a
-#                     piece traded or mailed stays unknown. Rows are written in groups every minute, and one
+#                     auction, start (auto-gear, a bot's equipment), dungeonsim (a simulated dungeon's loot), craft
+#                     and selfcraft (a piece made by another, or by its wearer; 3.3.1). One row per piece, written
+#                     when it is worn; a piece traded or mailed stays unknown. Rows are written in groups every minute, and one
 #                     CoaBots.log line an hour counts them by level band ("gear (last hour)").
 #        Default:     1 - on (3.2.3)
 #                     0 - off: nothing is written (the table stays, the armory shows what it has)
@@ -2988,6 +2988,18 @@ AiPlayerbot.CoaWorld.ItemOrigin.MinQuality = 2
 #        Default:     90
 
 AiPlayerbot.CoaWorld.ItemOrigin.PurgeDays = 90
+
+#    AiPlayerbot.CoaWorld.ItemEvent.Enable
+#        Description: The last 20 gear events of each character, for the dashboard's character sheet (table
+#                     coa_item_event of the characters database, players and bots alike): "equip" each time a
+#                     piece is worn (with its source, as in ItemOrigin; the same piece worn again within a minute
+#                     counts once) and "enchant" for an enchantment put on (by a spell or scroll, the auto-gear, a
+#                     bot enchanter). Same pieces as ItemOrigin (MinQuality). Written every minute; older events
+#                     go once an hour. The CoA mystic enchantments are not recorded.
+#        Default:     1 - on (3.3.1)
+#                     0 - off: nothing is written
+
+AiPlayerbot.CoaWorld.ItemEvent.Enable = 1
 
 #    AiPlayerbot.CoaWorld.WorldPvp.Enable
 #        Description: World PvP of the bots, with two parts below.

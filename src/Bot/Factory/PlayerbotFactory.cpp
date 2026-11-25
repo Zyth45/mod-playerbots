@@ -3592,9 +3592,7 @@ void PlayerbotFactory::EnchantItem(Item* item)
     if (!enchant)
         return;
 
-    bot->ApplyEnchantment(item, PERM_ENCHANTMENT_SLOT, false);
-    item->SetEnchantment(PERM_ENCHANTMENT_SLOT, id, 0, 0, bot->GetGUID());
-    bot->ApplyEnchantment(item, PERM_ENCHANTMENT_SLOT, true);
+    CoaWorld::SetEnchant(bot, item, PERM_ENCHANTMENT_SLOT, id, bot->GetGUID(), "autogear");
 }
 
 bool PlayerbotFactory::CanEquipUnseenItem(uint8 slot, uint16& dest, uint32 item)
@@ -6021,9 +6019,7 @@ void PlayerbotFactory::ApplyEnchantTemplate(uint8 spec)
                 return;
             }
 
-            bot->ApplyEnchantment(pItem, PERM_ENCHANTMENT_SLOT, false);
-            pItem->SetEnchantment(PERM_ENCHANTMENT_SLOT, enchantid, 0, 0);
-            bot->ApplyEnchantment(pItem, PERM_ENCHANTMENT_SLOT, true);
+            CoaWorld::SetEnchant(bot, pItem, PERM_ENCHANTMENT_SLOT, enchantid, ObjectGuid::Empty, "autogear");
         }
     // botAI->EnchantItemT((*itr).SpellId, (*itr).SlotId);
     // const SpellItemEnchantmentEntry* a = sSpellItemEnchantmentStore.LookupEntry(1);
@@ -6148,9 +6144,7 @@ void PlayerbotFactory::ApplyEnchantAndGemsNew(bool /*destroyOld*/)
         // enchant item
         if (bestEnchantId != -1)
         {
-            bot->ApplyEnchantment(item, PERM_ENCHANTMENT_SLOT, false);
-            item->SetEnchantment(PERM_ENCHANTMENT_SLOT, bestEnchantId, 0, 0, bot->GetGUID());
-            bot->ApplyEnchantment(item, PERM_ENCHANTMENT_SLOT, true);
+            CoaWorld::SetEnchant(bot, item, PERM_ENCHANTMENT_SLOT, bestEnchantId, bot->GetGUID(), "autogear");
         }
         if (!item->HasSocket())
             continue;
@@ -6212,9 +6206,8 @@ void PlayerbotFactory::ApplyEnchantAndGemsNew(bool /*destroyOld*/)
             }
             if (enchantIdChosen == -1)
                 continue;
-            bot->ApplyEnchantment(item, EnchantmentSlot(enchant_slot), false);
-            item->SetEnchantment(EnchantmentSlot(enchant_slot), enchantIdChosen, 0, 0, bot->GetGUID());
-            bot->ApplyEnchantment(item, EnchantmentSlot(enchant_slot), true);
+            CoaWorld::SetEnchant(bot, item, EnchantmentSlot(enchant_slot), enchantIdChosen, bot->GetGUID(),
+                                 "autogear");
             curCount = GetCurrentGemsCount();
             if (jewelersGemChosen)
                 ++jewelersCount;
