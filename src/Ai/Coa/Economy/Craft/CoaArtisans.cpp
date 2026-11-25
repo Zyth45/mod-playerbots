@@ -458,7 +458,7 @@ Item* Craft(Player* bot, Recipe const& recipe)
         return nullptr;
     Item* const item =
         SignedByCrafter(bot, bot->StoreNewItem(dest, recipe.itemId, true, Item::GenerateItemRandomPropertyId(recipe.itemId)));
-    CoaWorld::NoteCraft(item, bot, recipe.spell);  // 3.3.1: the item's origin (the armory)
+    CoaWorld::NoteCraft(item, bot, recipe.spell->Id);  // 3.3.1: the item's origin (the armory)
     return item;
 }
 
@@ -588,7 +588,7 @@ Item* CraftUpgradeForSelf(Player* bot, PlayerbotAI* botAI, uint64 buyCap)
     Item* item = SignedByCrafter(bot, bot->StoreNewItem(dest, bestItem, true, Item::GenerateItemRandomPropertyId(bestItem)));
     if (!item)
         return nullptr;
-    CoaWorld::NoteCraft(item, bot, bestSpell);  // 3.3.1: "selfcraft" once worn (the armory)
+    CoaWorld::NoteCraft(item, bot, bestSpell->Id);  // 3.3.1: "selfcraft" once worn (the armory)
     // Worn at once, where it is an upgrade.
     uint8 const slot = botAI->FindEquipSlot(item->GetTemplate(), NULL_SLOT, true);
     if (slot != NULL_SLOT)
