@@ -256,6 +256,20 @@ bool NewRpgBaseAction::MoveFarTo(WorldPosition dest)
     return false;
 }
 
+namespace
+{
+// CoA 3.2.3: a player (a real session) shares the bot's group.
+bool InGroupWithRealPlayer(Player* bot)
+{
+    if (Group* group = bot->GetGroup())
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+            if (Player* member = ref->GetSource())
+                if (member != bot && member->GetSession() && !member->GetSession()->IsBot())
+                    return true;
+    return false;
+}
+}  // namespace
+
 bool NewRpgBaseAction::MoveWorldObjectTo(ObjectGuid guid, float distance)
 {
     if (IsWaitingForLastMove(MovementPriority::MOVEMENT_NORMAL))
@@ -289,8 +303,11 @@ bool NewRpgBaseAction::MoveWorldObjectTo(ObjectGuid guid, float distance)
     // CoA 3.2.3 (AiPlayerbot.CoaLive.NpcStopAside): by a still NPC or object, off its axis, not on its face
     // (CoaSafeMove::AsideOffset, AsideDistance), when that stop is on walkable ground (CoaSafeMove::AsideStopOk: the
     // server's floor, not in a booth, no avoided spot, a path to it, in the NPC's sight); else as before.
+    // Never in a dungeon, a raid, a battleground or an arena, in a player's group nor in a fight: there nothing
+    // changes from 3.2.2.
     if (sPlayerbotAIConfig.standOffObjects && CoaPathProbe::NpcStopAside() &&
-        (!object->ToUnit() || !object->ToUnit()->isMoving()))
+        (!object->ToUnit() || !object->ToUnit()->isMoving()) && !bot->GetMap()->Instanceable() &&
+        !bot->IsInCombat() && !botAI->HasGameClientMaster() && !InGroupWithRealPlayer(bot))
     {
         // A square of the city first: its slot, not the anchor NPC (as below).
         float qx = x, qy = y, qz = z;
