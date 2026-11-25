@@ -30,25 +30,32 @@ int main()
 
     // The worn source: the noted origin; a made piece "selfcraft" on its maker, "craft" on anyone else; "start"
     // only under the factory or the auto-gear; never a guess.
-    assert(std::string(WornSource("loot", false, false, false)) == "loot");
-    assert(std::string(WornSource("auction", true, false, false)) == "auction");
-    assert(std::string(WornSource("auction", false, true, false)) == "auction");  // a crafted piece bought
-    assert(std::string(WornSource("craft", false, true, true)) == "selfcraft");
-    assert(std::string(WornSource("craft", false, true, false)) == "craft");      // a mail order, a trade
-    assert(std::string(WornSource(nullptr, false, true, true)) == "selfcraft");   // signed by its wearer
-    assert(std::string(WornSource(nullptr, true, true, false)) == "craft");       // signed by another
-    assert(std::string(WornSource(nullptr, true, false, false)) == "start");
-    assert(WornSource(nullptr, false, false, false) == nullptr);  // a piece worn, its acquisition not seen: no row
+    assert(std::string(WornSource(nullptr, "loot", false, false, false)) == "loot");
+    assert(std::string(WornSource(nullptr, "auction", true, false, false)) == "auction");
+    assert(std::string(WornSource(nullptr, "auction", false, true, false)) == "craft");  // a crafted piece bought
+    assert(std::string(WornSource(nullptr, "craft", false, true, true)) == "selfcraft");
+    assert(std::string(WornSource(nullptr, "craft", false, true, false)) == "craft");   // a mail order
+    assert(std::string(WornSource("trade", "craft", false, true, false)) == "craft");   // a crafted piece traded
+    assert(std::string(WornSource("trade", "loot", false, false, false)) == "trade");   // looted, then traded
+    assert(std::string(WornSource("guildbank", nullptr, false, false, false)) == "guildbank");
+    assert(std::string(WornSource(nullptr, nullptr, false, true, true)) == "selfcraft");  // signed by its wearer
+    assert(std::string(WornSource(nullptr, nullptr, true, true, false)) == "craft");      // signed by another
+    assert(std::string(WornSource(nullptr, nullptr, true, false, false)) == "start");
+    assert(std::string(WornSource(nullptr, "mail", true, false, false)) == "mail");
+    assert(WornSource(nullptr, nullptr, false, false, false) == nullptr);  // worn before the update: no row
 
     // coa_item_event: 20 per character; the same piece worn again within a minute writes nothing.
     assert(EventsKept == 20);
     assert(!RepeatPose(0, 1000));
     assert(RepeatPose(1000, 1000) && RepeatPose(1000, 1059));
     assert(!RepeatPose(1000, 1060) && !RepeatPose(1000, 999));
+    assert(SkipPose(true, 0, 5000) && SkipPose(false, 1000, 1030) && !SkipPose(false, 1000, 1060));
+    assert(KeepEvents(20) == 20 && KeepEvents(0) == 10 && KeepEvents(5000) == 200);
 
     // Loot: "dungeon" in a dungeon or a raid, "loot" elsewhere; both fit the 16 characters of `source`.
-    assert(std::string(LootSource(true)) == "dungeon" && std::string(LootSource(false)) == "loot");
-    assert(std::string(LootSource(true)).size() <= 16);
+    assert(std::string(LootSource(true, false)) == "dungeon" && std::string(LootSource(false, false)) == "loot");
+    assert(std::string(LootSource(true, true)) == "raid");
+    assert(std::string("guildbank").size() <= 16 && std::string("dungeonsim").size() <= 16);
 
     // A factory pass closes 5 s after its last piece, or when the server stops.
     assert(!PassClosed(1000, 1000, false) && !PassClosed(1000, 1004, false));

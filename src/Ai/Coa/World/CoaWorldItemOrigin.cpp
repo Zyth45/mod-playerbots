@@ -27,7 +27,11 @@
  *    The CoA mystic enchantments are not covered.
  *  - "craft"/"selfcraft": a piece made with a profession spell (OnPlayerCreateItem) or by a bot's craft
  *    (CoaWorld::NoteCraft), or signed by a maker: "selfcraft" on its maker, "craft" on anyone else.
- *  - "dungeon" (3.3.1): a piece looted in a dungeon or a raid, group rolls included, instead of "loot".
+ *  - "dungeon" and "raid" (3.3.1): a piece looted in a dungeon or a raid map, group rolls included, instead of "loot".
+ *  - 3.3.1, every way in: "start" for any piece the factory stores (OnPlayerStoreNewItem under a StartGearScope),
+ *    "mail" for a piece taken from a mail that brought no other origin, "trade" and "guildbank" for a piece handed
+ *    over (the last hand-over wins, a crafted piece stays a craft), "vendor" for an honor purchase of the simulated
+ *    battlegrounds, "invasion" for an invasion's reward. Grey and white pieces are not recorded (MinQuality).
  *  - Written with the origins every 60 s; each character's events past the 20 last go once an hour.
  * Only official-core hooks: works the same on the official AzerothCore.
  */
@@ -40,8 +44,10 @@
 #include "Config.h"
 #include "DatabaseEnv.h"
 #include "Group.h"
+#include "Guild.h"
 #include "Item.h"
 #include "LootMgr.h"
+#include "Mail.h"
 #include "Log.h"
 #include "Map.h"
 #include "ObjectMgr.h"
@@ -72,6 +78,7 @@ struct Settings
 {
     bool enabled = true;
     bool events = true;
+    uint32 keep = EventsKept;
     uint32 minQuality = 2;
     uint32 purgeDays = 90;
 } settings;
@@ -82,6 +89,7 @@ void LoadSettings()
     settings.minQuality = std::min<uint32>(5, sConfigMgr->GetOption<uint32>(std::string(PREFIX) + "MinQuality", 2, false));
     settings.purgeDays = sConfigMgr->GetOption<uint32>(std::string(PREFIX) + "PurgeDays", 90, false);
     settings.events = sConfigMgr->GetOption<bool>(std::string(EVENT_PREFIX) + "Enable", true, false);
+    settings.keep = KeepEvents(sConfigMgr->GetOption<uint32>(std::string(EVENT_PREFIX) + "Keep", EventsKept, false));
 }
 
 struct Note
@@ -113,6 +121,13 @@ struct Worn
 {
     char const* source;  // the source of its last "equip" event, nullptr when not seen
     uint32 at;
+    uint32 owner;        // who wore it then: a source is only reused for the same wearer
+};
+
+struct Move
+{
+    char const* source;  // "trade", "guildbank"
+    uint32 from;         // the giver (a trade): the giver wearing it again is no hand-over
 };
 
 std::mutex lock;  // the hooks run in the map threads
@@ -120,6 +135,8 @@ std::unordered_map<uint32, Note> notes;
 std::vector<Row> queue;
 std::vector<Event> events;
 std::unordered_map<uint32, Worn> worn;  // by item
+std::unordered_map<uint32, Move> moves;  // by item: the last hand-over seen, until worn
+std::unordered_map<uint32, uint32> lastPose;  // by owner: the item of its last "equip" event
 
 struct Pass
 {
@@ -143,7 +160,7 @@ bool Wanted(ItemTemplate const* proto)
 char const* LootSourceOf(Player* player)
 {
     Map const* map = player ? player->FindMap() : nullptr;
-    return LootSource(map && map->IsDungeon());
+    return LootSource(map && map->IsDungeon(), map && map->IsRaid());
 }
 
 void NoteLocked(uint32 item, char const* source, uint32 detail, uint32 maker = 0)
@@ -151,6 +168,20 @@ void NoteLocked(uint32 item, char const* source, uint32 detail, uint32 maker = 0
     if (notes.size() >= MAX_NOTES)
         notes.clear();  // items noted long ago and never worn: sold, destroyed, kept in a bank
     notes[item] = { source, detail, maker };
+}
+
+// A note that never replaces one already there ("start", "mail": the loot, the quest or the auction seen first stay).
+void NoteIfNoneLocked(uint32 item, char const* source, uint32 detail)
+{
+    if (!notes.count(item))
+        NoteLocked(item, source, detail);
+}
+
+void MoveLocked(uint32 item, char const* source, uint32 from)
+{
+    if (moves.size() >= MAX_NOTES)
+        moves.clear();
+    moves[item] = { source, from };
 }
 
 void Queue(Player* player, Item* item, char const* source, uint32 detail)
@@ -278,6 +309,8 @@ void Purge()
     // The events of characters deleted.
     CharacterDatabase.Execute("DELETE e FROM `coa_item_event` e LEFT JOIN `characters` c ON c.`guid` = e.`owner` "
                               "WHERE c.`guid` IS NULL");
+    if (int64 const before = PurgeBefore(int64(time(nullptr)), settings.purgeDays))
+        CharacterDatabase.Execute("DELETE FROM `coa_item_event` WHERE `at` < {}", before);
 }
 
 // Each character keeps its last EventsKept events (the newest first by id: the order they were written).
@@ -287,7 +320,7 @@ void TrimEvents()
         return;
     CharacterDatabase.Execute("DELETE e FROM `coa_item_event` e JOIN (SELECT `id`, ROW_NUMBER() OVER "
                               "(PARTITION BY `owner` ORDER BY `id` DESC) AS `n` FROM `coa_item_event`) r "
-                              "ON r.`id` = e.`id` WHERE r.`n` > {}", EventsKept);
+                              "ON r.`id` = e.`id` WHERE r.`n` > {}", settings.keep);
 }
 
 void LogHour()
@@ -313,7 +346,9 @@ public:
                                                      PLAYERHOOK_ON_GROUP_ROLL_REWARD_ITEM, PLAYERHOOK_ON_MASTER_LOOT_ITEM,
                                                      PLAYERHOOK_ON_QUEST_REWARD_ITEM,
                                                      PLAYERHOOK_ON_AFTER_STORE_OR_EQUIP_NEW_ITEM,
-                                                     PLAYERHOOK_ON_CREATE_ITEM, PLAYERHOOK_ON_SPELL_CAST })
+                                                     PLAYERHOOK_ON_CREATE_ITEM, PLAYERHOOK_ON_SPELL_CAST,
+                                                     PLAYERHOOK_ON_STORE_NEW_ITEM, PLAYERHOOK_CAN_TAKE_MAIL_ITEM,
+                                                     PLAYERHOOK_CAN_SET_TRADE_ITEM })
     {
     }
 
@@ -388,6 +423,40 @@ public:
         NoteLocked(item->GetGUID().GetCounter(), "vendor", npc);
     }
 
+    // Every new item a player gets: under the factory or the auto-gear, "start" (its tools, its gear stored in the
+    // bags). The other ways in (loot, quest, vendor, craft) note theirs after this one and replace it.
+    void OnPlayerStoreNewItem(Player* /*player*/, Item* item, uint32 /*count*/) override
+    {
+        if (!startScopes || !item || !Wanted(item->GetTemplate()))
+            return;
+        std::lock_guard<std::mutex> guard(lock);
+        NoteIfNoneLocked(item->GetGUID().GetCounter(), "start", 0);
+    }
+
+    // A piece taken from a mail: "mail" (the sender in detail) unless the mail brought its origin (an auction won, a
+    // craft order). Checked before it is taken: a piece left in the mail keeps its note until taken.
+    bool OnPlayerCanTakeMailItem(Player* /*player*/, Item* item) override
+    {
+        if (item && Wanted(item->GetTemplate()))
+        {
+            std::lock_guard<std::mutex> guard(lock);
+            NoteIfNoneLocked(item->GetGUID().GetCounter(), "mail", 0);
+        }
+        return true;
+    }
+
+    // A piece put in a trade window: "trade" if another wears it afterwards (a trade cancelled: its owner wears it
+    // again, the hand-over is dropped).
+    bool OnPlayerCanSetTradeItem(Player* player, Item* item, uint8 /*tradeSlot*/) override
+    {
+        if (player && item && Wanted(item->GetTemplate()))
+        {
+            std::lock_guard<std::mutex> guard(lock);
+            MoveLocked(item->GetGUID().GetCounter(), "trade", uint32(player->GetGUID().GetCounter()));
+        }
+        return true;
+    }
+
     // A piece made with a profession spell (a player's or a bot's cast): "craft", the spell, its maker.
     void OnPlayerCreateItem(Player* player, Item* item, uint32 /*count*/) override
     {
@@ -444,6 +513,7 @@ public:
         // At login every worn piece passes here (QuickEquipItem, not in the world yet): no event, no maker row.
         bool const live = player->IsInWorld();
         Note note{ nullptr, 0, 0 };
+        char const* moved = nullptr;
         {
             std::lock_guard<std::mutex> guard(lock);
             auto itr = notes.find(itemId);
@@ -452,12 +522,18 @@ public:
                 note = itr->second;
                 notes.erase(itr);
             }
+            if (auto mv = moves.find(itemId); mv != moves.end())
+            {
+                if (mv->second.from != wearer)
+                    moved = mv->second.source;
+                moves.erase(mv);
+            }
         }
         ObjectGuid const creator = item->GetGuidValue(ITEM_FIELD_CREATOR);
         uint32 const maker = note.maker ? note.maker : (creator.IsPlayer() ? uint32(creator.GetCounter()) : 0);
         // 3.3 bench: "start" was guessed for any new piece of unseen origin (698 dungeon pieces shown "Starting gear").
-        char const* source = WornSource(note.source, startScopes > 0, maker != 0, maker == wearer);
-        if (!note.source && !startScopes && !live)
+        char const* source = WornSource(moved, note.source, startScopes > 0, maker != 0, maker == wearer);
+        if (!moved && !note.source && !startScopes && !live)
             source = nullptr;
 
         bool firstSeen = false;
@@ -465,22 +541,33 @@ public:
             std::lock_guard<std::mutex> guard(lock);
             if (worn.size() >= MAX_WORN)
                 worn.clear();
-            auto [itr, added] = worn.try_emplace(itemId, Worn{ nullptr, 0 });
-            firstSeen = added;
-            char const* eventSource = source ? source : itr->second.source;  // worn again: its last pose's source
+            auto [itr, added] = worn.try_emplace(itemId, Worn{ nullptr, 0, 0 });
+            firstSeen = added || itr->second.owner != wearer;
+            // Worn again by the same wearer: the source of its last pose.
+            char const* eventSource = source ? source : itr->second.owner == wearer ? itr->second.source : nullptr;
             if (settings.events && live && startScopes)
             {
-                itr->second = { eventSource, now };
+                itr->second = { eventSource, now, wearer };
                 PassLocked(wearer, itemId, now);  // the factory's or the auto-gear's: one "regear" row
+                lastPose[wearer] = itemId;
             }
-            else if (settings.events && live && !RepeatPose(itr->second.at, now))
+            else if (settings.events && live)
             {
-                itr->second = { eventSource, now };
-                QueueEventLocked(wearer, item, "equip", eventSource, note.detail, now);
+                auto last = lastPose.find(wearer);
+                bool const lastOfWearer = last != lastPose.end() && last->second == itemId &&
+                                          itr->second.owner == wearer;
+                if (!SkipPose(lastOfWearer, itr->second.owner == wearer ? itr->second.at : 0, now))
+                {
+                    itr->second = { eventSource, now, wearer };
+                    QueueEventLocked(wearer, item, "equip", eventSource, note.detail, now);
+                    if (lastPose.size() >= MAX_WORN)
+                        lastPose.clear();
+                    lastPose[wearer] = itemId;
+                }
             }
         }
         // coa_item_origin: an origin noted or a factory piece, as in 3.3; a made piece once per server start.
-        if (settings.enabled && source && (note.source || startScopes || firstSeen))
+        if (settings.enabled && source && (moved || note.source || startScopes || firstSeen))
             Queue(player, item, source, note.detail);
     }
 };
@@ -503,6 +590,22 @@ public:
             std::lock_guard<std::mutex> guard(lock);
             NoteLocked(auction->item_guid.GetCounter(), "auction", 0);
         }
+    }
+};
+
+// A piece taken out of a guild bank: "guildbank" when it is worn.
+class CoaWorldItemOriginGuild : public GuildScript
+{
+public:
+    CoaWorldItemOriginGuild() : GuildScript("CoaWorldItemOriginGuild", { GUILDHOOK_ON_ITEM_MOVE }) {}
+
+    void OnItemMove(Guild* /*guild*/, Player* /*player*/, Item* pItem, bool isSrcBank, uint8 /*srcContainer*/,
+                    uint8 /*srcSlotId*/, bool isDestBank, uint8 /*destContainer*/, uint8 /*destSlotId*/) override
+    {
+        if (!isSrcBank || isDestBank || !pItem || !Wanted(pItem->GetTemplate()))
+            return;
+        std::lock_guard<std::mutex> guard(lock);
+        MoveLocked(pItem->GetGUID().GetCounter(), "guildbank", 0);
     }
 };
 
@@ -612,5 +715,6 @@ void AddSC_coa_world_item_origin()
 {
     new CoaWorldItemOriginPlayer();
     new CoaWorldItemOriginAuction();
+    new CoaWorldItemOriginGuild();
     new CoaWorldItemOriginWorld();
 }
