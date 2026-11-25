@@ -1793,6 +1793,8 @@ AiPlayerbot.CoaRaidPlayerCooldown = 30
 # Groups of bots only (test benches, random parties), battleground, arena and dungeon finder groups,
 # and the players' own bots (alts, addclass bots, selfbots) are never touched. Checked every 10
 # seconds, one group released at a time. Read again by ".reload config".
+# A group whose player left it (/leave) while its random bots stay together, still following him, is
+# released the same way after this delay or 30 seconds, whichever is shorter.
 # Default: 300 (0 = the bots stay until their player comes back, as before)
 AiPlayerbot.CoaOrphanGroupReleaseDelay = 300
 
