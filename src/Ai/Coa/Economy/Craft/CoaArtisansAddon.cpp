@@ -22,6 +22,7 @@
 #include "CoaCraftOrders.h"
 #include "CoaEconomyData.h"
 #include "CoaEconomyDb.h"
+#include "CoaWorldItemOrigin.h"
 
 #include "Chat.h"
 #include "Config.h"
@@ -364,6 +365,7 @@ namespace
         ItemTemplate const* proto = sObjectMgr->GetItemTemplate(order.itemId);
         MailDraft draft(proto ? proto->Name1 : "", "");
         uint32 made = 0;
+        Player* const maker = ObjectAccessor::FindConnectedPlayer(ObjectGuid::Create<HighGuid::Player>(order.bot));
         // Full stacks: 20 elixirs in one slot, 3 swords in three.
         uint32 const maxStack = std::max<uint32>(1, proto ? proto->GetMaxStackSize() : 1);
         for (uint32 left = order.qty * order.perPiece; left && made < Rules::MaxMailItems;)
@@ -374,6 +376,7 @@ namespace
                                               Item::GenerateItemRandomPropertyId(order.itemId)))
             {
                 item->SetOwnerGUID(receiver);
+                CoaWorld::NoteCraft(item, maker, 0);  // 3.3.1: "craft" by the artisan (none noted when offline)
                 item->SaveToDB(trans);
                 draft.AddItem(item);
                 ++made;
