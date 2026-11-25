@@ -8,6 +8,7 @@
 #define PLAYERBOTS_COAFORMULAS_H
 
 #include "CoaFormulaRules.h"
+#include "CoaProfessionRules.h"
 #include "ItemTemplate.h"
 #include "Player.h"
 #include "SharedDefines.h"
@@ -65,7 +66,10 @@ inline bool Learnable(Player* bot, ItemTemplate const* proto)
     uint32 const profession = ProfessionOf(taught);
     bool const reputationOk = !proto->RequiredReputationFaction ||
                               uint32(bot->GetReputationRank(proto->RequiredReputationFaction)) >= proto->RequiredReputationRank;
-    return CoaFormulaRules::Learnable(taught, bot->HasSpell(taught), profession && bot->HasSkill(profession),
+    // 3.3.1: never a recipe of a profession the bots no longer have (Inscription, Jewelcrafting), even before the bot
+    // changes it: no Design is learned, drawn, bought or rolled Need for.
+    return CoaFormulaRules::Learnable(taught, bot->HasSpell(taught),
+                                      profession && !CoaProfessionRules::Retired(profession) && bot->HasSkill(profession),
                                       bot->CanUseItem(proto) == EQUIP_ERR_OK, reputationOk);
 }
 }  // namespace CoaEconomy::Formulas

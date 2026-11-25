@@ -9,6 +9,7 @@
 #include "CoaEconomyConf.h"
 
 #include "CoaEconomyRules.h"
+#include "CoaProfessions.h"
 #include "Config.h"
 #include "DatabaseEnv.h"
 #include "ItemTemplate.h"
@@ -147,8 +148,9 @@ bool HasLaterReagent(SpellInfo const* spell)
 bool BotMayList(ItemTemplate const* proto, bool crafted)
 {
     bool const vendorGood = crafted ? freeVendorItems.count(proto ? proto->ItemId : 0) != 0 : IsVendorItem(proto ? proto->ItemId : 0);
-    return proto && CoaEconomyRules::BotMayList(proto->Class, crafted, vendorGood,
-                                                IsLaterExpansion(proto));
+    // 3.3.1: no item only Inscription or Jewelcrafting gives (glyphs, inks, cut gems, jewelry).
+    return proto && !Professions::IsRetiredItem(proto) &&
+           CoaEconomyRules::BotMayList(proto->Class, crafted, vendorGood, IsLaterExpansion(proto));
 }
 
 } // namespace CoaEconomy::Sellable

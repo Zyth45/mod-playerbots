@@ -12,6 +12,7 @@
 #include "CoaEnchantOrderRules.h"
 #include "CoaEnchantSelfRules.h"
 #include "CoaFormulas.h"
+#include "CoaProfessions.h"
 #include "CoaRareRecipes.h"
 #include "CoaGearScore.h"
 #include "CoaMissionMgr.h"
@@ -415,7 +416,8 @@ std::vector<Recipe> KnownRecipes(Player* bot)
         if (!sCoaLaunchCurve->AllowsListing(*product))
             continue;
         uint32 const skillId = ProfessionOf(spellId);
-        if (!skillId)
+        // 3.3.1: nothing of a profession the bots no longer have (Inscription, Jewelcrafting), even before it changes.
+        if (!skillId || Professions::Retired(skillId))
             continue;
 
         Recipe recipe;
@@ -1079,6 +1081,8 @@ bool StudyIfDue(Player* bot, PlayerbotAI* botAI)
 
     ++studyCounters.studies;
     studyShort = false;
+    // 3.3.1: a bot that has Inscription or Jewelcrafting changes it first, a few bots a minute.
+    Professions::RetireIfDue(bot);
     // 3.3.1 (Formulas.LearnHeld): a formula in its bags first, so what it learns serves at once.
     LearnHeldFormulas(bot);
     // 3.3.1 (Formulas.RareDraw): now and then, a formula the world gives, as if found.
