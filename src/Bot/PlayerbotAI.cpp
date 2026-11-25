@@ -5,6 +5,7 @@
  */
 
 #include "PlayerbotAI.h"
+#include "CoaWorldItemOrigin.h"
 #include "CoaBotRaces.h"
 #include "CoaKeySpells.h"
 
@@ -7009,9 +7010,7 @@ void PlayerbotAI::EnchantItemT(uint32 spellid, uint8 slot)
         return;
     }
 
-    bot->ApplyEnchantment(pItem, PERM_ENCHANTMENT_SLOT, false);
-    pItem->SetEnchantment(PERM_ENCHANTMENT_SLOT, enchantid, 0, 0);
-    bot->ApplyEnchantment(pItem, PERM_ENCHANTMENT_SLOT, true);
+    CoaWorld::SetEnchant(bot, pItem, PERM_ENCHANTMENT_SLOT, enchantid, ObjectGuid::Empty, "bot");
 
     LOG_INFO("playerbots", "{}: items was enchanted successfully!", bot->GetName().c_str());
 }

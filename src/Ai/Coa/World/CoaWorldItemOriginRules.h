@@ -24,15 +24,35 @@ inline bool ArmoryPiece(uint32_t quality, uint32_t inventoryType, uint32_t minQu
            inventoryType != 27;
 }
 
-// The source of a piece worn: the origin noted when it arrived; else "start" when the factory or the auto-gear put it
-// on (inside a CoaWorld::StartGearScope); else none (nullptr: no row, the armory shows "Origin unknown"). A piece its
-// wearer made keeps no row (the dashboard reads the creator). Never a guessed origin.
-inline char const* WornSource(char const* noted, bool startScope, bool madeByWearer)
+// The source of a piece worn: the origin noted when it arrived ("craft" becomes "selfcraft" on its maker); else,
+// for a piece with a known maker (the creator field, or the crafter noted), "selfcraft" on its maker and "craft" on
+// anyone else; else "start" when the factory or the auto-gear put it on (inside a CoaWorld::StartGearScope); else
+// none (nullptr: no row, the armory shows "Origin unknown"). Never a guessed origin.
+inline char const* WornSource(char const* noted, bool startScope, bool hasMaker, bool madeByWearer)
 {
     if (noted)
-        return noted;
-    return startScope && !madeByWearer ? "start" : nullptr;
+        return std::string(noted) == "craft" && madeByWearer ? "selfcraft" : noted;
+    if (hasMaker)
+        return madeByWearer ? "selfcraft" : "craft";
+    return startScope ? "start" : nullptr;
 }
+
+// characters.coa_item_event: the last EventsKept events of each character.
+constexpr uint32_t EventsKept = 20;
+
+// The same piece worn again within a minute of its last "equip" event (a swap back, a reload of the gear): no new
+// event. lastAt 0: never seen.
+inline bool RepeatPose(uint32_t lastAt, uint32_t now) { return lastAt && now >= lastAt && now - lastAt < 60; }
+
+// A pass of the factory or the auto-gear ("regear", one row): a bot's pieces worn under a StartGearScope and its
+// "autogear" enchantments, until PassGap seconds go by with none (the enchantments put on right after the gear count
+// in the same pass). all: the server stops.
+constexpr uint32_t PassGap = 5;
+inline bool PassClosed(uint32_t last, uint32_t now, bool all) { return all || now >= last + PassGap; }
+
+// An "enchant" event: an enchantment put on, different from the one the slot had (the auto-gear re-applying the same
+// one writes nothing).
+inline bool NewEnchant(uint32_t before, uint32_t after) { return after && after != before; }
 
 // The level band of the hourly "gear" line: 1-9, 10-19, ..., 80.
 inline uint32_t LevelBand(uint32_t level) { return level / 10 * 10; }
