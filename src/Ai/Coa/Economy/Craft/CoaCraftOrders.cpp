@@ -312,7 +312,7 @@ namespace
 
             std::unordered_map<std::string, std::string> slots;
             slots["item"] = FormatItem(chosen.itemId);
-            slots["profession"] = Artisans::ProfessionLink(speaker, chosen.skillId);
+            slots["profession"] = Artisans::ProfessionLink(speaker, chosen.skillId, true);
             slots["recipe"] = Artisans::RecipeLink(speaker, chosen);
             if (CoaLive::SayLine(speaker, "trade_craft_lfw", slots))
                 last = {speaker->GetGUID().GetCounter(), chosen.skillId};
@@ -375,7 +375,7 @@ bool OfferInTrade(Player* bot, Item* crafted, unsigned long long price)
     for (Artisans::Recipe const& recipe : Artisans::KnownRecipes(bot))
         if (recipe.itemId == itemId)
         {
-            slots["profession"] = Artisans::ProfessionLink(bot, recipe.skillId);
+            slots["profession"] = Artisans::ProfessionLink(bot, recipe.skillId, true);
             slots["recipe"] = Artisans::RecipeLink(bot, recipe);
             break;
         }

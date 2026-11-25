@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <string>
 #include <unordered_set>
 #include <vector>
 
@@ -60,6 +61,15 @@ inline std::unordered_set<uint32_t> RetiredItems(std::vector<uint32_t> const& re
         if (id && !worldItems.count(id))
             out.insert(id);
     return out;
+}
+
+// A profession's link with the bot's level after it ("[Enchanting] 275/300"): the link stays a spell link (a tooltip),
+// the level is plain text, the same in every language. Nothing added when the maximum is unknown.
+inline std::string WithLevel(std::string const& link, uint32_t current, uint32_t maximum)
+{
+    if (link.empty() || !maximum)
+        return link;
+    return link + " " + std::to_string(current) + "/" + std::to_string(maximum);
 }
 
 // At most perWindow bots changed in a window of windowSeconds: 650 bots on a showcase do not all change at once.
