@@ -6116,6 +6116,28 @@ AiPlayerbot.CoaEconomy.SelfStudy.MaxCopperPerLevel = 2500
 AiPlayerbot.CoaEconomy.SelfStudy.MinGainPercent = 5
 AiPlayerbot.CoaEconomy.SelfStudy.Log = 0
 
+# Enchantment orders (3.3.1): a random bot without Enchanting, resting in a city or an inn (alone or back from a group
+# with a player), now and then has an enchanter bot put an enchantment on one piece it wears: its best piece with no
+# permanent enchantment, an epic one first, then a rare one (below HighLevel, a green one close to its level too; never
+# a ring, which only its enchanter may enchant), and the best enchantment for it that an enchanter bot online of its
+# faction knows (one in the same zone first). It pays in real gold: the reagents at their price (a vendor's, else the
+# market's) plus the enchanter's fee (FeePercent of the reagents, at least MinFeePerLevel copper per level), given to
+# that enchanter; never more than MaxGoldPercent of its gold nor MaxCopperPerLevel times its level. One piece per order,
+# at most one order per IntervalHours (half that from HighLevel on). A piece that already carries an enchantment (the
+# bot factory's) is never touched. The armory notes it ("enchant", source "artisan"). With
+# EnchantForSelf.HourlyCount = 1, one line an hour in the playerbots.coa log counts the orders; Log: each order there.
+# Default: 1 (enabled), level 20, 8 hours, high level 60, 25 %, 10000 copper per level, 20 %, 50 copper per level;
+# Log: 0 (disabled)
+AiPlayerbot.CoaEconomy.EnchantOrders.Enable = 1
+AiPlayerbot.CoaEconomy.EnchantOrders.MinLevel = 20
+AiPlayerbot.CoaEconomy.EnchantOrders.IntervalHours = 8
+AiPlayerbot.CoaEconomy.EnchantOrders.HighLevel = 60
+AiPlayerbot.CoaEconomy.EnchantOrders.MaxGoldPercent = 25
+AiPlayerbot.CoaEconomy.EnchantOrders.MaxCopperPerLevel = 10000
+AiPlayerbot.CoaEconomy.EnchantOrders.FeePercent = 20
+AiPlayerbot.CoaEconomy.EnchantOrders.MinFeePerLevel = 50
+AiPlayerbot.CoaEconomy.EnchantOrders.Log = 0
+
 # Craft on order and artisans in Trade, with CoA Live's lines (bank 3_0_05 of CoA IA MIND) and COD mail. Needs
 # Artisans, and AiPlayerbot.CoaLive.Enable = 1 (without it nothing is said and no order is taken).
 # A player whispers "can you make [item]?" to a bot that knows the recipe: it quotes the market value of the piece

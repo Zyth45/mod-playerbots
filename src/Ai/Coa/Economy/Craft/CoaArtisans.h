@@ -84,6 +84,11 @@ namespace CoaEconomy::Artisans
     // buying the missing reagents under the study's gold cap. Called by the scan and at an auction house visit; does
     // nothing before the bot's next study is due. World thread only. True when it studied.
     bool StudyIfDue(Player* bot, PlayerbotAI* botAI);
+    // CoA 3.3.1 (AiPlayerbot.CoaEconomy.EnchantOrders.*): a random bot without Enchanting, resting in a city or an inn,
+    // has an enchanter bot online put the best enchantment it can pay for on its best worn piece without one (epic,
+    // then rare), once per IntervalHours (half that at HighLevel). Paid in gold: the reagents at their price, the fee
+    // to the enchanter. Noted "enchant" (source "artisan") for the armory. World thread only. True when it ordered.
+    bool OrderEnchantIfDue(Player* bot);
     // The world script's tick: every 30 s, up to 20 random bots in a study place whose study is due.
     void ScanCapitalsTick(uint32 diff);
 
