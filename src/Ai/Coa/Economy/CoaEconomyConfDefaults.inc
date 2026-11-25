@@ -77,7 +77,7 @@
 {"AiPlayerbot.CoaEconomy.EnchantOrders.MinLevel", R"coa(20)coa"},
 {"AiPlayerbot.CoaEconomy.Events.Enable", R"coa(1)coa"},
 {"AiPlayerbot.CoaEconomy.Events.FormulasPerCharacter", R"coa(300)coa"},
-{"AiPlayerbot.CoaEconomy.Events.PurgeDays", R"coa(90)coa"},
+{"AiPlayerbot.CoaEconomy.Events.PurgeDays", R"coa(30)coa"},
 {"AiPlayerbot.CoaEconomy.Filter.AllowBloodforged", R"coa(0)coa"},
 {"AiPlayerbot.CoaEconomy.Filter.Bloodforged", R"coa(1)coa"},
 {"AiPlayerbot.CoaEconomy.Filter.Deprecated", R"coa(1)coa"},

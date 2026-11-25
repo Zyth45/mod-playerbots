@@ -17,7 +17,10 @@ struct ItemTemplate;
 // the server in the characters database (tables made at start-up, rows queued and written once a minute, off the
 // world thread). Form in D:\CoA-Commun\tmp\coa_formula_event-schema.md.
 //  - coa_formula_event: a formula a character learned beyond the trainers (from its bags, drawn, bought).
-//  - coa_enchant_order: an enchantment an enchanter bot put on for another bot, with the price and the fee it earned.
+//  - coa_enchant_order: an enchantment an enchanter bot put on for another bot, with the price and the fee it earned
+//    (the detail, kept PurgeDays);
+//  - coa_enchanter_stats: one row per enchanter, its orders served and fees earned in all (the ranking, never purged
+//    by age).
 // Safe from any thread.
 namespace CoaEconomy::Events
 {

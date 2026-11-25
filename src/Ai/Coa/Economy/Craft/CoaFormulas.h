@@ -51,6 +51,11 @@ inline uint32 ProfessionOf(uint32 spellId)
     return 0;
 }
 
+// 3.3.1: a recipe item the bot won at a need roll (CoA SquidBot's roll calls it when the bot gets the item): when the
+// bot learns it from its bags, the dashboard's feed says "need", not "bags". Defined in CoaArtisans.cpp; safe from
+// any thread.
+void NoteWonByRoll(Player* bot, uint32 itemEntry);
+
 // A recipe the bot may learn now: unknown, of a profession it has, at its rank and level, with the reputation asked.
 inline bool Learnable(Player* bot, ItemTemplate const* proto)
 {

@@ -861,6 +861,45 @@ namespace
     }
 }
 
+}  // namespace CoaEconomy::Artisans
+
+namespace
+{
+    // 3.3.1: recipe items won at a need roll, per bot (raw guid -> entries), until learned; bounded.
+    std::mutex wonLock;
+    std::unordered_map<uint64, std::vector<uint32>> wonByRoll;
+
+    bool TakeWonByRoll(Player* bot, uint32 entry)
+    {
+        std::lock_guard<std::mutex> guard(wonLock);
+        auto it = wonByRoll.find(bot->GetGUID().GetRawValue());
+        if (it == wonByRoll.end())
+            return false;
+        auto found = std::find(it->second.begin(), it->second.end(), entry);
+        if (found == it->second.end())
+            return false;
+        it->second.erase(found);
+        if (it->second.empty())
+            wonByRoll.erase(it);
+        return true;
+    }
+}
+
+void CoaEconomy::Formulas::NoteWonByRoll(Player* bot, uint32 itemEntry)
+{
+    if (!bot || !itemEntry)
+        return;
+    std::lock_guard<std::mutex> guard(wonLock);
+    if (wonByRoll.size() > 20000)
+        wonByRoll.clear();  // bounded; a formula then shows "bags"
+    std::vector<uint32>& entries = wonByRoll[bot->GetGUID().GetRawValue()];
+    if (entries.size() < 16)
+        entries.push_back(itemEntry);
+}
+
+namespace CoaEconomy::Artisans
+{
+
 uint32 LearnHeldFormulas(Player* bot, char const* how, uint32 boughtEntry, uint64 price)
 {
     if (!formulasLearnHeld || !bot)
@@ -891,8 +930,8 @@ uint32 LearnHeldFormulas(Player* bot, char const* how, uint32 boughtEntry, uint6
         ++learned;
         // 3.3.1 (Events): the dashboard's feed of formulas; the one just bought says where and for how much.
         bool const bought = boughtEntry && entry == boughtEntry;
-        Events::NoteFormula(bot, Formulas::ProfessionOf(taught), taught, proto, bought ? how : "bags",
-                            bought ? price : 0);
+        char const* const way = bought ? how : (TakeWonByRoll(bot, entry) ? "need" : "bags");
+        Events::NoteFormula(bot, Formulas::ProfessionOf(taught), taught, proto, way, bought ? price : 0);
         if (bought)
             boughtEntry = 0;
         if (enchantForSelfLog || studyLog)

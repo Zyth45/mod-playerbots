@@ -16,6 +16,7 @@
 #include "ScriptMgr.h"
 
 #include <ctime>
+#include <map>
 #include <mutex>
 #include <string>
 #include <vector>
@@ -27,7 +28,7 @@ constexpr std::size_t RowsPerStatement = 500;
 struct Settings
 {
     bool enabled = true;
-    uint32 purgeDays = 90;
+    uint32 purgeDays = 30;
     uint32 formulasPerCharacter = 300;
 } settings;
 
@@ -42,15 +43,23 @@ struct OrderRow
     uint32 enchanter, customer, team, item, entry, enchant, price, fee, at;
 };
 
+// The ranking's totals per enchanter, added to coa_enchanter_stats at each flush (never purged by age).
+struct StatsDelta
+{
+    uint32 team = 0, orders = 0, last = 0;
+    uint64 fees = 0;
+};
+
 std::mutex lock;
 std::vector<FormulaRow> formulas;
 std::vector<OrderRow> orders;
+std::map<uint32, StatsDelta> stats;  // by enchanter guid
 bool tableReady = false;
 
 void LoadSettings()
 {
     settings.enabled = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.Events.Enable", true, false);
-    settings.purgeDays = CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.Events.PurgeDays", 90, false);
+    settings.purgeDays = CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.Events.PurgeDays", 30, false);
     settings.formulasPerCharacter =
         std::max<uint32>(1, CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.Events.FormulasPerCharacter", 300,
                                                           false));
@@ -74,6 +83,12 @@ void EnsureTables()
         "`fee` INT UNSIGNED NOT NULL, `at` INT UNSIGNED NOT NULL, "
         "PRIMARY KEY (`id`), KEY `enchanter_at` (`enchanter`, `at`), KEY `team_at` (`team`, `at`)) "
         "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    // The ranking: one row per enchanter, its totals since the first order (the detail above is purged by age).
+    CharacterDatabase.DirectExecute(
+        "CREATE TABLE IF NOT EXISTS `coa_enchanter_stats` ("
+        "`enchanter` INT UNSIGNED NOT NULL, `team` TINYINT UNSIGNED NOT NULL, `orders` INT UNSIGNED NOT NULL DEFAULT 0, "
+        "`fees` BIGINT UNSIGNED NOT NULL DEFAULT 0, `last_at` INT UNSIGNED NOT NULL DEFAULT 0, "
+        "PRIMARY KEY (`enchanter`), KEY `team_orders` (`team`, `orders`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
     tableReady = true;
 }
 
@@ -81,13 +96,29 @@ void Flush()
 {
     std::vector<FormulaRow> f;
     std::vector<OrderRow> o;
+    std::map<uint32, StatsDelta> s;
     {
         std::lock_guard<std::mutex> guard(lock);
         f.swap(formulas);
         o.swap(orders);
+        s.swap(stats);
     }
     if (!tableReady)
         return;
+    if (!s.empty())
+    {
+        std::string sql = "INSERT INTO `coa_enchanter_stats` (`enchanter`, `team`, `orders`, `fees`, `last_at`) VALUES ";
+        bool first = true;
+        for (auto const& [enchanter, d] : s)
+        {
+            sql += (first ? "(" : ",(") + std::to_string(enchanter) + "," + std::to_string(d.team) + "," +
+                   std::to_string(d.orders) + "," + std::to_string(d.fees) + "," + std::to_string(d.last) + ")";
+            first = false;
+        }
+        sql += " ON DUPLICATE KEY UPDATE `team` = VALUES(`team`), `orders` = `orders` + VALUES(`orders`), "
+               "`fees` = `fees` + VALUES(`fees`), `last_at` = GREATEST(`last_at`, VALUES(`last_at`))";
+        CharacterDatabase.Execute(sql);
+    }
     for (std::size_t i = 0; i < f.size(); i += RowsPerStatement)
     {
         std::string sql = "INSERT INTO `coa_formula_event` (`owner`, `team`, `skill`, `spell`, `recipe`, `quality`, "
@@ -127,6 +158,8 @@ void Purge()
     CharacterDatabase.Execute("DELETE e FROM `coa_formula_event` e LEFT JOIN `characters` c ON c.`guid` = e.`owner` "
                               "WHERE c.`guid` IS NULL");
     CharacterDatabase.Execute("DELETE e FROM `coa_enchant_order` e LEFT JOIN `characters` c ON c.`guid` = e.`enchanter` "
+                              "WHERE c.`guid` IS NULL");
+    CharacterDatabase.Execute("DELETE s FROM `coa_enchanter_stats` s LEFT JOIN `characters` c ON c.`guid` = s.`enchanter` "
                               "WHERE c.`guid` IS NULL");
     if (int64 const before = CoaEconomyEventsRules::PurgeBefore(int64(time(nullptr)), settings.purgeDays))
         CharacterDatabase.Execute("DELETE FROM `coa_enchant_order` WHERE `at` < {}", before);
@@ -207,6 +240,11 @@ void CoaEconomy::Events::NoteOrder(Player* enchanter, Player* customer, Item* it
                        uint32(time(nullptr))};
     std::lock_guard<std::mutex> guard(lock);
     orders.push_back(row);
+    StatsDelta& d = stats[row.enchanter];
+    d.team = row.team;
+    ++d.orders;
+    d.fees += row.fee;
+    d.last = row.at;
 }
 
 void AddSC_coa_economy_events()
