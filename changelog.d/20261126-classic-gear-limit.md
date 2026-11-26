@@ -1,0 +1,2 @@
+### No Burning Crusade gear on Classic bots
+On a realm capped at level 60, bots no longer get the few Burning Crusade greens left over in the Classic item range, such as the Fel Iron Chain Coif, from their gear or their spare gear. The original game's gear (Ahn'Qiraj, Naxxramas, the PvP sets) stays, and realms with a higher cap keep the Burning Crusade gear. Gear already worn is replaced as bots find better.

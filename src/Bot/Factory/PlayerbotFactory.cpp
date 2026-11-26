@@ -10,6 +10,7 @@
 #include "CoaProfessions.h"
 #include "Ai/Coa/Combat/Mount/CoaMountRule.h"
 #include "CoaFishingGear.h"
+#include "CoaGearExpansionRules.h"
 #include "CoaProfessionToolRules.h"
 #include "CoaWorldItemOrigin.h"
 #include "CoaStarterWeapon.h"
@@ -3099,20 +3100,15 @@ void PlayerbotFactory::InitEquipment(bool incremental, bool second_chance, int32
                             continue;
 
                         ItemTemplate const* proto = sObjectMgr->GetItemTemplate(itemId);
-                        // disable next expansion gear
-                        bool const worldforged = IsCoaWorldforged(itemId);
-                        if (sPlayerbotAIConfig.limitGearExpansion && bot->GetLevel() <= 60 && itemId >= 23728 &&
-                            !worldforged)
-                            continue;
-
-                        if (sPlayerbotAIConfig.limitGearExpansion && bot->GetLevel() <= 70 && itemId >= 35570 &&
-                            !worldforged &&
-                            itemId != 36737 && itemId != 37739 &&
-                            itemId != 37740)  // transition point from TBC -> WOTLK isn't as clear, and there are other
-                                              // wearable TBC items above 35570 but nothing of significance
-                            continue;
-
                         if (!proto)
+                            continue;
+
+                        // disable next expansion gear (3.3.1: also the Burning Crusade greens of lower ids, such as
+                        // Fel Iron Chain Coif on a level 60 bot of a Classic realm)
+                        if (sPlayerbotAIConfig.limitGearExpansion &&
+                            CoaGearExpansionRules::LaterExpansion(
+                                itemId, proto->Quality, proto->ItemLevel, bot->GetLevel(),
+                                sWorld->getIntConfig(CONFIG_MAX_PLAYER_LEVEL), IsCoaWorldforged(itemId)))
                             continue;
 
                         if (shouldCheckGS && gearScoreLimit != 0 &&
@@ -5816,6 +5812,14 @@ void PlayerbotFactory::InitInventoryEquip()
             continue;
 
         if (!CanEquipItem(proto))
+            continue;
+
+        // 3.3.1: no Blizzard gear of a later expansion in the bags either (equipped later as an upgrade); the CoA items
+        // of higher ids keep their place here.
+        if (sPlayerbotAIConfig.limitGearExpansion && itr.first <= CoaGearExpansionRules::LAST_BLIZZARD_ITEM &&
+            CoaGearExpansionRules::LaterExpansion(itr.first, proto->Quality, proto->ItemLevel, bot->GetLevel(),
+                                                  sWorld->getIntConfig(CONFIG_MAX_PLAYER_LEVEL),
+                                                  IsCoaWorldforged(itr.first)))
             continue;
 
         ids.push_back(itr.first);
