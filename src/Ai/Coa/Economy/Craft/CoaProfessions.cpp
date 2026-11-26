@@ -18,6 +18,7 @@
 #include "PlayerbotFactory.h"
 #include "SpellInfo.h"
 #include "SpellMgr.h"
+#include "Timer.h"
 
 #include <mutex>
 #include <unordered_set>
@@ -28,24 +29,54 @@ namespace
     // What the world gives (loot of creatures, objects, fishing, skinning, pickpocketing, containers, disenchanting,
     // one level of references from these, quest rewards). Not milling nor prospecting: those are the retired
     // professions' own; not vendors.
-    constexpr char const* WorldItemsQuery =
-        "SELECT Item FROM creature_loot_template WHERE Reference = 0 "
-        "UNION SELECT Item FROM gameobject_loot_template WHERE Reference = 0 "
-        "UNION SELECT Item FROM fishing_loot_template WHERE Reference = 0 "
-        "UNION SELECT Item FROM skinning_loot_template WHERE Reference = 0 "
-        "UNION SELECT Item FROM pickpocketing_loot_template WHERE Reference = 0 "
-        "UNION SELECT Item FROM item_loot_template WHERE Reference = 0 "
-        "UNION SELECT Item FROM disenchant_loot_template WHERE Reference = 0 "
-        "UNION SELECT r.Item FROM reference_loot_template r WHERE r.Reference = 0 AND r.Entry IN ("
-        "SELECT Reference FROM creature_loot_template UNION SELECT Reference FROM gameobject_loot_template "
-        "UNION SELECT Reference FROM fishing_loot_template UNION SELECT Reference FROM skinning_loot_template "
-        "UNION SELECT Reference FROM pickpocketing_loot_template UNION SELECT Reference FROM item_loot_template "
-        "UNION SELECT Reference FROM disenchant_loot_template) "
-        "UNION SELECT RewardItem1 FROM quest_template UNION SELECT RewardItem2 FROM quest_template "
-        "UNION SELECT RewardItem3 FROM quest_template UNION SELECT RewardItem4 FROM quest_template "
-        "UNION SELECT RewardChoiceItemID1 FROM quest_template UNION SELECT RewardChoiceItemID2 FROM quest_template "
-        "UNION SELECT RewardChoiceItemID3 FROM quest_template UNION SELECT RewardChoiceItemID4 FROM quest_template "
-        "UNION SELECT RewardChoiceItemID5 FROM quest_template UNION SELECT RewardChoiceItemID6 FROM quest_template";
+    // Plain scans only, joined here: a "IN (SELECT ... UNION ...)" on reference_loot_template ran as a dependent
+    // subquery and held the world's start for minutes. Each scan is capped; one that fails leaves the item filter off.
+    constexpr char const* LootTables[] = {"creature_loot_template", "gameobject_loot_template", "fishing_loot_template",
+                                          "skinning_loot_template", "pickpocketing_loot_template", "item_loot_template",
+                                          "disenchant_loot_template"};
+    constexpr char const* Capped = "SELECT /*+ MAX_EXECUTION_TIME(10000) */ ";
+
+    // False when a scan failed: the caller then lists nothing as retired (the professions stay retired).
+    bool WorldItems(std::unordered_set<uint32>& world)
+    {
+        std::unordered_set<uint32> references;
+        bool read = true;  // creature and reference loot are never empty on a real world: no rows = a failed scan
+        for (char const* table : LootTables)
+        {
+            QueryResult result = WorldDatabase.Query("{}Item, Reference FROM {}", Capped, table);
+            if (!result)
+            {
+                read &= table != LootTables[0];  // the small tables may be empty
+                continue;
+            }
+            do
+            {
+                Field* fields = result->Fetch();
+                if (uint32 const reference = fields[1].Get<uint32>())
+                    references.insert(reference);
+                else
+                    world.insert(fields[0].Get<uint32>());
+            } while (result->NextRow());
+        }
+        QueryResult refs = WorldDatabase.Query("{}Entry, Item FROM reference_loot_template WHERE Reference = 0", Capped);
+        read &= bool(refs);
+        if (QueryResult result = refs)
+            do
+            {
+                Field* fields = result->Fetch();
+                if (references.count(fields[0].Get<uint32>()))
+                    world.insert(fields[1].Get<uint32>());
+            } while (result->NextRow());
+        for (auto const& [id, quest] : sObjectMgr->GetQuestTemplates())
+        {
+            for (uint32 item : quest->RewardItemId)
+                world.insert(item);
+            for (uint32 item : quest->RewardChoiceItemId)
+                world.insert(item);
+        }
+        world.erase(0);
+        return read;
+    }
 
     CoaProfessionRules::Throttle pace;
     uint32 droppedInscription = 0, droppedJewelcrafting = 0, lastSummary = 0;
@@ -94,11 +125,14 @@ namespace
                 if (uint32 const taught = CoaEconomy::Formulas::TaughtSpell(&proto))
                     if (CoaProfessionRules::Retired(CoaEconomy::Formulas::ProfessionOf(taught)))
                         recipeItems.push_back(entry);
-        if (QueryResult result = WorldDatabase.Query(WorldItemsQuery))
-            do
-            {
-                world.insert(result->Fetch()[0].Get<uint32>());
-            } while (result->NextRow());
+        uint32 const start = getMSTime();
+        if (!WorldItems(world))
+        {
+            LOG_ERROR("playerbots.coa", "CoaEconomy: the world's loot could not be read ({} items in {} ms): bots skip "
+                      "the Inscription and Jewelcrafting item filter, the professions stay retired", world.size(),
+                      GetMSTimeDiffToNow(start));
+            return;
+        }
 
         retiredItems = CoaProfessionRules::RetiredItems(products, reagents, recipeItems, otherProducts, otherReagents, world);
         // Side effect to watch: retired items another profession's recipe uses (none expected in classic).
@@ -106,7 +140,8 @@ namespace
         for (uint32 id : retiredItems)
             usedByOthers += otherReagents.count(id);
         LOG_INFO("playerbots.coa", "CoaEconomy: {} Inscription and Jewelcrafting items the bots no longer make or list "
-                 "({} of them a reagent of another profession)", retiredItems.size(), usedByOthers);
+                 "({} of them a reagent of another profession), read in {} ms", retiredItems.size(), usedByOthers,
+                 GetMSTimeDiffToNow(start));
     }
 }
 
