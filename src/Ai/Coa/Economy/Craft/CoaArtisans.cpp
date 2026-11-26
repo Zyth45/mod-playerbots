@@ -45,6 +45,7 @@
 #include "SharedDefines.h"
 #include "SpellInfo.h"
 #include "SpellMgr.h"
+#include "World.h"
 #include "StatsWeightCalculator.h"
 #include "WorldSession.h"
 
@@ -617,6 +618,10 @@ Item* CraftUpgradeForSelf(Player* bot, PlayerbotAI* botAI, uint64 buyCap)
             continue;
         SpellInfo const* spell = sSpellMgr->GetSpellInfo(spellId);
         if (!spell || !ProfessionOf(spellId))
+            continue;
+        // Nothing of an expansion the realm does not have (a Fel Iron coif on a classic realm).
+        if (!CoaSelfStudyRules::CraftsForSelf(Sellable::HasLaterReagent(spell),
+                                              sWorld->getIntConfig(CONFIG_MAX_PLAYER_LEVEL)))
             continue;
         uint32 itemId = 0;
         for (SpellEffectInfo const& effect : spell->Effects)

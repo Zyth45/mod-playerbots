@@ -44,6 +44,15 @@ inline uint32_t FirstStudyDelay(float spread01, uint32_t intervalSeconds)
     float const spread = std::clamp(spread01, 0.0f, 0.999f);
     return uint32_t(spread * float(intervalSeconds));
 }
+
+// 3.3.1: a bot crafts for itself nothing of an expansion its realm does not have. On a realm whose level cap is 60 or
+// less (classic), a recipe that needs a later expansion reagent is left out (Fel Iron Chain Coif: Fel Iron Bars, an
+// item level 90 coif). A realm that goes further (Dawnrise, wotlk) keeps them. The reagents decide, not the product:
+// the classic crafts of AQ and Naxxramas (Obsidian Mail Tunic) have ids in the later range but classic reagents.
+inline bool CraftsForSelf(bool laterReagent, uint32_t realmMaxLevel)
+{
+    return !laterReagent || realmMaxLevel > 60;
+}
 }  // namespace CoaSelfStudyRules
 
 #endif

@@ -157,9 +157,10 @@ bool BotMayList(ItemTemplate const* proto, bool crafted)
 
 void AddSC_coa_economy_sellable()
 {
-    // Needed only by the bots' trade; both are off by default and read at start-up.
+    // Needed by the bots' trade and their crafts for themselves (the later expansion reagents); read at start-up.
     if (!CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.BotAuctions.Enable", true, false) &&
-        !CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.Artisans.Enable", true, false))
+        !CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.Artisans.Enable", true, false) &&
+        !CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.CraftForSelf.Enable", true, false))
         return;
     new CoaEconomy::Sellable::CoaSellableWorld();
 }

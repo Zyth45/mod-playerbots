@@ -25,5 +25,11 @@ int main()
     assert(FirstStudyDelay(0.0f, 3600) == 0);
     assert(FirstStudyDelay(0.5f, 3600) == 1800);
     assert(FirstStudyDelay(1.0f, 3600) < 3600);
+    // 3.3.1: no later expansion reagent on a classic realm (Fel Iron Chain Coif); a realm past 60 keeps them; a classic
+    // recipe stays everywhere (Obsidian Mail Tunic: classic reagents).
+    assert(!CraftsForSelf(true, 60));
+    assert(CraftsForSelf(true, 80));
+    assert(CraftsForSelf(true, 61));
+    assert(CraftsForSelf(false, 60));
     return 0;
 }
