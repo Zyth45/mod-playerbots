@@ -87,7 +87,7 @@ void HourlyLine()
         return;
     uint32 const grouped = releasedGrouped.exchange(0), free = releasedFree.exchange(0);
     if (grouped || free)
-        LOG_INFO("playerbots", "coa stranded: {} bots released in the last hour ({} out of a group of bots, {} free "
+        LOG_INFO("playerbots.coa", "coa stranded: {} bots released in the last hour ({} out of a group of bots, {} free "
                  "bots sent to their next goal)", grouped + free, grouped, free);
 }
 

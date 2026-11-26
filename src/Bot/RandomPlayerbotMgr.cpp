@@ -4116,7 +4116,7 @@ void RandomPlayerbotMgr::CoaReleaseOrphanGroups()
                 botAI->ResetStrategies();
             }
         }
-        LOG_INFO("playerbots", "coa: released {} bots of a group whose players are offline or gone for {}s", left,
+        LOG_INFO("playerbots.coa", "coa: released {} bots of a group whose players are offline or gone for {}s", left,
                  uint32(now - since));
     }
 }
