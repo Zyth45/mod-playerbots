@@ -6,6 +6,8 @@
 using CoaProfessionToolRules::IsTool;
 using CoaProfessionToolRules::MayWear;
 using CoaProfessionToolRules::Prefer;
+using CoaProfessionToolRules::Replace;
+using CoaProfessionToolRules::ToolInHand;
 
 int main()
 {
@@ -33,5 +35,13 @@ int main()
     assert(Prefer(true, 4, false, false, 0));
     assert(Prefer(false, 8, true, false, 3) && !Prefer(false, 3, true, false, 8));
     assert(Prefer(true, 5, true, true, 4));
+
+    // A tool already worn: dropped for a real weapon of the bags, or for the off-hand dagger; kept with neither.
+    assert(ToolInHand(true, true, true, true) == Replace::BagWeapon);
+    assert(ToolInHand(true, true, false, false) == Replace::BagWeapon);  // a swap: the bags need no room
+    assert(ToolInHand(true, false, true, true) == Replace::OffHand);
+    assert(ToolInHand(true, false, true, false) == Replace::None);      // full bags: the off hand would get the tool
+    assert(ToolInHand(true, false, false, true) == Replace::None);      // nothing else: the tool stays in hand
+    assert(ToolInHand(false, true, true, true) == Replace::None);
     return 0;
 }

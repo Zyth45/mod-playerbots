@@ -41,6 +41,27 @@ inline bool Prefer(bool newTool, uint32_t newLevel, bool hasHeld, bool heldTool,
         return heldTool;
     return newLevel > heldLevel;
 }
+
+// A tool already in the main hand (3.3.1 bench C2: 333 bots kept the Skinning Knife three hours, 220 of them with
+// their only real weapon, a dagger, in the off hand, which the upgrade check never moves): a real weapon of the bags
+// takes its place, else the off-hand weapon moves over; with neither, the tool stays (never a bare hand).
+enum class Replace
+{
+    None,
+    BagWeapon,
+    OffHand
+};
+
+inline Replace ToolInHand(bool toolInMainHand, bool realWeaponInBags, bool offHandFitsMainHand, bool bagSpaceForTool)
+{
+    if (!toolInMainHand)
+        return Replace::None;
+    if (realWeaponInBags)
+        return Replace::BagWeapon;  // the tool takes the weapon's place in the bags
+    if (offHandFitsMainHand && bagSpaceForTool)
+        return Replace::OffHand;
+    return Replace::None;
+}
 }  // namespace CoaProfessionToolRules
 
 #endif

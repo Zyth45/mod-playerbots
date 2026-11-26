@@ -12,6 +12,7 @@
 #include "CoaProfessionToolRules.h"
 #include "CoaStarterWeapon.h"
 #include "Item.h"
+#include "ItemPackets.h"
 #include "Player.h"
 #include "PlayerbotAI.h"
 #include "Playerbots.h"
@@ -123,10 +124,71 @@ bool CoaFishingGear::Restore(Player* bot)
     return true;
 }
 
+namespace
+{
+// 3.3.1: a profession tool worn in the main hand (the Skinning Knife of the bots of 3.3) leaves it for a real weapon,
+// within 30 s of a login or an update. Only the bots holding a tool go further than reading their main hand.
+constexpr uint32 TOOL_CHECK_MS = 30 * IN_MILLISECONDS;
+
+bool HasBagSpaceFor(Player* bot, Item* item)
+{
+    ItemPosCountVec dest;
+    return bot->CanStoreItem(NULL_BAG, NULL_SLOT, dest, item, false) == EQUIP_ERR_OK;
+}
+
+void DropTool(Player* bot, Item* tool)
+{
+    if (!bot->IsAlive() || bot->IsInCombat() || bot->IsBeingTeleported() || !bot->IsInWorld())
+        return;
+    thread_local std::unordered_map<ObjectGuid::LowType, uint32> nextToolCheck;
+    uint32 const now = getMSTime();
+    uint32& next = nextToolCheck[bot->GetGUID().GetCounter()];
+    if (next && int32(next - now) > 0)
+        return;
+    next = now + TOOL_CHECK_MS;
+    if (nextToolCheck.size() > 20000)
+        nextToolCheck.clear();
+
+    Item* weapon = BestWeapon(bot);
+    if (weapon && IsTool(weapon->GetTemplate()))
+        weapon = nullptr;
+    Item* offHand = bot->GetItemByPos(INVENTORY_SLOT_BAG_0, EQUIPMENT_SLOT_OFFHAND);
+    ItemTemplate const* offProto = offHand ? offHand->GetTemplate() : nullptr;
+    bool const offFits = offProto && offProto->Class == ITEM_CLASS_WEAPON && !IsTool(offProto) &&
+                         !CoaFishingGear::IsFishingPole(offHand) && FitsMainHand(offProto);
+    switch (CoaProfessionToolRules::ToolInHand(true, weapon != nullptr, offFits, offFits && HasBagSpaceFor(bot, tool)))
+    {
+        case CoaProfessionToolRules::Replace::BagWeapon:
+            CoaMissionMgr::EquipItem(bot, weapon, EQUIPMENT_SLOT_MAINHAND);  // the tool goes where the weapon was
+            break;
+        case CoaProfessionToolRules::Replace::OffHand:
+        {
+            // The tool to the bags (as the client's "unequip"), then the off-hand weapon to the main hand.
+            WorldPacket packet(CMSG_AUTOSTORE_BAG_ITEM, 3);
+            packet << uint8(INVENTORY_SLOT_BAG_0) << uint8(EQUIPMENT_SLOT_MAINHAND) << uint8(NULL_BAG);
+            WorldPackets::Item::AutoStoreBagItem request(std::move(packet));
+            request.Read();
+            bot->GetSession()->HandleAutoStoreBagItemOpcode(request);
+            if (!MainHand(bot))
+                CoaMissionMgr::EquipItem(bot, offHand, EQUIPMENT_SLOT_MAINHAND);
+            break;
+        }
+        case CoaProfessionToolRules::Replace::None:
+            break;
+    }
+}
+}  // namespace
+
 void CoaFishingGear::Tick(PlayerbotAI* botAI)
 {
     Player* bot = botAI ? botAI->GetBot() : nullptr;
-    if (!bot || !IsFishingPole(MainHand(bot)))
+    Item* const mainHand = bot ? MainHand(bot) : nullptr;
+    if (mainHand && IsTool(mainHand->GetTemplate()))
+    {
+        DropTool(bot, mainHand);
+        return;
+    }
+    if (!bot || !IsFishingPole(mainHand))
         return;
     // Every 2 s at most: a bot with no weapon in its bags looks again later, not on every update.
     thread_local std::unordered_map<ObjectGuid::LowType, uint32> nextCheck;
