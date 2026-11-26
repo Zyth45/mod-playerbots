@@ -186,6 +186,21 @@ int main()
     assert(!WorthGiving(110.0f, 100.0f));
     assert(!WorthGiving(0.0f, 0.0f));
     assert(GiftDue(20000, 0, 3) && GiftDue(20003, 20000, 3) && !GiftDue(20002, 20000, 3));
+    // Guilds.Help: one mail a week per account (any of its characters, any guild), still after a restart.
+    {
+        assert(HelpHours == 168 && LoginGraceSeconds == 120);
+        std::int64_t const day = 86400, t0 = 1800000000;
+        HelpLedger ledger;
+        assert(ledger.Due(7, t0, HelpHours));               // never mailed
+        ledger.Give(7, t0);                                 // account 7, its first character, guild A
+        assert(!ledger.Due(7, t0 + 60, HelpHours));         // its alt in guild B, a minute later
+        assert(!ledger.Due(7, t0 + 6 * day, HelpHours));    // six days on
+        assert(ledger.Due(8, t0 + 60, HelpHours));          // another account
+        HelpLedger restarted;                               // the server restarts: the table is read back
+        restarted.Load({ { 7, t0 } });
+        assert(!restarted.Due(7, t0 + day, HelpHours) && restarted.Due(7, t0 + 7 * day, HelpHours));
+        assert(!restarted.Due(7, t0 - 60, HelpHours));      // clock set back: not due
+    }
     assert(GiftLevelFits(30, 30) && GiftLevelFits(26, 30) && !GiftLevelFits(25, 30) && !GiftLevelFits(31, 30));
 
     // Cold-Iron Scepter (spell power only) is no gift for a physical spec, a strength piece none for a caster.

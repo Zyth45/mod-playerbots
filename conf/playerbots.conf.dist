@@ -3191,7 +3191,8 @@ AiPlayerbot.CoaWorld.ServerFirst.Enable = 0
 #                     the day now and then (Motd), bots telling their guild about a round level or a rare
 #                     drop and guildmates congratulating them (Chat), calls for members in General
 #                     (RecruitMinutes, 0 never), and a real player in a guild with bots greeted at login
-#                     and, at most every GiftHours, mailed potions and bandages of their level (Help).
+#                     and, at most every GiftHours (default 168, a week) per account, all its characters and
+#                     guilds together and across restarts, mailed potions and bandages of their level (Help).
 #        Default:     1 - on (3.0: the living world is the base)
 #                     0 - off
 
@@ -3201,7 +3202,7 @@ AiPlayerbot.CoaWorld.Guilds.Motd = 1
 AiPlayerbot.CoaWorld.Guilds.Chat = 1
 AiPlayerbot.CoaWorld.Guilds.RecruitMinutes = 45
 AiPlayerbot.CoaWorld.Guilds.Help = 1
-AiPlayerbot.CoaWorld.Guilds.GiftHours = 24
+AiPlayerbot.CoaWorld.Guilds.GiftHours = 168
 
 #    AiPlayerbot.CoaWorld.Guilds.Orders
 #        Description: Guild orders. A real player asks the guild for an item in guild chat ("anyone have
@@ -3503,10 +3504,10 @@ AiPlayerbot.CoaWorld.Guilds.GearAsk = 1
 
 #    AiPlayerbot.CoaWorld.Guilds.LoginGraceSeconds
 #        Description: Seconds after a real player logs in before the guild's gifts and gear offers, and before a
-#                     guild charter is offered to them: nobody is met with an offer in the first second.
-#        Default:     40
+#                     guild charter is offered to them: nobody is met with an offer in the first minutes.
+#        Default:     120 (3.3.1; was 40)
 
-AiPlayerbot.CoaWorld.Guilds.LoginGraceSeconds = 40
+AiPlayerbot.CoaWorld.Guilds.LoginGraceSeconds = 120
 
 #    AiPlayerbot.CoaWorld.Guilds.Catalog
 #        Description: With Guilds.Orders and Guilds.Addon: the SquidBots Lite addon can search what the guild's online

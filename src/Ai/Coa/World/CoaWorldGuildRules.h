@@ -14,6 +14,8 @@
 #include <ctime>
 #include <vector>
 #include <string>
+#include <unordered_map>
+#include <utility>
 
 // The rules of the guild orders and the guild's gear gifts (CoaWorldGuilds), apart from the game objects so that
 // tests/coa_world_guild_rules.cpp can check them.
@@ -432,6 +434,32 @@ namespace CoaWorldGuildRules
     {
         return !lastDay || today >= lastDay + everyDays;
     }
+
+    // Guilds.Help (3.3.1, user's test of 26/11: "une fois par jour c'est trop"): one mail of potions and bandages
+    // per account every GiftHours (a week), all its characters and guilds together, kept in characters.coa_guild_gift
+    // across restarts. The guild's gifts and offers wait LoginGraceSeconds after a login ("genre 2 minutes apres").
+    constexpr std::uint32_t HelpHours = 168;
+    constexpr std::uint32_t LoginGraceSeconds = 120;
+    class HelpLedger
+    {
+    public:
+        // The rows read back at startup: (account, unix time of its last mail).
+        void Load(std::vector<std::pair<std::uint32_t, std::int64_t>> const& rows)
+        {
+            _last.clear();
+            for (auto const& [account, at] : rows)
+                _last[account] = at;
+        }
+        bool Due(std::uint32_t account, std::int64_t now, std::uint32_t hours) const
+        {
+            auto itr = _last.find(account);
+            return itr == _last.end() || !itr->second || now >= itr->second + std::int64_t(hours) * 3600;
+        }
+        void Give(std::uint32_t account, std::int64_t now) { _last[account] = now; }
+
+    private:
+        std::unordered_map<std::uint32_t, std::int64_t> _last;
+    };
 
     // The required levels a gift may have: the player's level and the four below it.
     inline bool GiftLevelFits(std::uint32_t requiredLevel, std::uint32_t playerLevel)

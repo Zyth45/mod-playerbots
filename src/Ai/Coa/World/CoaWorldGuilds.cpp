@@ -106,7 +106,7 @@ namespace
         bool chat = true;
         uint32 recruitMinutes = 45;
         bool help = true;
-        uint32 giftHours = 24;
+        uint32 giftHours = CoaWorldGuildRules::HelpHours;
         bool orders = true;
         uint32 ordersPerDay = 3;
         uint32 orderMaxQuality = ITEM_QUALITY_RARE;
@@ -121,7 +121,7 @@ namespace
         bool addon = false;    // the SquidBots Lite world protocol (GORD, GLIST), CoaWorldAddon.cpp
         bool greetings = false;  // guildmates answer a real player's hello and greet it at login
         bool gearAsk = false;    // a gift of gear is offered first (accept or refuse), mailed only if accepted
-        uint32 loginGrace = 40;  // seconds after a real player's login before the guild's gifts and offers
+        uint32 loginGrace = CoaWorldGuildRules::LoginGraceSeconds;  // seconds after a real player's login before the guild's gifts and offers
         bool catalog = false;    // the addon's searchable list of what the guild's bots can send (GCAT)
     };
 
@@ -401,6 +401,22 @@ namespace
 
         // The addon's GORD (world thread): the same order as in guild chat, at most qty.
         OrderResult AddonOrder(Player* player, uint32 entry, uint32 qty) { return Order(player, entry, qty, time(nullptr)); }
+
+        // At startup: the accounts' last mail of potions, so a restart sends none early.
+        void LoadHelp()
+        {
+            CharacterDatabase.DirectExecute(
+                "CREATE TABLE IF NOT EXISTS `coa_guild_gift` (`account` INT UNSIGNED NOT NULL, "
+                "`at` INT UNSIGNED NOT NULL, PRIMARY KEY (`account`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+            std::vector<std::pair<std::uint32_t, std::int64_t>> rows;
+            if (QueryResult result = CharacterDatabase.Query("SELECT `account`, `at` FROM `coa_guild_gift`"))
+                do
+                {
+                    Field* fields = result->Fetch();
+                    rows.emplace_back(fields[0].Get<uint32>(), int64(fields[1].Get<uint32>()));
+                } while (result->NextRow());
+            _help.Load(rows);
+        }
 
         void Update(uint32 diff)
         {
@@ -713,12 +729,15 @@ namespace
 
             if (!settings.help)
                 return;
-            time_t& last = _lastGift[player->GetGUID().GetCounter()];
-            if (last && now - last < time_t(settings.giftHours) * HOUR)
+            // One mail per account every GiftHours, all its characters and guilds, across restarts (coa_guild_gift).
+            uint32 const account = player->GetSession()->GetAccountId();
+            if (!_help.Due(account, int64(now), settings.giftHours))
                 return;
             if (!roll_chance_i(35))
                 return;
-            last = now;
+            _help.Give(account, int64(now));
+            CharacterDatabase.Execute("REPLACE INTO `coa_guild_gift` (`account`, `at`) VALUES ({}, {})", account,
+                                      uint32(now));
 
             auto [potion, bandage] = GiftFor(player->GetLevel());
             CharacterDatabaseTransaction trans = CharacterDatabase.BeginTransaction();
@@ -1654,7 +1673,7 @@ namespace
 
         std::vector<std::pair<ObjectGuid, time_t>> _welcomes;  // real players logged in: (who, when to welcome)
         std::unordered_map<uint32, time_t> _lastMotd;
-        std::unordered_map<uint32, time_t> _lastGift;
+        CoaWorldGuildRules::HelpLedger _help;  // account -> its last mail of potions (Guilds.Help)
         std::unordered_map<uint32, std::pair<uint32, uint32>> _orders;  // player -> (day, orders that day)
         uint32 _askedQty = 0;  // the order being served (its log line)
         std::unordered_map<uint32, time_t> _greeted;  // real player -> last answer to its hello
@@ -1673,7 +1692,7 @@ namespace
         settings.chat = sConfigMgr->GetOption<bool>(key("Chat"), true, false);
         settings.recruitMinutes = sConfigMgr->GetOption<uint32>(key("RecruitMinutes"), 45, false);
         settings.help = sConfigMgr->GetOption<bool>(key("Help"), true, false);
-        settings.giftHours = std::max<uint32>(1, sConfigMgr->GetOption<uint32>(key("GiftHours"), 24, false));
+        settings.giftHours = std::max<uint32>(1, sConfigMgr->GetOption<uint32>(key("GiftHours"), CoaWorldGuildRules::HelpHours, false));
         settings.orders = sConfigMgr->GetOption<bool>(key("Orders"), true, false);
         settings.ordersPerDay = std::min<uint32>(50, sConfigMgr->GetOption<uint32>(key("OrdersPerDay"), 3, false));
         settings.orderMaxQuality = std::min<uint32>(ITEM_QUALITY_EPIC,
@@ -1690,7 +1709,7 @@ namespace
         settings.addon = sConfigMgr->GetOption<bool>(key("Addon"), true, false);
         settings.greetings = sConfigMgr->GetOption<bool>(key("Greetings"), true, false);
         settings.gearAsk = sConfigMgr->GetOption<bool>(key("GearAsk"), true, false);
-        settings.loginGrace = std::min<uint32>(600, sConfigMgr->GetOption<uint32>(key("LoginGraceSeconds"), 40, false));
+        settings.loginGrace = std::min<uint32>(600, sConfigMgr->GetOption<uint32>(key("LoginGraceSeconds"), CoaWorldGuildRules::LoginGraceSeconds, false));
         settings.catalog = sConfigMgr->GetOption<bool>(key("Catalog"), true, false);
         if (settings.enabled)
             LogInit(time(nullptr));
@@ -2028,7 +2047,11 @@ public:
             LoadSettings();
     }
 
-    void OnStartup() override { LoadSettings(); }
+    void OnStartup() override
+    {
+        LoadSettings();
+        GuildLife::Instance().LoadHelp();
+    }
 
     void OnUpdate(uint32 diff) override
     {
