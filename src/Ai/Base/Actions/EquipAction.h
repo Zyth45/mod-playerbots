@@ -11,6 +11,8 @@
 #include "InventoryAction.h"
 #include "Item.h"
 
+#include <unordered_map>
+
 class FindItemVisitor;
 class Item;
 class PlayerbotAI;
@@ -28,6 +30,8 @@ protected:
     // Automatic upgrades (loot, trade, "equip upgrade") say nothing unless AiPlayerbot.CoaTellEquipUpgrades is on;
     // an item the player asks for ("e <item>") is always answered.
     bool silent = false;
+    // 3.3.1: the copy of each item id that scored as an upgrade (SelectInventoryItemsToEquip), put on by EquipItems.
+    std::unordered_map<uint32, ObjectGuid> coaChosen;
 
 private:
     void EquipItem(FindItemVisitor* visitor);

@@ -5,6 +5,8 @@
  */
 
 #include "EquipAction.h"
+
+#include "CoaEquipPickRules.h"
 #include "CoaAltBags.h"
 #include "CoaAltBagsRules.h"
 #include "PlayerbotFactory.h"
@@ -72,9 +74,18 @@ void EquipAction::EquipItems(ItemIds ids)
 {
     for (ItemIds::iterator i = ids.begin(); i != ids.end(); i++)
     {
+        // 3.3.1: the copy that scored, not the first one of that id (two wands of other random properties).
+        auto const chosen = coaChosen.find(*i);
+        Item* item = chosen != coaChosen.end() ? bot->GetItemByGuid(chosen->second) : nullptr;
+        if (item && !item->IsEquipped())
+        {
+            EquipItem(item);
+            continue;
+        }
         FindItemByIdVisitor visitor(*i);
         EquipItem(&visitor);
     }
+    coaChosen.clear();
 }
 
 // Return bagslot with smalest bag.
@@ -411,6 +422,8 @@ ItemIds EquipAction::SelectInventoryItemsToEquip()
             guids.push_back(item->GetGUID());
 
     ItemIds items;
+    std::vector<std::pair<uint32, bool>> copies;  // 3.3.1: each copy, an upgrade or not (CoaEquipPickRules)
+    std::vector<ObjectGuid> copyGuids;
     for (ObjectGuid const& guid : guids)
     {
         Item* item = bot->GetItemByGuid(guid);
@@ -435,9 +448,15 @@ ItemIds EquipAction::SelectInventoryItemsToEquip()
             itemUsageParam = std::to_string(itemId);
 
         ItemUsage usage = AI_VALUE2(ItemUsage, "item upgrade", itemUsageParam);
-        if (usage == ITEM_USAGE_EQUIP || usage == ITEM_USAGE_REPLACE || usage == ITEM_USAGE_BAD_EQUIP)
+        bool const upgrade = usage == ITEM_USAGE_EQUIP || usage == ITEM_USAGE_REPLACE || usage == ITEM_USAGE_BAD_EQUIP;
+        if (upgrade)
             items.insert(itemId);
+        copies.emplace_back(itemId, upgrade);
+        copyGuids.push_back(guid);
     }
+    coaChosen.clear();
+    for (auto const& [itemId, index] : CoaEquipPickRules::Chosen(copies))
+        coaChosen[itemId] = copyGuids[index];
     return items;
 }
 
