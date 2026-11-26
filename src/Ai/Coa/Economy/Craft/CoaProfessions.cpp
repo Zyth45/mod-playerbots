@@ -16,6 +16,7 @@
 #include "ObjectMgr.h"
 #include "Player.h"
 #include "PlayerbotFactory.h"
+#include "RandomPlayerbotMgr.h"
 #include "SpellInfo.h"
 #include "SpellMgr.h"
 #include "Timer.h"
@@ -78,6 +79,7 @@ namespace
         return read;
     }
 
+    constexpr uint32 PerMinute = 30;
     CoaProfessionRules::Throttle pace;
     uint32 droppedInscription = 0, droppedJewelcrafting = 0, lastSummary = 0;
 
@@ -175,10 +177,12 @@ bool RetireIfDue(Player* bot)
     }
     bool const inscription = bot->HasSkill(CoaProfessionRules::Inscription);
     bool const jewelcrafting = bot->HasSkill(CoaProfessionRules::Jewelcrafting);
-    if (!inscription && !jewelcrafting)
+    // Random bots only (a player's own bots keep what their player chose), and before the pace: a bot that cannot
+    // change must not take the slot of one that can.
+    if ((!inscription && !jewelcrafting) || !sRandomPlayerbotMgr.IsRandomBot(bot))
         return false;
-    // A few bots a minute: a showcase had 650 of them.
-    if (!pace.Take(now, MINUTE, 6))
+    // 30 bots a minute: 3 000 bots in under two hours, never a whole city at once.
+    if (!pace.Take(now, MINUTE, PerMinute))
         return false;
     if (!PlayerbotFactory::RetireProfessions(bot))
         return false;

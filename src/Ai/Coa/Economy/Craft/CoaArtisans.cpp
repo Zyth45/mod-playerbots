@@ -1091,8 +1091,6 @@ bool StudyIfDue(Player* bot, PlayerbotAI* botAI)
 
     ++studyCounters.studies;
     studyShort = false;
-    // 3.3.1: a bot that has Inscription or Jewelcrafting changes it first, a few bots a minute.
-    Professions::RetireIfDue(bot);
     // 3.3.1 (Formulas.LearnHeld): a formula in its bags first, so what it learns serves at once.
     LearnHeldFormulas(bot);
     // 3.3.1 (Formulas.RareDraw): now and then, a formula the world gives, as if found.
@@ -1308,8 +1306,6 @@ namespace
     uint32 scanTimer = 0;
     void ScanCapitals(uint32 diff)
     {
-        if (!studyEnabled && !ordersEnabled)
-            return;
         scanTimer += diff;
         if (scanTimer < 30 * IN_MILLISECONDS)
             return;
@@ -1323,13 +1319,18 @@ namespace
             PlayerbotAI* botAI = GET_PLAYERBOT_AI(player);
             if (!botAI || !botAI->IsBotAI())
                 continue;
+            // 3.3.1: a bot with Inscription or Jewelcrafting changes it wherever it is (no key: always on), at the
+            // pace Professions sets; not in a fight.
+            if (!player->IsInCombat())
+                Professions::RetireIfDue(player);
+            if (!studyEnabled && !ordersEnabled)
+                continue;
             if (studied < 20 && StudyIfDue(player, botAI))
                 ++studied;
             // 3.3.1: a bot without Enchanting orders an enchantment (EnchantOrders).
             if (ordered < 20 && OrderEnchantIfDue(player))
                 ++ordered;
-            if (studied >= 20 && ordered >= 20)
-                break;
+            // No early stop: the professions' change looks at every bot (two skill checks each).
         }
         Summary(uint32(GameTime::GetGameTime().count()));
     }
@@ -1371,7 +1372,7 @@ namespace
         {
             using CoaEnchantOrderRules::Outcome;
             auto const outcome = [](Outcome o) { return orderCounters.outcomes[uint32(o)]; };
-            LOG_INFO("playerbots.coa", "CoaEconomy: enchant orders (last hour): {} orders, {} enchantments put on ({} by "
+            LOG_INFO("playerbots.coa", "CoaEconomy: enchant orders (last hour): {} attempts, {} enchantments put on ({} by "
                      "an enchanter in the same zone), {}c paid, {}c of it in fees; nothing put on: {} no piece, {} no "
                      "enchanter, {} no gold", orderCounters.orders, outcome(Outcome::Done), orderCounters.here,
                      orderCounters.paid, orderCounters.fees, outcome(Outcome::NoPiece), outcome(Outcome::NoEnchanter),

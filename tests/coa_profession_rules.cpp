@@ -64,6 +64,12 @@ int main()
     assert(t.Take(1060, 60, 6));
     assert(t.Take(500, 60, 6));
     assert(!Throttle().Take(1000, 60, 0));
+    // The pace the purge uses: 30 a minute, so 3 000 bots in 100 minutes.
+    Throttle purge;
+    for (int i = 0; i < 30; ++i)
+        assert(purge.Take(2000, 60, 30));
+    assert(!purge.Take(2059, 60, 30));
+    assert(purge.Take(2060, 60, 30));
 
     // The link with the level: plain text after the link, nothing when the maximum is unknown or the link empty.
     std::string const link = "|cff71d5ff|Hspell:13920|h[Enchanting]|h|r";

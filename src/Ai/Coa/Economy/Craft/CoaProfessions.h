@@ -15,8 +15,8 @@ struct ItemTemplate;
 // CoA 3.3.1: the bots have neither Inscription nor Jewelcrafting (CoaProfessionRules.h says why). A rule of the bots
 // only: the players and the core are untouched.
 //  - the draw (PlayerbotFactory::InitTradeSkills) never gives them;
-//  - a bot that has one loses it, with its recipes, at its next study in town, and gets the profession the draw gives
-//    in its place (6 bots a minute at most);
+//  - a random bot online that has one loses it, with its recipes, wherever it is (out of combat, not in an instance),
+//    and gets the profession the draw gives in its place (30 bots a minute at most);
 //  - no bot makes, advertises or lists the items only they give (glyphs, inks, pigments, cut gems, jewelry, their
 //    recipe items); what the world gives stays (looted scrolls, mined gems, looted Designs). Bot auctions already up
 //    run out.
@@ -28,7 +28,8 @@ bool Retired(uint32 skillId);
 // An item only a retired profession gives.
 bool IsRetiredItem(ItemTemplate const* proto);
 
-// A bot that has a retired profession changes it now, if the pace allows (world thread). True when it changed.
+// A random bot that has a retired profession changes it now, if the pace allows (world thread, every scan). True when
+// it changed.
 bool RetireIfDue(Player* bot);
 }
 
