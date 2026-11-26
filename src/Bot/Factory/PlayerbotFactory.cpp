@@ -10,6 +10,7 @@
 #include "CoaProfessions.h"
 #include "Ai/Coa/Combat/Mount/CoaMountRule.h"
 #include "CoaFishingGear.h"
+#include "Bag.h"
 #include "CoaGearExpansionRules.h"
 #include "CoaProfessionToolRules.h"
 #include "CoaWorldItemOrigin.h"
@@ -3485,29 +3486,30 @@ inline Item* StoreNewItemInInventorySlot(Player* player, uint32 newItemId, uint3
 
 void PlayerbotFactory::InitBags(bool destroyOld)
 {
+    // CoA 3.3.1: a Classic bag on a Classic realm; a bag is only destroyed empty, and its slot no longer left bare.
+    uint32 const newItemId = CoaGearExpansionRules::FactoryBag(sPlayerbotAIConfig.limitGearExpansion,
+                                                               sWorld->getIntConfig(CONFIG_MAX_PLAYER_LEVEL));
+    ItemTemplate const* newProto = sObjectMgr->GetItemTemplate(newItemId);
+    if (!newProto)
+        return;
+    bool const randomBot = sRandomPlayerbotMgr.IsRandomBot(bot);
     for (uint8 slot = INVENTORY_SLOT_BAG_START; slot < INVENTORY_SLOT_BAG_END; ++slot)
     {
-        uint32 newItemId = 51809;
         Item* old_bag = bot->GetItemByPos(INVENTORY_SLOT_BAG_0, slot);
-        if (old_bag && old_bag->GetTemplate()->ItemId == newItemId)
+        Bag* const oldBag = old_bag ? old_bag->ToBag() : nullptr;
+        if (old_bag && !oldBag)
             continue;
-
+        CoaGearExpansionRules::BagSlot const what = CoaGearExpansionRules::ForSlot(
+            oldBag ? oldBag->GetEntry() : 0, oldBag ? oldBag->GetTemplate()->ContainerSlots : 0,
+            oldBag && oldBag->IsEmpty(), newItemId, newProto->ContainerSlots, destroyOld, randomBot);
+        if (what == CoaGearExpansionRules::BagSlot::Keep)
+            continue;
         uint16 dest;
         if (!CanEquipUnseenItem(slot, dest, newItemId))
             continue;
-
-        if (old_bag && destroyOld)
+        if (what == CoaGearExpansionRules::BagSlot::Replace)
             bot->DestroyItem(INVENTORY_SLOT_BAG_0, slot, true);
-
-        if (old_bag)
-            continue;
-
         bot->EquipNewItem(dest, newItemId, true);
-        // if (newItem)
-        // {
-        //     newItem->AddToWorld();
-        //     newItem->AddToUpdateQueueOf(bot);
-        // }
     }
 }
 

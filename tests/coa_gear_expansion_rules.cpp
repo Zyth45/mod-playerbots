@@ -36,5 +36,31 @@ int main()
     // Obsidian Mail Tunic (an Ahn'Qiraj craft) and Icebane Leggings (a quest reward of Naxxramas): epics, they stay.
     assert(!LaterExpansion(22191, 4, 76, 60, 60, false));
     assert(!LaterExpansion(22699, 4, 80, 60, 60, false));
+
+    // The factory's bag: the Traveler's Backpack (16 slots) on a Classic realm, the Portable Hole (24) elsewhere.
+    using CoaGearExpansionRules::BagSlot;
+    using CoaGearExpansionRules::FactoryBag;
+    using CoaGearExpansionRules::ForSlot;
+    uint32_t const hole = CoaGearExpansionRules::PORTABLE_HOLE, classic = CoaGearExpansionRules::CLASSIC_BAG;
+    assert(FactoryBag(true, 60) == classic);
+    assert(FactoryBag(true, 80) == hole);
+    assert(FactoryBag(false, 60) == hole);
+    // An empty bag slot gets it; the same bag stays.
+    assert(ForSlot(0, 0, false, classic, 16, true, true) == BagSlot::Fill);
+    assert(ForSlot(classic, 16, true, classic, 16, true, true) == BagSlot::Keep);
+    // A random bot's empty Portable Hole gives way, at a login (no destroyOld) as at a factory pass.
+    assert(ForSlot(hole, 24, true, classic, 16, false, true) == BagSlot::Replace);
+    assert(ForSlot(hole, 24, true, classic, 16, true, true) == BagSlot::Replace);
+    // Never with anything inside, never a player's alt's.
+    assert(ForSlot(hole, 24, false, classic, 16, true, true) == BagSlot::Keep);
+    assert(ForSlot(hole, 24, true, classic, 16, true, false) == BagSlot::Keep);
+    // Another bag: replaced at a factory pass only, empty, and only by a larger one (the Bottomless Bag stays).
+    assert(ForSlot(4496, 6, true, classic, 16, true, true) == BagSlot::Replace);  // Small Brown Pouch
+    assert(ForSlot(4496, 6, true, classic, 16, false, true) == BagSlot::Keep);
+    assert(ForSlot(4496, 6, false, classic, 16, true, true) == BagSlot::Keep);
+    assert(ForSlot(14156, 18, true, classic, 16, true, true) == BagSlot::Keep);
+    // A Wrath realm: the Portable Hole stays the factory's bag.
+    assert(ForSlot(hole, 24, true, hole, 24, true, true) == BagSlot::Keep);
+    assert(ForSlot(classic, 16, true, hole, 24, true, true) == BagSlot::Replace);
     return 0;
 }

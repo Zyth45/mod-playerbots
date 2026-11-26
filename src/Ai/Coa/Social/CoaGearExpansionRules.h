@@ -38,6 +38,40 @@ inline bool LaterExpansion(uint32_t itemId, uint32_t quality, uint32_t itemLevel
         return itemId >= FIRST_WOTLK_ITEM && itemId != 36737 && itemId != 37739 && itemId != 37740;
     return false;
 }
+
+// CoA 3.3.1: the factory's bags. The Portable Hole (24 slots, item level 80, Wrath) filled every bag slot of every bot,
+// a Classic realm's too (2 970 bots wore four on Malfurion). There a bot gets the Traveler's Backpack (16 slots, the
+// common bag of the original game; on the bench, 0.9 % of the bots held more than its 64 slots in their four bags).
+// The id is set here only: the Bottomless Bag (14156, 18 slots) if the bench shows too many full bags.
+constexpr uint32_t PORTABLE_HOLE = 51809;
+constexpr uint32_t CLASSIC_BAG = 4500;
+
+inline uint32_t FactoryBag(bool limitGearExpansion, uint32_t realmMaxLevel)
+{
+    return limitGearExpansion && realmMaxLevel <= 60 ? CLASSIC_BAG : PORTABLE_HOLE;
+}
+
+enum class BagSlot
+{
+    Keep,
+    Fill,    // an empty bag slot gets the factory's bag
+    Replace  // the bag there is destroyed, then the factory's bag takes its place
+};
+
+// A bag is only ever destroyed empty (a self-found bot keeps its bags' contents through a refresh). The Portable Hole
+// of a random bot gives way to the Classic bag, at a factory pass as at a login; another bag, at a factory pass only
+// (destroyOld) and only for a larger one, as before.
+inline BagSlot ForSlot(uint32_t oldId, uint32_t oldSlots, bool oldEmpty, uint32_t target, uint32_t targetSlots,
+                       bool destroyOld, bool randomBot)
+{
+    if (!oldId)
+        return BagSlot::Fill;
+    if (oldId == target || !oldEmpty)
+        return BagSlot::Keep;
+    if (oldId == PORTABLE_HOLE)
+        return randomBot ? BagSlot::Replace : BagSlot::Keep;
+    return destroyOld && oldSlots < targetSlots ? BagSlot::Replace : BagSlot::Keep;
+}
 }  // namespace CoaGearExpansionRules
 
 #endif

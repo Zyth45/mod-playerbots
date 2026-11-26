@@ -16,6 +16,7 @@
 #include "CoaHearthWithMaster.h"
 #include "CoaBotMute.h"
 #include "CoaAltGive.h"
+#include "CoaClassicBags.h"
 #include "CoaFishingGear.h"
 #include "CoaSafeMoveRules.h"
 #include "CoaBotWhy.h"
@@ -588,6 +589,8 @@ void PlayerbotAI::UpdateAI(uint32 elapsed, bool minimal)
     CoaPet::Tick(this);
     // A fishing pole left in hand gives way to a weapon in a fight or a group (CoaFishingGear).
     CoaFishingGear::Tick(this);
+    // The empty Portable Holes of a Classic realm's random bot give way to a Classic bag (CoaClassicBags).
+    CoaClassicBags::Tick(this);
     // The night bench of the odd moves (AiPlayerbot.CoaMoveAudit, off by default): a sample of the bot.
     CoaMoveAudit::Tick(this);
     // ".squidbots why" (AiPlayerbot.CoaWhy.Enable): where the bot stands still since when.
