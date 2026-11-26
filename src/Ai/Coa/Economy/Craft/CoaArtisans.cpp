@@ -170,7 +170,7 @@ uint32 ordersIntervalHours = 8;
 uint32 ordersMoneyPercent = 25;
 uint32 ordersCopperPerLevel = 10000;
 uint32 ordersFeePercent = 20;
-uint32 ordersMinFeePerLevel = 50;
+uint32 ordersMinFeePerLevel = 80;
 // 3.3.1: the orders' counts since the last hourly line (world thread only).
 struct OrderCounters
 {
@@ -243,7 +243,7 @@ void LoadSettings()
     ordersCopperPerLevel =
         CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.EnchantOrders.MaxCopperPerLevel", 10000);
     ordersFeePercent = CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.EnchantOrders.FeePercent", 20);
-    ordersMinFeePerLevel = CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.EnchantOrders.MinFeePerLevel", 50);
+    ordersMinFeePerLevel = CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.EnchantOrders.MinFeePerLevel", 80);
     minProfitPercent = CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.Artisans.MinProfitPercent", 20);
     realPrices = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.BotAuctions.RealHousePrices", true);
     realMultipliers = RealPrices::LoadMultipliers("AiPlayerbot.CoaEconomy.BotAuctions.RealPriceMultiplier");

@@ -6205,7 +6205,7 @@ AiPlayerbot.CoaEconomy.SelfStudy.Log = 0
 # at most one order per IntervalHours (half that from HighLevel on). A piece that already carries an enchantment (the
 # bot factory's) is never touched. The armory notes it ("enchant", source "artisan"). With
 # EnchantForSelf.HourlyCount = 1, one line an hour in the playerbots.coa log counts the orders; Log: each order there.
-# Default: 1 (enabled), level 20, 8 hours, high level 60, 25 %, 10000 copper per level, 20 %, 50 copper per level;
+# Default: 1 (enabled), level 20, 8 hours, high level 60, 25 %, 10000 copper per level, 20 %, 80 copper per level;
 # Log: 0 (disabled)
 AiPlayerbot.CoaEconomy.EnchantOrders.Enable = 1
 AiPlayerbot.CoaEconomy.EnchantOrders.MinLevel = 20
@@ -6214,7 +6214,7 @@ AiPlayerbot.CoaEconomy.EnchantOrders.HighLevel = 60
 AiPlayerbot.CoaEconomy.EnchantOrders.MaxGoldPercent = 25
 AiPlayerbot.CoaEconomy.EnchantOrders.MaxCopperPerLevel = 10000
 AiPlayerbot.CoaEconomy.EnchantOrders.FeePercent = 20
-AiPlayerbot.CoaEconomy.EnchantOrders.MinFeePerLevel = 50
+AiPlayerbot.CoaEconomy.EnchantOrders.MinFeePerLevel = 80
 AiPlayerbot.CoaEconomy.EnchantOrders.Log = 0
 
 # Recipes the world gives (3.3.1, "super enchanters"): bots learn more than what profession trainers teach.
