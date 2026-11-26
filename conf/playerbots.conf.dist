@@ -3003,7 +3003,7 @@ AiPlayerbot.CoaWorld.ItemOrigin.PurgeDays = 90
 #    AiPlayerbot.CoaWorld.ItemEvent.Enable
 #        Description: The last 20 gear events of each character, for the dashboard's character sheet (table
 #                     coa_item_event of the characters database, players and bots alike): "equip" each time a
-#                     piece is worn (with its source, as in ItemOrigin; the same piece worn again within a minute
+#                     piece is worn (with its source, as in ItemOrigin; a piece its wearer wore within the hour
 #                     counts once), "enchant" for an enchantment put on (by a spell or scroll, a bot enchanter) and
 #                     one "regear" for a pass of a bot's auto-gear (the number of pieces it changed, not each piece).
 #                     Same pieces as ItemOrigin (MinQuality). Written every minute; older events

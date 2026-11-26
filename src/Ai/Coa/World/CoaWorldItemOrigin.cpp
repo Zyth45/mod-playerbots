@@ -19,7 +19,7 @@
  * 3.3.1: the last events of each piece, for the dashboard's character sheet (characters.coa_item_event, the last 20
  * per character, form in D:\CoA-Commun\tmp\coa_item_event-schema.md):
  *  - "equip": every time a piece (green or better) is worn, its source as above ("" when not seen: the dashboard
- *    reads coa_item_origin); the same piece worn again within a minute writes nothing. Not at login.
+ *    reads coa_item_origin); a piece its wearer wore within the hour writes nothing. Not at login.
  *  - "enchant": an enchantment put on a piece, its id in detail: "spell" (an enchanting spell or scroll cast by a
  *    player or a bot), "bot" (a bot's command), "artisan" (a bot enchanter, Economy).
  *  - "regear": one row for a pass of the factory or the auto-gear (source "autogear", detail the pieces changed:
@@ -136,7 +136,6 @@ std::vector<Row> queue;
 std::vector<Event> events;
 std::unordered_map<uint32, Worn> worn;  // by item
 std::unordered_map<uint32, Move> moves;  // by item: the last hand-over seen, until worn
-std::unordered_map<uint32, uint32> lastPose;  // by owner: the item of its last "equip" event
 
 struct Pass
 {
@@ -549,21 +548,13 @@ public:
             {
                 itr->second = { eventSource, now, wearer };
                 PassLocked(wearer, itemId, now);  // the factory's or the auto-gear's: one "regear" row
-                lastPose[wearer] = itemId;
             }
             else if (settings.events && live)
             {
-                auto last = lastPose.find(wearer);
-                bool const lastOfWearer = last != lastPose.end() && last->second == itemId &&
-                                          itr->second.owner == wearer;
-                if (!SkipPose(lastOfWearer, itr->second.owner == wearer ? itr->second.at : 0, now))
-                {
-                    itr->second = { eventSource, now, wearer };
+                bool const sameWearer = itr->second.owner == wearer;
+                if (!SkipPose(sameWearer, moved || note.source, itr->second.at, now))
                     QueueEventLocked(wearer, item, "equip", eventSource, note.detail, now);
-                    if (lastPose.size() >= MAX_WORN)
-                        lastPose.clear();
-                    lastPose[wearer] = itemId;
-                }
+                itr->second = { eventSource, now, wearer };  // its last pose, written or not
             }
         }
         // coa_item_origin: an origin noted or a factory piece, as in 3.3; a made piece once per server start.

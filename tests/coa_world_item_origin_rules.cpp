@@ -44,12 +44,13 @@ int main()
     assert(std::string(WornSource(nullptr, "mail", true, false, false)) == "mail");
     assert(WornSource(nullptr, nullptr, false, false, false) == nullptr);  // worn before the update: no row
 
-    // coa_item_event: 20 per character; the same piece worn again within a minute writes nothing.
-    assert(EventsKept == 20);
-    assert(!RepeatPose(0, 1000));
-    assert(RepeatPose(1000, 1000) && RepeatPose(1000, 1059));
-    assert(!RepeatPose(1000, 1060) && !RepeatPose(1000, 999));
-    assert(SkipPose(true, 0, 5000) && SkipPose(false, 1000, 1030) && !SkipPose(false, 1000, 1060));
+    // coa_item_event: 20 per character; a piece its wearer wore within the hour, back with no new origin, writes nothing.
+    assert(EventsKept == 20 && WornAgainGap == 3600);
+    assert(SkipPose(true, false, 1000, 1000) && SkipPose(true, false, 1000, 4599));  // two wands swapped: skipped
+    assert(!SkipPose(true, false, 1000, 4600));                                     // worn again after an hour
+    assert(!SkipPose(true, false, 0, 1000) && !SkipPose(true, false, 1000, 999));   // never seen, clock back
+    assert(!SkipPose(false, false, 1000, 1030));                                    // another wearer (traded)
+    assert(!SkipPose(true, true, 1000, 1030));                                      // a new origin (bought back)
     assert(KeepEvents(20) == 20 && KeepEvents(0) == 10 && KeepEvents(5000) == 200);
 
     // Loot: "dungeon" in a dungeon or a raid, "loot" elsewhere; both fit the 16 characters of `source`.

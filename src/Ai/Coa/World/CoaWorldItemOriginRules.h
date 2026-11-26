@@ -44,13 +44,15 @@ inline char const* WornSource(char const* moved, char const* noted, bool startSc
 constexpr uint32_t EventsKept = 20;
 inline uint32_t KeepEvents(uint32_t configured) { return configured < 10 ? 10 : configured > 200 ? 200 : configured; }
 
-// The same piece worn again within a minute of its last "equip" event (a swap back, a reload of the gear): no new
-// event. lastAt 0: never seen.
-inline bool RepeatPose(uint32_t lastAt, uint32_t now) { return lastAt && now >= lastAt && now - lastAt < 60; }
-
-// No new "equip" event either for the piece its wearer put on last (3.3.1 bench: a bot swapping a white weapon and its
-// Skinning Knife wrote the knife 7 times an hour): nothing changed among its green-or-better pieces.
-inline bool SkipPose(bool lastOfWearer, uint32_t lastAt, uint32_t now) { return lastOfWearer || RepeatPose(lastAt, now); }
+// No new "equip" event for a piece its wearer already wore within the hour (any pose counts, written or not) and that
+// came back with no new origin: a swap back, a reload of the gear, a bot going back and forth between two pieces (3.3.1
+// bench: a white weapon and a Skinning Knife, then two wands swapped every 2 to 3 min for 1 h 40). Another wearer, a
+// new origin (bought back, mailed back) or another item guid: a row. lastWornAt 0: never seen.
+constexpr uint32_t WornAgainGap = 3600;
+inline bool SkipPose(bool sameWearer, bool newOrigin, uint32_t lastWornAt, uint32_t now)
+{
+    return sameWearer && !newOrigin && lastWornAt && now >= lastWornAt && now - lastWornAt < WornAgainGap;
+}
 
 // A pass of the factory or the auto-gear ("regear", one row): a bot's pieces worn under a StartGearScope and its
 // "autogear" enchantments, until PassGap seconds go by with none (the enchantments put on right after the gear count
