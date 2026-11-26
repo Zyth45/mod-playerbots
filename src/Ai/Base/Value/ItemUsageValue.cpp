@@ -20,6 +20,7 @@
 #include "StatsWeightCalculator.h"
 #include "CoaFormulas.h"
 #include "CoaGearScore.h"
+#include "CoaProfessionToolRules.h"
 
 #include <algorithm>
 #include <string_view>
@@ -308,6 +309,13 @@ ItemUsage ItemUsageValue::QueryItemUsageForEquip(ItemTemplate const* itemProto, 
 
     if (itemProto->Class == ITEM_CLASS_WEAPON && itemProto->SubClass == ITEM_SUBCLASS_WEAPON_MISC)
         return ITEM_USAGE_NONE;
+    // CoA 3.3.1: a profession tool (the Skinning Knife, a dagger of the CoA data) is no weapon: it fills an empty main
+    // hand only, the last resort of a bot with nothing else, and pushes nothing out.
+    if (!CoaProfessionToolRules::MayWear(
+            CoaProfessionToolRules::IsTool(itemProto->Class, itemProto->SubClass, itemProto->Quality,
+                                           itemProto->TotemCategory),
+            !bot->GetItemByPos(INVENTORY_SLOT_BAG_0, EQUIPMENT_SLOT_MAINHAND)))
+        return ITEM_USAGE_NONE;
 
     // CoA: a spec that shoots never takes the idol or wand that would push its bow out of the ranged slot.
     bool const rangedSlotItem = itemProto->InventoryType == INVTYPE_RELIC ||
@@ -425,7 +433,11 @@ ItemUsage ItemUsageValue::QueryItemUsageForEquip(ItemTemplate const* itemProto, 
         }
 
         ItemTemplate const* oldItemProto = oldItem->GetTemplate();
-        float oldScore = calculator.CalculateItem(oldItemProto->ItemId, oldItem->GetInt32Value(ITEM_FIELD_RANDOM_PROPERTIES_ID));
+        // CoA 3.3.1: a worn profession tool counts for nothing, any real weapon takes its place.
+        float oldScore = CoaProfessionToolRules::IsTool(oldItemProto->Class, oldItemProto->SubClass, oldItemProto->Quality, oldItemProto->TotemCategory)
+                             ? 0.0f
+                             : calculator.CalculateItem(oldItemProto->ItemId,
+                                                        oldItem->GetInt32Value(ITEM_FIELD_RANDOM_PROPERTIES_ID));
         // CoA Combat, gear score: each side gets the set bonuses it unlocks in this slot (AiPlayerbot.CoaCombat.GearScore).
         float slotItemScore = itemScore;
         if (sPlayerbotAIConfig.coaCombatGearScoreEnable)

@@ -9,6 +9,7 @@
 #include "Bag.h"
 #include "CoaLive.h"
 #include "CoaMissionMgr.h"
+#include "CoaProfessionToolRules.h"
 #include "CoaStarterWeapon.h"
 #include "Item.h"
 #include "Player.h"
@@ -40,7 +41,10 @@ bool FitsMainHand(ItemTemplate const* proto)
            proto->InventoryType == INVTYPE_2HWEAPON;
 }
 
-// The best weapon of the bags for the main hand (the highest item level the bot can use), never a pole.
+bool IsTool(ItemTemplate const* proto) { return CoaProfessionToolRules::IsTool(proto->Class, proto->SubClass, proto->Quality, proto->TotemCategory); }
+
+// The best weapon of the bags for the main hand (the highest item level the bot can use), never a pole; a profession
+// tool (3.3.1: the Skinning Knife, item level 4, beat the starting weapons of item level 3) only when nothing else.
 Item* BestWeapon(Player* bot)
 {
     Item* best = nullptr;
@@ -50,7 +54,9 @@ Item* BestWeapon(Player* bot)
         if (!proto || proto->Class != ITEM_CLASS_WEAPON || CoaFishingGear::IsFishingPole(item) || !FitsMainHand(proto) ||
             bot->CanUseItem(item) != EQUIP_ERR_OK)
             return;
-        if (!best || proto->ItemLevel > best->GetTemplate()->ItemLevel)
+        ItemTemplate const* const held = best ? best->GetTemplate() : nullptr;
+        if (CoaProfessionToolRules::Prefer(IsTool(proto), proto->ItemLevel, held != nullptr, held && IsTool(held),
+                                           held ? held->ItemLevel : 0))
             best = item;
     };
     for (uint8 slot = INVENTORY_SLOT_ITEM_START; slot < INVENTORY_SLOT_ITEM_END; ++slot)

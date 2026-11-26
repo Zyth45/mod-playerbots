@@ -10,6 +10,7 @@
 #include "CoaProfessions.h"
 #include "Ai/Coa/Combat/Mount/CoaMountRule.h"
 #include "CoaFishingGear.h"
+#include "CoaProfessionToolRules.h"
 #include "CoaWorldItemOrigin.h"
 #include "CoaStarterWeapon.h"
 #include "Ai/Coa/Combat/Gear/CoaGearPvp.h"
@@ -2489,6 +2490,9 @@ void PlayerbotFactory::AddItemStats(uint32 mod, uint8& sp, uint8& ap, uint8& tan
 
 bool PlayerbotFactory::CanEquipWeapon(ItemTemplate const* proto)
 {
+    // CoA 3.3.1: a profession tool (Skinning Knife, Mining Pick) is never a bot's weapon.
+    if (CoaProfessionToolRules::IsTool(proto->Class, proto->SubClass, proto->Quality, proto->TotemCategory))
+        return false;
     if (proto->SubClass == ITEM_SUBCLASS_WEAPON_WAND && CoaSpecNeedsShootingWeapon(bot))
         return false;
 
@@ -2779,6 +2783,7 @@ bool StarterMainHand(uint32 itemId)
 {
     ItemTemplate const* proto = sObjectMgr->GetItemTemplate(itemId);
     return proto && proto->Class == ITEM_CLASS_WEAPON && proto->SubClass != ITEM_SUBCLASS_WEAPON_FISHING_POLE &&
+           !CoaProfessionToolRules::IsTool(proto->Class, proto->SubClass, proto->Quality, proto->TotemCategory) &&
            (proto->InventoryType == INVTYPE_WEAPON || proto->InventoryType == INVTYPE_WEAPONMAINHAND ||
             proto->InventoryType == INVTYPE_2HWEAPON);
 }
