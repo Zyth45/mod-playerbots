@@ -18,6 +18,13 @@
 #include "ObjectGuid.h"
 #include "ObjectMgr.h"
 #include "PlayerbotAIConfig.h"
+#include "PlayerbotAI.h"
+#include "AiObjectContext.h"
+#include "CoaSafeMove.h"
+#include "CoaScatterRules.h"
+#include "LastMovementValue.h"
+#include "PositionValue.h"
+#include "Event.h"
 #include "PlayerbotFactory.h"
 #include "PlayerbotGuildMgr.h"
 #include "PlayerbotOperations.h"
@@ -26,6 +33,7 @@
 #include "PlayerbotTextMgr.h"
 #include "PlayerbotWorldThreadProcessor.h"
 #include "Playerbots.h"
+#include "MapMgr.h"
 #include "RandomPlayerbotMgr.h"
 #include "SharedDefines.h"
 #include "WorldSession.h"
@@ -905,6 +913,23 @@ std::vector<std::string> PlayerbotHolder::HandlePlayerbotCommand(char const* arg
         return messages;
     }
 
+    if (std::strncmp(args, "scatter", 7) == 0 && (args[7] == '\0' || args[7] == ' '))
+    {
+        float distance = sPlayerbotAIConfig.followDistance * 3.0f;
+        if (args[7] == ' ')
+        {
+            char* end = nullptr;
+            char const* value = args + 8;
+            distance = std::strtof(value, &end);
+            if (end == value || *end != '\0' || !std::isfinite(distance) || distance < 3.0f || distance > 40.0f)
+            {
+                messages.push_back("Usage: scatter [distance in yards, 3-40]");
+                return messages;
+            }
+        }
+        return ScatterGroup(master, distance);
+    }
+
     char* cmd = strtok((char*)args, " ");
     char* charname = strtok(nullptr, " ");
     char* genderArg = strtok(nullptr, " ");    // Added for gender choice [male|female|0|1] optionnel
@@ -1325,6 +1350,75 @@ std::vector<std::string> PlayerbotHolder::HandlePlayerbotCommand(char const* arg
         messages.push_back(out.str());
     }
 
+    return messages;
+}
+
+std::vector<std::string> PlayerbotHolder::ScatterGroup(Player* master, float distance)
+{
+    std::vector<std::string> messages;
+    Group* group = master ? master->GetGroup() : nullptr;
+    if (!master || !master->IsInWorld() || !group)
+    {
+        messages.push_back("You must be in a group to scatter bots.");
+        return messages;
+    }
+
+    std::vector<Player*> bots;
+    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+    {
+        Player* member = ref->GetSource();
+        if (!member || member == master || !member->IsInWorld() || !member->IsAlive() || member->IsInCombat() ||
+            member->GetMap() != master->GetMap() || member->GetInstanceId() != master->GetInstanceId() ||
+            !GET_PLAYERBOT_AI(member))
+            continue;
+        bots.push_back(member);
+    }
+
+    if (bots.empty())
+    {
+        messages.push_back("No eligible grouped bots to scatter.");
+        return messages;
+    }
+
+    std::sort(bots.begin(), bots.end(), [](Player* a, Player* b) { return a->GetGUID() < b->GetGUID(); });
+    float const ringRadius = std::max(distance, 1.0f);
+    std::size_t const slots = bots.size();
+    std::size_t moved = 0;
+    for (std::size_t index = 0; index < slots; ++index)
+    {
+        Player* member = bots[index];
+        PlayerbotAI* botAI = GET_PLAYERBOT_AI(member);
+        bool placed = false;
+        for (uint32 ring = 0; ring < 4 && !placed; ++ring)
+        {
+            CoaScatterRules::Point const point = CoaScatterRules::Destination(
+                master->GetPositionX(), master->GetPositionY(), master->GetOrientation(), ringRadius, index, slots, ring);
+            float const x = point.x;
+            float const y = point.y;
+            float z = master->GetPositionZ();
+            member->UpdateAllowedPositionZ(x, y, z);
+            if (!MapMgr::IsValidMapCoord(member->GetMapId(), x, y, z) ||
+                !CoaSafeMove::CanWalkTo(member, x, y, z))
+                continue;
+
+            botAI->ChangeStrategy("+stay,-follow,-passive,-move from group", BOT_STATE_NON_COMBAT);
+            botAI->ChangeStrategy("+stay,-follow,-passive,-move from group", BOT_STATE_COMBAT);
+            PositionMap& positions = botAI->GetAiObjectContext()->GetValue<PositionMap&>("position")->Get();
+            PositionInfo stay = positions["stay"];
+            stay.Set(x, y, z, member->GetMapId());
+            positions["stay"] = stay;
+            PositionInfo returning = positions["return"];
+            returning.Set(x, y, z, member->GetMapId());
+            positions["return"] = returning;
+            botAI->GetAiObjectContext()->GetValue<LastMovement&>("last movement")->Get().Set(nullptr);
+            botAI->DoSpecificAction("return to stay position", Event(), true);
+            ++moved;
+            placed = true;
+        }
+    }
+
+    messages.push_back("Scattered " + std::to_string(moved) + " of " + std::to_string(bots.size()) +
+                       " bots; they will hold position until commanded.");
     return messages;
 }
 
