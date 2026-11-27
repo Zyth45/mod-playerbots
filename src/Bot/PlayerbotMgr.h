@@ -59,6 +59,7 @@ public:
     static void JoinBotChannels(Player* const bot);
 
     std::vector<std::string> HandlePlayerbotCommand(char const* args, Player* master = nullptr);
+    std::vector<std::string> ScatterGroup(Player* master, float distance);
     std::string const ProcessBotCommand(std::string const cmd, ObjectGuid guid, ObjectGuid masterguid, bool admin,
                                         uint32 masterAccountId, uint32 masterGuildId);
     uint32 GetAccountId(std::string const name);
