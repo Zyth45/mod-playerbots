@@ -768,6 +768,9 @@ public:
     uint32 coaTrustBoss = 25;       // AiPlayerbot.CoaTrust.Boss: for a boss outside a raid
     uint32 coaTrustRaidBoss = 100;  // AiPlayerbot.CoaTrust.RaidBoss: for a raid boss
     std::string coaTrustRanks = "0,100,500,1500,4000,10000";  // AiPlayerbot.CoaTrust.Ranks: where each rank starts
+    bool coaLiveCitySquares = true;        // AiPlayerbot.CoaLive.City.Squares: bots on the capitals' squares (3.2.2)
+    uint32 coaLiveCitySquareMaxBots = 3;   // AiPlayerbot.CoaLive.City.SquareMaxBots: at most this many on one (1 to 3)
+    uint32 coaLivePvpStatsKeepDays = 30;  // AiPlayerbot.CoaLive.PvpStatsKeepDays: battleground stats kept (0: never purged)
     bool coaLfgRolePriority = true;  // AiPlayerbot.CoaLfgRolePriority: a bot of the missing role queues first (3.2.1)
     // ---- end of CoA Live ----
 

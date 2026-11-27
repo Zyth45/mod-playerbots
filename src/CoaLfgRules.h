@@ -47,4 +47,12 @@ inline bool CoaLfgRoleWanted(bool tank, bool heal, bool needTank, bool needHeal)
     return (tank && needTank) || (heal && needHeal);
 }
 
+// 3.2.2 (Dungeon Clear, issue 62): the classes the addclass cache holds (the queue fill and .playerbots addclass read it):
+// every class below maxClasses (the core's MAX_CLASSES, the CoA classes up to 32 included), none 0 or 10 (unused).
+// The cache stopped at the druid while the AddClass accounts hold CoA classes only: it was empty.
+inline bool CoaAddclassCacheClass(std::uint8_t claz, std::uint8_t maxClasses)
+{
+    return claz != 0 && claz != 10 && claz < maxClasses;
+}
+
 #endif

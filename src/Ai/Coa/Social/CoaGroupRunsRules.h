@@ -25,6 +25,9 @@ namespace CoaWorldFile
 constexpr int64_t RUN_GONE_S = 300;
 constexpr size_t RUNS_LAST = 8;
 
+// A group's mean level, rounded to the nearest (0 with nobody counted).
+inline uint32_t MeanLevel(uint32_t sum, uint32_t count) { return count ? (sum + count / 2) / count : 0; }
+
 struct Run
 {
     uint32_t instance = 0;
@@ -34,6 +37,9 @@ struct Run
     uint32_t difficulty = 0;
     Mix mix;
     std::string leader;
+    uint32_t levelSum = 0;    // this pass: the members' levels added up, and how many
+    uint32_t levelCount = 0;
+    uint32_t level = 0;       // the group's mean level, rounded, taken at the first pass that sees it (0: unknown)
     int64_t startedAt = 0;
     int64_t lastSeen = 0;
     int64_t endedAt = 0;
@@ -57,6 +63,7 @@ public:
         {
             r = now;
             r.startedAt = at;
+            r.level = MeanLevel(now.levelSum, now.levelCount);
         }
         r.mix = now.mix;
         r.leader = now.leader;
@@ -135,9 +142,9 @@ public:
                    std::to_string(r.map) + ",\"dungeon\":null,\"dungeonName\":" + Quote(r.name) + ",\"kind\":" +
                    (r.raid ? "\"raid\"" : "\"dungeon\"") + ",\"difficulty\":" + std::to_string(r.difficulty) + "," +
                    MixJson(r.mix).substr(1, MixJson(r.mix).size() - 2) + ",\"leader\":" + Quote(r.leader) +
-                   ",\"startedAt\":" + std::to_string(r.startedAt) + ",\"bossesKilled\":" +
-                   std::to_string(r.bosses.size()) + ",\"bossesTotal\":" + Num(r.bossesTotal) + ",\"wipes\":" +
-                   std::to_string(r.wipes) + ",\"dc\":null}";
+                   ",\"level\":" + std::to_string(r.level) + ",\"startedAt\":" + std::to_string(r.startedAt) +
+                   ",\"bossesKilled\":" + std::to_string(r.bosses.size()) + ",\"bossesTotal\":" + Num(r.bossesTotal) +
+                   ",\"wipes\":" + std::to_string(r.wipes) + ",\"dc\":null}";
             first = false;
         }
         out += "],\"today\":{\"since\":" + std::to_string(today_.since) + ",\"runs\":" + std::to_string(today_.runs) +
@@ -162,7 +169,8 @@ public:
             Run const& r = last_[i];
             out += std::string(i ? "," : "") + "{\"instance\":" + std::to_string(r.instance) + ",\"dungeon\":null," +
                    "\"map\":" + std::to_string(r.map) + ",\"dungeonName\":" + Quote(r.name) + ",\"difficulty\":" +
-                   std::to_string(r.difficulty) + ",\"startedAt\":" + std::to_string(r.startedAt) + ",\"endedAt\":" +
+                   std::to_string(r.difficulty) + ",\"level\":" + std::to_string(r.level) + ",\"startedAt\":" +
+                   std::to_string(r.startedAt) + ",\"endedAt\":" +
                    std::to_string(r.endedAt) + ",\"result\":\"" + r.Result() + "\",\"bossesKilled\":" +
                    std::to_string(r.bosses.size()) + ",\"bossesTotal\":" + Num(r.bossesTotal) + ",\"wipes\":" +
                    std::to_string(r.wipes) + "," + MixJson(r.mix).substr(1, MixJson(r.mix).size() - 2) +

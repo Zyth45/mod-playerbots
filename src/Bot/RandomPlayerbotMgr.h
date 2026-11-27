@@ -198,6 +198,10 @@ public:
     uint32 GetTradeDiscount(Player* bot, Player* master);
     void Refresh(Player* bot);
     void RandomTeleportForLevel(Player* bot);
+    // CoA 3.3: the teleport of a level up (AutoTeleportForLevel): no arrival within 150 yards of a real player
+    // (AiPlayerbot.CoaLive.LevelupTeleportGuard); RandomTeleportForLevel's other callers as before.
+    void RandomTeleportForLevelUp(Player* bot);
+    void TeleportForLevel(Player* bot, bool levelUp);
     void RandomTeleportGrindForLevel(Player* bot);
     void RandomTeleportForRpg(Player* bot);
     uint32 GetMaxAllowedBotCount();
@@ -254,7 +258,9 @@ public:
     float getActivityMod() { return activityMod; }
     float getActivityPercentage() { return activityMod * 100.0f; }
     void setActivityPercentage(float percentage) { activityMod = percentage / 100.0f; }
-    static uint8 GetTeamClassIdx(bool isAlliance, uint8 claz) { return isAlliance * 20 + claz; }
+    // CoA 3.2.2 (Dungeon Clear, issue 62): the CoA classes go up to 32 (MAX_CLASSES 33); "isAlliance * 20" put a Horde
+    // class of 21 and more in the bucket of the Alliance class 20 below it (.playerbots addclass drew the other side).
+    static uint8 GetTeamClassIdx(bool isAlliance, uint8 claz) { return isAlliance * MAX_CLASSES + claz; }
 
     void PrepareAddclassCache();
     void Init();
@@ -343,7 +349,7 @@ private:
     bool ProcessBot(uint32 bot);
     void ScheduleRandomize(uint32 bot, uint32 time);
     void RandomTeleport(Player* bot);
-    void RandomTeleport(Player* bot, std::vector<WorldLocation>& locs, bool hearth = false);
+    void RandomTeleport(Player* bot, std::vector<WorldLocation>& locs, bool hearth = false, bool levelUp = false);
     uint32 GetZoneLevel(uint16 mapId, float teleX, float teleY, float teleZ);
     std::vector<WorldLocation> GetPlayerZoneTeleportLocations(std::vector<WorldLocation> const& locs, Player* bot);
     void UpdatePlayerZones();
@@ -380,5 +386,8 @@ private:
 };
 
 #define sRandomPlayerbotMgr RandomPlayerbotMgr::instance()
+
+// CoA 3.2.2: a random bot with no player for master never teleports to map 530 or 571 (OnPlayerBeforeTeleport).
+bool CoaRefusesFarMap(Player* bot, uint32 mapId);
 
 #endif

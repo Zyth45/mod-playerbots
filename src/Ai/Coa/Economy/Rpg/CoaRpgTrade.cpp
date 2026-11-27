@@ -6,6 +6,7 @@
 
 #include "CoaRpgTrade.h"
 
+#include "CoaArtisans.h"
 #include "CoaBotAuctions.h"
 #include "CoaEconomyRules.h"
 #include "CoaMaterials.h"
@@ -99,13 +100,16 @@ namespace
         uint8 const bagUsed = BagUsed(botAI);
         std::vector<Item*> toSell;
         std::unordered_set<uint32> const stock = Materials::StockReagents(bot);
+        std::unordered_set<uint32> const enchanting = Artisans::EnchantReagents(bot);
         ForEachBagItem(bot, [&](Item* item)
         {
             ItemTemplate const* proto = item->GetTemplate();
             if (!proto || !proto->SellPrice || item->IsInTrade())
                 return;
-            // An artisan keeps its reagents, unless the bags are nearly full.
-            if (bagUsed < 95 && Materials::KeepsInStock(bot, item, stock))
+            // An artisan keeps its reagents, an enchanter those of its enchantments (3.2.2), unless the bags are nearly
+            // full.
+            if (bagUsed < 95 &&
+                (Materials::KeepsInStock(bot, item, stock) || Artisans::KeepsForEnchanting(bot, item, enchanting)))
                 return;
             ItemUsage const usage = UsageOf(botAI, item);
             if (CoaEconomyRules::SellsAtVendor(usage == ITEM_USAGE_VENDOR, usage == ITEM_USAGE_AH, botAuctions, bagUsed))
@@ -179,6 +183,8 @@ bool TradeAtNpc(PlayerbotAI* botAI, WorldObject* npc)
             // 3.1.4: a stop at a vendor is also when the guild stock goes to the bank (as at an auctioneer):
             // bots stop at vendors far more often than at auctioneers.
             traded |= Materials::TendGuildStock(botAI->GetBot()) > 0;
+            // 3.2.2: an enchanter disenchants the pieces it would sell first (its reagents come from there).
+            traded |= Materials::DisenchantBeforeSale(botAI->GetBot(), botAI) > 0;
             traded |= SellToVendor(botAI, vendor) > 0;
         }
 

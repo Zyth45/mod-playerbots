@@ -20,8 +20,12 @@
 #include "Playerbots.h"
 #include "RandomPlayerbotMgr.h"
 #include "ScriptMgr.h"
+#include "Log.h"
+#include <algorithm>
 #include <atomic>
 #include <fstream>
+#include <map>
+#include <vector>
 #include <iomanip>
 #include <mutex>
 #include <sstream>
@@ -42,6 +46,7 @@ std::string fileName = "coa_move_audit.jsonl";
 struct LastMove
 {
     std::string action;
+    std::string origin;  // 3.2.2: core path, straight line, or a NoteOrigin
     float x = 0.0f, y = 0.0f, z = 0.0f;
     uint32 pathType = 0;
     uint32 points = 0;
@@ -61,6 +66,7 @@ struct AuditSample
     uint32 pingMapId = 0;
     float pingX = 0.0f, pingY = 0.0f, pingSpan = 0.0f, pingTravel = 0.0f;
     bool pingSpoiled = false;  // a fight, a flight, water... in the window: not judged
+    uint64 teleportMs = 0;     // 3.2.2: the server's last teleport of the bot (NoteTeleport)
 };
 
 std::mutex stateLock;
@@ -69,6 +75,94 @@ std::unordered_map<uint64, uint64> npcLines;  // creature guid -> when written
 
 std::mutex fileLock;
 std::ofstream file;
+
+// 3.2.2: the hour's lines per kind, and a few samples of each, for the hourly summary in the log.
+std::mutex summaryLock;
+std::map<std::string, uint32> hourCounts;
+std::map<std::string, std::vector<std::string>> hourSamples;
+std::map<std::string, std::map<std::string, uint32>> hourZones;   // 3.2.2: kind -> zone -> lines
+std::map<std::string, std::map<std::string, uint32>> hourCauses;  // 3.2.2: kind -> cause -> lines
+
+// 3.2.2 (Pilote: the audit must not go mute): the samples each exclusion rule kept out of a kind this hour, and the
+// lines no move noted explains.
+enum Excluded : uint32
+{
+    EX_TELEPORT_EXEMPT,  // teleport: in flight, on a transport, in water...
+    EX_FAST_COMBAT,      // fast: in a fight (a charge)
+    EX_WALL_FAR,         // wall: walked further than WALL_MAX_FLAT
+    EX_NOT_COMPARED,     // every kind between two samples: across a server teleport or a gap
+    EX_UNDER_STOREY,     // underfloor: the floor above is the next storey
+    EX_UNDER_MODEL,      // underfloor: standing on a model's floor
+    EX_COUNT
+};
+char const* const excludedNames[EX_COUNT] = {"teleport in flight/transport", "fast in a fight", "wall over 8 yd",
+                                             "not compared (server teleport, gap)", "underfloor under a storey",
+                                             "underfloor on a model floor"};
+std::atomic<uint32> hourExcluded[EX_COUNT];
+std::atomic<uint32> hourUnexplained{0};
+std::atomic<uint64> nextSummaryMs{0};
+
+// The TOP_N most frequent of a count, "name n, name n".
+std::string Top(std::map<std::string, uint32> const& counts)
+{
+    std::vector<std::pair<uint32, std::string>> sorted;
+    for (auto const& [name, n] : counts)
+        sorted.emplace_back(n, name);
+    std::sort(sorted.begin(), sorted.end(), [](auto const& a, auto const& b) { return a.first > b.first; });
+    std::string text;
+    for (size_t i = 0; i < sorted.size() && i < CoaMoveAuditRules::SUMMARY_TOP; ++i)
+        text += (text.empty() ? "" : ", ") + (sorted[i].second.empty() ? std::string("?") : sorted[i].second) + " " +
+                std::to_string(sorted[i].first);
+    return text;
+}
+
+void NoteSummary(std::string const& kind, std::string const& sample, std::string const& zone, std::string const& cause)
+{
+    std::lock_guard<std::mutex> guard(summaryLock);
+    ++hourCounts[kind];
+    ++hourZones[kind][zone];
+    ++hourCauses[kind][cause];
+    if (cause.rfind("no move", 0) == 0)
+        ++hourUnexplained;
+    std::vector<std::string>& samples = hourSamples[kind];
+    if (samples.size() < CoaMoveAuditRules::SUMMARY_SAMPLES)
+        samples.push_back(sample);
+}
+
+void LogSummaryWhenDue(uint64 nowMs)
+{
+    uint64 due = nextSummaryMs.load(std::memory_order_relaxed);
+    if (!due)
+    {
+        nextSummaryMs.compare_exchange_strong(due, nowMs + HOUR * IN_MILLISECONDS);
+        return;
+    }
+    if (nowMs < due || !nextSummaryMs.compare_exchange_strong(due, nowMs + HOUR * IN_MILLISECONDS))
+        return;
+    std::map<std::string, uint32> counts;
+    std::map<std::string, std::vector<std::string>> samples;
+    std::map<std::string, std::map<std::string, uint32>> zones, causes;
+    {
+        std::lock_guard<std::mutex> guard(summaryLock);
+        counts.swap(hourCounts);
+        samples.swap(hourSamples);
+        zones.swap(hourZones);
+        causes.swap(hourCauses);
+    }
+    std::string text;
+    for (auto const& [kind, n] : counts)
+    {
+        text += (text.empty() ? "" : " / ") + kind + " " + std::to_string(n) + " [zones: " + Top(zones[kind]) +
+                "] [causes: " + Top(causes[kind]) + "]:";
+        for (std::string const& sample : samples[kind])
+            text += " " + sample + ";";
+    }
+    std::string excluded;
+    for (uint32 i = 0; i < EX_COUNT; ++i)
+        excluded += (i ? ", " : "") + std::string(excludedNames[i]) + " " + std::to_string(hourExcluded[i].exchange(0));
+    LOG_INFO("playerbots.coa", "move audit (last hour): {} || unexplained (no move noted) {} || excluded: {}",
+             text.empty() ? "nothing odd" : text, hourUnexplained.exchange(0), excluded);
+}
 
 void Write(std::string const& line)
 {
@@ -204,12 +298,31 @@ void Load()
     enabled.store(sConfigMgr->GetOption<bool>("AiPlayerbot.CoaMoveAudit", false), std::memory_order_relaxed);
 }
 
-void NoteMove(Player* bot, char const* action, float x, float y, float z)
+void NoteOrigin(Player* bot, char const* origin)
+{
+    if (!Enabled() || !bot)
+        return;
+    std::lock_guard<std::mutex> guard(stateLock);
+    LastMove& move = states[bot->GetGUID().GetRawValue()].move;
+    move.origin = origin ? origin : "";
+    move.atMs = GameTime::GetGameTimeMS().count();
+}
+
+void NoteTeleport(Player* bot)
+{
+    if (!Enabled() || !bot)
+        return;
+    std::lock_guard<std::mutex> guard(stateLock);
+    states[bot->GetGUID().GetRawValue()].teleportMs = GameTime::GetGameTimeMS().count();
+}
+
+void NoteMove(Player* bot, char const* action, float x, float y, float z, bool straight)
 {
     if (!Enabled() || !bot || !bot->IsInWorld())
         return;
     LastMove move;
     move.action = action ? action : "";
+    move.origin = straight ? "straight line" : "core path";
     move.x = x;
     move.y = y;
     move.z = z;
@@ -230,6 +343,7 @@ void Tick(PlayerbotAI* botAI)
     if (!bot || !bot->IsInWorld() || bot->IsBeingTeleported())
         return;
     uint64 const nowMs = GameTime::GetGameTimeMS().count();
+    LogSummaryWhenDue(nowMs);
     Map* map = bot->GetMap();
     float const x = bot->GetPositionX(), y = bot->GetPositionY(), z = bot->GetPositionZ();
     bool const exempt = bot->IsFlying() || bot->IsFalling() || bot->GetTransport() || bot->IsInFlight() ||
@@ -254,23 +368,83 @@ void Tick(PlayerbotAI* botAI)
         kinds.push_back("roof");
     float flat = 0.0f, dz = 0.0f;
     uint32 dtMs = 0;
-    bool const comparable = before.atMs && before.mapId == bot->GetMapId();
+    // 3.2.2: not across a teleport by the server, nor across a gap (a logout, an AI asleep): the bot was not walking.
+    bool const comparable = before.atMs && before.mapId == bot->GetMapId() && before.teleportMs <= before.atMs &&
+                            nowMs <= before.atMs + SAMPLE_GAP_MS;
+    if (!comparable && before.atMs)
+        ++hourExcluded[EX_NOT_COMPARED];
     if (comparable)
     {
         flat = std::hypot(x - before.x, y - before.y);
         dz = z - before.z;
         dtMs = uint32(nowMs - before.atMs);
         float const speed = std::max(bot->GetSpeed(MOVE_RUN), bot->GetSpeed(MOVE_WALK));
-        if (Teleported(flat))
-            kinds.push_back("teleport");
+        // 3.2.2 (bench of 5f662017): a taxi flight, a boat is no teleport; a charge in a fight is no "fast" move.
+        if (TeleportedFor(flat, dtMs, speed))
+        {
+            if (!exempt)
+                kinds.push_back("teleport");
+            else
+                ++hourExcluded[EX_TELEPORT_EXEMPT];
+        }
         else if (TooFast(flat, dtMs, speed) && !exempt)
-            kinds.push_back("fast");
-        if (CheckWall(flat) && !exempt &&
-            !map->isInLineOfSight(before.x, before.y, before.z + 1.5f, x, y, z + 1.5f, bot->GetPhaseMask(),
-                                  LINEOFSIGHT_CHECK_VMAP, VMAP::ModelIgnoreFlags::M2))
+        {
+            if (!bot->IsInCombat())
+                kinds.push_back("fast");
+            else
+                ++hourExcluded[EX_FAST_COMBAT];
+        }
+        if (CheckWall(flat) && !exempt && flat > WALL_MAX_FLAT)
+            ++hourExcluded[EX_WALL_FAR];
+        else if (CheckWall(flat) && !exempt &&
+                 !map->isInLineOfSight(before.x, before.y, before.z + 1.5f, x, y, z + 1.5f, bot->GetPhaseMask(),
+                                       LINEOFSIGHT_CHECK_VMAP, VMAP::ModelIgnoreFlags::M2))
             kinds.push_back("wall");
         if (HeightJump(dz, flat, before.onGround && onGround))
             kinds.push_back("zjump");
+        // 3.2.2: through the relief, outdoors.
+        if (CheckWall(flat) && flat <= TERRAIN_MAX_FLAT && !exempt && bot->IsOutdoors())
+        {
+            float highest = INVALID_HEIGHT;
+            for (uint32 i = 1; i <= TERRAIN_STEPS; ++i)
+            {
+                float const t = float(i) / float(TERRAIN_STEPS + 1);
+                highest = std::max(highest, map->GetGridHeight(before.x + (x - before.x) * t,
+                                                               before.y + (y - before.y) * t));
+            }
+            if (ThroughTerrain(before.z, map->GetGridHeight(before.x, before.y), z, gridZ, highest))
+                kinds.push_back("terrain");
+        }
+    }
+    // 3.2.2 (Pilote): under a building's floor in a capital (the vmap's floor read from 6 yards up, over the feet).
+    if (onGround && InCapital(bot->GetZoneId()) && (nowMs / sampleMs) % std::max<uint32>(1, INWALL_EVERY_MS / sampleMs) == 0)
+    {
+        float const above = map->GetHeight(bot->GetPhaseMask(), x, y, z + UNDERFLOOR_MAX, true, UNDERFLOOR_MAX - 0.5f);
+        // 3.2.2 (Pilote, bench of 1e991b2d: 473 lines, Ironforge's bank on its floor at 503.94, the terrain at 811): a bot
+        // on a model's floor (the vmap alone, read from just over its feet) is on a building's floor, not under one.
+        float const model = map->GetMapCollisionData().GetStaticTree().getHeight(x, y, z + 0.5f, 2.0f);
+        bool const aboveClose = above > INVALID_HEIGHT && above - z >= UNDERFLOOR_MIN;
+        if (aboveClose && OnModelFloor(z, model))
+            ++hourExcluded[EX_UNDER_MODEL];
+        else if (UnderFloor(z, above))
+            kinds.push_back("underfloor");
+        else if (aboveClose)
+            ++hourExcluded[EX_UNDER_STOREY];
+    }
+    // 3.2.2: inside a wall or a building's model, now and then.
+    if (onGround && (nowMs / sampleMs) % std::max<uint32>(1, INWALL_EVERY_MS / sampleMs) == 0)
+    {
+        uint32 open = 0;
+        for (uint32 i = 0; i < INWALL_DIRECTIONS; ++i)
+        {
+            float const angle = float(i) * 6.2831853f / float(INWALL_DIRECTIONS);
+            if (map->isInLineOfSight(x, y, z + 1.5f, x + INWALL_REACH * std::cos(angle),
+                                     y + INWALL_REACH * std::sin(angle), z + 1.5f, bot->GetPhaseMask(),
+                                     LINEOFSIGHT_CHECK_VMAP, VMAP::ModelIgnoreFlags::M2))
+                ++open;
+        }
+        if (InWall(open))
+            kinds.push_back("inwall");
     }
 
     std::vector<std::string> due;
@@ -332,6 +506,7 @@ void Tick(PlayerbotAI* botAI)
 
     Engine* engine = botAI->GetEngine(bot->IsInCombat() ? ::BOT_STATE_COMBAT : ::BOT_STATE_NON_COMBAT);
     std::string const lastAction = engine ? engine->GetLastAction() : "";
+    std::string const lastRun = engine ? engine->GetLastExecutedAction() : "";
     std::string const rpg = botAI->rpgInfo.ToString();
     for (std::string const& kind : due)
     {
@@ -350,10 +525,31 @@ void Tick(PlayerbotAI* botAI)
              << ",\"gen\":" << Json(GeneratorName(bot->GetMotionMaster()->GetCurrentMovementGeneratorType()))
              << ",\"lastAction\":" << Json(lastAction) << ",\"rpg\":" << Json(rpg)
              << ",\"ping\":{\"traveled\":" << Num(pingTravel) << ",\"span\":" << Num(pingSpan) << "}"
-             << ",\"move\":{\"action\":" << Json(move.action) << ",\"to\":[" << Num(move.x) << "," << Num(move.y) << ","
+             << ",\"move\":{\"action\":" << Json(move.action) << ",\"origin\":" << Json(move.origin) << ",\"to\":[" << Num(move.x) << "," << Num(move.y) << ","
              << Num(move.z) << "],\"path\":" << Json(PathTypeText(move.pathType)) << ",\"points\":" << move.points
              << ",\"ageMs\":" << (move.atMs ? nowMs - move.atMs : 0) << "}}";
         Write(line.str());
+        // 3.2.2: the hourly summary's sample: map, where, the action and the move's origin.
+        std::ostringstream sample;
+        sample << "map " << bot->GetMapId() << " " << Num(x) << " " << Num(y) << " " << Num(z) << " (" << Num(flat)
+               << " yd in " << dtMs << " ms, floor " << Num(floorZ) << ", "
+               << ZoneName(bot->GetZoneId()) << "), " << (lastAction.empty() ? move.action : lastAction) << ", "
+               << (move.origin.empty() ? "no move noted" : move.origin) << " " << PathTypeText(move.pathType)
+               // 3.2.2 (Pilote: "air" swimming? flying? a taxi?): the movement flags, moving or not, the generator.
+               << ", flags 0x" << std::hex << bot->GetUnitMovementFlags() << std::dec << (bot->isMoving() ? ", moving" : ", still") << ", "
+               << GeneratorName(bot->GetMotionMaster()->GetCurrentMovementGeneratorType())
+               << (lastRun.empty() ? "" : ", last run ") << lastRun << " -> .go xyz " << Num(x) << " " << Num(y) << " "
+               << Num(z + 0.5f) << " " << bot->GetMapId();
+        // 3.2.2 (Pilote, bench of 5f662017: "self found equip" first cause of teleports, "add all loot" of air): the
+        // cause is what moved the bot, the move noted (its action, its origin) within CAUSE_MS, else "no move" and the
+        // generator; the action last run only names what the AI did last, not what moved it.
+        std::string const cause = move.atMs && nowMs - move.atMs <= CAUSE_MS
+                                      ? (move.action.empty() ? move.origin : move.action + ", " + move.origin)
+                                      : "no move, " + std::string(GeneratorName(
+                                                          bot->GetMotionMaster()->GetCurrentMovementGeneratorType()));
+        // "roof" stays in the file only: the tree of Teldrassil and the ramps of the cities are floors over the terrain.
+        if (kind != "roof")
+            NoteSummary(kind, sample.str(), ZoneName(bot->GetZoneId()), cause);
     }
 }
 }  // namespace CoaMoveAudit

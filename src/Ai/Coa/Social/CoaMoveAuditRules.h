@@ -7,6 +7,7 @@
 #ifndef PLAYERBOTS_COAMOVEAUDITRULES_H
 #define PLAYERBOTS_COAMOVEAUDITRULES_H
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <string>
@@ -36,9 +37,17 @@ inline bool OnRoof(bool outdoors, float floorZ, float gridZ)
 
 inline bool Teleported(float flat) { return flat > TELEPORT_DIST; }
 
+// 3.2.2 (bench of d061adec: 15 800 of 17 500 "teleport" lines were jumps under 500 yards between two samples taken
+// seconds apart, a bot whose AI ticks seldom): a teleport is further than the bot could have run in the time, plus
+// TELEPORT_DIST.
+inline bool TeleportedFor(float flat, uint32_t dtMs, float speed)
+{
+    return Teleported(flat) && flat > speed * FAST_FACTOR * (float(dtMs) / 1000.0f) + TELEPORT_DIST;
+}
+
 inline bool TooFast(float flat, uint32_t dtMs, float speed)
 {
-    if (!dtMs || Teleported(flat))
+    if (!dtMs || TeleportedFor(flat, dtMs, speed))
         return false;
     return flat / (float(dtMs) / 1000.0f) > speed * FAST_FACTOR + FAST_MARGIN;
 }
@@ -63,6 +72,74 @@ inline bool PingPong(float traveled, float span)
 {
     return traveled >= PING_TRAVEL && span <= PING_SPAN && span >= PING_MIN_SPAN;
 }
+
+// 3.2.2 (the user, 23/11: "bots that go through mountains, fly or are in walls"). "terrain": between two samples
+// outdoors, both on the terrain's surface, the terrain somewhere in between rises TERRAIN_MARGIN yards over both ends
+// (the walls check reads the models only, never the terrain). TERRAIN_STEPS points are read in between.
+constexpr float TERRAIN_MARGIN = 2.0f;
+constexpr float TERRAIN_SURFACE = 1.0f;  // an end this far under the terrain is in a cave or a city below: not judged
+constexpr uint32_t TERRAIN_STEPS = 4;
+// 3.2.2: a longer segment between two samples is a path around the hill, not through it (the bench's "terrain" lines:
+// 14 to 41 yards between samples, along the navmesh).
+constexpr float TERRAIN_MAX_FLAT = 8.0f;
+
+inline bool ThroughTerrain(float zFrom, float gridFrom, float zTo, float gridTo, float highestGridBetween)
+{
+    if (gridFrom <= -100000.0f || gridTo <= -100000.0f || highestGridBetween <= -100000.0f)
+        return false;
+    if (zFrom < gridFrom - TERRAIN_SURFACE || zTo < gridTo - TERRAIN_SURFACE)
+        return false;
+    return highestGridBetween > std::max(zFrom, zTo) + TERRAIN_MARGIN;
+}
+
+// 3.2.2: "inwall": standing on the ground, the bot's head sees out in at most INWALL_MAX_OPEN of INWALL_DIRECTIONS
+// directions at INWALL_REACH yards: it stands inside a wall or a building's model. Read every INWALL_EVERY_MS.
+constexpr uint32_t INWALL_DIRECTIONS = 4;
+constexpr uint32_t INWALL_MAX_OPEN = 1;
+constexpr float INWALL_REACH = 1.0f;
+constexpr uint32_t INWALL_EVERY_MS = 3000;
+
+inline bool InWall(uint32_t openDirections) { return openDirections <= INWALL_MAX_OPEN; }
+
+// 3.2.2 (Pilote): "underfloor": in a capital, on the ground, a floor of the vmap UNDERFLOOR_MIN to UNDERFLOOR_MAX yards
+// over the feet (a building's floor over the bot: it stands on the terrain under it).
+constexpr float UNDERFLOOR_MIN = 1.0f;
+constexpr float UNDERFLOOR_MAX = 6.0f;
+
+// 3.2.2 (bench of 5f662017: 50 lines at Darnassus's bank, bots still on its ground floor, a floor above them): a floor
+// over a bot is one it is under only when too low to stand under, UNDERFLOOR_HEADROOM yards at most (Stormwind's bank:
+// 1.9); higher, it is the next storey.
+constexpr float UNDERFLOOR_HEADROOM = 2.5f;
+
+inline bool UnderFloor(float z, float floorAbove)
+{
+    return floorAbove > -100000.0f && floorAbove - z >= UNDERFLOOR_MIN && floorAbove - z <= UNDERFLOOR_HEADROOM;
+}
+
+// 3.2.2 (same bench): two samples seconds apart in a straight line say nothing of a wall when the bot walked far: it
+// went round the corner. Checked over WALL_MAX_FLAT yards at most, as the terrain.
+constexpr float WALL_MAX_FLAT = 8.0f;
+
+// 3.2.2 (Pilote): a bot whose feet are within ON_MODEL yards over a model's floor of the vmap stands on a building's
+// floor: never "underfloor".
+constexpr float ON_MODEL = 0.5f;
+
+inline bool OnModelFloor(float z, float modelZ)
+{
+    return modelZ > -100000.0f && z - modelZ <= ON_MODEL && z - modelZ >= -ON_MODEL;
+}
+
+// 3.2.2: two samples further apart than this (a logout, an AI asleep) are not compared.
+constexpr uint64_t SAMPLE_GAP_MS = 30000;
+
+// 3.2.2: a move noted this long before a line is its cause.
+constexpr uint64_t CAUSE_MS = 15000;
+
+// 3.2.2: and the SUMMARY_TOP zones and causes with the most lines of each kind.
+constexpr size_t SUMMARY_TOP = 5;
+
+// 3.2.2: the hourly summary keeps SUMMARY_SAMPLES samples per kind.
+constexpr size_t SUMMARY_SAMPLES = 6;
 
 inline bool Due(uint64_t lastMs, uint64_t nowMs, uint32_t throttleMs) { return !lastMs || nowMs >= lastMs + throttleMs; }
 

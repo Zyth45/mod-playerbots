@@ -4,6 +4,7 @@
  * or (at your option) any later version.
  */
 
+#include "CoaPopulationRules.h"
 #include "PlayerbotAIConfig.h"
 #include "BisListMgr.h"
 #include "CoaBotNames.h"
@@ -558,7 +559,7 @@ bool PlayerbotAIConfig::Initialize()
     commandServerBind = sConfigMgr->GetOption<std::string>("AiPlayerbot.CommandServerBind", "127.0.0.1");
     perfMonEnabled = sConfigMgr->GetOption<bool>("AiPlayerbot.PerfMonEnabled", false);
 
-    useGroundMountAtMinLevel = sConfigMgr->GetOption<int32>("AiPlayerbot.UseGroundMountAtMinLevel", 20);
+    useGroundMountAtMinLevel = sConfigMgr->GetOption<int32>("AiPlayerbot.UseGroundMountAtMinLevel", 5);
     useFastGroundMountAtMinLevel = sConfigMgr->GetOption<int32>("AiPlayerbot.UseFastGroundMountAtMinLevel", 40);
     useFlyMountAtMinLevel = sConfigMgr->GetOption<int32>("AiPlayerbot.UseFlyMountAtMinLevel", 60);
     useFastFlyMountAtMinLevel = sConfigMgr->GetOption<int32>("AiPlayerbot.UseFastFlyMountAtMinLevel", 70);
@@ -759,7 +760,7 @@ bool PlayerbotAIConfig::Initialize()
     autoGearCommand = sConfigMgr->GetOption<int32>("AiPlayerbot.AutoGearCommand", 1);
     autoGearCommandAltBots = sConfigMgr->GetOption<int32>("AiPlayerbot.AutoGearCommandAltBots", 1);
     coaSelfFound = sConfigMgr->GetOption<bool>("AiPlayerbot.CoaSelfFound", false);
-    coaSelfFoundMaxLevel = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaSelfFoundMaxLevel", 59);
+    coaSelfFoundMaxLevel = sConfigMgr->GetOption<uint32>("AiPlayerbot.CoaSelfFoundMaxLevel", 80);
     int32 const coaSelfFoundBotsPercentOption = sConfigMgr->GetOption<int32>("AiPlayerbot.CoaSelfFoundBotsPercent", -1);
     coaSelfFoundBotsPercent = coaSelfFoundBotsPercentOption < 0 ? (coaSelfFound ? 20 : 0)
                                                                 : std::min<uint32>(uint32(coaSelfFoundBotsPercentOption), 100);
@@ -804,7 +805,7 @@ bool PlayerbotAIConfig::Initialize()
 
     randombotsWalkingRPG = sConfigMgr->GetOption<bool>("AiPlayerbot.RandombotsWalkingRPG", false);
     randombotsWalkingRPGInDoors = sConfigMgr->GetOption<bool>("AiPlayerbot.RandombotsWalkingRPG.InDoors", false);
-    minEnchantingBotLevel = sConfigMgr->GetOption<int32>("AiPlayerbot.MinEnchantingBotLevel", 60);
+    minEnchantingBotLevel = sConfigMgr->GetOption<int32>("AiPlayerbot.MinEnchantingBotLevel", 20);
     limitEnchantExpansion = sConfigMgr->GetOption<int32>("AiPlayerbot.LimitEnchantExpansion", 1);
     limitGearExpansion = sConfigMgr->GetOption<int32>("AiPlayerbot.LimitGearExpansion", 1);
     randombotStartingLevel = sConfigMgr->GetOption<int32>("AiPlayerbot.RandombotStartingLevel", 1);
@@ -824,7 +825,7 @@ bool PlayerbotAIConfig::Initialize()
     }
     enablePeriodicOnlineOffline = sConfigMgr->GetOption<bool>("AiPlayerbot.EnablePeriodicOnlineOffline", false);
     enableRandomBotTrading = sConfigMgr->GetOption<int32>("AiPlayerbot.EnableRandomBotTrading", 1);
-    periodicOnlineOfflineRatio = sConfigMgr->GetOption<float>("AiPlayerbot.PeriodicOnlineOfflineRatio", 2.0);
+    periodicOnlineOfflineRatio = sConfigMgr->GetOption<float>("AiPlayerbot.PeriodicOnlineOfflineRatio", COA_PERIODIC_RATIO_DEFAULT);
     onlineSelectionFollowPlayerLevels = sConfigMgr->GetOption<bool>("AiPlayerbot.OnlineSelection.FollowPlayerLevels", false);
     onlineSelectionLevelWindow = sConfigMgr->GetOption<uint32>("AiPlayerbot.OnlineSelection.LevelWindow", 5);
     gearscorecheck = sConfigMgr->GetOption<bool>("AiPlayerbot.GearScoreCheck", false);

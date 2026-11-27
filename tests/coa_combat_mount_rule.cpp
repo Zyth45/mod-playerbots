@@ -2,6 +2,7 @@
 #include "Ai/Coa/Combat/Mount/CoaMountRule.h"
 
 #include <cassert>
+#include <cstdint>
 #include <cstdio>
 
 using namespace CoaMountRule;
@@ -26,5 +27,18 @@ int main()
     assert(!DismountForMaster(false, false));
 
     std::puts("coa_combat_mount_rule: ok");
+    // 3.2.2: Novice Riding under 20, Apprentice from 20 (CoA's trainer); a stable mount of its own per bot.
+    assert(CoaMountRule::NoviceOrApprentice(5) == CoaMountRule::NOVICE_RIDING_SPELL);
+    assert(CoaMountRule::NoviceOrApprentice(19) == CoaMountRule::NOVICE_RIDING_SPELL);
+    assert(CoaMountRule::NOVICE_RIDING_SPELL == 33379 && CoaMountRule::NOVICE_RIDING_TEACHER == 33378);  // the riding, not its teacher
+    assert(CoaMountRule::NoviceOrApprentice(20) == CoaMountRule::APPRENTICE_RIDING_SPELL);
+    assert(CoaMountRule::StableMountIndex(12345, 4) == CoaMountRule::StableMountIndex(12345, 4));
+    assert(CoaMountRule::StableMountIndex(12345, 4) < 4 && CoaMountRule::StableMountIndex(7, 0) == 0);
+    {
+        uint32_t seen[4] = {0, 0, 0, 0};
+        for (uint64_t g = 1; g <= 400; ++g)
+            ++seen[CoaMountRule::StableMountIndex(g, 4)];
+        assert(seen[0] > 50 && seen[1] > 50 && seen[2] > 50 && seen[3] > 50);  // spread over the mounts
+    }
     return 0;
 }

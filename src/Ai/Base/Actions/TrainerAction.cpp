@@ -19,6 +19,7 @@
 #include "ObjectAccessor.h"
 #include "CoaReborn.h"
 #include "CoaAltAddon.h"
+#include "CoaWorldItemOrigin.h"
 
 namespace
 {
@@ -424,6 +425,7 @@ bool BisGearAction::RunAutogearFallback(uint16 effectiveIlvl)
 
 bool BisGearAction::Execute(Event event)
 {
+    CoaWorld::StartGearScope const startGear;  // CoA World 3.3: the auto-gear's pieces are "start" in coa_item_origin
     if (PlayerbotFactory::SelfFoundAt(bot->GetLevel()) || PlayerbotFactory::IsSelfFoundBot(bot))
     {
         botAI->TellError("Self-found realm: I only wear what I find, loot or am given.");

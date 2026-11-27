@@ -109,5 +109,25 @@ int main()
     assert(!SeatUsable(0.0f, 0.0f, 99.0f, 2.0f, 1.0f, 103.0f, true));  // within reach but 4 yards up: never lifted
     assert(!SeatUsable(0.0f, 0.0f, 99.0f, 2.0f, 1.0f, 99.5f, false));  // behind a wall
     assert(!SeatUsable(0.0f, 0.0f, 99.0f, 5.0f, 0.0f, 99.0f, true));   // too far
+    // 3.2.2 (bench of ba4b42b2: 0 seats used, 10 refused): the bot stops on the chair, whose model hides it from the
+    // bot: Ironforge's 171571 (bot 0.5 yard over it), Stormwind's 24488 (0.54 yard away), not seen, are taken.
+    assert(SeatUsable(-4835.33f, -867.29f, 502.42f, -4835.33f, -867.29f, 501.92f, false));
+    assert(SeatUsable(-8886.40f, 617.87f, 95.45f, -8886.54f, 618.39f, 95.3f, false));
+    assert(!SeatUsable(0.0f, 0.0f, 99.0f, 1.6f, 0.0f, 99.0f, false));  // beyond SEAT_ON, not seen: a wall between
+    // 3.2.2: the squares.
+    assert(PlaceServes(1 | 2) && PlaceServes(16) && !PlaceServes(0));
+    assert(SegmentDistance(0.0f, 5.0f, -10.0f, 0.0f, 10.0f, 0.0f) == 5.0f);
+    assert(SegmentDistance(20.0f, 0.0f, -10.0f, 0.0f, 10.0f, 0.0f) == 10.0f);  // past the segment's end
+    {
+        float x0 = 0.0f, y0 = 0.0f, x1 = 0.0f, y1 = 0.0f;
+        PlaceSlot(0, 100.0f, 50.0f, x0, y0);
+        PlaceSlot(1, 100.0f, 50.0f, x1, y1);
+        assert(std::fabs(std::hypot(x0 - 100.0f, y0 - 50.0f) - PLACE_SLOT_RADIUS) < 0.01f);
+        assert(std::hypot(x0 - x1, y0 - y1) > 2.0f);  // two bots face to face, not on each other
+    }
+    assert(MaxBots(Station::Square) == 3 && Weight(Station::Square) > 0 && !CanBePost(Station::Square));
+    // 3.2.2: an open space, indoors too: walls away in 6 of 8 directions, a high ceiling.
+    assert(PlaceOpen(8, true) && PlaceOpen(6, true));
+    assert(!PlaceOpen(5, true) && !PlaceOpen(8, false));
     return 0;
 }

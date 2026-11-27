@@ -11,6 +11,7 @@
 
 #include "AuctionHouseMgr.h"
 #include "CoaArtisans.h"
+#include "CoaEnchantSelfRules.h"
 #include "CoaAuctionHouseBot.h"
 #include "CoaEconomyRules.h"
 #include "CoaSellable.h"
@@ -192,12 +193,17 @@ namespace
         return done;
     }
 
-    // Disenchanting: the greens, blues and epics it would sell, when the dust and essences are worth more.
+    // Disenchanting: the greens, blues and epics it would sell, when the dust and essences are worth more; 3.2.2
+    // (EnchantForSelf.Reagents): whatever the prices while it is short of the reagents of its own enchantments (a
+    // piece it replaced, loot it cannot wear: disenchanted instead of sold).
     uint32 Disenchant(Player* bot, PlayerbotAI* botAI, uint32 budget)
     {
         uint32 const skill = bot->GetSkillValue(SKILL_ENCHANTING);
         if (!skill)
             return 0;
+        std::unordered_set<uint32> const reagents = Artisans::EnchantReagents(bot);  // empty: EnchantForSelf.Reagents off
+        bool const forReagents = !reagents.empty();
+        bool const shortOfReagents = forReagents && Artisans::ShortOfEnchantReagents(bot, reagents);
         std::vector<Item*> candidates;
         ForEachBagItem(bot, [&](Item* item)
         {
@@ -206,7 +212,7 @@ namespace
                 proto->Quality < ITEM_QUALITY_UNCOMMON || proto->Quality > ITEM_QUALITY_EPIC)
                 return;
             ItemUsage const usage = UsageOf(botAI, item);
-            if (usage == ITEM_USAGE_AH || usage == ITEM_USAGE_VENDOR)
+            if (usage == ITEM_USAGE_AH || usage == ITEM_USAGE_VENDOR || (forReagents && usage == ITEM_USAGE_DISENCHANT))
                 candidates.push_back(item);
         });
 
@@ -219,7 +225,10 @@ namespace
             Loot loot;
             if (!loot.FillLoot(proto->DisenchantID, LootTemplates_Disenchant, bot, true, true) || loot.items.empty())
                 continue;
-            if (!CoaEconomyRules::WorthBreaking(Artisans::MarketPrice(proto->ItemId) * item->GetCount(), LootValue(loot)))
+            if (!CoaEnchantSelfRules::Disenchants(
+                    item->IsSoulBound() && UsageOf(botAI, item) == ITEM_USAGE_DISENCHANT,
+                    CoaEconomyRules::WorthBreaking(Artisans::MarketPrice(proto->ItemId) * item->GetCount(), LootValue(loot)),
+                    shortOfReagents, proto->Quality == ITEM_QUALITY_UNCOMMON))
                 continue;
             if (bot->GetFreeInventorySpace() + 1 < loot.items.size())
                 break;
@@ -229,6 +238,7 @@ namespace
                 Data::RecordBreak(true, made.itemid, made.count, 1);
             ++done;
         }
+        Artisans::NoteDisenchants(done);
         return done;
     }
 
@@ -324,6 +334,13 @@ uint32 Process(Player* bot, PlayerbotAI* botAI)
     if (settings.disenchant && done < settings.perVisit)
         done += Disenchant(bot, botAI, settings.perVisit - done);
     return done;
+}
+
+uint32 DisenchantBeforeSale(Player* bot, PlayerbotAI* botAI)
+{
+    if (!settings.enabled || !settings.disenchant || !bot || !botAI || Artisans::EnchantReagents(bot).empty())
+        return 0;
+    return Disenchant(bot, botAI, settings.perVisit);
 }
 
 std::unordered_set<uint32> StockReagents(Player* bot)

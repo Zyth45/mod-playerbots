@@ -6,6 +6,7 @@
 
 #include "PossibleRpgTargetsValue.h"
 #include "CellImpl.h"
+#include "CoaSafeMoveRules.h"
 #include "GridNotifiers.h"
 #include "GridNotifiersImpl.h"
 #include "NearestGameObjects.h"
@@ -163,6 +164,12 @@ bool PossibleNewRpgTargetsValue::AcceptUnit(Unit* unit)
 
     if (unit->HasNpcFlag(UNIT_NPC_FLAG_SPIRITHEALER))
         return false;
+
+    // CoA 3.2.3: never an NPC that walks by itself, nor a festival's commoner (CoaSafeMove::WanderNpcRefused).
+    if (Creature* creature = unit->ToCreature())
+        if (CoaSafeMove::WanderNpcRefused(creature->GetEntry(),
+                                          creature->GetDefaultMovementType() != IDLE_MOTION_TYPE))
+            return false;
 
     for (uint32 npcFlag : allowedNpcFlags)
     {

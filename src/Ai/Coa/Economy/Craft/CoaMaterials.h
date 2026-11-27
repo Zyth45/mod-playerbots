@@ -34,6 +34,9 @@ namespace CoaEconomy::Materials
 
     // Smelts, prospects and disenchants up to Materials.PerVisit times; returns how many.
     uint32 Process(Player* bot, PlayerbotAI* botAI);
+    // 3.2.2 (EnchantForSelf.Reagents): at a vendor, before the sale, an enchanter disenchants up to Materials.PerVisit
+    // of the green or better pieces it would sell (Disenchant's rule); returns how many.
+    uint32 DisenchantBeforeSale(Player* bot, PlayerbotAI* botAI);
 
     // The reagents an artisan keeps (empty when the stock is off or it has no recipe).
     std::unordered_set<uint32> StockReagents(Player* bot);

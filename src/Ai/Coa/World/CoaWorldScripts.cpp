@@ -31,6 +31,7 @@ void AddSC_coa_world_capital_raid();
 void AddSC_coa_world_config_reload();
 void AddSC_coa_world_guild_ask();
 void AddSC_coa_world_chatter();
+void AddSC_coa_world_item_origin();
 
 void AddCoaWorldScripts()
 {
@@ -57,4 +58,5 @@ void AddCoaWorldScripts()
     AddSC_coa_world_config_reload();
     AddSC_coa_world_guild_ask();
     AddSC_coa_world_chatter();
+    AddSC_coa_world_item_origin();
 }

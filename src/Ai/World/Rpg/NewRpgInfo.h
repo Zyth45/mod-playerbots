@@ -41,6 +41,8 @@ struct NewRpgInfo
         uint32 pickedAt{0};  // CoA 3.2: when npcOrGo was picked (getMSTime)
         bool toAuctioneer{false};  // CoA 3.2 (BuyLog): npcOrGo is an auctioneer, not reached yet
         uint32 refusals{0};  // CoA 3.2: moves toward npcOrGo refused in a row
+        uint32 lastRun{0};   // CoA 3.2.2 (BuyLog): when the wander npc action last ran (getMSTime)
+        bool reachGrace{false};  // CoA 3.2.2: the wander was kept one tick past its end for an NPC in reach
     };
     // RPG_WANDER_RANDOM
     struct WanderRandom
@@ -93,6 +95,8 @@ struct NewRpgInfo
     float nearestMoveFarDis{FLT_MAX};
     uint32 stuckTs{0};
     uint32 stuckAttempts{0};
+    // CoA 3.2.2: when MoveFarTo last ran (getMSTime): a long gap (a fight, another action) is no time stuck.
+    uint32 moveFarLastMs{0};
     WorldPosition moveFarPos;
     // END MOVE_FAR
 

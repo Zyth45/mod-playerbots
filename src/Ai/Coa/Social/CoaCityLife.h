@@ -34,6 +34,14 @@ bool Holds(PlayerbotAI* botAI, ObjectGuid station);
 bool InRoom(PlayerbotAI* botAI, WorldObject* object);
 // The length of a city visit: the residents (a tenth of the random bots) stay three times as long.
 uint32 VisitMs(Player* bot, uint32 cityStayMs);
+// 3.2.2: a square held by the bot (its station is the square's anchor, an NPC near it): where it stands, and whether
+// it stands there (the wander's reach for a square, instead of the anchor's interaction distance).
+bool HoldsSquare(PlayerbotAI* botAI, ObjectGuid station);
+bool SquareSpot(PlayerbotAI* botAI, ObjectGuid station, float& x, float& y, float& z);
+bool AtSquare(PlayerbotAI* botAI);
+// 3.2.2 (the user: bots standing on chairs): the bot sits at its City Life station (a seat, or a square it sat on):
+// the AI's stand-up of an idle seated bot leaves it seated.
+bool KeepsSeated(PlayerbotAI* botAI);
 }  // namespace CoaCityLife
 
 #endif

@@ -5,7 +5,9 @@
  */
 
 #include "PlayerbotFactory.h"
+#include "Ai/Coa/Combat/Mount/CoaMountRule.h"
 #include "CoaFishingGear.h"
+#include "CoaWorldItemOrigin.h"
 #include "CoaStarterWeapon.h"
 #include "Ai/Coa/Combat/Gear/CoaGearPvp.h"
 #include "CoaQuietAchievements.h"
@@ -2736,6 +2738,7 @@ void Shuffle(std::vector<uint32>& items)
 // outfit instead left it without any equipment after the randomizer cleared its items.
 static void StoreCoaStarterItems(Player* bot)
 {
+    CoaWorld::StartGearScope const startGear;  // CoA World 3.3: what is worn here is "start" in coa_item_origin
     for (AscensionCompatData::LiveStarterItem const& entry : AscensionCompatData::LiveStarterItems)
     {
         if (entry.ClassId != bot->getClass() || entry.ItemId == 6948)
@@ -2878,6 +2881,7 @@ bool PlayerbotFactory::IsCoaPvpItem(ItemTemplate const* proto)
 
 void PlayerbotFactory::InitEquipment(bool incremental, bool second_chance, int32 onlySlot)
 {
+    CoaWorld::StartGearScope const startGear;  // CoA World 3.3: what is worn here is "start" in coa_item_origin
     // A Wildcard Hero has no class starting outfit (the core's Wildcard kit goes to players at their first login):
     // it takes its gear from the regular search below at any level, else it stayed naked under level 5.
     if (level < 5 && !IsWildcardHeroBot(bot))
@@ -3957,8 +3961,11 @@ void PlayerbotFactory::InitSkills()
     bot->UpdateSkillsForLevel();
 
     bot->SetSkill(SKILL_RIDING, 0, 0, 0);
+    // CoA 3.2.2: Novice Riding (33379, the quest "Path to Ascension: Novice Rider" at level 5, a 40% ground mount: the
+    // core's GetRidingGroundMountSpeed) from the ground mount level, Apprentice Riding (33388, 60%) from level 20, its
+    // trainer's level in CoA's world database. Before, Apprentice came at the ground mount level, 20.
     if (bot->GetLevel() >= sPlayerbotAIConfig.useGroundMountAtMinLevel)
-        bot->learnSpell(33388);
+        bot->learnSpell(CoaMountRule::NoviceOrApprentice(bot->GetLevel()));
     if (bot->GetLevel() >= sPlayerbotAIConfig.useFastGroundMountAtMinLevel)
         bot->learnSpell(33391);
     if (bot->GetLevel() >= sPlayerbotAIConfig.useFlyMountAtMinLevel)

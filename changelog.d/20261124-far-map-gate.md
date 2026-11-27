@@ -1,0 +1,2 @@
+### No bot of CoA travels to Outland or Northrend, offline ones brought home
+Whatever sends it there (a quest, a travel, a hearthstone, a portal), a bot of the server no longer teleports to the maps of Outland, the isles of the Blood Elves and the Draenei, or Northrend: CoA lives on the old continents. Bots left there offline are moved home at the server start. A bot grouped with a player still follows its player.

@@ -46,6 +46,11 @@ private:
 
 Unit* PartyMemberToResurrect::Calculate()
 {
+    // CoA 3.2.2: never in a battleground or an arena. A battleground's dead come back at its spirit healer within half a
+    // minute, so a healer stopping to cast a resurrection at a corpse left the fight for nothing; an arena's dead stay
+    // dead. The bot fights on instead.
+    if (bot->InBattleground() || bot->InArena())
+        return nullptr;
     FindDeadPlayer finder(this, bot);
     return FindPartyMember(finder);
 }

@@ -9,6 +9,7 @@
 #include "CoaKeySpells.h"
 
 #include "CoaLive.h"
+#include "CoaCityLife.h"
 #include "CoaChatRules.h"
 #include "CoaPet.h"
 #include "CoaHearthWithMaster.h"
@@ -2040,9 +2041,13 @@ void PlayerbotAI::DoNextAction(bool min)
                     pet->ToggleAutocast(info, !instance);
         }
 
-        // A bot standing still indoors gets off its mount: one stayed mounted in the Scarlet Raven Tavern
-        // (jealous-sound/azerothcore-wotlk-coa#6802).
-        if (bot->IsMounted() && !bot->isMoving() && !bot->IsInFlight() && !bot->GetTransport() && !bot->IsOutdoors())
+        // A bot indoors gets off its mount: one stayed mounted in the Scarlet Raven Tavern
+        // (jealous-sound/azerothcore-wotlk-coa#6802). 3.2.3 (the user: bots riding inside inns): walking too, so it
+        // walks in (CoaSafeMove::IndoorDismount); CheckMountState never mounts it again indoors.
+        // In a dungeon or a raid, still only, as in 3.2.2.
+        if (CoaSafeMove::IndoorDismount(bot->IsMounted(), bot->IsOutdoors(), bot->IsInFlight(), bot->GetTransport(),
+                                        bot->InBattleground()) &&
+            (!bot->GetMap()->Instanceable() || !bot->isMoving()))
             bot->RemoveAurasByType(SPELL_AURA_MOUNTED);
 
         // A bot out of a taxi kept its flying or gravity flag and floated over the flight master: it sends no landing
@@ -2125,7 +2130,9 @@ void PlayerbotAI::DoNextAction(bool min)
     }
     else if (bot->m_movementInfo.HasMovementFlag(MOVEMENTFLAG_WALKING))
         bot->m_movementInfo.RemoveMovementFlag(MOVEMENTFLAG_WALKING);
-    else if ((nextAICheckDelay < 1000) && bot->IsSitState() && !(bot->GetInterruptMask() & AURA_INTERRUPT_FLAG_NOT_SEATED))
+    // CoA 3.2.2 (the user: bots standing on chairs): not out of its City Life seat while it holds it.
+    else if ((nextAICheckDelay < 1000) && bot->IsSitState() && !(bot->GetInterruptMask() & AURA_INTERRUPT_FLAG_NOT_SEATED) &&
+             !CoaCityLife::KeepsSeated(this))
         bot->SetStandState(UNIT_STAND_STATE_STAND);
 
     bool hasMountAura = bot->HasAuraType(SPELL_AURA_MOD_INCREASE_MOUNTED_SPEED) ||
@@ -4601,6 +4608,10 @@ bool PlayerbotAI::CastSpell(uint32 spellId, Unit* target, Item* itemTarget)
     // bot->ClearUnitState(UNIT_STATE_CHASE);
     // bot->ClearUnitState(UNIT_STATE_FOLLOW);
 
+    // CoA 3.2.2 (bench of 3606e5be: 3 seat holders of 4 stood up): out of a fight, a bot seated at its City Life
+    // station casts nothing (its buffs wait for the end of its stay) instead of standing up for the spell.
+    if (!bot->IsInCombat() && !bot->IsStandState() && CoaCityLife::KeepsSeated(this))
+        return false;
     bool failWithDelay = false;
     if (!bot->IsStandState())
     {
@@ -4856,6 +4867,10 @@ bool PlayerbotAI::CastSpell(uint32 spellId, float x, float y, float z, Item* ite
     // bot->ClearUnitState(UNIT_STATE_CHASE);
     // bot->ClearUnitState(UNIT_STATE_FOLLOW);
 
+    // CoA 3.2.2 (bench of 3606e5be: 3 seat holders of 4 stood up): out of a fight, a bot seated at its City Life
+    // station casts nothing (its buffs wait for the end of its stay) instead of standing up for the spell.
+    if (!bot->IsInCombat() && !bot->IsStandState() && CoaCityLife::KeepsSeated(this))
+        return false;
     bool failWithDelay = false;
     if (!bot->IsStandState())
     {

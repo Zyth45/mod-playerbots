@@ -92,6 +92,8 @@ void RunsPass(int64 now)
                     r.leader = leader->GetName();
             }
             r.mix.Add(KindOf(player));
+            r.levelSum += player->GetLevel();
+            ++r.levelCount;
         }
     }
     time_t const t = time_t(now);

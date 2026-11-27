@@ -8,6 +8,8 @@
 #include "CoaBotAuctions.h"
 #include "CoaCityLife.h"
 #include "CoaRpgTrade.h"
+#include "CoaPathProbe.h"
+#include "RandomPlayerbotMgr.h"
 #include "CoaSafeMove.h"
 #include "CoaSafeMoveRules.h"
 #include "CoaEconomyRules.h"
@@ -29,6 +31,7 @@
 #include "PathGenerator.h"
 #include "Player.h"
 #include "PlayerbotAI.h"
+#include "Engine.h"
 #include "PlayerbotAIConfig.h"
 #include "PlayerbotTextMgr.h"
 #include "QuestDef.h"
@@ -249,7 +252,25 @@ bool StartRpgDoQuestAction::Execute(Event event)
 
 bool NewRpgStatusUpdateAction::Execute(Event /*event*/)
 {
+    // 3.2.2: a random bot stuck on a closed patch of a capital's navmesh (under a building) back on the city's floor.
+    if (RandomPlayerbotMgr::instance().IsRandomBot(bot) && !botAI->HasGameClientMaster() &&
+        CoaPathProbe::RescueFromPatch(bot))
+        return true;
     NewRpgInfo& info = botAI->rpgInfo;
+    // 3.2.2 (the user: bots in the Stormwind inn's floor, one still there for an hour): in the floor, or still on a
+    // wander no step leads anywhere, put on the capital's nearest checked arrival (CityUnstick).
+    if (RandomPlayerbotMgr::instance().IsRandomBot(bot) && !botAI->HasGameClientMaster())
+    {
+        bool wandering = false;
+        if (info.GetStatus() == RPG_WANDER_NPC)
+            if (auto const* wander = std::get_if<NewRpgInfo::WanderNpc>(&info.data))
+                wandering = !wander->lastReach && !(wander->npcOrGo && CoaCityLife::Holds(botAI, wander->npcOrGo));
+        if (CoaPathProbe::CityUnstick(bot, wandering))
+        {
+            info.ChangeToIdle();
+            return true;
+        }
+    }
     NewRpgStatus status = info.GetStatus();
     switch (status)
     {
@@ -352,6 +373,22 @@ bool NewRpgStatusUpdateAction::Execute(Event /*event*/)
         }
         case RPG_WANDER_NPC:
         {
+            // 3.2.2 (Pilote, bench of 96b4114c: auctioneers not reached 11 % the first hour, 25 % the second, the
+            // bots still 70 to 150 yards off, the wander's action last run 190 to 880 s before, nothing run since): the
+            // bot's AI slept (no player near it) and woke up past its stay, this check first on its tick. The time
+            // asleep is not part of the stay: the wander goes on where it stopped.
+            if (auto* wander = std::get_if<NewRpgInfo::WanderNpc>(&info.data))
+            {
+                constexpr uint32 WANDER_SLEPT_MS = 30 * IN_MILLISECONDS;
+                uint32 const slept = wander->lastRun ? GetMSTimeDiffToNow(wander->lastRun) : 0;
+                if (slept > WANDER_SLEPT_MS)
+                {
+                    info.startT += slept;
+                    wander->lastRun = getMSTime();
+                    if (wander->lastReach)
+                        wander->lastReach += slept;
+                }
+            }
             if (info.HasStatusPersisted(info.cityStayMs ? info.cityStayMs : statusWanderNpcDuration))
             {
                 if (auto* wander = std::get_if<NewRpgInfo::WanderNpc>(&info.data))
@@ -361,6 +398,14 @@ bool NewRpgStatusUpdateAction::Execute(Event /*event*/)
                     bool const auctioneer = npc && npc->HasNpcFlag(UNIT_NPC_FLAG_AUCTIONEER);
                     bool const trade = auctioneer || (npc && npc->HasNpcFlag(UNIT_NPC_FLAG_VENDOR) &&
                                                       CoaEconomy::RpgTrade::WantsTrade(botAI));
+                    // 3.2.2 (bench of d061adec): a bot whose AI slept for minutes by its NPC woke up there, and this check,
+                    // first on its tick, ended the wander before the wander's action could count it there ("not
+                    // reached", in reach, its action last run 90 to 640 s before). Once, the wander is kept for it.
+                    if (npc && !wander->lastReach && !wander->reachGrace && IsWithinInteractionDist(npc))
+                    {
+                        wander->reachGrace = true;
+                        break;
+                    }
                     // 3.2: on its way to a trade NPC, the bot gets there before the wander ends.
                     if (CoaEconomyRules::KeepsTradeGoal(trade, wander->lastReach != 0,
                                                         wander->pickedAt ? GetMSTimeDiffToNow(wander->pickedAt) : 0))
@@ -371,10 +416,16 @@ bool NewRpgStatusUpdateAction::Execute(Event /*event*/)
                         CoaEconomy::BotAuctions::NoteWay(CoaEconomy::BotAuctions::Way::TimedOut);
                         // 3.2.1: where it stood, per capital.
                         AreaTableEntry const* zone = sAreaTableStore.LookupEntry(bot->GetZoneId());
+                        // 3.2.2: bots still within a few yards and never counted as there: did the wander's action
+                        // still run, was the NPC in reach for it, and what ran instead.
+                        Engine* engine = botAI->GetEngine(BOT_STATE_NON_COMBAT);
                         CoaEconomy::BotAuctions::NoteNotReached(
                             zone && (zone->flags & AREA_FLAG_CAPITAL) ? zone->area_name[0] : "",
                             npc ? npc->GetEntry() : 0, bot->GetPositionX(), bot->GetPositionY(), bot->GetPositionZ(),
-                            npc ? bot->GetExactDist(npc) : 0.0f, bot->isMoving(), wander->refusals);
+                            npc ? bot->GetExactDist(npc) : 0.0f, bot->isMoving(), wander->refusals,
+                            wander->lastRun ? GetMSTimeDiffToNow(wander->lastRun) / IN_MILLISECONDS : 0,
+                            npc && IsWithinInteractionDist(npc),
+                            engine ? engine->GetLastExecutedAction().c_str() : "");
                     }
                     wander->toAuctioneer = false;
                 }
@@ -496,6 +547,7 @@ bool NewRpgWanderNpcAction::Execute(Event /*event*/)
     if (!dataPtr)
         return false;
     auto& data = *dataPtr;
+    data.lastRun = getMSTime();
     if (!data.npcOrGo)
     {
         // CoA Live City Life: on a city visit, now and then a station (inn, bank, auction house, forge, dummy).
@@ -521,22 +573,27 @@ bool NewRpgWanderNpcAction::Execute(Event /*event*/)
         data.npcOrGo = npcOrGo;
         data.lastReach = 0;
         data.refusals = 0;
+        data.reachGrace = false;
         data.pickedAt = getMSTime();
         return true;
     }
 
     WorldObject* object = ObjectAccessor::GetWorldObject(*bot, data.npcOrGo);
     // CoA Live City Life: a bot that stepped from its auctioneer into the room still stays there.
-    if (object && (IsWithinInteractionDist(object) || (data.lastReach && CoaCityLife::InRoom(botAI, object))))
+    // 3.2.2: a square of the city is reached at its slot, never at its anchor NPC (no quest, no trade there).
+    bool const square = object && CoaCityLife::HoldsSquare(botAI, data.npcOrGo);
+    if (object && (square ? CoaCityLife::AtSquare(botAI)
+                          : IsWithinInteractionDist(object) || (data.lastReach && CoaCityLife::InRoom(botAI, object))))
     {
         if (!data.lastReach)
         {
             data.lastReach = getMSTime();
             data.givenUp = 0;
-            if (bot->CanInteractWithQuestGiver(object))
+            if (!square && bot->CanInteractWithQuestGiver(object))
                 InteractWithNpcOrGameObjectForQuest(data.npcOrGo);
             // CoA Economy: sell, repair or use the auction house, as people do between two quests
-            CoaEconomy::RpgTrade::TradeAtNpc(botAI, object);
+            if (!square)
+                CoaEconomy::RpgTrade::TradeAtNpc(botAI, object);
             CoaCityLife::OnReach(botAI, object);
             return true;
         }
@@ -577,6 +634,18 @@ bool NewRpgWanderNpcAction::Execute(Event /*event*/)
             CoaSafeMove::GiveUp const why = CoaSafeMove::GivesUpNpc(!object, wayExists, ++data.refusals);
             if (why == CoaSafeMove::GiveUp::No)
                 return false;
+            // 3.2.2: a bot on a closed island of the navmesh gets off it (a short walk, a teleport no player sees),
+            // then tries again; otherwise the visit is given up below.
+            if (why == CoaSafeMove::GiveUp::NoWay && object)
+            {
+                CoaSafeMove::Unstick const unstick = CoaSafeMove::UnstickFromIsland(bot, object);
+                CoaEconomy::BotAuctions::NoteUnstick(int(unstick));
+                if (unstick == CoaSafeMove::Unstick::Walk || unstick == CoaSafeMove::Unstick::Teleport)
+                {
+                    data.refusals = 0;
+                    return true;
+                }
+            }
             // 3.2 (Stormwind, Chilton): no way to this auctioneer, another of the same house it can walk to instead.
             if (why == CoaSafeMove::GiveUp::NoWay && data.toAuctioneer)
             {

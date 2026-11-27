@@ -158,6 +158,9 @@ namespace
         std::map<std::string, uint32> noWayReasons;
         std::map<std::string, std::vector<std::string>> noWaySamples;  // capital -> at most NO_WAY_SAMPLES an hour
         std::map<std::string, uint32> notReached;                      // capital -> wanders ended short of it
+        // 3.2.2: CoaSafeMove::Unstick of the "no way" give-ups: 0 path reaches the known stop, 1 walk, 2 teleport,
+        // 3 given up, 4 no known stop.
+        std::atomic<uint32> unstick[5]{};
         std::map<std::string, std::vector<std::string>> notReachedSamples;
         std::atomic<uint32> shopChecks{0}, shopPoor{0}, shopInterval{0};
         // 3.2: budget and threshold of the "too poor" checks, for their medians (a sample, at most POOR_SAMPLES).
@@ -266,6 +269,11 @@ namespace
                                   (capital.empty() ? std::string("outside a capital") : capital) + " " + std::to_string(n);
                 if (!notReached.empty())
                     ways += " | not reached: " + notReached + " | samples: " + bySite(pathCounters.notReachedSamples);
+                ways += " | off a navmesh island: " + std::to_string(pathCounters.unstick[1].exchange(0)) +
+                        " walked, " + std::to_string(pathCounters.unstick[2].exchange(0)) + " teleported unseen, " +
+                        std::to_string(pathCounters.unstick[3].exchange(0)) + " given up (a player in sight); not on one: " +
+                        std::to_string(pathCounters.unstick[0].exchange(0)) + " whose path reaches the known stop, " +
+                        std::to_string(pathCounters.unstick[4].exchange(0)) + " with no known stop";
                 pathCounters.noWayReasons.clear();
                 pathCounters.noWaySamples.clear();
                 pathCounters.notReached.clear();
@@ -456,6 +464,7 @@ namespace
         std::vector<Item*> loot;
         std::unordered_set<Item*> surplusItems;  // 3.1.4: stock materials beyond the stock, logged when listed
         std::unordered_set<uint32> const stock = Materials::StockReagents(bot);
+        std::unordered_set<uint32> const enchanting = Artisans::EnchantReagents(bot);  // 3.2.2
 
         // Auctions per item already in this house: a bot adds one only while there are fewer than MaxPerItem of it
         // (MaxPerUpgradeKit for an upgrade kit).
@@ -488,6 +497,9 @@ namespace
                 return;
             // An artisan keeps the reagents of its recipes (Artisans.Stock), and the guild stock its kinds.
             if (Materials::KeepsInStock(bot, item, stock))
+                return;
+            // 3.2.2: an enchanter keeps one stack of each reagent of its enchantments in its bags.
+            if (Artisans::KeepsForEnchanting(bot, item, enchanting))
                 return;
             // 3.1.4: beyond that stock, a material of its stock is surplus, sold whatever its use for a profession.
             bool const surplus = stock.count(item->GetEntry()) != 0;
@@ -1002,8 +1014,14 @@ void NoteNoWay(char const* capital, char const* reason, uint32 entry, float x, f
     }
 }
 
+void NoteUnstick(int how)
+{
+    if (settings.buyLog && how >= 0 && how <= 4)
+        ++pathCounters.unstick[how];
+}
+
 void NoteNotReached(char const* capital, uint32 entry, float x, float y, float z, float toNpc, bool moving,
-                    uint32 refusals)
+                    uint32 refusals, uint32 ranSecondsAgo, bool inReach, char const* lastAction)
 {
     if (!settings.buyLog)
         return;
@@ -1015,9 +1033,11 @@ void NoteNotReached(char const* capital, uint32 entry, float x, float y, float z
     std::vector<std::string>& samples = pathCounters.notReachedSamples[site];
     if (samples.size() < SITE_SAMPLES)
     {
-        char sample[160];
-        std::snprintf(sample, sizeof(sample), "entry %u from %.1f %.1f %.1f, %.1f yd off, %s, %u refused", entry, x,
-                      y, z, toNpc, moving ? "moving" : "still", refusals);
+        char sample[256];
+        std::snprintf(sample, sizeof(sample),
+                      "entry %u from %.1f %.1f %.1f, %.1f yd off, %s, %u refused, wander ran %us ago, %s, last %s", entry,
+                      x, y, z, toNpc, moving ? "moving" : "still", refusals, ranSecondsAgo,
+                      inReach ? "in reach" : "out of reach", lastAction ? lastAction : "");
         samples.emplace_back(sample);
     }
 }

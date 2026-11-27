@@ -1,6 +1,7 @@
 #include "CoaSafeMoveRules.h"
 
 #include <cassert>
+#include <cmath>
 #include <string>
 
 int main()
@@ -77,8 +78,101 @@ int main()
     assert(!BridgesDeadEnd(16.1f, false));           // a wall or a drop in between
     assert(!BridgesDeadEnd(25.0f, true));            // too far short
     assert(!StandsByNpc(16.1f));                     // what refused it before
-    // 3.2.1: Chilton's island lies 0.1 yard under the floor; the lifts pass it and stay under a head.
-    assert(NpcLift(1) > 0.1f);
-    assert(NpcLift(NPC_LIFT_STEPS) < 1.0f);
+    // 3.2.2: off a closed island: a walk first, a teleport only unseen, else the visit given up.
+    assert(UnstickChoice(false, false, false) == Unstick::NotStuck);
+    assert(UnstickChoice(true, true, true) == Unstick::Walk);
+    assert(UnstickChoice(true, false, false) == Unstick::Teleport);
+    assert(UnstickChoice(true, false, true) == Unstick::Abandon);
+    // 3.2.2: the start cells of the ring's misses: 4 yards a side, the two Stormwind bank arrivals apart.
+    assert(StartCell(-8919.9f, 634.9f) == StartCell(-8918.5f, 633.2f));
+    assert(StartCell(-8919.9f, 634.9f) != StartCell(-8893.8f, 643.9f));
+    // 3.2.2: Chilton at 97.47 over the city's floor at 95.90: the dropped point is within the climb of that floor only.
+    assert(97.47f - STAND_RING_DROP - 95.90f < 0.1f);
+    // 3.2.2: the trade square's floor at 94.5, 3 yards under Chilton: the second drop is within the climb of it.
+    assert(std::fabs(97.47f - STAND_RING_DROP2 - 94.5f) < 1.6f);
+    // 3.2.2: Undercity's Epitwee 5.3 yards over the floor: a drop within the climb of it, and a stop 5.5 yards off in
+    // 3D within the core's reach (5.5 plus the sizes), not within NPC_STAND_REACH.
+    {
+        bool within = false;
+        for (uint32_t d = 0; d < STAND_RING_DROP_COUNT; ++d)
+            within |= std::fabs(-56.79f - STAND_RING_DROPS[d] - (-62.11f)) < 1.6f;
+        assert(within);
+    }
+    assert(InInteractionReach(5.5f, 0.5f, 0.4f) && !StandsByNpc(5.5f));
+    assert(!InInteractionReach(7.42f, 0.5f, 0.4f));
+    // 3.2.2: the Ironforge bank: the user's spots 4.4 yards in front of banker 2461 (facing 2.23); its booth behind.
+    assert(InFrontOf(-4886.55f, -997.594f, 2.23402f, -4889.0996f, -994.0582f));
+    assert(!InFrontOf(-4886.55f, -997.594f, 2.23402f, -4884.0f, -1001.0f));   // behind the banker
+    assert(!InFrontOf(-4886.55f, -997.594f, 2.23402f, -4886.0f, -997.0f));    // beside: under a yard out
+    // 3.2.2: an auctioneer on a dais behind its counter: seen over it, or the stop at the counter.
+    assert(SeenOrAtCounter(false, true, 6.0f, 0.0f));
+    assert(SeenOrAtCounter(false, false, 4.46f, -1.2f));   // Ironforge's auctioneer 9859, on its dais
+    assert(!SeenOrAtCounter(false, false, 6.03f, 0.0f));   // out of reach
+    assert(!SeenOrAtCounter(false, false, 4.0f, -3.5f));   // another floor, under the NPC
+    assert(!SeenOrAtCounter(false, false, 4.0f, 3.0f));    // another floor, over it
+    assert(UNSTICK_RADII[2] <= UNSTICK_REACH);
+    // 3.2.2: the ring around an NPC, first toward the bot, then alternating sides, all within reach of it.
+    {
+        float radius = 0.0f, angle = 0.0f;
+        StandRingPoint(0, 1.0f, radius, angle);
+        assert(radius == 2.0f && angle == 1.0f);
+        StandRingPoint(1, 1.0f, radius, angle);
+        assert(angle > 1.0f);
+        StandRingPoint(2, 1.0f, radius, angle);
+        assert(angle < 1.0f);
+        StandRingPoint(STAND_RING_TRIES - 1, 1.0f, radius, angle);
+        assert(radius == 3.5f && StandsByNpc(radius));
+    }
+    // 3.2.2: the Stormwind bank: its arrival on the ledge right of the stairs (-8893.8 643.9 98.3), the bench and the
+    // ledge go to the hall's floor; the hall's floor itself and the bank's other side stay as they are.
+    {
+        float fx = 0.0f, fy = 0.0f, fz = 0.0f;
+        assert(FixedArrival(0, -8893.8f, 643.9f, 98.3f, fx, fy, fz) && fx == -8897.6f && fy == 640.0f && fz == 99.7f);
+        assert(FixedArrival(0, -8895.2f, 642.5f, 100.7f, fx, fy, fz) && FixedArrival(0, -8889.8f, 643.9f, 100.4f, fx, fy, fz));
+        assert(!FixedArrival(0, -8897.6f, 640.0f, 99.7f, fx, fy, fz));     // the spot is out of its own zone
+        assert(!FixedArrival(0, -8914.2f, 629.6f, 99.7f, fx, fy, fz));
+        assert(!FixedArrival(1, -8893.8f, 643.9f, 98.3f, fx, fy, fz));     // another map
+        assert(!FixedArrival(0, -8893.8f, 643.9f, 110.0f, fx, fy, fz));    // another floor
+        assert(Avoided(0, -8893.8f, 643.9f, 98.3f) && !Avoided(0, -8897.6f, 640.0f, 99.7f));
+    }
+    // 3.2.2: the Stormwind inn: a step aimed at the navmesh's 97.9 where the server's floor is 96.1 is refused; a bot at
+    // 96.1 under the navmesh's 97.9 is in the floor; a bot standing on its floor (0.3 yard of mesh error) is not.
+    assert(!CityFloorAgrees(97.9f, 96.1f) && !CityFloorAgrees(97.9f, 97.1f) && CityFloorAgrees(97.9f, 97.5f));
+    assert(BuriedUnder(96.1f, 97.9f) && BuriedUnder(97.1f, 97.9f) && !BuriedUnder(97.6f, 97.9f) && !BuriedUnder(98.5f, 97.9f));
+    assert(StillGain(1000) == 1000 && StillGain(STILL_SLEPT_MS + 1) == 0);
+    assert(UnstickAllowed(0, 0, 0) && !UnstickAllowed(5, 1000, 0) && UnstickAllowed(5, UNSTICK_EVERY_MS, 0));
+    assert(!UnstickAllowed(0, 0, UNSTICK_PER_HOUR));
+    // 3.2.3: no wander to an NPC that walks, nor to a festival commoner (18927 Human ... 20102 Goblin).
+    assert(WanderNpcRefused(18927, false) && WanderNpcRefused(19176, false) && WanderNpcRefused(20102, false));
+    assert(WanderNpcRefused(2455, true));    // any NPC on waypoints or random moves
+    assert(!WanderNpcRefused(2455, false));  // a banker standing at its counter
+    // 3.2.3: Tal 2995 is stopped by on his side, 1.8 yd square to his facing; his own spot is out of the void's disc.
+    assert(SideStopNpc(2995) && !SideStopNpc(2996));
+    float sx = 0.0f, sy = 0.0f;
+    SideStopPoint(0.0f, 0.0f, 0.0f, 0, sx, sy);
+    assert(std::fabs(sx) < 0.01f && std::fabs(sy - SIDE_STOP) < 0.01f);
+    SideStopPoint(0.0f, 0.0f, 0.0f, 1, sx, sy);
+    assert(std::fabs(sx) < 0.01f && std::fabs(sy + SIDE_STOP) < 0.01f);
+    assert(SideStopFloor(177.0f, 177.6f) && !SideStopFloor(177.0f, 174.0f));
+    assert(!Avoided(1, -1196.75f, 26.08f, 177.6f) && Avoided(1, -1197.6f, 32.0f, 177.5f));
+    assert(Avoided(1, 9862.49f, 2342.75f, 1327.3f) && Avoided(1, 9863.5f, 2345.68f, 1327.3f));  // Darnassus
+    // 3.2.3: indoors, off the mount, walking or not; never in flight, on a boat or in a battleground.
+    assert(IndoorDismount(true, false, false, false, false));
+    assert(!IndoorDismount(true, true, false, false, false));
+    assert(!IndoorDismount(false, false, false, false, false));
+    assert(!IndoorDismount(true, false, true, false, false) && !IndoorDismount(true, false, false, true, false));
+    assert(!IndoorDismount(true, false, false, false, true));
+    // 3.2.3: stops by an NPC aside, 45-75 degrees off its facing, both sides, 2 yd at least off its axis.
+    for (uint64_t g = 0; g < 16; ++g)
+    {
+        float const off = AsideOffset(g);
+        float const deg = std::fabs(off) / 0.017453293f;
+        assert(deg >= 44.9f && deg <= 75.1f);
+        float const d = AsideDistance(1.5f, 0.4f, off, 8.0f);
+        assert(d * std::fabs(std::sin(off)) >= ASIDE_LATERAL - 0.01f && d <= 8.0f);
+    }
+    assert(AsideOffset(0) > 0.0f && AsideOffset(1) < 0.0f);
+    assert(AsideDistance(1.5f, 1.5f, AsideOffset(6), 8.0f) >= 3.5f - 0.01f);  // a tauren: reach plus its size
+    assert(AsideDistance(1.5f, 1.5f, AsideOffset(0), 3.0f) == 3.0f);         // never past the wanted distance
     return 0;
 }

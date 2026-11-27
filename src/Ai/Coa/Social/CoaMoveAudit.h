@@ -25,7 +25,14 @@ void Load();
 // On the bot's update (map thread).
 void Tick(PlayerbotAI* botAI);
 // A move asked by an action (MovementAction::MoveTo): the path the core will get, kept for the next line.
-void NoteMove(Player* bot, char const* action, float x, float y, float z);
+// 3.2.2: straight: walked in a straight line (no path from the core, CoaSafeMove's flat line).
+void NoteMove(Player* bot, char const* action, float x, float y, float z, bool straight = false);
+// 3.2.2: a move that is not an action's MoveTo (a teleport off a navmesh island...), kept as the move's origin.
+void NoteOrigin(Player* bot, char const* origin);
+// 3.2.2 (Pilote, bench of 1e991b2d: teleport 5 686, wall 4 944 an hour): a teleport by the server (TeleportTo,
+// NearTeleportTo: a random teleport, a hearth, an unstick), from the core's OnPlayerBeforeTeleport. The sample that spans
+// it is no anomaly (teleport, fast, wall, zjump, terrain).
+void NoteTeleport(Player* bot);
 }  // namespace CoaMoveAudit
 
 void AddSC_coa_move_audit();

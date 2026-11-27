@@ -26,6 +26,8 @@
 
 #include "CoaQuietAchievements.h"
 #include "CoaWorldBots.h"
+#include "CoaWorldDungeonSimRules.h"
+#include "CoaWorldItemOrigin.h"
 #include "CoaWorldState.h"
 #include "CoaWorldStateRules.h"
 
@@ -99,7 +101,7 @@ namespace
     struct Settings
     {
         bool enabled = false;
-        uint32 groupsPerFaction = 2;
+        uint32 groupsPerFaction = 0;  // 0: one a side for every 250 bots online
         uint32 factionIntervalSeconds = 600;
         uint32 botCooldownMinutes = 120;
         uint32 gatherMinutes = 6;
@@ -130,6 +132,12 @@ namespace
         std::vector<std::pair<uint32, uint32>> items;  // item, count
         bool given = false;
     };
+
+    // Runs a side may have going at once: the configured count, or with 0 one for every 250 bots online.
+    uint32 GroupsWanted()
+    {
+        return CoaWorldDungeonSimRules::GroupsPerFaction(settings.groupsPerFaction, CoaWorld::OnlineRandomBots());
+    }
 
     struct Run
     {
@@ -212,7 +220,7 @@ namespace
                 return;
 
             for (TeamId team : { TEAM_ALLIANCE, TEAM_HORDE })
-                if (RunsOf(team) < settings.groupsPerFaction && now >= _nextStart[team])
+                if (RunsOf(team) < GroupsWanted() && now >= _nextStart[team])
                     if (TryStart(team, nullptr, now))
                         _nextStart[team] = now + settings.factionIntervalSeconds;
         }
@@ -641,7 +649,7 @@ namespace
                 items += uint32(reward.items.size());
             _today.items += items;
             _last.push_front({ run.dungeon, uint32(run.members.size()), uint32(run.insideUntil - run.enteredAt),
-                               uint32(run.killed.size()), now });
+                               uint32(run.killed.size()), run.level, now });
             if (_last.size() > 8)
                 _last.pop_back();
         }
@@ -670,7 +678,8 @@ namespace
             std::string last = "[";
             for (Done const& d : _last)
                 last += std::string(last.size() > 1 ? "," : "") + "{\"dungeon\":" + std::to_string(d.dungeon->mapId) +
-                        ",\"dungeonName\":" + Quote(d.dungeon->name) + ",\"bots\":" + std::to_string(d.bots) +
+                        ",\"dungeonName\":" + Quote(d.dungeon->name) + ",\"level\":" + std::to_string(d.level) +
+                        ",\"bots\":" + std::to_string(d.bots) +
                         ",\"durationS\":" + std::to_string(d.durationS) + ",\"bossesKilled\":" + std::to_string(d.bosses) +
                         ",\"at\":" + std::to_string(int64(d.at)) + "}";
             return "{\"running\":" + running + "],\"today\":{\"since\":" + std::to_string(_today.since) +
@@ -688,6 +697,7 @@ namespace
         {
             DungeonDef const* dungeon;
             uint32 bots, durationS, bosses;
+            uint32 level;  // the group's mean level
             time_t at;
         };
         Today _today;
@@ -710,7 +720,7 @@ namespace
             {
                 ItemPosCountVec dest;
                 if (bot->CanStoreNewItem(NULL_BAG, NULL_SLOT, dest, itemId, count) == EQUIP_ERR_OK)
-                    bot->StoreNewItem(dest, itemId, true);
+                    CoaWorld::NoteItemOrigin(bot->StoreNewItem(dest, itemId, true), "dungeonsim", run.dungeon->mapId);
             }
         }
 
@@ -769,7 +779,8 @@ namespace
     {
         auto key = [](char const* name) { return std::string(PREFIX) + name; };
         settings.enabled = sConfigMgr->GetOption<bool>(key("Enable"), true, false);
-        settings.groupsPerFaction = std::min<uint32>(10, sConfigMgr->GetOption<uint32>(key("GroupsPerFaction"), 2, false));
+        // 3.2.3: 0 (the default) = one group a side for every 250 bots online (500 = 2, 1 000 = 4, 2 000 = 8).
+        settings.groupsPerFaction = std::min<uint32>(10, sConfigMgr->GetOption<uint32>(key("GroupsPerFaction"), 0, false));
         settings.factionIntervalSeconds = sConfigMgr->GetOption<uint32>(key("FactionIntervalSeconds"), 600, false);
         settings.botCooldownMinutes = sConfigMgr->GetOption<uint32>(key("BotCooldownMinutes"), 120, false);
         settings.gatherMinutes = std::clamp<uint32>(sConfigMgr->GetOption<uint32>(key("GatherMinutes"), 6, false), 1, 30);

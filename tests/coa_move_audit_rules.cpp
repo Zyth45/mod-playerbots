@@ -21,6 +21,25 @@ int main()
     assert(!TooFast(2.1f, 300, 7.0f));
     assert(!TooFast(14.0f, 1000, 14.0f));        // mounted at its speed
     assert(Teleported(80.0f) && !TooFast(80.0f, 300, 7.0f));
+    // 3.2.2: 80 yards in 22 seconds is a run, not a teleport; 5500 yards in 2 seconds is one.
+    assert(!TeleportedFor(80.0f, 22000, 7.0f));
+    assert(TeleportedFor(5500.0f, 2000, 7.0f));
+    assert(TeleportedFor(80.0f, 300, 7.0f));
+    // 3.2.2: through the relief: a hill 5 yards over both ends; a cave or a city under the terrain is not judged.
+    assert(ThroughTerrain(100.0f, 100.0f, 100.5f, 100.2f, 105.0f));
+    assert(!ThroughTerrain(100.0f, 100.0f, 100.5f, 100.2f, 101.0f));   // a small rise
+    assert(!ThroughTerrain(60.0f, 100.0f, 60.0f, 100.0f, 105.0f));     // under the terrain (Undercity)
+    // 3.2.2: in a wall: the head sees out in one direction or none.
+    assert(InWall(0) && InWall(1) && !InWall(2));
+    // 3.2.2: the Stormwind bank: a bot at 97.7 under the floor at 99.6.
+    assert(UnderFloor(97.7f, 99.6f));
+    assert(!UnderFloor(97.7f, 97.7f));     // its own floor
+    assert(!UnderFloor(97.7f, -200000.0f));
+    assert(!UnderFloor(1317.65f, 1322.0f));  // 3.2.2: the next storey over Darnassus's bank, not a floor it is under
+    // 3.2.2: Ironforge's bank: on the model's floor at 503.94, never under a floor; under Stormwind's bank, no model.
+    assert(OnModelFloor(504.17f, 503.94f));
+    assert(!OnModelFloor(97.7f, -200000.0f));
+    assert(!OnModelFloor(97.7f, 96.0f));
     // Wall check and jumps.
     assert(CheckWall(2.0f) && !CheckWall(0.2f) && !CheckWall(80.0f));
     assert(HeightJump(2.4f, 1.0f, true) && !HeightJump(2.4f, 1.0f, false) && !HeightJump(2.4f, 6.0f, true));

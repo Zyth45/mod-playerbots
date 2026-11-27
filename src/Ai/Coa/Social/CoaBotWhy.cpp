@@ -9,6 +9,7 @@
 #include "Chat.h"
 #include "ChatCommand.h"
 #include "CoaBotWhyRules.h"
+#include "CoaPathProbe.h"
 #include "CoaMoveAuditRules.h"
 #include "Config.h"
 #include "Creature.h"
@@ -16,6 +17,7 @@
 #include "Engine.h"
 #include "GameObject.h"
 #include "GameTime.h"
+#include "Log.h"
 #include "Map.h"
 #include "MotionMaster.h"
 #include "NewRpgInfo.h"
@@ -280,6 +282,81 @@ namespace
         return true;
     }
 
+    // 3.2.2: the navmesh probe (CoaPathProbe), console and RA too.
+    bool HandlePath(ChatHandler* handler, uint32 mapId, float fx, float fy, float fz, float tx, float ty, float tz)
+    {
+        for (std::string const& line : CoaPathProbe::Probe(mapId, fx, fy, fz, tx, ty, tz))
+        {
+            handler->PSendSysMessage("[SquidBots path] {}", line);
+            LOG_INFO("playerbots.coa", "path probe map {} {:.1f} {:.1f} {:.1f} -> {:.1f} {:.1f} {:.1f}: {}", mapId, fx, fy,
+                     fz, tx, ty, tz, line);
+        }
+        return true;
+    }
+
+    bool HandlePathCheck(ChatHandler* handler)
+    {
+        for (std::string const& line : CoaPathProbe::CheckCapitals())
+        {
+            handler->PSendSysMessage("[SquidBots pathcheck] {}", line);
+            LOG_INFO("playerbots.coa", "path check: {}", line);
+        }
+        return true;
+    }
+
+    // 3.2.2: what StandByNpc answers from a point for an NPC (entry or spawn id).
+    bool HandleStop(ChatHandler* handler, uint32 mapId, float x, float y, float z, uint32 entryOrSpawn)
+    {
+        for (std::string const& line : CoaPathProbe::StopProbe(mapId, x, y, z, entryOrSpawn))
+        {
+            handler->PSendSysMessage("[SquidBots stop] {}", line);
+            LOG_INFO("playerbots.coa", "stop probe map {} {:.1f} {:.1f} {:.1f} npc {}: {}", mapId, x, y, z, entryOrSpawn,
+                     line);
+        }
+        return true;
+    }
+
+    // 3.2.2: the arrivals where the navmesh and the server disagree on the floor.
+    bool HandleArrivals(ChatHandler* handler)
+    {
+        for (std::string const& line : CoaPathProbe::ArrivalsDisagree())
+        {
+            handler->PSendSysMessage("[SquidBots arrivals] {}", line);
+            LOG_INFO("playerbots.coa", "arrivals probe: {}", line);
+        }
+        return true;
+    }
+
+    // 3.2.2: the ground under a point, with and without the vmap, before and after its grid is loaded.
+    bool HandleGround(ChatHandler* handler, uint32 mapId, float x, float y, float z)
+    {
+        for (std::string const& line : CoaPathProbe::GroundProbe(mapId, x, y, z))
+        {
+            handler->PSendSysMessage("[SquidBots ground] {}", line);
+            LOG_INFO("playerbots.coa", "ground probe map {} {:.1f} {:.1f} {:.1f}: {}", mapId, x, y, z, line);
+        }
+        return true;
+    }
+
+    // 3.2.2: why a point is or is not a square.
+    bool HandlePlace(ChatHandler* handler, uint32 mapId, float x, float y, float z)
+    {
+        for (std::string const& line : CoaPathProbe::PlaceExplain(mapId, x, y, z))
+        {
+            handler->PSendSysMessage("[SquidBots place] {}", line);
+            LOG_INFO("playerbots.coa", "place probe map {} {:.1f} {:.1f} {:.1f}: {}", mapId, x, y, z, line);
+        }
+        return true;
+    }
+
+    // 3.2.2: the capitals' squares found (City Life).
+    bool HandlePlaces(ChatHandler* handler)
+    {
+        for (std::string const& line : CoaPathProbe::PlacesReport())
+            handler->PSendSysMessage("[SquidBots places] {}", line);
+        return true;
+    }
+
     class CoaBotWhyCommandScript : public CommandScript
     {
     public:
@@ -289,6 +366,13 @@ namespace
         {
             static ChatCommandTable squidbotsTable = {
                 {"why", HandleWhy, SEC_PLAYER, Console::No},
+                {"path", HandlePath, SEC_ADMINISTRATOR, Console::Yes},
+                {"pathcheck", HandlePathCheck, SEC_ADMINISTRATOR, Console::Yes},
+                {"places", HandlePlaces, SEC_ADMINISTRATOR, Console::Yes},
+                {"place", HandlePlace, SEC_ADMINISTRATOR, Console::Yes},
+                {"ground", HandleGround, SEC_ADMINISTRATOR, Console::Yes},
+                {"arrivals", HandleArrivals, SEC_ADMINISTRATOR, Console::Yes},
+                {"stop", HandleStop, SEC_ADMINISTRATOR, Console::Yes},
             };
             static ChatCommandTable commandTable = {
                 {"squidbots", squidbotsTable},

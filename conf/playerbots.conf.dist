@@ -280,7 +280,7 @@ AiPlayerbot.BotRepairWhenSummon = 1
 # Defines at what level a bot will naturally use its 60% ground mount
 # Note: was level 20 during WotLK, 30 during TBC, 40 during Vanilla
 # Default: 20
-AiPlayerbot.UseGroundMountAtMinLevel = 20
+AiPlayerbot.UseGroundMountAtMinLevel = 5
 
 # Defines at what level a bot will naturally use its 100% fast ground mount
 # Note: was level 40 during WotLK, 60 during Vanilla
@@ -646,8 +646,9 @@ AiPlayerbot.AutoGearCommandAltBots = 1
 AiPlayerbot.CoaSelfFound = 0
 
 # Highest level self-found applies to; at higher levels bots are geared and recruited as usual.
-# Default: 59 (at 60 bots are geared as usual for the endgame)
-AiPlayerbot.CoaSelfFoundMaxLevel = 59
+# Default: 80 (3.2.2: no level of CoA is geared by the server; 59 before, when bots of level 60 were given the
+# endgame gear. A value of your own is kept.)
+AiPlayerbot.CoaSelfFoundMaxLevel = 80
 
 # With AiPlayerbot.CoaSelfFound = 1, a random bot left with no weapon at all (none worn, none in its bags; a fishing
 # pole is no weapon) gets the starting weapon of its class, once in its life (table playerbots_coa_starter_weapon):
@@ -682,6 +683,23 @@ AiPlayerbot.CoaMoveAudit = 0
 AiPlayerbot.CoaMoveAudit.SampleMs = 300
 AiPlayerbot.CoaMoveAudit.ThrottleSeconds = 10
 AiPlayerbot.CoaMoveAudit.File = "coa_move_audit.jsonl"
+
+# 3.2.2: the capitals' path check. For each capital, from each arrival (a banker's point where the bots are sent: 6 yards
+# in front of him, 2 higher; an innkeeper's, a flight master's) to each auctioneer, banker and flight master, one line in
+# CoaBots.log per pair the navmesh does not join. Run once, DelaySeconds after the start (the navmesh tiles load with
+# the grids). The same at any time: ".squidbots pathcheck"; one pair: ".squidbots path <map> x y z x y z" (console and
+# RA too). Read only.
+# Default: 0, 300
+AiPlayerbot.CoaPathCheck = 0
+AiPlayerbot.CoaPathCheck.DelaySeconds = 300
+
+# 3.2.2: a random bot's teleport into a capital (to a banker, a hub, an innkeeper) lands on the floor the city walks on:
+# a destination off it (a closed patch of the navmesh, as at the Stormwind bank) is moved to the nearest point that is,
+# within 10 yards, or no longer used. Each destination is judged once, on the world thread; a moved or dropped one is
+# written to CoaBots.log ("arrival check"). The height of an arrival in a capital is the navmesh's floor (the vmap
+# holds no floor under some buildings: the bots fell under the Stormwind bank).
+# Default: 1
+AiPlayerbot.CoaArrivalCheck = 1
 
 # ".squidbots why" (3.2), for every account (GmOnly = 1: game master accounts only, the others are told so), on a
 # selected bot or a bot's name (.squidbots why [name]), once per Cooldown seconds per player:
@@ -998,8 +1016,9 @@ AiPlayerbot.EnablePeriodicOnlineOffline = 0
 
 # Defines the ratio between the total number of randombots (including offline ones) and the number of randombots currently online (MaxRandomBots)
 # This setting must greater than 1.0 and only applies when EnablePeriodicOnlineOffline
-# Default: 2.0 (total number of bots is twice the number of MaxRandomBots)
-AiPlayerbot.PeriodicOnlineOfflineRatio = 2.0
+# Default: 1.5 (total number of bots is 1.5 times MaxRandomBots: 1,500 kept for 1,000 online; 3.2.3, was 2.0. A
+# server's existing bots and accounts are kept: only a new realm, or one short of bots, creates fewer)
+AiPlayerbot.PeriodicOnlineOfflineRatio = 1.5
 
 # With EnablePeriodicOnlineOffline, the bots that go online are first taken among those within LevelWindow levels of a
 # real player online (several players: any of their windows), then at random. Bots are never re-leveled: only the
@@ -1461,8 +1480,8 @@ AiPlayerbot.PreferredSpecWeapons = 0
 
 # Set minimum level of bots that will enchant and socket gems into their equipment with maintenance
 # If greater than RandomBotMaxlevel, bots will not automatically enchant equipment or socket gems
-# Default: 60
-AiPlayerbot.MinEnchantingBotLevel = 60
+# Default: 20 (3.2.1 and before: 60; a bot from level 20 on gets the enchantments and gems of its level)
+AiPlayerbot.MinEnchantingBotLevel = 20
 
 # Enable expansion limitation for bot enchants and gems
 # If enabled, bots will not use TBC enchants until level 61 or WotLK enchants and gems until level 71
@@ -2904,10 +2923,12 @@ AiPlayerbot.CoaWorld.ResourceRush.BotsReturnHome = 1
 AiPlayerbot.CoaWorld.DungeonSim.Enable = 1
 
 #    AiPlayerbot.CoaWorld.DungeonSim.GroupsPerFaction
-#        Description: Simulated runs going on at once for each side (at most 10).
-#        Default:     2
+#        Description: Simulated runs going on at once for each side (at most 10). 0 = proportional: one run a side
+#                     for every 250 bots online, at least 1 (500 bots = 2, 1 000 = 4, 2 000 = 8, about 4 % of the
+#                     bots in a simulated dungeon). 1 to 10 = that many, whatever the bots online.
+#        Default:     0 - proportional (3.2.3; was 2)
 
-AiPlayerbot.CoaWorld.DungeonSim.GroupsPerFaction = 2
+AiPlayerbot.CoaWorld.DungeonSim.GroupsPerFaction = 0
 
 #    AiPlayerbot.CoaWorld.DungeonSim.FactionIntervalSeconds
 #        Description: Seconds between two new runs of the same side.
@@ -2948,6 +2969,31 @@ AiPlayerbot.CoaWorld.DungeonSim.XpPct = 100
 #        Default:     1
 
 AiPlayerbot.CoaWorld.DungeonSim.Announce = 1
+
+#    AiPlayerbot.CoaWorld.ItemOrigin.Enable
+#        Description: Where each worn piece came from, for the dashboard's armory (table coa_item_origin of the
+#                     characters database, players and bots alike): loot (the creature), quest, vendor (the NPC),
+#                     auction, start (auto-gear, a bot's equipment), dungeonsim (a simulated dungeon's loot). One row
+#                     per piece, written when it is worn; a piece made by its wearer shows its creator instead, a
+#                     piece traded or mailed stays unknown. Rows are written in groups every minute, and one
+#                     CoaBots.log line an hour counts them by level band ("gear (last hour)").
+#        Default:     1 - on (3.2.3)
+#                     0 - off: nothing is written (the table stays, the armory shows what it has)
+
+AiPlayerbot.CoaWorld.ItemOrigin.Enable = 1
+
+#    AiPlayerbot.CoaWorld.ItemOrigin.MinQuality
+#        Description: Lowest quality written (0 grey, 1 white, 2 green, 3 blue, 4 epic).
+#        Default:     2 - green and better
+
+AiPlayerbot.CoaWorld.ItemOrigin.MinQuality = 2
+
+#    AiPlayerbot.CoaWorld.ItemOrigin.PurgeDays
+#        Description: Rows older than this many days are deleted (at start-up and once a day), as are the rows of
+#                     items that no longer exist. 0 = keep them (the rows of deleted items still go).
+#        Default:     90
+
+AiPlayerbot.CoaWorld.ItemOrigin.PurgeDays = 90
 
 #    AiPlayerbot.CoaWorld.WorldPvp.Enable
 #        Description: World PvP of the bots, with two parts below.
@@ -3813,6 +3859,62 @@ AiPlayerbot.CoaLive.City.PostMaxMinutes = 60
 #        Default:     10
 
 AiPlayerbot.CoaLive.City.FishingPct = 10
+
+#    AiPlayerbot.CoaLive.City.Squares
+#    AiPlayerbot.CoaLive.City.SquareMaxBots
+#        Description: City Life (3.2.2): the squares of the capitals, open spaces (indoors too: Ironforge, Undercity)
+#                     between two kinds of services or more (auction house, bank, inn, flight master, quest board,
+#                     mailbox), on the floor the city walks on and off
+#                     the ways between them, are found once after the start (".squidbots places" lists them). A bot
+#                     on a city visit now and then stands on one with one or two others, facing them, sitting or
+#                     talking for 2 to 5 minutes. SquareMaxBots: at most this many on one square (1 to 3). An hourly
+#                     line in CoaBots.log counts the squares and the bots settled on them.
+#        Default:     1, 3
+
+AiPlayerbot.CoaLive.City.Squares = 1
+AiPlayerbot.CoaLive.City.SquareMaxBots = 3
+
+#    AiPlayerbot.CoaLive.CityUnstick.Enable
+#    AiPlayerbot.CoaLive.CityUnstick.StillMinutes
+#        Description: 3.2.2: a random bot of a capital that stands in the floor (the walkable floor over it
+#                     by more than 0.7 yard), or stands still for StillMinutes on a walk none of its steps
+#                     leads anywhere, is put on the capital's nearest checked arrival, even when a player sees
+#                     it. Never in a fight, a battleground or a group with a player; a bot at most once in
+#                     30 minutes, 100 bots an hour at most. Off, they are only counted. An hourly line in
+#                     CoaBots.log ("city unstick") counts them, with up to 3 examples.
+#        Default:     1, 25 (minutes, 5 at least)
+
+AiPlayerbot.CoaLive.CityUnstick.Enable = 1
+AiPlayerbot.CoaLive.CityUnstick.StillMinutes = 25
+
+#    AiPlayerbot.CoaLive.NpcStopAside
+#        Description: 3.2.3: a bot that walks to a still NPC or object (trainer, banker, flight master,
+#                     mailbox) stops off its axis, on an angle its own fixes 45 to 75 degrees off the NPC's
+#                     facing, left or right, at the NPC's reach plus its own size, 2 yards at least off the
+#                     axis: no longer on the NPC's face, hiding it from the players. Read again by
+#                     ".reload config".
+#        Default:     1 - on
+
+AiPlayerbot.CoaLive.NpcStopAside = 1
+
+#    AiPlayerbot.CoaLive.LevelupTeleportGuard
+#        Description: 3.3: a random bot under level 6 is no longer teleported at its level up (its teleport
+#                     hubs are the races' starting points, where it already is), and from level 6 the teleport
+#                     of a level up never arrives within 150 yards of a real player: that location is left for
+#                     the next one (none left: the bot stays where it is). The other random teleports (refresh,
+#                     bankers) are unchanged. Read again by ".reload config".
+#        Default:     1 - on
+
+AiPlayerbot.CoaLive.LevelupTeleportGuard = 1
+
+#    AiPlayerbot.CoaLive.PvpStatsKeepDays
+#        Description: 3.2.2: with Battleground.StoreStatistics.Enable (worldserver.conf), the core keeps every
+#                     battleground's statistics forever (with thousands of bots, about 100,000 lines a day). Once a
+#                     day, the battlegrounds older than this many days and their players' lines are deleted.
+#                     0: never deleted.
+#        Default:     30
+
+AiPlayerbot.CoaLive.PvpStatsKeepDays = 30
 
 #    AiPlayerbot.CoaLive.Sheath.Enable
 #        Description: Bots draw their weapon in a fight (the ranged one for a ranged bot) and put it
@@ -5985,10 +6087,23 @@ AiPlayerbot.CoaEconomy.CraftForSelf.Log = 0
 # At an auction house visit, a bot with Enchanting puts on one piece it wears the best permanent enchantment it knows,
 # only with the reagents it already holds (nothing is bought for it), when the piece fits the enchantment and the
 # bot's level allows it, and only when it beats the enchantment already there (never a better or equal one replaced).
-# Self-found and classic bots alike. Log: each enchantment put on, in the playerbots.loot log (BotLoot.log).
-# Default: 1 (enabled); Log: 0 (disabled)
+# Self-found and classic bots alike. Never without the tools the enchantment asks for (a runed rod), as for a player.
+# Log: each enchantment put on, in the playerbots.loot log (BotLoot.log).
+# PiecesPerStudy: at a self study (below), up to this many pieces enchanted, one after the other (1 to 4).
+# Reagents = 1: an enchanter keeps one stack in its bags of each reagent of the enchantments it knows (sold beyond
+# that, at a vendor or at the auction house), and at a vendor disenchants the bound pieces it no longer wears (the one
+# it replaced), and the green or better pieces it would sell when the dust is worth more, a green one whatever the
+# prices while it is short of its reagents
+# (Materials.Disenchant and Materials.PerVisit apply).
+# HourlyCount = 1: once an hour, one line in the playerbots.coa log: the enchanter bots online, their tries, the
+# enchantments put on, the items disenchanted, and why a try put nothing on (no recipe for its level or skill, no rod,
+# no reagent, not enough gold for the reagents, no gain on its pieces).
+# Default: 1 (enabled); Log: 0 (disabled); PiecesPerStudy: 2; Reagents: 1; HourlyCount: 1
 AiPlayerbot.CoaEconomy.EnchantForSelf.Enable = 1
 AiPlayerbot.CoaEconomy.EnchantForSelf.Log = 0
+AiPlayerbot.CoaEconomy.EnchantForSelf.PiecesPerStudy = 2
+AiPlayerbot.CoaEconomy.EnchantForSelf.Reagents = 1
+AiPlayerbot.CoaEconomy.EnchantForSelf.HourlyCount = 1
 
 # Self study: at most once per IntervalMinutes, a random bot in a capital studies what it could craft or enchant for
 # itself (the two keys above) and buys the reagents it lacks, a vendor's first, the auction house's next (reagents
@@ -5996,8 +6111,10 @@ AiPlayerbot.CoaEconomy.EnchantForSelf.Log = 0
 # when the piece gains at least MinGainPercent over what it replaces. BuyReagents = 0: only the reagents it holds.
 # Log: each study, and once an hour the counts (studies, crafted, enchanted, short of reagents, reagents bought at a
 # vendor and at the auction house, gold spent), in the playerbots.loot log (BotLoot.log).
-# Default: 1 (enabled), 60 minutes, 1, 10 %, 2500 copper per level, 5 %; Log: 0 (disabled)
+# RestAreas = 1: a bot studies in any city or inn it rests in too, not only in a capital.
+# Default: 1 (enabled), 60 minutes, 1, 10 %, 2500 copper per level, 5 %; Log: 0 (disabled); RestAreas: 1
 AiPlayerbot.CoaEconomy.SelfStudy.Enable = 1
+AiPlayerbot.CoaEconomy.SelfStudy.RestAreas = 1
 AiPlayerbot.CoaEconomy.SelfStudy.IntervalMinutes = 60
 AiPlayerbot.CoaEconomy.SelfStudy.BuyReagents = 1
 AiPlayerbot.CoaEconomy.SelfStudy.MaxGoldPercent = 10

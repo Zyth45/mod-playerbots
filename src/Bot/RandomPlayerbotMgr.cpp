@@ -4,11 +4,16 @@
  * or (at your option) any later version.
  */
 
+#include "CoaPopulationRules.h"
+#include "CoaLevelupTeleportRules.h"
+#include "Config.h"
 #include "CoaWorldGuildPresence.h"
 #include "CoaEconomyConf.h"
 #include "CoaEconomyRules.h"
 #include "CoaWorldBgSim.h"
 #include "RandomPlayerbotMgr.h"
+#include "CoaLfgRules.h"
+#include "CoaPathProbe.h"
 #include "GameTime.h"
 #include "Group.h"
 
@@ -49,9 +54,13 @@
 #include "PlayerbotAI.h"
 #include "PlayerbotAIConfig.h"
 #include "PlayerbotFactory.h"
+#include "Ai/Coa/Combat/Mount/CoaMountRule.h"
 #include "CoaSpecialization.h"
 #include "AscensionSpecialization.h"
 #include "SpellMgr.h"
+#include "Spell.h"
+#include "Engine.h"
+#include <atomic>
 #include "PlayerbotTextMgr.h"
 #include "Playerbots.h"
 #include "Position.h"
@@ -79,6 +88,7 @@
 // --- CoA World (CoA Monde session) ---
 static void CoaSyncBotRulesetPvp(Player* bot);
 static void CoaResetBotPvp(Player* bot);
+void CoaHomeOfflineFromOutland(std::vector<uint32> const& accounts);
 // --- end CoA World ---
 
 struct GuidClassRaceInfo
@@ -659,13 +669,10 @@ void RandomPlayerbotMgr::AssignAccountTypes()
     if (sPlayerbotAIConfig.maxRandomBots > 0)
     {
         int divisor = RandomPlayerbotFactory::CalculateAvailableCharsPerAccount();
-        int maxBots = sPlayerbotAIConfig.maxRandomBots;
-
-        // Take periodic online-offline into account
-        if (sPlayerbotAIConfig.enablePeriodicOnlineOffline)
-        {
-            maxBots *= sPlayerbotAIConfig.periodicOnlineOfflineRatio;
-        }
+        // Take periodic online-offline into account (CoaPeriodicBotTotal: rounded up)
+        int maxBots = int(CoaPeriodicBotTotal(sPlayerbotAIConfig.maxRandomBots,
+                                              sPlayerbotAIConfig.enablePeriodicOnlineOffline,
+                                              sPlayerbotAIConfig.periodicOnlineOfflineRatio));
 
         // Calculate base accounts needed for RNDbots, ensuring round up for maxBots not cleanly divisible by the divisor
         neededRndBotAccounts = (maxBots + divisor - 1) / divisor;
@@ -739,6 +746,7 @@ void RandomPlayerbotMgr::AssignAccountTypes()
     LOG_INFO("playerbots", "Account type assignment complete: {} RNDbot accounts, {} AddClass accounts, {} unassigned",
              rndBotTypeAccounts.size(), addClassTypeAccounts.size(),
              currentAssignments.size() - rndBotTypeAccounts.size() - addClassTypeAccounts.size());
+    CoaHomeOfflineFromOutland(rndBotTypeAccounts);  // CoA 3.2.2
 }
 
 bool RandomPlayerbotMgr::IsAccountType(uint32 accountId, uint8 accountType)
@@ -785,8 +793,8 @@ uint32 RandomPlayerbotMgr::AddRandomBots()
 
             // Calculate how many accounts can be used
             // With enablePeriodicOnlineOffline, don't use all of rndBotTypeAccounts right away. Fraction results are rounded up
-            uint32 accountsToUseCount = (rndBotTypeAccounts.size() + sPlayerbotAIConfig.periodicOnlineOfflineRatio - 1)
-                                        / sPlayerbotAIConfig.periodicOnlineOfflineRatio;
+            uint32 accountsToUseCount = CoaPeriodicAccountsToUse(uint32(rndBotTypeAccounts.size()),
+                                                                 sPlayerbotAIConfig.periodicOnlineOfflineRatio);
 
             // Randomly select accounts
             std::vector<uint32> shuffledAccounts = rndBotTypeAccounts;
@@ -2265,6 +2273,7 @@ struct TeleportSpot
     uint32 areaId = 0;
     bool inWater = false;
     float ground = INVALID_HEIGHT;
+    bool full = true;  // 3.2.2: read with the grid loaded (the buildings' floors of the vmap seen), else terrain only
 };
 
 std::mutex teleportSpotsLock;
@@ -2287,6 +2296,11 @@ TeleportSpot SpotOf(Map* map, Player* bot, float x, float y, float z)
     spot.areaId = map->GetAreaId(phase, x, y, z);
     spot.inWater = map->IsInWater(phase, x, y, z, height);
     spot.ground = map->GetHeight(phase, x, y, z + 0.5f);
+    // 3.2.2: a read with the grid unloaded (no vmap: the terrain only) is never kept. (Not the bank's cause: the sonde of
+    // 2448cbcb read 97.66 there with the grid loaded too, the vmap holds no floor under the bank; see RandomTeleport.)
+    spot.full = map->IsGridLoaded(x, y);
+    if (!spot.full)
+        return spot;
     std::lock_guard<std::mutex> guard(teleportSpotsLock);
     if (teleportSpots.size() > 200000)
         teleportSpots.clear();
@@ -2298,6 +2312,272 @@ TeleportSpot SpotOf(Map* map, Player* bot, float x, float y, float z)
 // (CoaSafeMove::ArrivalOk); the banker's own spot when none is found or it is outdoors already. Computed once per spot.
 std::mutex bankArrivalsLock;
 std::unordered_map<std::string, WorldLocation> bankArrivals;
+
+// CoA 3.2.2 (the user, 24/11: "à northrend il devrait y avoir 0 bots CoA, ZERO"; 380 bots in map 530 on the showcase,
+// the Exodar, Silvermoon and the zones around): a random bot has no business on map 530 (Outland, the Blood Elves' and
+// Draenei's isles) or 571 (Northrend). CoA starts every race on the old continents (playercreateinfo: maps 0, 1, 609).
+bool CoaFarMap(uint32 mapId) { return mapId == 530 || mapId == 571; }
+
+// CoA 3.2.2 (Pilote, bench of 02b229e4: Opuve and Wylniar, level 19, cast their hearthstone toward map 530 from maps 1
+// and 0, refused by the far map gate, again and again): a random bot whose hearth lies on map 530 or 571 gets its race's
+// start (off those maps in CoA) for hearth, at its login, at each refresh and at a refused teleport. Counted.
+std::atomic<uint32> farHearthsMoved{0};
+
+bool CoaHearthFromOutland(Player* bot)
+{
+    if (!bot || !CoaFarMap(bot->m_homebindMapId) || !sRandomPlayerbotMgr.IsRandomBot(bot))
+        return false;
+    PlayerbotAI* botAI = GET_PLAYERBOT_AI(bot);
+    if (!botAI || botAI->HasGameClientMaster())
+        return false;
+    PlayerInfo const* info = sObjectMgr->GetPlayerInfo(bot->getRace(), bot->getClass());
+    if (!info || CoaFarMap(info->mapId))
+        return false;
+    uint32 const fromMap = bot->m_homebindMapId;
+    bot->SetHomebind(WorldLocation(info->mapId, info->positionX, info->positionY, info->positionZ, info->orientation),
+                     info->areaId);
+    LOG_INFO("playerbots.coa", "coa: {} (level {}) had its hearth on map {}: now its race's start, map {} ({} so far)",
+             bot->GetName(), bot->GetLevel(), fromMap, info->mapId, ++farHearthsMoved);
+    return true;
+}
+
+// A random bot there goes home: its hearth when it lies off maps 530 and 571, else its race's start, which then becomes
+// its hearth (a hearth elsewhere is never rewritten). Never in a fight, a group, an instance, or the bot of a player.
+// At its login and at each refresh. Maps 530 and 571 are the open worlds: their dungeons have maps of their own.
+void CoaHomeFromOutland(Player* bot)
+{
+    if (bot && !CoaFarMap(bot->GetMapId()))
+        CoaHearthFromOutland(bot);
+    if (!bot || !CoaFarMap(bot->GetMapId()) || !sRandomPlayerbotMgr.IsRandomBot(bot) || bot->IsInCombat() ||
+        bot->GetGroup() || !GET_PLAYERBOT_AI(bot) || GET_PLAYERBOT_AI(bot)->HasGameClientMaster() ||
+        bot->IsBeingTeleported() || !bot->IsInWorld() || bot->GetMap()->Instanceable())
+        return;
+    if (!CoaFarMap(bot->m_homebindMapId))
+    {
+        LOG_INFO("playerbots.coa", "coa: {} (level {}) leaves map {} for its hearth", bot->GetName(), bot->GetLevel(),
+                 bot->GetMapId());
+        bot->TeleportTo(bot->m_homebindMapId, bot->m_homebindX, bot->m_homebindY, bot->m_homebindZ,
+                        bot->GetOrientation());
+        return;
+    }
+    PlayerInfo const* info = sObjectMgr->GetPlayerInfo(bot->getRace(), bot->getClass());
+    if (!info || CoaFarMap(info->mapId))
+        return;
+    LOG_INFO("playerbots.coa", "coa: {} (level {}) leaves map {} for its race's start", bot->GetName(), bot->GetLevel(),
+             bot->GetMapId());
+    WorldLocation const start(info->mapId, info->positionX, info->positionY, info->positionZ, info->orientation);
+    bot->SetHomebind(start, info->areaId);
+    bot->TeleportTo(start);
+}
+
+}  // namespace (3.2.2: the far map gate and the offline sweep are called from outside this file)
+
+// CoA 3.2.2 (Pilote, bench of 1e991b2d: 9 bots still left map 530 during the bench, the database going from 1 to 5
+// characters there): whatever the caller (a quest, a travel, a hearthstone, a portal, a boat), a random bot with no
+// player for master never teleports to map 530 or 571 from another map: the core's OnPlayerBeforeTeleport asks here.
+// Each refusal is told once a minute per bot with its cause: the spell it casts, its last actions, its RPG status.
+static std::mutex farGateLock;
+static std::unordered_map<uint64, time_t> farGateTold;
+static std::atomic<uint32> farGateRefused{0};
+
+bool CoaRefusesFarMap(Player* bot, uint32 mapId)
+{
+    if (!bot || !CoaFarMap(mapId) || bot->GetMapId() == mapId || !sRandomPlayerbotMgr.IsRandomBot(bot))
+        return false;
+    PlayerbotAI* botAI = GET_PLAYERBOT_AI(bot);
+    if (!botAI || botAI->HasGameClientMaster())
+        return false;
+    Player* master = botAI->GetMaster();
+    if (master && master != bot && !GET_PLAYERBOT_AI(master))
+        return false;  // a real player's bot goes where its player takes it
+    ++farGateRefused;
+    CoaHearthFromOutland(bot);  // 3.2.2: a hearthstone toward map 530 is not cast again
+    // 3.2.2 (bench of 5f662017: refused at a flight's map change, a bot stayed on its taxi at the pass, refused again
+    // each minute): a bot in flight leaves its taxi and goes to its hearth on maps 0/1, from the next update.
+    if (bot->IsInFlight() || !bot->m_taxi.empty())
+    {
+        ObjectGuid const guid = bot->GetGUID();
+        bot->m_Events.AddEventAtOffset(
+            [guid]()
+            {
+                Player* p = ObjectAccessor::FindPlayer(guid);
+                if (!p || !p->IsInWorld() || p->IsBeingTeleported())
+                    return;
+                if (p->IsInFlight())
+                {
+                    p->GetMotionMaster()->Clear();
+                    p->CleanupAfterTaxiFlight();
+                }
+                p->m_taxi.ClearTaxiDestinations();
+                if (PlayerbotAI* ai = GET_PLAYERBOT_AI(p))
+                    ai->rpgInfo.ChangeToIdle();
+                if (!CoaFarMap(p->m_homebindMapId))
+                    p->TeleportTo(p->m_homebindMapId, p->m_homebindX, p->m_homebindY, p->m_homebindZ, p->GetOrientation());
+            },
+            Milliseconds(0));
+    }
+    time_t const now = time(nullptr);
+    {
+        std::lock_guard<std::mutex> guard(farGateLock);
+        if (farGateTold.size() > 4096)
+            farGateTold.clear();
+        time_t& told = farGateTold[bot->GetGUID().GetRawValue()];
+        if (now - told < 60)
+            return true;
+        told = now;
+    }
+    uint32 spellId = 0;
+    for (uint32 slot : {CURRENT_GENERIC_SPELL, CURRENT_CHANNELED_SPELL})
+        if (Spell const* spell = bot->GetCurrentSpell(CurrentSpellTypes(slot)))
+            spellId = spell->m_spellInfo->Id;
+    Engine* const calm = botAI->GetEngine(BOT_STATE_NON_COMBAT);
+    Engine* const fight = botAI->GetEngine(BOT_STATE_COMBAT);
+    LOG_INFO("playerbots.coa", "coa: far map gate: {} (level {}) refused map {} from map {} zone {} ({:.1f} {:.1f} {:.1f}): "
+             "spell {}, last action {} / combat {}, rpg {} ({} refused so far)", bot->GetName(), bot->GetLevel(), mapId,
+             bot->GetMapId(), bot->GetZoneId(), bot->GetPositionX(), bot->GetPositionY(), bot->GetPositionZ(), spellId,
+             calm ? calm->GetLastExecutedAction() : std::string(), fight ? fight->GetLastExecutedAction() : std::string(),
+             botAI->rpgInfo.ToString(), farGateRefused.load());
+    return true;
+}
+
+// 3.2.2 (Pilote: 0 in the database, online and offline): once at startup, the random bots' characters left offline on
+// map 530 or 571 are moved in the database to their hearth when it lies off those maps, else to their race's start
+// (their hearth too). A bot online there goes home at its login and at each refresh (CoaHomeFromOutland).
+void CoaHomeOfflineFromOutland(std::vector<uint32> const& accounts)
+{
+    static bool done = false;
+    if (done || accounts.empty())
+        return;
+    done = true;
+    // Only the random bots' accounts (type 1 of the module, in its random account list): never a player's account, nor
+    // the bots a player added (AddClass accounts, alts).
+    std::string list;
+    for (uint32 account : accounts)
+        if (sPlayerbotAIConfig.IsInRandomAccountList(account))
+            list += (list.empty() ? "" : ",") + std::to_string(account);
+    if (list.empty())
+        return;
+    // 3.2.2 (Pilote, bench of 02b229e4): the hearths left on map 530 or 571 of the random bots offline elsewhere: their
+    // race's start.
+    if (QueryResult hearths = CharacterDatabase.Query(
+            "SELECT c.guid, c.race, c.class FROM characters c JOIN character_homebind h ON h.guid = c.guid WHERE "
+            "c.online = 0 AND h.mapId IN (530, 571) AND c.map NOT IN (530, 571) AND c.account IN ({})",
+            list))
+    {
+        uint32 moved = 0, kept = 0;
+        do
+        {
+            Field* f = hearths->Fetch();
+            PlayerInfo const* info = sObjectMgr->GetPlayerInfo(f[1].Get<uint8>(), f[2].Get<uint8>());
+            if (!info || CoaFarMap(info->mapId))
+            {
+                ++kept;
+                continue;
+            }
+            CharacterDatabase.Execute("REPLACE INTO character_homebind (guid, mapId, zoneId, posX, posY, posZ) VALUES "
+                                      "({}, {}, {}, {}, {}, {})", f[0].Get<uint32>(), info->mapId, info->areaId,
+                                      info->positionX, info->positionY, info->positionZ);
+            ++moved;
+        } while (hearths->NextRow());
+        LOG_INFO("playerbots.coa", "coa: offline random bots with a hearth on map 530 or 571: {} given their race's "
+                 "start, {} kept (no start off those maps)", moved, kept);
+    }
+    else
+        LOG_INFO("playerbots.coa", "coa: offline random bots with a hearth on map 530 or 571: none");
+    QueryResult result = CharacterDatabase.Query(
+        "SELECT c.guid, c.race, c.class, h.mapId, h.zoneId, h.posX, h.posY, h.posZ FROM characters c LEFT JOIN "
+        "character_homebind h ON h.guid = c.guid WHERE c.online = 0 AND c.map IN (530, 571) AND c.account IN ({}) AND "
+        "c.guid NOT IN (SELECT memberGuid FROM group_member)",
+        list);
+    if (!result)
+    {
+        LOG_INFO("playerbots.coa", "coa: offline random bots on map 530 or 571: none");
+        return;
+    }
+    uint32 hearth = 0, start = 0, left = 0;
+    do
+    {
+        Field* f = result->Fetch();
+        uint32 const guid = f[0].Get<uint32>();
+        bool const hasHome = !f[3].IsNull();
+        uint32 mapId = hasHome ? f[3].Get<uint16>() : 530;
+        uint32 zoneId = hasHome ? f[4].Get<uint16>() : 0;
+        float x = hasHome ? f[5].Get<float>() : 0.0f;
+        float y = hasHome ? f[6].Get<float>() : 0.0f;
+        float z = hasHome ? f[7].Get<float>() : 0.0f;
+        if (CoaFarMap(mapId))
+        {
+            PlayerInfo const* info = sObjectMgr->GetPlayerInfo(f[1].Get<uint8>(), f[2].Get<uint8>());
+            if (!info || CoaFarMap(info->mapId))
+            {
+                ++left;
+                continue;
+            }
+            mapId = info->mapId;
+            zoneId = info->areaId;
+            x = info->positionX;
+            y = info->positionY;
+            z = info->positionZ;
+            CharacterDatabase.Execute("REPLACE INTO character_homebind (guid, mapId, zoneId, posX, posY, posZ) VALUES "
+                                      "({}, {}, {}, {}, {}, {})", guid, mapId, zoneId, x, y, z);
+            ++start;
+        }
+        else
+            ++hearth;
+        CharacterDatabase.Execute("UPDATE characters SET map = {}, zone = {}, position_x = {}, position_y = {}, "
+                                  "position_z = {}, instance_id = 0, transguid = 0, trans_x = 0, trans_y = 0, trans_z = 0, trans_o = 0, "
+                                  "taxi_path = '' WHERE guid = {} AND online = 0",
+                                  mapId, zoneId, x, y, z, guid);
+    } while (result->NextRow());
+    LOG_INFO("playerbots.coa", "coa: offline random bots on map 530 or 571: {} sent to their hearth, {} to their race's "
+             "start, {} left (no start off those maps)", hearth, start, left);
+}
+
+namespace
+{
+
+// CoA 3.2.2 (Pilote: the update shows at once, not at a bot's next randomize): a random bot of a player-less kind, of
+// the ground mount level or more, with no riding skill or no ground mount known, gets at its login the riding of its
+// level (Novice under 20, Apprentice from 20, Journeyman from the fast mount level, as InitSkills) and its race's mount
+// (InitMounts: only the kinds it lacks); nothing else of it changes. Never the bot of a player.
+void CoaRidingAtLogin(Player* bot)
+{
+    if (!bot || !sRandomPlayerbotMgr.IsRandomBot(bot) || !GET_PLAYERBOT_AI(bot) ||
+        GET_PLAYERBOT_AI(bot)->HasGameClientMaster() ||
+        bot->GetLevel() < sPlayerbotAIConfig.useGroundMountAtMinLevel)
+        return;
+    // 3.2.2: the trainer's spell learned by mistake before (CoaMountRule::NOVICE_RIDING_TEACHER) goes.
+    if (bot->HasSpell(CoaMountRule::NOVICE_RIDING_TEACHER))
+        bot->removeSpell(CoaMountRule::NOVICE_RIDING_TEACHER, SPEC_MASK_ALL, false);
+    bool const riding = bot->GetSkillValue(SKILL_RIDING) > 0;
+    bool mount = false;
+    for (auto const& [spellId, state] : bot->GetSpellMap())
+    {
+        if (state->State == PLAYERSPELL_REMOVED || !state->Active)
+            continue;
+        SpellInfo const* info = sSpellMgr->GetSpellInfo(spellId);
+        if (info && info->HasAura(SPELL_AURA_MOUNTED))
+        {
+            mount = true;
+            break;
+        }
+    }
+    if (riding && mount)
+        return;
+    if (!riding)
+    {
+        bot->learnSpell(CoaMountRule::NoviceOrApprentice(bot->GetLevel()));
+        if (bot->GetLevel() >= sPlayerbotAIConfig.useFastGroundMountAtMinLevel)
+            bot->learnSpell(33391);
+    }
+    if (!mount)
+    {
+        PlayerbotFactory factory(bot, bot->GetLevel());
+        factory.InitMounts();
+    }
+    LOG_INFO("playerbots.coa", "coa: {} (level {}) given at login: riding {}, race's mount {}", bot->GetName(),
+             bot->GetLevel(), riding ? "kept" : "learned", mount ? "kept" : "learned");
+}
 
 WorldLocation BankArrival(WorldLocation const& banker)
 {
@@ -2348,7 +2628,7 @@ WorldLocation BankArrival(WorldLocation const& banker)
 }
 }  // namespace
 
-void RandomPlayerbotMgr::RandomTeleport(Player* bot, std::vector<WorldLocation>& locs, bool hearth)
+void RandomPlayerbotMgr::RandomTeleport(Player* bot, std::vector<WorldLocation>& locs, bool hearth, bool levelUp)
 {
     // ignore when alrdy teleported or not in the world yet.
     if (bot->IsBeingTeleported() || !bot->IsInWorld())
@@ -2421,11 +2701,18 @@ void RandomPlayerbotMgr::RandomTeleport(Player* bot, std::vector<WorldLocation>&
                 std::abs(int32(other->GetLevel()) - int32(bot->GetLevel())) <= 5)
                 ++zoneBots[other->GetZoneId()];
 
+    // CoA 3.3: the teleport of a level up only, with AiPlayerbot.CoaLive.LevelupTeleportGuard (see the arrival below).
+    bool const arrivalGuard =
+        levelUp && sConfigMgr->GetOption<bool>("AiPlayerbot.CoaLive.LevelupTeleportGuard", true, false);
+
     bool stop = false;
     for (uint32 pass = 0; pass < (crowdLimit ? 2u : 1u) && !stop; ++pass)
     for (uint32 i = 0; i < tlocs.size(); i++)
     {
         WorldLocation loc = tlocs[i];
+        // CoA 3.2.2: never to map 530 or 571 (CoaFarMap): the levelling zones of the isles, their capitals' bankers.
+        if (CoaFarMap(loc.GetMapId()) && IsRandomBot(bot))
+            continue;
 
         float x = loc.GetPositionX();  // + (attemtps > 0 ? urand(0, sPlayerbotAIConfig.grindDistance) -
                                        // sPlayerbotAIConfig.grindDistance / 2 : 0);
@@ -2442,6 +2729,9 @@ void RandomPlayerbotMgr::RandomTeleport(Player* bot, std::vector<WorldLocation>&
         TeleportSpot const spot = SpotOf(map, bot, x, y, z);
         AreaTableEntry const* zone = sAreaTableStore.LookupEntry(spot.zoneId);
         if (!zone)
+            continue;
+        // 3.2.2: in a capital (buildings everywhere), never to a ground read without the buildings' floors.
+        if (!spot.full && (zone->flags & AREA_FLAG_CAPITAL))
             continue;
 
         AreaTableEntry const* area = sAreaTableStore.LookupEntry(spot.areaId);
@@ -2483,9 +2773,51 @@ void RandomPlayerbotMgr::RandomTeleport(Player* bot, std::vector<WorldLocation>&
                   zone->area_name[locale], area->ID, area->area_name[locale], zone->area_level, area->area_level, x, y,
                   z, i + 1, tlocs.size());
 
+        // 3.2.2 (sonde of 2448cbcb, the user in game): under the Stormwind bank the vmap holds no floor, so the ground
+        // above was the terrain under the bank (97.66, the bank's floor at 99.5) and the bots piled there. In a capital
+        // the height is the navmesh's floor nearest the spot's own height, on the city's floor, moved onto it within 10
+        // yards, or the spot dropped; a spot not judged yet is skipped (judged on the world thread soon).
+        {
+            float ax = loc.GetPositionX(), ay = loc.GetPositionY(), az = loc.GetPositionZ();
+            CoaPathProbe::Arrival const arrival = CoaPathProbe::ArrivalVerdict(loc.GetMapId(), ax, ay, az);
+            bool const capital = zone->flags & AREA_FLAG_CAPITAL;
+            if (arrival == CoaPathProbe::Arrival::Dropped ||
+                (capital && arrival == CoaPathProbe::Arrival::Unknown))
+                continue;
+            if (capital && (arrival == CoaPathProbe::Arrival::Ok || arrival == CoaPathProbe::Arrival::Moved))
+            {
+                x = ax;
+                y = ay;
+                z = az;
+            }
+        }
+
+        // CoA 3.3 (bench 2 of 3.3: bots appearing at the starting points under the eyes of a player starting a
+        // character): at a level up, the departure is unseen (150 yards below), the arrival too: a location with a
+        // real player within 150 yards of it is left for the next one (none left: the bot stays where it is).
+        if (arrivalGuard)
+        {
+            bool seen = false;
+            for (Player* player : players)
+            {
+                if (!player || !player->IsInWorld() || player->GetMapId() != loc.GetMapId() ||
+                    (player->IsGameMaster() && !player->isGMVisible()))
+                    continue;
+                float const dx = player->GetPositionX() - x, dy = player->GetPositionY() - y,
+                            dz = player->GetPositionZ() - z;
+                if (CoaTeleportArrivalSeen(true, dx * dx + dy * dy + dz * dz))
+                {
+                    seen = true;
+                    break;
+                }
+            }
+            if (seen)
+                continue;
+        }
+
         if (hearth)
         {
-            bot->SetHomebind(loc, zone->ID);
+            bot->SetHomebind(WorldLocation(loc.GetMapId(), x, y, z, loc.GetOrientation()), zone->ID);
         }
 
         // Prevent blink to be detected by visible real players
@@ -2526,31 +2858,26 @@ void RandomPlayerbotMgr::PrepareAddclassCache()
     // Using accounts marked as type 2 (AddClass)
     int32 collected = 0;
 
+    // CoA 3.2.2 (Dungeon Clear, issue 62): every class below MAX_CLASSES, the CoA classes 12-32 too (the loop stopped
+    // at the druid, so the queue fill found no CoA class in the cache); one query per account.
     for (uint32 accountId : addClassTypeAccounts)
     {
-        for (uint8 claz = CLASS_WARRIOR; claz <= CLASS_DRUID; claz++)
+        QueryResult results = CharacterDatabase.Query(
+            "SELECT guid, race, class FROM characters WHERE account = {} AND online = 0", accountId);
+        if (!results)
+            continue;
+        do
         {
-            if (claz == 10)
+            Field* fields = results->Fetch();
+            uint8 claz = fields[2].Get<uint8>();
+            if (!CoaAddclassCacheClass(claz, MAX_CLASSES))
                 continue;
-
-            QueryResult results = CharacterDatabase.Query(
-                "SELECT guid, race FROM characters "
-                "WHERE account = {} AND class = '{}' AND online = 0",
-                accountId, claz);
-
-            if (results)
-            {
-                do
-                {
-                    Field* fields = results->Fetch();
-                    ObjectGuid guid = ObjectGuid(HighGuid::Player, fields[0].Get<uint32>());
-                    uint32 race = fields[1].Get<uint32>();
-                    bool isAlliance = IsAlliance(uint8(race));  // added races too (ChrRaces, AiPlayerbot.BotRace.<id>)
-                    addclassCache[GetTeamClassIdx(isAlliance, claz)].insert(guid);
-                    collected++;
-                } while (results->NextRow());
-            }
-        }
+            ObjectGuid guid = ObjectGuid(HighGuid::Player, fields[0].Get<uint32>());
+            uint32 race = fields[1].Get<uint32>();
+            bool isAlliance = IsAlliance(uint8(race));  // added races too (ChrRaces, AiPlayerbot.BotRace.<id>)
+            addclassCache[GetTeamClassIdx(isAlliance, claz)].insert(guid);
+            collected++;
+        } while (results->NextRow());
     }
 
     LOG_INFO("playerbots", ">> {} characters collected for addclass command from {} AddClass accounts.", collected, addClassTypeAccounts.size());
@@ -2629,7 +2956,11 @@ void RandomPlayerbotMgr::InitArenaTeams()
              RandomPlayerbotFactory::GetBotArenaTeamCount(ARENA_TYPE_5v5), sPlayerbotAIConfig.randomBotArenaTeam5v5Count);
 }
 
-void RandomPlayerbotMgr::RandomTeleportForLevel(Player* bot)
+void RandomPlayerbotMgr::RandomTeleportForLevel(Player* bot) { TeleportForLevel(bot, false); }
+
+void RandomPlayerbotMgr::RandomTeleportForLevelUp(Player* bot) { TeleportForLevel(bot, true); }
+
+void RandomPlayerbotMgr::TeleportForLevel(Player* bot, bool levelUp)
 {
     if (bot->InBattleground())
         return;
@@ -2642,7 +2973,7 @@ void RandomPlayerbotMgr::RandomTeleportForLevel(Player* bot)
             // 3.1.8: outdoors around the bank, not inside it (BankArrival): the home is set there too.
             for (WorldLocation& loc : locs)
                 loc = BankArrival(loc);
-            RandomTeleport(bot, locs, true);
+            RandomTeleport(bot, locs, true, levelUp);
             return;
         }
     }
@@ -2658,7 +2989,7 @@ void RandomPlayerbotMgr::RandomTeleportForLevel(Player* bot)
 
     if (!locs.empty())
     {
-        RandomTeleport(bot, locs, false);
+        RandomTeleport(bot, locs, false, levelUp);
         return;
     }
 }
@@ -3035,6 +3366,7 @@ void RandomPlayerbotMgr::Refresh(Player* bot)
     PlayerbotAI* botAI = GET_PLAYERBOT_AI(bot);
     if (!botAI)
         return;
+    CoaHomeFromOutland(bot);  // CoA 3.2.2: a bot that got to map 530 or 571 anyway (a boat, a portal) goes home
 
     if (bot->isDead())
     {
@@ -3132,10 +3464,10 @@ bool RandomPlayerbotMgr::IsAddclassBot(ObjectGuid::LowType bot)
 {
     ObjectGuid guid = ObjectGuid::Create<HighGuid::Player>(bot);
 
-    // Check the cache with faction considerations
-    for (uint8 claz = CLASS_WARRIOR; claz <= CLASS_DRUID; claz++)
+    // Check the cache with faction considerations (CoA 3.2.2: the CoA classes too)
+    for (uint8 claz = CLASS_WARRIOR; claz < MAX_CLASSES; claz++)
     {
-        if (claz == 10)
+        if (!CoaAddclassCacheClass(claz, MAX_CLASSES))
             continue;
 
         for (uint8 isAlliance = 0; isAlliance <= 1; isAlliance++)
@@ -3289,34 +3621,68 @@ std::string RandomPlayerbotMgr::GetEventData(uint32 bot, std::string const& even
 uint32 RandomPlayerbotMgr::SetEventValue(uint32 bot, std::string const& event, uint32 value, uint32 validIn,
                                          std::string const& data)
 {
-    PlayerbotsDatabaseTransaction trans = PlayerbotsDatabase.BeginTransaction();
-
-    PlayerbotsDatabasePreparedStatement* stmt =
-        PlayerbotsDatabase.GetPreparedStatement(PLAYERBOTS_DEL_RANDOM_BOTS_BY_OWNER_AND_EVENT);
-    stmt->SetData(0, 0);
-    stmt->SetData(1, bot);
-    stmt->SetData(2, event.c_str());
-    trans->Append(stmt);
-
-    if (value)
+    // CoA 3.2.2: one statement, no transaction of a DELETE then an INSERT: thousands of bots logging in at once made
+    // those deadlock (error 1213). The row is kept unique by (owner, bot, event) (2026_11_24_00_coa_random_bots_unique);
+    // a database without that key yet (the SQL update not applied) keeps the old DELETE then INSERT.
+    static std::once_flag keyChecked;
+    static bool uniqueKey = false;
+    std::call_once(keyChecked, []()
     {
-        stmt = PlayerbotsDatabase.GetPreparedStatement(PLAYERBOTS_INS_RANDOM_BOTS);
+        uniqueKey = PlayerbotsDatabase.Query(
+                        "SELECT 1 FROM information_schema.statistics WHERE table_schema = DATABASE() AND "
+                        "table_name = 'playerbots_random_bots' AND index_name = 'owner_bot_event'") != nullptr;
+        LOG_INFO("server.loading", "Playerbots: random bot events written {}", uniqueKey ?
+                 "in one statement (unique key owner_bot_event)" :
+                 "by DELETE then INSERT (apply 2026_11_24_00_coa_random_bots_unique.sql for the unique key)");
+    });
+    if (!uniqueKey)
+    {
+        PlayerbotsDatabaseTransaction trans = PlayerbotsDatabase.BeginTransaction();
+        PlayerbotsDatabasePreparedStatement* stmt =
+            PlayerbotsDatabase.GetPreparedStatement(PLAYERBOTS_DEL_RANDOM_BOTS_BY_OWNER_AND_EVENT);
         stmt->SetData(0, 0);
         stmt->SetData(1, bot);
-        stmt->SetData(2, NowSeconds());
-        stmt->SetData(3, validIn);
-        stmt->SetData(4, event.c_str());
-        stmt->SetData(5, value);
-
-        if (!data.empty())
-            stmt->SetData(6, data.c_str());
-        else
-            stmt->SetData(6);  // NULL
-
+        stmt->SetData(2, event.c_str());
         trans->Append(stmt);
+        if (value)
+        {
+            stmt = PlayerbotsDatabase.GetPreparedStatement(PLAYERBOTS_INS_RANDOM_BOTS);
+            stmt->SetData(0, 0);
+            stmt->SetData(1, bot);
+            stmt->SetData(2, NowSeconds());
+            stmt->SetData(3, validIn);
+            stmt->SetData(4, event.c_str());
+            stmt->SetData(5, value);
+            if (!data.empty())
+                stmt->SetData(6, data.c_str());
+            else
+                stmt->SetData(6);  // NULL
+            trans->Append(stmt);
+        }
+        PlayerbotsDatabase.CommitTransaction(trans);
     }
-
-    PlayerbotsDatabase.CommitTransaction(trans);
+    else if (!value)
+    {
+        PlayerbotsDatabasePreparedStatement* stmt =
+            PlayerbotsDatabase.GetPreparedStatement(PLAYERBOTS_DEL_RANDOM_BOTS_BY_OWNER_AND_EVENT);
+        stmt->SetData(0, 0);
+        stmt->SetData(1, bot);
+        stmt->SetData(2, event.c_str());
+        PlayerbotsDatabase.Execute(stmt);
+    }
+    else
+    {
+        std::string safeEvent = event;
+        PlayerbotsDatabase.EscapeString(safeEvent);
+        std::string safeData = data;
+        if (!safeData.empty())
+            PlayerbotsDatabase.EscapeString(safeData);
+        PlayerbotsDatabase.Execute(Acore::StringFormat(
+            "INSERT INTO playerbots_random_bots (owner, bot, time, validIn, event, value, data) "
+            "VALUES (0, {}, {}, {}, '{}', {}, {}) ON DUPLICATE KEY UPDATE time = VALUES(time), "
+            "validIn = VALUES(validIn), value = VALUES(value), data = VALUES(data)",
+            bot, NowSeconds(), validIn, safeEvent, value, safeData.empty() ? std::string("NULL") : "'" + safeData + "'"));
+    }
 
     // Update in-memory cache
     std::lock_guard<std::mutex> lock(eventCacheLock);
@@ -3939,14 +4305,8 @@ void RandomPlayerbotMgr::OnBotLoginInternal(Player* const bot)
     // CoA starts Blood Elves in Deathknell and Draenei in Shadowglen (jealous-sound/azerothcore-wotlk-coa#6397). Bots
     // made before stayed at Sunstrider Isle or Ammen Vale, where no CoA quest awaits them, and stood there (Discord
     // 07/10): a low level random bot in Outland's map goes to its race's start.
-    if (bot->GetMapId() == 530 && bot->GetLevel() <= 20 && IsRandomBot(bot) && !bot->IsInCombat() && !bot->GetGroup())
-        if (PlayerInfo const* info = sObjectMgr->GetPlayerInfo(bot->getRace(), bot->getClass()))
-            if (info->mapId != 530)
-            {
-                LOG_INFO("playerbots", "coa: {} (level {}) leaves map 530 for its race's start", bot->GetName(),
-                         bot->GetLevel());
-                bot->TeleportTo(info->mapId, info->positionX, info->positionY, info->positionZ, info->orientation);
-            }
+    CoaHomeFromOutland(bot);  // CoA 3.2.2
+    CoaRidingAtLogin(bot);    // CoA 3.2.2
 
     // A bot made before MaxPlayerLevel or RandomBotMaxLevel was lowered kept its level, since Randomize only
     // rebuilds a bot at the level it has: bring it down to the cap, gear, talents and spells redone.

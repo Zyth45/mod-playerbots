@@ -39,6 +39,8 @@
 #include "ScriptMgr.h"
 #include "StringFormat.h"
 #include "World.h"
+#include "WorldSession.h"
+#include "WorldSessionMgr.h"
 
 #include <mutex>
 #include <set>
@@ -188,7 +190,13 @@ namespace
             std::string text = p.kind == FIRST_LEVEL
                 ? Acore::StringFormat("|cffff8000[Server First]|r {} is the first of {} to reach level {}!", who, side, p.entry)
                 : Acore::StringFormat("|cffff8000[Server First]|r {} has slain {}, a first for {}!", who, p.what, side);
-            ChatHandler(nullptr).SendWorldText(text);
+            // 3.2.2 (crash 24/11 16:29, a new realm's first "first"): ChatHandler(nullptr).SendWorldText sends to its own
+            // session, null here. To each player in the world instead (bots included: their chat is ignored).
+            // Never ChatHandler(nullptr) in this module: SendWorldText and the like dereference its session.
+            for (auto const& [id, session] : sWorldSessionMgr->GetAllSessions())
+                if (Player* player = session ? session->GetPlayer() : nullptr)
+                    if (player->IsInWorld())
+                        ChatHandler(session).SendSysMessage(text);
             LOG_INFO("playerbots.coa", "CoA World: server first ({}): {}", side, text);
             Recent(uint8(p.kind), p.entry, uint8(p.team), p.name, p.guild, time(nullptr));
             CoaWorldState::First(p.kind == FIRST_LEVEL ? Acore::StringFormat("level {} ({})", p.entry, side)

@@ -133,6 +133,17 @@ bool craftForSelf = true;      // AiPlayerbot.CoaEconomy.CraftForSelf.Enable
 bool craftForSelfLog = false;  // AiPlayerbot.CoaEconomy.CraftForSelf.Log
 bool enchantForSelf = true;     // AiPlayerbot.CoaEconomy.EnchantForSelf.Enable
 bool enchantForSelfLog = false; // AiPlayerbot.CoaEconomy.EnchantForSelf.Log
+uint32 enchantPieces = 2;      // AiPlayerbot.CoaEconomy.EnchantForSelf.PiecesPerStudy (3.2.2)
+bool studyRestAreas = true;    // AiPlayerbot.CoaEconomy.SelfStudy.RestAreas (3.2.2)
+bool enchantReagents = true;   // AiPlayerbot.CoaEconomy.EnchantForSelf.Reagents (3.2.2)
+bool enchantHourly = true;     // AiPlayerbot.CoaEconomy.EnchantForSelf.HourlyCount (3.2.2)
+// 3.2.2: the enchanters' counts since the last hourly line (world thread only).
+struct EnchantCounters
+{
+    uint32 tries = 0, enchanted = 0, disenchanted = 0;
+    uint32 refusals[uint32(CoaEnchantSelfRules::Refusal::Count)] = {};
+} enchantCounters;
+uint32 lastEnchantSummary = 0;
 // AiPlayerbot.CoaEconomy.SelfStudy.*
 bool studyEnabled = true;
 uint32 studyIntervalSeconds = 3600;
@@ -155,6 +166,11 @@ void LoadSettings()
     craftForSelfLog = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.CraftForSelf.Log", false, false);
     enchantForSelf = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.EnchantForSelf.Enable", true, false);
     enchantForSelfLog = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.EnchantForSelf.Log", false, false);
+    enchantPieces = std::clamp<uint32>(
+        CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.EnchantForSelf.PiecesPerStudy", 2), 1, 4);
+    studyRestAreas = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.SelfStudy.RestAreas", true);
+    enchantReagents = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.EnchantForSelf.Reagents", true);
+    enchantHourly = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.EnchantForSelf.HourlyCount", true);
     studyEnabled = CoaEconomy::Conf::Get<bool>("AiPlayerbot.CoaEconomy.SelfStudy.Enable", true, false);
     studyIntervalSeconds =
         60 * std::max<uint32>(5, CoaEconomy::Conf::Get<uint32>("AiPlayerbot.CoaEconomy.SelfStudy.IntervalMinutes", 60));
@@ -581,11 +597,97 @@ Item* CraftUpgradeForSelf(Player* bot, PlayerbotAI* botAI, uint64 buyCap)
     return item;
 }
 
-bool EnchantForSelf(Player* bot, uint64 buyCap)
+namespace
+{
+    // 3.2.2: the tools the spell asks for, held as the game checks them for a player (a runed rod for most
+    // enchantments: TotemCategory).
+    bool HoldsTools(Player* bot, SpellInfo const* spell)
+    {
+        auto const item = [bot](uint32 id) { return id && bot->HasItemCount(id); };
+        auto const category = [bot](uint32 id) { return id && bot->HasItemTotemCategory(id); };
+        return CoaEnchantSelfRules::HasTools(spell->Totem[0], item(spell->Totem[0]), spell->Totem[1],
+                                             item(spell->Totem[1])) &&
+               CoaEnchantSelfRules::HasTools(spell->TotemCategory[0], category(spell->TotemCategory[0]),
+                                             spell->TotemCategory[1], category(spell->TotemCategory[1]));
+    }
+
+    bool EnchantOnce(Player* bot, uint64 buyCap, bool countRefusal);
+
+    // The permanent enchantment a known spell puts on, when the bot's level and skill allow it; null otherwise.
+    SpellItemEnchantmentEntry const* UsablePermanentEnchant(Player* bot, SpellInfo const* spell, uint32& enchantId)
+    {
+        enchantId = 0;
+        for (SpellEffectInfo const& effect : spell->Effects)
+            if (effect.Effect == SPELL_EFFECT_ENCHANT_ITEM && effect.MiscValue)
+            {
+                enchantId = uint32(effect.MiscValue);
+                break;
+            }
+        SpellItemEnchantmentEntry const* enchant = enchantId ? sSpellItemEnchantmentStore.LookupEntry(enchantId) : nullptr;
+        if (!enchant || enchant->slot != PERM_ENCHANTMENT_SLOT ||
+            !CoaEnchantSelfRules::Usable(bot->GetLevel(), enchant->requiredLevel, enchant->requiredSkill,
+                                         enchant->requiredSkill ? bot->GetSkillValue(enchant->requiredSkill) : 0,
+                                         enchant->requiredSkillValue))
+            return nullptr;
+        return enchant;
+    }
+}
+
+std::unordered_set<uint32> EnchantReagents(Player* bot)
+{
+    std::unordered_set<uint32> reagents;
+    if (!enchantForSelf || !enchantReagents || !bot || !bot->HasSkill(SKILL_ENCHANTING))
+        return reagents;
+    for (auto const& [spellId, playerSpell] : bot->GetSpellMap())
+    {
+        if (!playerSpell || playerSpell->State == PLAYERSPELL_REMOVED || !playerSpell->Active)
+            continue;
+        SpellInfo const* spell = sSpellMgr->GetSpellInfo(spellId);
+        uint32 enchantId = 0;
+        if (!spell || !UsablePermanentEnchant(bot, spell, enchantId))
+            continue;
+        for (uint8 i = 0; i < MAX_SPELL_REAGENTS; ++i)
+            if (spell->Reagent[i] > 0 && spell->ReagentCount[i])
+                reagents.insert(uint32(spell->Reagent[i]));
+    }
+    return reagents;
+}
+
+bool KeepsForEnchanting(Player* bot, Item* item, std::unordered_set<uint32> const& reagents)
+{
+    if (!bot || !item || !reagents.count(item->GetEntry()))
+        return false;
+    return CoaEnchantSelfRules::KeepsReagent(bot->GetItemCount(item->GetEntry()), item->GetTemplate()->GetMaxStackSize());
+}
+
+bool ShortOfEnchantReagents(Player* bot, std::unordered_set<uint32> const& reagents)
+{
+    for (uint32 reagent : reagents)
+    {
+        ItemTemplate const* proto = sObjectMgr->GetItemTemplate(reagent);
+        if (proto && bot->GetItemCount(reagent) < std::max<uint32>(1, proto->GetMaxStackSize()))
+            return true;
+    }
+    return false;
+}
+
+bool EnchantForSelf(Player* bot, uint64 buyCap, uint32 pieces)
 {
     if (!enchantForSelf || !bot || !bot->HasSkill(SKILL_ENCHANTING))
         return false;
+    ++enchantCounters.tries;
+    uint32 done = 0;
+    // The cause is counted for the first piece only: a second one not found is no refusal.
+    while (done < std::max<uint32>(1, pieces) && EnchantOnce(bot, buyCap, done == 0))
+        ++done;
+    return done > 0;
+}
 
+namespace
+{
+bool EnchantOnce(Player* bot, uint64 buyCap, bool countRefusal)
+{
+    bool anyUsable = false, reachedPieces = false, goldShort = false, reagentShort = false, rodShort = false;
     StatsWeightCalculator calculator(bot);
     Item* bestItem = nullptr;
     SpellInfo const* bestSpell = nullptr;
@@ -600,26 +702,25 @@ bool EnchantForSelf(Player* bot, uint64 buyCap)
         if (!spell)
             continue;
         uint32 enchantId = 0;
-        for (SpellEffectInfo const& effect : spell->Effects)
-            if (effect.Effect == SPELL_EFFECT_ENCHANT_ITEM && effect.MiscValue)
-            {
-                enchantId = uint32(effect.MiscValue);
-                break;
-            }
-        SpellItemEnchantmentEntry const* enchant = enchantId ? sSpellItemEnchantmentStore.LookupEntry(enchantId) : nullptr;
-        if (!enchant || enchant->slot != PERM_ENCHANTMENT_SLOT ||
-            !CoaEnchantSelfRules::Usable(bot->GetLevel(), enchant->requiredLevel, enchant->requiredSkill,
-                                         enchant->requiredSkill ? bot->GetSkillValue(enchant->requiredSkill) : 0,
-                                         enchant->requiredSkillValue))
+        SpellItemEnchantmentEntry const* enchant = UsablePermanentEnchant(bot, spell, enchantId);
+        if (!enchant)
             continue;
         if (enchant->EnchantmentCondition && !bot->EnchantmentFitsRequirements(enchant->EnchantmentCondition, -1))
             continue;
+        anyUsable = true;
+        if (!HoldsTools(bot, spell))
+        {
+            rodShort = true;
+            continue;
+        }
         ReagentPlan const plan = PlanReagents(bot, spell);
         if (plan.missing && (!buyCap || !plan.buyable || plan.cost > buyCap))
         {
             studyShort = true;
+            (buyCap && plan.buyable ? goldShort : reagentShort) = true;
             continue;
         }
+        reachedPieces = true;
         float const score = calculator.CalculateEnchant(enchantId);
         for (uint8 slot = EQUIPMENT_SLOT_START; slot < EQUIPMENT_SLOT_END; ++slot)
         {
@@ -648,9 +749,15 @@ bool EnchantForSelf(Player* bot, uint64 buyCap)
         }
     }
     if (!bestItem)
+    {
+        if (countRefusal)
+            ++enchantCounters.refusals[uint32(
+                CoaEnchantSelfRules::Cause(anyUsable, reachedPieces, goldShort, reagentShort, rodShort))];
         return false;
+    }
 
     TakeReagents(bot, bestSpell, bestPlan);
+    ++enchantCounters.enchanted;
     bot->ApplyEnchantment(bestItem, PERM_ENCHANTMENT_SLOT, false);
     bestItem->SetEnchantment(PERM_ENCHANTMENT_SLOT, bestEnchant, 0, 0, bot->GetGUID());
     bot->ApplyEnchantment(bestItem, PERM_ENCHANTMENT_SLOT, true);
@@ -660,6 +767,7 @@ bool EnchantForSelf(Player* bot, uint64 buyCap)
                  bot->GetName(), bot->GetLevel(), bestEnchant, bestItem->GetEntry(), bestItem->GetTemplate()->Name1,
                  bestGain, bestPlan.vendorUnits + bestPlan.auctionUnits, bestPlan.cost);
     return true;
+}
 }
 
 namespace
@@ -693,7 +801,9 @@ namespace
 bool StudyIfDue(Player* bot, PlayerbotAI* botAI)
 {
     if (!studyEnabled || !bot || !botAI || !bot->IsInWorld() || !bot->IsAlive() || bot->IsInCombat() ||
-        !sRandomPlayerbotMgr.IsRandomBot(bot) || !InCapital(bot))
+        !sRandomPlayerbotMgr.IsRandomBot(bot) ||
+        !CoaEnchantSelfRules::StudyPlace(InCapital(bot), studyRestAreas, bot->HasRestFlag(REST_FLAG_IN_CITY),
+                                         bot->HasRestFlag(REST_FLAG_IN_TAVERN)))
         return false;
     uint32 const now = uint32(GameTime::GetGameTime().count());
     auto [it, fresh] = nextStudy.try_emplace(bot->GetGUID().GetRawValue(), 0);
@@ -716,7 +826,7 @@ bool StudyIfDue(Player* bot, PlayerbotAI* botAI)
                         : 0;
     };
     Item* const made = CraftUpgradeForSelf(bot, botAI, cap());
-    bool const enchanted = EnchantForSelf(bot, cap());
+    bool const enchanted = EnchantForSelf(bot, cap(), enchantPieces);
     if (!made && !enchanted && studyShort)
         ++studyCounters.noReagents;
     if (studyLog)
@@ -755,9 +865,45 @@ namespace
     }
 }
 
+void NoteDisenchants(uint32 count)
+{
+    enchantCounters.disenchanted += count;
+}
+
+namespace
+{
+    // 3.2.2 (EnchantForSelf.HourlyCount): once an hour in playerbots.coa, what the enchanter bots did.
+    void EnchantSummary()
+    {
+        uint32 const now = uint32(GameTime::GetGameTime().count());
+        if (!lastEnchantSummary)
+            lastEnchantSummary = now;
+        if (now < lastEnchantSummary + 3600)
+            return;
+        lastEnchantSummary = now;
+        if (enchantHourly && enchantForSelf)
+        {
+            uint32 online = 0;
+            for (auto const& [guid, player] : ObjectAccessor::GetPlayers())
+                if (player && player->IsInWorld() && player->HasSkill(SKILL_ENCHANTING) && GET_PLAYERBOT_AI(player) &&
+                    GET_PLAYERBOT_AI(player)->IsBotAI())
+                    ++online;
+            using CoaEnchantSelfRules::Refusal;
+            auto const refused = [](Refusal cause) { return enchantCounters.refusals[uint32(cause)]; };
+            LOG_INFO("playerbots.coa", "CoaEconomy: enchanters (last hour): {} online, {} tries, {} enchantments put "
+                     "on, {} items disenchanted; nothing put on: {} no recipe, {} no rod, {} no reagent, {} no gold, "
+                     "{} no gain", online, enchantCounters.tries, enchantCounters.enchanted,
+                     enchantCounters.disenchanted, refused(Refusal::NoRecipe), refused(Refusal::NoRod),
+                     refused(Refusal::NoReagent), refused(Refusal::NoGold), refused(Refusal::NoGain));
+        }
+        enchantCounters = EnchantCounters();
+    }
+}
+
 void ScanCapitalsTick(uint32 diff)
 {
     ScanCapitals(diff);
+    EnchantSummary();
 }
 
 } // namespace CoaEconomy::Artisans

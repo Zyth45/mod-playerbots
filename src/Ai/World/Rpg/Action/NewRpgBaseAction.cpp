@@ -10,7 +10,10 @@
 #include "CoaWorldBots.h"  // CoA World: CoaWorldQuestQuarantined, CoaWorldAreaTooHigh
 #include "CoaRpgTrade.h"
 #include "CoaBotAuctions.h"
+#include "CoaCityLife.h"
 #include "CoaSafeMove.h"
+#include "CoaPathProbe.h"
+#include "CoaSafeMoveRules.h"
 #include "CoaQuestLogRules.h"
 #include "NewRpgBaseAction.h"
 #include "BroadcastHelper.h"
@@ -74,6 +77,21 @@ bool NewRpgBaseAction::MoveFarTo(WorldPosition dest)
     {
         // clear stuck information if it's a new dest
         botAI->rpgInfo.SetMoveFarTo(dest);
+    }
+    // CoA 3.2.2: the time the bot spent fighting (or doing anything but this walk) does not count as time stuck:
+    // after a long fight on the way, it teleported to its target at once. A gap of more than MOVE_FAR_GAP_MS between
+    // two calls moves the progress mark forward by that gap.
+    {
+        constexpr uint32 MOVE_FAR_GAP_MS = 5000;
+        uint32 const now = getMSTime();
+        uint32& last = botAI->rpgInfo.moveFarLastMs;
+        if (last && botAI->rpgInfo.stuckTs)
+        {
+            uint32 const gap = getMSTimeDiff(last, now);
+            if (gap > MOVE_FAR_GAP_MS)
+                botAI->rpgInfo.stuckTs += gap;
+        }
+        last = now;
     }
 
     // performance optimization
@@ -238,6 +256,20 @@ bool NewRpgBaseAction::MoveFarTo(WorldPosition dest)
     return false;
 }
 
+namespace
+{
+// CoA 3.2.3: a player (a real session) shares the bot's group.
+bool InGroupWithRealPlayer(Player* bot)
+{
+    if (Group* group = bot->GetGroup())
+        for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
+            if (Player* member = ref->GetSource())
+                if (member != bot && member->GetSession() && !member->GetSession()->IsBot())
+                    return true;
+    return false;
+}
+}  // namespace
+
 bool NewRpgBaseAction::MoveWorldObjectTo(ObjectGuid guid, float distance)
 {
     if (IsWaitingForLastMove(MovementPriority::MOVEMENT_NORMAL))
@@ -267,8 +299,33 @@ bool NewRpgBaseAction::MoveWorldObjectTo(ObjectGuid guid, float distance)
         float const reach = bot->GetCombatReach() + (object->ToUnit() ? object->ToUnit()->GetCombatReach() : 0.0f);
         rnd = distance > 0.0f ? std::max(0.5f + 0.5f * rnd, std::min(1.0f, reach / distance)) : rnd;
     }
-    x += cos(angle) * distance * rnd;
-    y += sin(angle) * distance * rnd;
+    float stop = distance * rnd;
+    // CoA 3.2.3 (AiPlayerbot.CoaLive.NpcStopAside): by a still NPC or object, off its axis, not on its face
+    // (CoaSafeMove::AsideOffset, AsideDistance), when that stop is on walkable ground (CoaSafeMove::AsideStopOk: the
+    // server's floor, not in a booth, no avoided spot, a path to it, in the NPC's sight); else as before.
+    // Never in a dungeon, a raid, a battleground or an arena, in a player's group nor in a fight: there nothing
+    // changes from 3.2.2.
+    if (sPlayerbotAIConfig.standOffObjects && CoaPathProbe::NpcStopAside() &&
+        (!object->ToUnit() || !object->ToUnit()->isMoving()) && !bot->GetMap()->Instanceable() &&
+        !bot->IsInCombat() && !botAI->HasGameClientMaster() && !InGroupWithRealPlayer(bot))
+    {
+        // A square of the city first: its slot, not the anchor NPC (as below).
+        float qx = x, qy = y, qz = z;
+        if (CoaCityLife::SquareSpot(botAI, guid, qx, qy, qz))
+            return MoveTo(mapId, qx, qy, qz, false, false, false, true);
+        Creature const* creature = object->ToCreature();
+        float const facing = creature ? creature->GetHomePosition().GetOrientation() : object->GetOrientation();
+        float const offset = CoaSafeMove::AsideOffset(bot->GetGUID().GetCounter());
+        float const asideStop = CoaSafeMove::AsideDistance(object->ToUnit() ? object->ToUnit()->GetCombatReach() : 0.0f,
+                                                           bot->GetObjectSize(), offset, distance);
+        float ax = x + cos(facing + offset) * asideStop;
+        float ay = y + sin(facing + offset) * asideStop;
+        float az = z;
+        if (CoaSafeMove::AsideStopOk(bot, object, ax, ay, az))
+            return MoveTo(mapId, ax, ay, az, false, false, false, true);
+    }
+    x += cos(angle) * stop;
+    y += sin(angle) * stop;
     if (!object->GetMap()->CheckCollisionAndGetValidCoords(object, object->GetPositionX(), object->GetPositionY(),
                                                            object->GetPositionZ(), x, y, z))
     {
@@ -276,13 +333,18 @@ bool NewRpgBaseAction::MoveWorldObjectTo(ObjectGuid guid, float distance)
         y = object->GetPositionY();
         z = object->GetPositionZ();
     }
+    // CoA (3.2.2): a square of the city: its slot, not the anchor NPC.
+    if (CoaCityLife::SquareSpot(botAI, guid, x, y, z))
+        return MoveTo(mapId, x, y, z, false, false, false, true);
     // CoA (3.2): in a capital, the city guard refuses a stop off the navmesh (a banker or an auctioneer behind its
     // counter) and the NPC was given up while the bot stood still: the walkable point nearest the NPC is taken.
     if (sRandomPlayerbotMgr.IsRandomBot(bot) && !botAI->HasGameClientMaster() && !bot->IsInCombat())
     {
         AreaTableEntry const* zone = sAreaTableStore.LookupEntry(bot->GetZoneId());
-        if (zone && (zone->flags & AREA_FLAG_CAPITAL))
-            CoaSafeMove::StandByNpc(bot, object, x, y, z);
+        // 3.2.2: no stop found, the raw point by the NPC is not taken when it lies in a booth (InNpcBooth).
+        if (zone && (zone->flags & AREA_FLAG_CAPITAL) && !CoaSafeMove::StandByNpc(bot, object, x, y, z) &&
+            CoaSafeMove::InNpcBooth(bot, x, y, z))
+            return false;
     }
     return MoveTo(mapId, x, y, z, false, false, false, true);
 }
@@ -296,6 +358,8 @@ bool NewRpgBaseAction::MoveRandomNear(float moveStep, MovementPriority priority,
     const float x = bot->GetPositionX();
     const float y = bot->GetPositionY();
     const float z = bot->GetPositionZ();
+    AreaTableEntry const* zone = sAreaTableStore.LookupEntry(bot->GetZoneId());
+    bool const inCapital = zone && (zone->flags & AREA_FLAG_CAPITAL);
     // A few fresh samples so a bad roll (water, blocked poly) does not freeze the bot.
     // Each one is a full path query; the caller retries next tick.
     for (int attempt = 0; attempt < 3; ++attempt)
@@ -315,10 +379,28 @@ bool NewRpgBaseAction::MoveRandomNear(float moveStep, MovementPriority priority,
         if (!canReach)
             continue;
 
+        // CoA 3.2.2 (the user: a bot in the Stormwind inn's floor after a step aimed at 97.9, the server's floor at
+        // 96.1): in a capital, the step's end where the navmesh's floor and the server's agree (CityFloorAgrees).
+        if (inCapital)
+        {
+            G3D::Vector3 const& end = path.GetEndPosition();
+            float const ground = map->GetHeight(bot->GetPhaseMask(), end.x, end.y, end.z + 0.5f);
+            if (ground <= INVALID_HEIGHT || !CoaSafeMove::CityFloorAgrees(end.z, ground))
+                continue;
+        }
+
         if (!map->CanReachPositionAndGetValidCoords(bot, dx, dy, dz))
             continue;
 
         if (map->IsInWater(bot->GetPhaseMask(), dx, dy, dz, bot->GetCollisionHeight()))
+            continue;
+
+        // CoA 3.2.2 (Pilote, bench of 96b4114c: a bot behind Ironforge's bankers): in a capital, no random step ends
+        // in a banker's or an auctioneer's booth.
+        if (inCapital && CoaSafeMove::InNpcBooth(bot, dx, dy, dz))
+            continue;
+        // 3.2.2 (the user's eye): nor on a spot the players see otherwise (a pole, a planter, a platform).
+        if (CoaSafeMove::Avoided(bot->GetMapId(), dx, dy, dz))
             continue;
 
         bool moved = MoveTo(bot->GetMapId(), dx, dy, dz, false, false, false, true, priority);
